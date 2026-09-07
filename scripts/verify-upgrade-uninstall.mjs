@@ -18,6 +18,7 @@ import {
   launchPackaged,
   leftoversByCommand,
   readInstalledAppIdentity,
+  reapWindowsInstallTree,
   resourcesInside,
   sha256File,
   stopChild,
@@ -78,7 +79,7 @@ async function boot(app, userData, label) {
     userData, () => launchPackaged(executable, resources, userData),
   );
   const [code, signal] = await stopChild(launched.child);
-  const leftoverNeedles = [executable, join(resources, "runtime/dsh/lib/bin.js")].filter(Boolean);
+  const leftoverNeedles = [executable, join(resources, "runtime/dsh/lib/bin.js"), app].filter(Boolean);
   const leftoverDeadline = Date.now() + 30_000;
   while (Date.now() < leftoverDeadline) {
     const leftover = leftoverNeedles.flatMap((needle) => leftoversByCommand(needle));
@@ -100,6 +101,14 @@ async function boot(app, userData, label) {
     }
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
   }
+  if (process.platform === "win32") {
+    const reaped = await reapWindowsInstallTree(app);
+    if (!reaped.ok) {
+      fail(`${label} left Windows processes in the install tree`, {
+        leftover: reaped.leftover.slice(0, 20),
+      });
+    }
+  }
   if (!freshReadiness || !gateway || !inventory || (code !== 0 && signal === null)) {
     fail(`${label} did not boot and exit through the installed runtime`, {
       gateway,
@@ -120,6 +129,8 @@ function installWindows(installer, label) {
       status: run.status,
       timedOut: run.error?.code === "ETIMEDOUT",
       error: run.error?.code,
+      stdout: sanitizeEvidenceText(String(run.stdout ?? ""), 1_000),
+      stderr: sanitizeEvidenceText(String(run.stderr ?? ""), 1_000),
     });
   }
   const localAppData = process.env.LOCALAPPDATA;
