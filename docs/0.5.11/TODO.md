@@ -282,3 +282,11 @@ Public identity is **0.5.11**. Immutable release [`v0.5.11`](https://github.com/
 - P05: README, `website/`, and SECURITY.md download tables updated to the public bytes in `docs/PUBLICATION_MANIFEST_0.5.11.md`.
 - V11: still unrun. No live model/IM credentials. Fixtures are not live PASS.
 - R511-02c: Mnemon remains `0.2.4`. Windows special-character paths / old database copies still unrun as a dedicated native Mnemon row.
+
+## Incremental verification — 2026-09-08 (live website origins)
+
+Website deploy [PASS](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34157825364) from `main` `f013d0d1dd7887ba76c64ebd674454baf0c71be3` after PR [#149](https://github.com/kevinchennewbee/PenglaiAgent/pull/149) bound the publication checker to `PRODUCT_VERSION`. Official website readback `verdict=PASS` for both origins, 28 files each, `releaseSha=77e7105773b4d43abb7315ea6e83abe17e646cb4`.
+
+Live pages [penglai.pages.dev](https://penglai.pages.dev/) and [kevinchennewbee.github.io/PenglaiAgent](https://kevinchennewbee.github.io/PenglaiAgent/) title **0.5.11** and publish the three installer SHA-256 values from `docs/PUBLICATION_MANIFEST_0.5.11.md`. They do not keep `Penglai_0.5.10_` download URLs.
+
+Published `v0.5.10` remains `c5c0bcb022c5ae47cca242deb27fe1d30444c41d`. V11 live accounts and R511-02c Mnemon Windows special-character / old-database copies stay explicitly unrun.
