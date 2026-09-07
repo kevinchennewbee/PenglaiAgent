@@ -159,9 +159,25 @@ export function assertWindowsUpgradeStaging(script: string): void {
   if (pendingOut < 0 || liveRename < 0 || pendingOut > liveRename) {
     throw new Error("Windows upgrade must copy the payload before renaming the live app directory");
   }
-  const clearErrors = script.indexOf("ClearErrors");
-  const renameErrors = script.indexOf("IfErrors upgrade_activate_failed", liveRename);
-  if (clearErrors < 0 || renameErrors < 0 || clearErrors > liveRename || liveRename > renameErrors) {
+  const clearErrors = script.lastIndexOf("ClearErrors", liveRename);
+  if (clearErrors < 0) {
+    throw new Error("Windows upgrade must fail closed when renaming the live app directory");
+  }
+  const taskkill = script.indexOf("taskkill.exe");
+  const retryLabel = script.indexOf("upgrade_rename_live");
+  if (taskkill < 0 || retryLabel < 0 || taskkill > liveRename || retryLabel > liveRename) {
+    throw new Error("Windows upgrade must stop Penglai.exe and retry renaming the live app directory");
+  }
+  if (!script.includes("/IM Penglai.exe")) {
+    throw new Error("Windows upgrade must stop Penglai.exe before swapping the live app directory");
+  }
+  if (script.indexOf("Sleep ") < 0) {
+    throw new Error("Windows upgrade must wait between live-directory rename retries");
+  }
+  if (script.indexOf("penglai-setup.log") < 0) {
+    throw new Error("Windows upgrade must write a setup log when the live swap fails");
+  }
+  if (script.indexOf("upgrade_activate_failed", liveRename) < 0) {
     throw new Error("Windows upgrade must fail closed when renaming the live app directory");
   }
   let hasSilentDismiss = false;

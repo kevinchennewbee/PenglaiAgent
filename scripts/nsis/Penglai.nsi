@@ -106,20 +106,42 @@ Section "Penglai" SecApp
     File /r "${PENGLAI_PAYLOAD}\*.*"
     IfFileExists "$R2\Penglai.exe" 0 upgrade_copy_failed
     RMDir /r "$INSTDIR.previous"
-    ClearErrors
-    Rename "$INSTDIR" "$INSTDIR.previous"
-    IfErrors upgrade_activate_failed
-    ClearErrors
-    Rename "$R2" "$INSTDIR"
-    IfErrors upgrade_activate_failed
-    IfFileExists "$INSTDIR\Penglai.exe" 0 upgrade_activate_failed
-    RMDir /r "$INSTDIR.previous"
-    Goto upgrade_done
+    ; Stop the running app, then retry the live rename. Explorer, Defender, and
+    ; Chromium helpers can keep INSTDIR open after Penglai.exe has already exited.
+    StrCpy $R3 "0"
+    upgrade_rename_live:
+      ExecWait '"$SYSDIR\taskkill.exe" /F /T /IM Penglai.exe' $R4
+      ExecWait '"$SYSDIR\taskkill.exe" /F /T /IM "Penglai Helper.exe"' $R4
+      Sleep 1000
+      ClearErrors
+      Rename "$INSTDIR" "$INSTDIR.previous"
+      IfErrors 0 upgrade_rename_pending
+      IntOp $R3 $R3 + 1
+      IntCmp $R3 90 upgrade_activate_failed upgrade_rename_live upgrade_activate_failed
+    upgrade_rename_pending:
+      StrCpy $R3 "0"
+    upgrade_rename_pending_retry:
+      ClearErrors
+      Rename "$R2" "$INSTDIR"
+      IfErrors 0 upgrade_rename_ok
+      Sleep 1000
+      IntOp $R3 $R3 + 1
+      IntCmp $R3 90 upgrade_activate_failed upgrade_rename_pending_retry upgrade_activate_failed
+    upgrade_rename_ok:
+      IfFileExists "$INSTDIR\Penglai.exe" 0 upgrade_activate_failed
+      RMDir /r "$INSTDIR.previous"
+      Goto upgrade_done
     upgrade_copy_failed:
       RMDir /r "$R2"
+      FileOpen $R8 "$TEMP\penglai-setup.log" w
+      FileWrite $R8 "phase=copy-failed$\r$\n"
+      FileClose $R8
       MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai could not copy the new version. The previous install was left in place." /SD IDOK
       Abort
     upgrade_activate_failed:
+      FileOpen $R8 "$TEMP\penglai-setup.log" w
+      FileWrite $R8 "phase=activate-failed r3=$R3$\r$\n"
+      FileClose $R8
       RMDir /r "$INSTDIR"
       Rename "$INSTDIR.previous" "$INSTDIR"
       MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai could not activate the new version and restored the previous install." /SD IDOK
