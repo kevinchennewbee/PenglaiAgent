@@ -72,3 +72,30 @@ test("memory accept/forget cannot be satisfied by a UUID or ownerConfirmed boole
   );
   svc.close();
 });
+
+test("rejected personal candidate is checked before engine materialization or receipt reservation", async () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-mem-policy-"));
+  const owner = new OwnerApprovalBroker(root, { dialog: async () => "approved" });
+  const svc = createDurableMemoryService({
+    userData: root, skills: { snapshot: async () => ({ skills: [], complete: true }) }, owner,
+  });
+  svc.setMemoryMode("suggest");
+  const candidate = svc.memoryV2.enqueue({
+    workspaceId: "ws-a", sessionId: "s1", turnId: "t1", kind: "preference",
+    text: "Always remember to use English in every workspace", rationale: "claim",
+    confidence: 0.9, sourceDigest: "b".repeat(64),
+  });
+  if (!("candidateId" in candidate)) throw new Error("expected candidate");
+  const proposed = svc.proposeAction({ action: "memory.personal", objectId: candidate.candidateId, workspaceId: "ws-a" });
+  const decision = await owner.requestOwnerApproval(proposed.actionId);
+  if (decision.decision !== "approved") throw new Error("expected receipt");
+  let writes = 0;
+  svc.engine.remember = async () => { writes++; throw new Error("unexpected engine write"); };
+  await assert.rejects(svc.acceptCandidate({
+    candidateId: candidate.candidateId, actionId: proposed.actionId, receipt: decision.receipt, personal: true,
+  }), /MEMORY_PERSONAL_NOT_INFERRED/);
+  assert.equal(writes, 0);
+  assert.equal(svc.memoryV2.getCandidate(candidate.candidateId)?.status, "pending");
+  assert.notEqual(owner.inspect(proposed.actionId).state, "reserved");
+  svc.close();
+});

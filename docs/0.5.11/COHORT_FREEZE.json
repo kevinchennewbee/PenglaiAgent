@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "kind": "penglai-0.5.11-development-cohort-freeze",
+  "status": "development-frozen",
+  "publicRelease": {
+    "productVersion": "0.5.10",
+    "tag": "v0.5.10",
+    "immutable": true
+  },
+  "development": {
+    "versionLabel": "0.5.11",
+    "publicationAuthorized": false,
+    "identityRetitled": false
+  },
+  "dsh": {
+    "version": "0.1.2-rc.1",
+    "tag": "dsh-v0.1.2-rc.1",
+    "commit": "a66e4702047846cdaa10c66c9d3df3951f5ea70d",
+    "packageCount": 254,
+    "tarballSha256": "ca370668053ad6d0ac325e919ef5f65de53de00b7bad78008e6fb422dfce3530",
+    "closureManifestSha256": "31a52e8bc520b185c71849f3b084d65f9f7c888358ae33d4ea2d5eb4aba9f198",
+    "rejectedSuccessor": {
+      "tag": "dsh-v0.1.3-alpha.1",
+      "reason": "GitHub tag exists; npm does not publish a complete matching 254-package cohort with registry integrity. Mixing DSH generations is forbidden."
+    }
+  },
+  "runtime": {
+    "node": "22.22.2",
+    "electron": "43.4.0",
+    "pnpm": "11.7.0"
+  },
+  "migration": {
+    "homeGeneration": "preserve-previous-DSH-Home-then-health-check-before-pointer-switch",
+    "center": "last-good-profile",
+    "windowsUpgrade": "INSTDIR.pending-then-INSTDIR.previous",
+    "mixedDshGenerations": "forbidden"
+  }
+}

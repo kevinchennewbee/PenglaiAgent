@@ -46,6 +46,7 @@ export interface DocumentInventory {
   text: string;
   parts: string[];
   warnings: string[];
+  spreadsheet?: { calculationStatus: "stored-formulas"; formulaCount: number };
 }
 
 export interface OfficeJob {
@@ -67,6 +68,21 @@ export interface OfficeOutbound {
     bytes: Buffer;
     digest: string;
   }): Promise<{ channel: "weixin" | "feishu"; delivered: true }>;
+}
+
+export interface OfficeJobScope {
+  workspaceId?: string;
+  sessionId?: string;
+}
+
+function assertJobScope(job: { workspaceId?: string; sessionId?: string }, scope?: OfficeJobScope): void {
+  if (!scope) return;
+  if (scope.workspaceId !== undefined && job.workspaceId !== scope.workspaceId) {
+    throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
+  }
+  if (scope.sessionId !== undefined && job.sessionId !== scope.sessionId) {
+    throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
+  }
 }
 
 const SECRET = /api[_-]?key|password|private key/i;
@@ -107,7 +123,13 @@ async function inspectRaw(bytes: Buffer): Promise<DocumentInventory> {
   }
   if (format === "xlsx") {
     const seen = await inspectXlsx(bytes);
-    return { format, text: seen.text, parts: seen.parts, warnings: [OFFICE_LIMITS.xlsx] };
+    return {
+      format,
+      text: seen.text,
+      parts: seen.parts,
+      warnings: [OFFICE_LIMITS.xlsx],
+      spreadsheet: { calculationStatus: seen.calculationStatus, formulaCount: seen.formulaCount },
+    };
   }
   if (format === "pptx") {
     const seen = await inspectPptx(bytes);
@@ -293,7 +315,7 @@ export function createOfficeService(opts?: {
       ingestJobBytes(job, `attached.${seen.format}`);
       return { ...toPublic(job), handle };
     },
-    async inspectWorkspaceFile(absPath: string, workspaceRoot: string, workspaceId: string) {
+    async inspectWorkspaceFile(absPath: string, workspaceRoot: string, workspaceId: string, sessionId?: string) {
       const dest = assertPathInWorkspace(absPath, workspaceRoot);
       if (basename(dest) !== basename(absPath)) {
         throw new PenglaiError("SECURITY_POLICY", "office inspect filename escaped");
@@ -307,6 +329,7 @@ export function createOfficeService(opts?: {
         parts: seen.parts,
         warnings: seen.warnings,
         workspaceId,
+        ...(sessionId ? { sessionId } : {}),
         sourcePath: dest,
       });
       if (opts?.artifacts) {
@@ -315,6 +338,7 @@ export function createOfficeService(opts?: {
           source: "office",
           scope: "workspace",
           workspaceId,
+        ...(sessionId ? { sessionId } : {}),
         });
         job.artifactId = ref.id;
       }
@@ -327,16 +351,20 @@ export function createOfficeService(opts?: {
       return created;
     },
     edit,
-    async preview(jobId: string) {
+    async preview(jobId: string, scope?: OfficeJobScope) {
       const job = getJob(jobId);
+      assertJobScope(job, scope);
       if (job.state === "INSPECTED" || job.state === "PLAN_READY") setJobState(jobId, "PREVIEW_READY", "preview");
       return previewJob(job);
     },
-    async diff(jobId: string) {
-      return diffJob(getJob(jobId));
-    },
-    accept(jobId: string) {
+    async diff(jobId: string, scope?: OfficeJobScope) {
       const job = getJob(jobId);
+      assertJobScope(job, scope);
+      return diffJob(job);
+    },
+    accept(jobId: string, scope?: OfficeJobScope) {
+      const job = getJob(jobId);
+      assertJobScope(job, scope);
       assertPreviewMatchesResult(job);
       if (!opts?.artifacts) throw new PenglaiError("DSH_UNAVAILABLE", "office Artifact service is not configured");
       if (job.resultArtifactId) return opts.artifacts.ref(job.resultArtifactId);
@@ -353,9 +381,10 @@ export function createOfficeService(opts?: {
       setJobState(jobId, "VERIFIED", "artifact accepted");
       return ref;
     },
-    async approve(jobId: string, action: OfficeReceiptAction = "commit", target = "") {
+    async approve(jobId: string, action: OfficeReceiptAction = "commit", target = "", scope?: OfficeJobScope) {
       const job = getJob(jobId);
-      if (!["PREVIEW_READY", "PLAN_READY", "INSPECTED", "OWNER_APPROVED", "COMMITTED", "UNDO_READY"].includes(job.state)) {
+      assertJobScope(job, scope);
+      if (!["PREVIEW_READY", "PLAN_READY", "INSPECTED", "OWNER_APPROVED", "VERIFIED", "COMMITTED", "UNDO_READY"].includes(job.state)) {
         throw new PenglaiError("SECURITY_POLICY", "office job is not ready for approval");
       }
       if (!opts?.owner) throw new PenglaiError("SECURITY_POLICY", "office broker is not configured");
@@ -386,8 +415,9 @@ export function createOfficeService(opts?: {
       }
       return decided.receipt;
     },
-    async verify(jobId: string) {
+    async verify(jobId: string, scope?: OfficeJobScope) {
       const job = getJob(jobId);
+      assertJobScope(job, scope);
       if (job.format === "xlsx") await verifyXlsx(job.bytes);
       setJobState(jobId, "VERIFIED");
       return { ok: true, format: job.format, digest: job.digest };
@@ -396,6 +426,7 @@ export function createOfficeService(opts?: {
       if (typeof job !== "string") return Buffer.from(job.bytes);
       if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office commit requires owner receipt");
       const record = getJob(job);
+      assertJobScope(record);
       const finish = consumeReceipt(record, "commit", receipt);
       assertPreviewMatchesResult(record);
       record.stagedBytes = Buffer.from(record.bytes);
@@ -407,8 +438,9 @@ export function createOfficeService(opts?: {
       finish();
       return Buffer.from(record.bytes);
     },
-    commitToPath(jobId: string, receipt: string, destPath: string, workspaceRoot: string) {
+    commitToPath(jobId: string, receipt: string, destPath: string, workspaceRoot: string, scope?: OfficeJobScope) {
       const record = getJob(jobId);
+      assertJobScope(record, scope);
       const dest = assertPathInWorkspace(destPath, workspaceRoot);
       const finish = consumeReceipt(record, "commit-to-path", receipt, dest);
       assertPreviewMatchesResult(record);
@@ -433,8 +465,9 @@ export function createOfficeService(opts?: {
       finish();
       return { dest, digest: result.destDigest, backup };
     },
-    undo(jobId: string, receipt: string) {
+    undo(jobId: string, receipt: string, scope?: OfficeJobScope) {
       const record = getJob(jobId);
+      assertJobScope(record, scope);
       const finish = consumeReceipt(record, "undo", receipt);
       if (record.state !== "UNDO_READY" && record.state !== "COMMITTED") {
         throw new PenglaiError("SECURITY_POLICY", "office job is not undoable");
@@ -463,9 +496,10 @@ export function createOfficeService(opts?: {
       finish();
       return Buffer.from(record.bytes);
     },
-    async discard(jobId: string, receipt: string) {
+    async discard(jobId: string, receipt: string, scope?: OfficeJobScope) {
       if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office discard requires owner receipt");
       const record = getJob(jobId);
+      assertJobScope(record, scope);
       const finish = consumeReceipt(record, "discard", receipt);
       discardJob(jobId);
       finish();
@@ -473,9 +507,10 @@ export function createOfficeService(opts?: {
     bindHandle(handle: string, bind: { sessionId: string; workspaceId?: string; routeId?: string }) {
       objects.bind(handle, bind);
     },
-    async export(jobId: string, target: OfficeFormat, receipt: string) {
+    async export(jobId: string, target: OfficeFormat, receipt: string, scope?: OfficeJobScope) {
       if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office export requires owner receipt");
       const job = getJob(jobId);
+      assertJobScope(job, scope);
       if (target !== job.format) throw new PenglaiError("INVALID_INPUT", "office format conversion is not implemented");
       const finish = consumeReceipt(job, "export", receipt, target);
       assertPreviewMatchesResult(job);
@@ -483,8 +518,9 @@ export function createOfficeService(opts?: {
       finish();
       return { bytes: Buffer.from(job.bytes), format: job.format, filename: `penglai.${job.format}`, digest: job.digest, ...(job.artifactId ? { artifactId: job.artifactId } : {}) };
     },
-    async returnToChannel(jobId: string, receipt: string) {
+    async returnToChannel(jobId: string, receipt: string, scope?: OfficeJobScope) {
       const job = getJob(jobId);
+      assertJobScope(job, scope);
       if (!job.routeId || !job.sessionId) {
         throw new PenglaiError("INVALID_INPUT", "office job has no original IM route");
       }
@@ -513,7 +549,8 @@ export function createOfficeService(opts?: {
       finish();
       return { ...result, filename: exported.filename, digest: exported.digest, bytes: exported.bytes.length };
     },
-    async cancel(jobId: string) {
+    async cancel(jobId: string, scope?: OfficeJobScope) {
+      assertJobScope(getJob(jobId), scope);
       cancelJob(jobId);
     },
     async rotate(bytes: Buffer) {

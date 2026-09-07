@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { healLastGoodArtifacts } from "./profile-tx.js";
+import { healLastGoodArtifacts, recoverInterruptedTransaction } from "./profile-tx.js";
 
 test("last-good recovery promotes next then prev after a crash window", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-last-good-"));
@@ -30,6 +30,38 @@ test("last-good recovery promotes next then prev after a crash window", () => {
     const healed = healLastGoodArtifacts(both);
     assert.equal(healed, join(both, "last-good"));
     assert.equal(readFileSync(join(both, "last-good", "marker"), "utf8"), "next");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("interrupted second transaction restores the latest successful profile, not the first snapshot", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-last-good-seq-"));
+  try {
+    const profile = join(root, "profiles", "web");
+    const txDir = join(root, "profiles", "center-tx");
+    mkdirSync(profile, { recursive: true });
+    mkdirSync(txDir, { recursive: true });
+    writeFileSync(join(profile, "marker"), "C-interrupted");
+    mkdirSync(join(txDir, "last-good"), { recursive: true });
+    writeFileSync(join(txDir, "last-good", "marker"), "B-success");
+    writeFileSync(join(txDir, "journal.json"), JSON.stringify({
+      schema: 3,
+      operationId: "op-2",
+      phase: "activating",
+      lastGoodPhase: "promote-done",
+      id: "@penglai/im",
+      action: "enable",
+      previousEnabled: true,
+    }));
+    const recovered = recoverInterruptedTransaction({
+      userDataRoot: root,
+      profileDir: profile,
+      txDir,
+      id: "@penglai/im",
+    });
+    assert.equal(recovered.phase, "rolled_back");
+    assert.equal(readFileSync(join(profile, "marker"), "utf8"), "B-success");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

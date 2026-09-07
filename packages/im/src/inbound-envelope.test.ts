@@ -72,7 +72,7 @@ test("inbound envelope HMAC and idempotency are isolated by channel plus account
   const b = parseInboundEnvelope("slack", { ...base, accountRef: "bot-b" }, hashPeer);
   assert.equal(a.provenPrivate, true);
   assert.equal(a.chatType, "private");
-  assert.equal(a.idempotencyKey, inboundIdempotencyKey("slack", "bot-a", "1"));
+  assert.equal(a.idempotencyKey, inboundIdempotencyKey("slack", "bot-a", "1", "D1"));
   assert.notEqual(a.idempotencyKey, b.idempotencyKey);
   assert.notEqual(a.peerRef, b.peerRef);
   assert.equal(a.peerRef, hashPeer("U1", "bot-a"));
@@ -81,7 +81,7 @@ test("inbound envelope HMAC and idempotency are isolated by channel plus account
     { messageId: "update-1", senderId: "user-1", chatId: "chat-1", chatType: "private", accountRef: "bot-1", text: "hi" },
     hashPeer,
   );
-  assert.equal(telegramOnce.idempotencyKey, inboundIdempotencyKey("telegram", "bot-1", "update-1"));
+  assert.equal(telegramOnce.idempotencyKey, inboundIdempotencyKey("telegram", "bot-1", "update-1", "chat-1"));
   assert.equal(
     parseInboundEnvelope(
       "telegram",
@@ -94,4 +94,27 @@ test("inbound envelope HMAC and idempotency are isolated by channel plus account
     () => parseInboundEnvelope("slack", { ...base, accountRef: "bot-a", thread: "123.4" }, hashPeer),
     (error: unknown) => error instanceof PenglaiError && error.message === "CHAT_SCOPE_UNSUPPORTED",
   );
+});
+
+test("same vendor message ID in different private chats has distinct durable operation identity", async () => {
+  const { inboundOperationKey } = await import("./inbound-envelope.js");
+  const { Store } = await import("@penglai/persistence");
+  const store = new Store(":memory:");
+  for (const routeId of ["chat-a", "chat-b"]) store.upsertRoute({ routeId, adapter: "telegram", accountRef: "bot", peerRef: routeId, status: "active" });
+  const { inboundIdempotencyKey: keyed } = await import("./inbound-envelope.js");
+  const chatA = keyed("telegram", "bot", "1", "chat-a");
+  const chatB = keyed("telegram", "bot", "1", "chat-b");
+  assert.notEqual(chatA, chatB);
+  const vendorMessageKey = "telegram:bot:1";
+  const legacy = store.claimInboundOperation({ operationId: `op:${vendorMessageKey}`, routeId: "chat-a", vendorMessageKey });
+  const replay = store.claimInboundOperation({ operationId: inboundOperationKey("chat-a", vendorMessageKey), routeId: "chat-a", vendorMessageKey });
+  assert.equal(replay.created, false);
+  assert.equal(replay.operationId, legacy.operationId);
+  const migrated = store.claimInboundOperation({ operationId: inboundOperationKey("chat-a", vendorMessageKey), routeId: "chat-a", vendorMessageKey });
+  assert.equal(migrated.created, false);
+  assert.equal(migrated.operationId, legacy.operationId);
+  const other = store.claimInboundOperation({ operationId: inboundOperationKey("chat-b", chatB), routeId: "chat-b", vendorMessageKey: chatB });
+  assert.equal(other.created, true);
+  assert.notEqual(other.operationId, legacy.operationId);
+  store.close();
 });

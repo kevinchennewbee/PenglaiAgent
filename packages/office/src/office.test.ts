@@ -106,6 +106,7 @@ test("office remote inspect/create/edit drive the shipped service", async () => 
       ?.data.toString("utf8"),
     "<w:hdr>KEEP</w:hdr>",
   );
+  await assert.rejects(() => api.preview({ jobId: created.id }), /not bound to this Workspace and Session/);
 });
 
 test("office settings client presents ordinary-language capabilities and structured templates", async () => {

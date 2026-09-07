@@ -498,3 +498,19 @@ test("R50-UPD-004/009/010 ledger and every crash state fail closed", async () =>
   assert.equal(reconciled.version, "0.5.3");
   assert.equal(reconciled.errorClass, undefined);
 });
+
+test("completed updates resume normal discovery after launch and reject version regression", async () => {
+  const fixture = signedFixture(CURRENT);
+  for (const currentVersion of [CURRENT, "0.4.9"]) {
+    const root = mkdtempSync(join(tmpdir(), "penglai-update-committed-"));
+    writeUpdateJournal(join(root, "journal"), {
+      operationId: "completed-upgrade", state: "COMMITTED", version: CURRENT,
+      previousVersion: CURRENT, target: TARGET, drained: true,
+    });
+    const coordinator = new AssistedUpdateCoordinator(coordinatorConfig(root, fixture, { currentVersion }));
+    const recovered = coordinator.recoverOnLaunch();
+    assert.equal(recovered.state, currentVersion === CURRENT ? "CURRENT" : "RECOVERY_REQUIRED");
+    if (currentVersion === CURRENT) assert.equal((await coordinator.check()).state, "CURRENT");
+    else await assert.rejects(coordinator.check(), /cannot check update/);
+  }
+});

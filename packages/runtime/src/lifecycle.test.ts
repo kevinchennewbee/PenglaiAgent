@@ -294,3 +294,22 @@ test("managed layout keeps settings DSH credentials memory and cache as disjoint
     /workspace never deleted/,
   );
 });
+
+test("deletion rejects parent symlink escapes and canonical Workspace aliases", async () => {
+  const { mkdirSync, mkdtempSync, symlinkSync, writeFileSync, readFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const root = mkdtempSync(join(tmpdir(), "penglai-delete-parent-"));
+  const data = join(root, "data");
+  const workspace = join(root, "workspace");
+  mkdirSync(data);
+  mkdirSync(workspace);
+  writeFileSync(join(workspace, "keep.txt"), "keep");
+  symlinkSync(workspace, join(data, "nested"), process.platform === "win32" ? "junction" : undefined);
+  assert.throws(() => assertSafeDeletePath(join(data, "nested", "keep.txt"), data, [workspace], []), /workspace never deleted/);
+  assert.throws(() => assertSafeDeletePath(join(data, "nested", "keep.txt"), data, [], []), /canonical|symlink/);
+  const alias = join(root, "data-alias");
+  symlinkSync(workspace, alias, process.platform === "win32" ? "junction" : undefined);
+  assert.throws(() => assertSafeDeletePath(join(alias, "keep.txt"), alias, [workspace], []), /workspace never deleted/);
+  assert.equal(readFileSync(join(workspace, "keep.txt"), "utf8"), "keep");
+});

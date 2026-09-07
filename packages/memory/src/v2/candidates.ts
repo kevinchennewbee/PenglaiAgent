@@ -256,7 +256,7 @@ export class MemoryV2Store {
     return raw ? this.map(raw) : undefined;
   }
 
-  decide(
+  validateDecision(
     candidateId: string,
     status: "accepted" | "rejected",
     opts?: { personal?: boolean; actionId?: string },
@@ -277,7 +277,17 @@ export class MemoryV2Store {
         throw new PenglaiError("SECURITY_POLICY", "MEMORY_PERSONAL_NOT_INFERRED");
       }
     }
-    this.db.prepare(`UPDATE candidates SET status = ? WHERE candidate_id = ?`).run(status, candidateId);
+    return row;
+  }
+
+  decide(
+    candidateId: string,
+    status: "accepted" | "rejected",
+    opts?: { personal?: boolean; actionId?: string },
+  ): MemoryCandidateV1 {
+    const row = this.validateDecision(candidateId, status, opts);
+    const changed = this.db.prepare(`UPDATE candidates SET status = ? WHERE candidate_id = ? AND status = 'pending'`).run(status, candidateId);
+    if (changed.changes !== 1) throw new PenglaiError("SECURITY_POLICY", "MEMORY_CANDIDATE_STATE");
     if (status === "rejected") {
       this.db.prepare(`INSERT OR REPLACE INTO negatives(digest, workspace_id, expires_at) VALUES (?, ?, ?)`).run(
         row.sourceDigest.replace(/^sha256:/, ""),

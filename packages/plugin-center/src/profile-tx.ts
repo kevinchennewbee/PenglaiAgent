@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { PenglaiError, redactedDiagnosticReference } from "@penglai/contracts";
+import { PenglaiError, redactedDiagnosticReference, CENTER_JOURNAL_SCHEMA, assertCenterJournalHeader, centerProfileWasUntouched } from "@penglai/contracts";
 import {
   assertPluginPackageManifest,
   extractTarGz,
@@ -93,7 +93,7 @@ export interface PluginTransactionDiagnostic {
 }
 
 interface TransactionJournal {
-  schema: 3;
+  schema: typeof CENTER_JOURNAL_SCHEMA;
   operationId: string;
   phase: "staging" | "activating" | "verifying" | "committed" | "rolled_back";
   lastGoodPhase?: "snapshot" | "snapshot-ready" | "promote-prev" | "promote-next" | "promote-done";
@@ -626,7 +626,7 @@ export async function runProfileTransaction(opts: {
         : opts.previousEnabled;
   const previousPresent = opts.previousPresent ?? true;
   const journal: TransactionJournal = {
-    schema: 3,
+    schema: CENTER_JOURNAL_SCHEMA,
     operationId,
     phase: "staging",
     id: opts.entry.id,
@@ -674,10 +674,18 @@ export async function runProfileTransaction(opts: {
     copyDir(opts.profileDir, lastGoodNext);
     journal.lastGoodPhase = "snapshot-ready";
     atomicJournal(journalPath, journal);
-    if (!existsSync(lastGood)) {
+    if (existsSync(lastGoodNext)) {
+      const lastGoodPrev = join(opts.txDir, `last-good-prev-${operationId}`);
+      journal.lastGoodPhase = "promote-prev";
+      atomicJournal(journalPath, journal);
+      if (existsSync(lastGood)) renameSync(lastGood, lastGoodPrev);
+      journal.lastGoodPhase = "promote-next";
+      atomicJournal(journalPath, journal);
       renameSync(lastGoodNext, lastGood);
+      journal.lastGoodPhase = "promote-done";
+      atomicJournal(journalPath, journal);
+      if (existsSync(lastGood)) rmSync(lastGoodPrev, { recursive: true, force: true });
     }
-    atomicJournal(journalPath, journal);
     copyDir(opts.profileDir, staging);
     const patchPath = join(staging, "cordis.patch.yml");
     if (!existsSync(patchPath)) {
@@ -768,18 +776,6 @@ export async function runProfileTransaction(opts: {
     journal.phase = "committed";
     atomicJournal(journalPath, journal);
     rmSync(backup, { recursive: true, force: true });
-    if (existsSync(lastGoodNext)) {
-      const lastGoodPrev = join(opts.txDir, `last-good-prev-${operationId}`);
-      journal.lastGoodPhase = "promote-prev";
-      atomicJournal(journalPath, journal);
-      if (existsSync(lastGood)) renameSync(lastGood, lastGoodPrev);
-      journal.lastGoodPhase = "promote-next";
-      atomicJournal(journalPath, journal);
-      renameSync(lastGoodNext, lastGood);
-      journal.lastGoodPhase = "promote-done";
-      atomicJournal(journalPath, journal);
-      if (existsSync(lastGood)) rmSync(lastGoodPrev, { recursive: true, force: true });
-    }
     return {
       phase: "committed",
       id: opts.entry.id,
@@ -835,7 +831,7 @@ export async function runProfileTransaction(opts: {
         `Center transaction and rollback failed for ${opts.entry.id}`,
       );
     } finally {
-      journal.phase = "rolled_back";
+      journal.phase = journal.rollback.outcome === "verified" ? "rolled_back" : "verifying";
       journal.errorClass =
         error instanceof PenglaiError ? error.errorClass : "DSH_UNAVAILABLE";
       atomicJournal(journalPath, journal);
@@ -878,7 +874,6 @@ export function recoverInterruptedTransaction(opts: {
   id?: string;
 }): ProfileTxResult | { phase: "idle" | "committed" } {
   assertTransactionPaths(opts);
-  healLastGoodArtifacts(opts.txDir);
   const journalPath = join(opts.txDir, "journal.json");
   const lockPath = join(opts.txDir, "active.lock");
   if (!existsSync(journalPath)) {
@@ -890,6 +885,13 @@ export function recoverInterruptedTransaction(opts: {
     id?: string;
     previousEnabled?: boolean;
   };
+  assertCenterJournalHeader(raw);
+  if (centerProfileWasUntouched(raw)) {
+    if (raw.lastGoodPhase === "snapshot") rmSync(join(opts.txDir, `last-good-next-${raw.operationId}`), { recursive: true, force: true });
+    atomicJournal(journalPath, { ...raw, phase: "rolled_back" });
+    rmSync(lockPath, { force: true });
+    return { phase: "rolled_back", id: raw.id, action: "rollback", previousEnabled: raw.previousEnabled };
+  }
   if (raw.phase === "committed") {
     rmSync(lockPath, { force: true });
     return { phase: "committed" };
@@ -917,7 +919,15 @@ export function rollbackLastGood(opts: {
   id: string;
 }): ProfileTxResult {
   assertTransactionPaths(opts);
-  const lastGood = healLastGoodArtifacts(opts.txDir) ?? join(opts.txDir, "last-good");
+  let lastGood = join(opts.txDir, "last-good");
+  const existingJournal = join(opts.txDir, "journal.json");
+  if (existsSync(existingJournal)) {
+    const journal: unknown = JSON.parse(readFileSync(existingJournal, "utf8"));
+    assertCenterJournalHeader(journal);
+    const next = join(opts.txDir, `last-good-next-${journal.operationId}`);
+    if (journal.lastGoodPhase === "snapshot-ready" && existsSync(next)) lastGood = next;
+    else lastGood = healLastGoodArtifacts(opts.txDir) ?? lastGood;
+  } else lastGood = healLastGoodArtifacts(opts.txDir) ?? lastGood;
   if (!existsSync(lastGood)) {
     throw new PenglaiError("STORE_CORRUPT", "last-good missing");
   }

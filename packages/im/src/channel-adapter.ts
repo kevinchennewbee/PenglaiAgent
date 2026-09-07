@@ -60,6 +60,7 @@ export type ConnectionResult =
 
 export interface ChannelAdapter {
   readonly id: ChannelId;
+  accountIdentity?(): string | undefined;
   manifest(): ChannelManifestV1;
   enable(): Promise<void>;
   disable(): Promise<void>;

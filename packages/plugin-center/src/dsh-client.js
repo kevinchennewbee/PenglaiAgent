@@ -105,8 +105,10 @@ window.__ModuleLoader__.load({
             "download",
             "installDisabled",
             "installEnable",
+            "exportDiagnostics",
+            "conversationUsage",
           ],
-          ["enable", "disable", "update", "rollback", "download", "installDisabled", "installEnable"],
+          ["enable", "disable", "update", "rollback", "download", "installDisabled", "installEnable", "conversationUsage"],
         ),
       ],
     };

@@ -50,6 +50,7 @@
 - GitHub Actions 与 required CodeQL 当前可用，但不能替代安装包验收。Apple Silicon 本机可产生 darwin-aarch64 候选；Intel 与 Windows 的 native PASS 必须来自对应原生 runner。交叉构建或 Rosetta 只能作为补充证据。
 - 默认“智能整理 Workspace”：自动 curator 必须走 official Agent、禁用工具、Host 封闭校验，只能把安全项目事实写入 exact Workspace；个人/全局记忆仍需 Owner 确认，召回不得跨 Workspace。
 - Owner 已授权 0.5.10 功能分支开发与推送，在完整审核和正常门禁通过后创建 PR、合并 main，从同一干净 main SHA 完成三端原生构建及完整十项附件发布，随后更新 README、官网与公开文档。两小时测试不运行，也不是补充待办。临时 API key、聊天正文、二维码、账号身份、私有路径、profile、凭据或私钥仍不得上传。
+- **0.5.11 开发冻结**（D-067）：`codex/0.5.11` 继续消费官方 DSH `0.1.2-rc.1` 完整 254 包 npm cohort；`dsh-v0.1.3-alpha.1` 不得混装。公开产品身份仍是 **Penglai v0.5.10**。在没有新的发布授权前，不得把 package/lock/profile/`release-contract.json` 改写成 0.5.11，也不得改写已发布的 0.5.10 tag 或附件。精确冻结记录见 `docs/0.5.11/COHORT_FREEZE.json`。
 
 0.5.8 的预览方向不改写已经公开的 0.5.7 tag、Release、附件或历史文档。迁移到新 DSH 时必须从现行源代码与产品表面移除 WhatsApp 的说明卡、channel identity、连接路径、adapter/runtime 接线、Baileys/libsignal 依赖以及任何支持或路线图声明；Git 历史与明确标注为历史的发行审计记录继续保留。移除完成后需用 catalog、依赖闭包、lockfile、SBOM、许可证、安装包内容和用户界面反向证明 WhatsApp 不再属于 Penglai。
 

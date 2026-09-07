@@ -38,6 +38,13 @@ export interface ImBotRow {
 }
 
 const SIDECAR_SQL = `
+  CREATE TABLE IF NOT EXISTS im_v2_peer_approvals (
+    channel TEXT NOT NULL, account_ref TEXT NOT NULL, peer_ref TEXT NOT NULL,
+    vendor_target TEXT NOT NULL, sender_id TEXT NOT NULL,
+    binding_revision INTEGER, updated_at INTEGER NOT NULL,
+    PRIMARY KEY(channel, account_ref, peer_ref)
+  );
+
   CREATE TABLE IF NOT EXISTS im_v2_bots (
     bot_id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
@@ -95,6 +102,40 @@ export function ensureImV2Tables(db: DatabaseSync): void {
 export class ImBotStore {
   constructor(private readonly db: DatabaseSync) {
     ensureImV2Tables(db);
+  }
+
+  observePeer(input: { channel: string; accountRef: string; peerRef: string; vendorTarget: string; senderId: string }): void {
+    this.db.prepare(`DELETE FROM im_v2_peer_approvals WHERE binding_revision IS NULL AND updated_at < ?`).run(Date.now() - 24 * 60 * 60 * 1000);
+    const existing = this.peer(input.channel, input.accountRef, input.peerRef);
+    if (existing) {
+      if (existing.vendorTarget === input.vendorTarget && existing.senderId === input.senderId) {
+        this.db.prepare(`UPDATE im_v2_peer_approvals SET binding_revision = NULL, updated_at = ? WHERE channel = ? AND account_ref = ? AND peer_ref = ?`).run(Date.now(), input.channel, input.accountRef, input.peerRef);
+      }
+      return;
+    }
+    const count = this.db.prepare(`SELECT COUNT(*) AS n FROM im_v2_peer_approvals WHERE binding_revision IS NULL`).get() as { n: number };
+    if (count.n >= 100) return;
+    this.db.prepare(`INSERT INTO im_v2_peer_approvals(channel, account_ref, peer_ref, vendor_target, sender_id, updated_at) VALUES (?, ?, ?, ?, ?, ?)`).run(
+      input.channel, input.accountRef, input.peerRef, input.vendorTarget, input.senderId, Date.now(),
+    );
+  }
+
+  peer(channel: string, accountRef: string, peerRef: string) {
+    return this.db.prepare(`SELECT vendor_target AS vendorTarget, sender_id AS senderId, binding_revision AS bindingRevision FROM im_v2_peer_approvals WHERE channel = ? AND account_ref = ? AND peer_ref = ?`).get(channel, accountRef, peerRef) as
+      { vendorTarget: string; senderId: string; bindingRevision: number | null } | undefined;
+  }
+
+  pendingPeers() {
+    return this.db.prepare(`SELECT channel, account_ref AS accountId, peer_ref AS peerId, sender_id AS senderId FROM im_v2_peer_approvals WHERE binding_revision IS NULL AND updated_at >= ? ORDER BY updated_at DESC LIMIT 100`).all(Date.now() - 24 * 60 * 60 * 1000) as Array<{ channel: ChannelId; accountId: string; peerId: string; senderId: string }>;
+  }
+
+  approvePeer(channel: string, accountRef: string, peerRef: string, revision: number): void {
+    const result = this.db.prepare(`UPDATE im_v2_peer_approvals SET binding_revision = ?, updated_at = ? WHERE channel = ? AND account_ref = ? AND peer_ref = ?`).run(revision, Date.now(), channel, accountRef, peerRef);
+    if (result.changes !== 1) throw new PenglaiError("SECURITY_POLICY", "IM_PEER_NOT_OBSERVED");
+  }
+
+  revokePeers(channel: string): void {
+    this.db.prepare(`DELETE FROM im_v2_peer_approvals WHERE channel = ?`).run(channel);
   }
 
   list(channelId?: string): ImBotRow[] {

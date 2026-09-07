@@ -22,7 +22,7 @@ function sample() {
       resume: { attempted: true, ok: true },
     },
     first: {
-      identity: { ok: true },
+      identity: { ok: true, version: "0.5.10" },
       nativeBoot: { ok: true, authenticationBoundary: true },
       processTree: { ownedAbsolute: true, dshPid: 42 },
       inventory: { ok: true, im: false },
@@ -50,6 +50,17 @@ test("credential-free installed boundary fails closed without auth, catalog, or 
   assert.equal(checks.officialProviderCatalog, "FAIL");
   assert.equal(checks.resume, "FAIL");
   assert.equal(credentialFreeInstalledPass(input), false);
+});
+
+test("credential-free installed checks fail a missing or legacy version instead of skipping", () => {
+  const missing = sample();
+  delete missing.first.identity.version;
+  assert.equal(credentialFreeInstalledChecks(missing).currentVersion, "FAIL");
+  assert.equal(credentialFreeInstalledPass(missing), false);
+  const legacy = sample();
+  legacy.first.identity.version = "0.5.0";
+  assert.equal(credentialFreeInstalledChecks(legacy).currentVersion, "FAIL");
+  assert.equal(credentialFreeInstalledPass(legacy), false);
 });
 
 test("credential-free evidence never claims a nonce or first Turn", () => {

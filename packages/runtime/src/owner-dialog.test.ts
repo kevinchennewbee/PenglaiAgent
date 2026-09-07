@@ -54,3 +54,25 @@ test("host owner dialog allow yields a one-shot receipt", async () => {
   });
   assert.equal(owner.inspect(proposal.actionId).state, "committed");
 });
+
+test("concurrent Main drains present a request once and produce one consumable receipt", async () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-owner-dialog-concurrent-"));
+  const owner = new OwnerApprovalBroker(root, { dialog: createHostOwnerDialog(root, { timeoutMs: 2_000, pollMs: 5 }) });
+  const proposal = owner.createProposal({ action: "office.commit", pluginId: "@penglai/office", objectId: "job", sourceDigest: "a".repeat(64) });
+  const pending = owner.requestOwnerApproval(proposal.actionId);
+  let calls = 0;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const dialog = async () => { calls++; await gate; return "approved" as const; };
+  const first = drainOwnerDialogRequests(root, dialog);
+  const second = drainOwnerDialogRequests(root, dialog);
+  await Promise.resolve();
+  assert.equal(calls, 1);
+  release();
+  await Promise.all([first, second]);
+  const decision = await pending;
+  if (decision.decision !== "approved") throw new Error("expected receipt");
+  const input = { receipt: decision.receipt, actionId: proposal.actionId, intentDigest: owner.inspect(proposal.actionId).intentDigest };
+  owner.consumeApproval(input);
+  assert.throws(() => owner.consumeApproval(input), /REPLAY/);
+});

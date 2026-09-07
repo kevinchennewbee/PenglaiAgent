@@ -1,4 +1,4 @@
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, readBoundedResponse } from "@penglai/contracts";
 
 export const name = "telegram";
 
@@ -22,6 +22,7 @@ export class TelegramAdapter {
   connection: TelegramConnection = "not_configured";
   accountRef: string | undefined;
   private token: string | undefined;
+  private connectionGeneration = 0;
   webhookConflict = false;
   private offset = 0;
   private inboundHandler?: (msg: TelegramInbound) => void | Promise<void>;
@@ -33,6 +34,10 @@ export class TelegramAdapter {
   ) {}
 
   async beginConnection(input: { method: string; credentialRef: string }): Promise<{ kind: "token"; connection: TelegramConnection; operationId: string }> {
+    const generation = ++this.connectionGeneration;
+    const assertCurrent = () => {
+      if (generation !== this.connectionGeneration) throw new PenglaiError("DELIVERY_TRANSIENT", "CHANNEL_CONNECTION_CANCELLED");
+    };
     if (input.method === "qr") throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NO_QR");
     const creds = this.vault.resolve(input.credentialRef);
     if (!creds?.token) {
@@ -45,6 +50,7 @@ export class TelegramAdapter {
       signal: AbortSignal.timeout(10_000),
     });
     const meBody = await readTelegramJson<{ ok?: boolean; result?: { id?: number } }>(me);
+    assertCurrent();
     if (!me.ok || !meBody.ok) {
       this.connection = "failed";
       throw new PenglaiError("AUTH_EXPIRED", "TELEGRAM_TOKEN_INVALID");
@@ -55,6 +61,7 @@ export class TelegramAdapter {
       signal: AbortSignal.timeout(10_000),
     });
     const hookBody = await readTelegramJson<{ ok?: boolean; result?: { url?: string } }>(webhook);
+    assertCurrent();
     if (!webhook.ok || !hookBody.ok) {
       this.connection = "failed";
       throw new PenglaiError("AUTH_EXPIRED", "TELEGRAM_WEBHOOK_INFO_FAILED");
@@ -86,6 +93,7 @@ export class TelegramAdapter {
     update_id?: number;
     message?: { message_id?: number; text?: string; chat?: { id?: number; type?: string }; from?: { id?: number } };
   }): Promise<void> {
+    const generation = this.connectionGeneration;
     const nextOffset = update.update_id === undefined
       ? this.offset
       : Math.max(this.offset, update.update_id + 1);
@@ -102,6 +110,7 @@ export class TelegramAdapter {
     }
     // Telegram's offset is its delivery acknowledgement. Advance it only after
     // Penglai's inbound path has durably accepted a private message.
+    if (generation !== this.connectionGeneration) return;
     if (nextOffset !== this.offset) {
       this.offset = nextOffset;
       this.offsetPersist?.(this.offset);
@@ -180,10 +189,19 @@ export class TelegramAdapter {
   }
 
   async disconnect(): Promise<void> {
+    this.connectionGeneration += 1;
     this.pollAbort?.abort();
     this.pollAbort = undefined;
     this.token = undefined;
     this.connection = "disabled";
+  }
+
+  async logout(): Promise<void> {
+    await this.disconnect();
+    this.accountRef = undefined;
+    this.offset = 0;
+    this.webhookConflict = false;
+    this.offsetPersist?.(0);
   }
 
   private pollAbort: AbortController | undefined;
@@ -197,6 +215,7 @@ export class TelegramAdapter {
       while (!signal.aborted && this.token) {
         try {
           await this.pollOnce(signal);
+          if (signal.aborted) return;
           consecutiveFailures = 0;
           this.connection = "connected";
         } catch (error) {
@@ -235,7 +254,10 @@ export class TelegramAdapter {
     if (!response.ok || !body.ok || !Array.isArray(body.result)) {
       throw new PenglaiError("DELIVERY_TRANSIENT", "TELEGRAM_POLL_FAILED");
     }
-    for (const update of body.result) await this.ingestUpdate(update);
+    for (const update of body.result) {
+      if (signal.aborted) return;
+      await this.ingestUpdate(update);
+    }
   }
 
   private async fetchApi(
@@ -257,10 +279,8 @@ export class TelegramAdapter {
 }
 
 async function readTelegramJson<T>(response: Response): Promise<T> {
-  const text = await response.text();
-  if (Buffer.byteLength(text, "utf8") > 1024 * 1024) {
-    throw new PenglaiError("DELIVERY_TRANSIENT", "TELEGRAM_RESPONSE_TOO_LARGE");
-  }
+  const { bytes } = await readBoundedResponse({ response, maxBytes: 1024 * 1024, timeoutMs: 10_000, category: "generic" });
+  const text = bytes.toString("utf8");
   try {
     return JSON.parse(text) as T;
   } catch {

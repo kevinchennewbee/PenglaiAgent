@@ -3,6 +3,7 @@ import { PenglaiError } from "@penglai/contracts";
 import { UploadMediaType, type WeixinCdnMedia } from "./protocol.js";
 
 export const WEIXIN_MEDIA_MAX_BYTES = 8 * 1024 * 1024;
+export const WEIXIN_CDN_TIMEOUT_MS = 30_000;
 const CDN_HOST_SUFFIXES = [
   "ilinkai.weixin.qq.com",
   ".weixin.qq.com",
@@ -89,7 +90,11 @@ export async function downloadAndDecryptWeixinCdn(
   const key = parseAesKey(media.aes_key);
   let response: Response;
   try {
-    response = await fetchImpl(url, { method: "GET", redirect: "error", ...(signal ? { signal } : {}) });
+    response = await fetchImpl(url, {
+      method: "GET",
+      redirect: "error",
+      signal: signal ?? AbortSignal.timeout(WEIXIN_CDN_TIMEOUT_MS),
+    });
   } catch {
     throw new PenglaiError("DELIVERY_TRANSIENT", "Weixin CDN download failed");
   }
@@ -188,6 +193,7 @@ async function uploadWeixinEncryptedMedia(
       redirect: "error",
       headers: { "Content-Type": "application/octet-stream" },
       body: new Uint8Array(encrypted),
+      signal: AbortSignal.timeout(WEIXIN_CDN_TIMEOUT_MS),
     });
   } catch {
     throw new PenglaiError("DELIVERY_TRANSIENT", "cdn-upload-network");

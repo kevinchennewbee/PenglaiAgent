@@ -73,7 +73,7 @@ test("native Windows host source encodes Job Object, ACL, and reparse facts", ()
   assert.equal(facts.jobSupervise, true);
   assert.equal(facts.deletePlan, false);
   assert.equal(facts.processSuspendResume, true);
-  assert.equal(facts.processReapSupervisors, true);
+  assert.equal(facts.processReapSupervisors, false);
   assert.equal(facts.pathBatchProbe, true);
   assert.equal(facts.childExitMonitoring, true);
   assert.equal(facts.ownerStopMonitoring, true);
@@ -298,6 +298,8 @@ test("NSIS script always preserves user data after in-app exact deletion", () =>
   assert.match(script, /Delete\s+"\$DESKTOP\\Penglai\.lnk"/);
   // The recursive app-tree delete must be guarded to the default install dir.
   assert.match(script, /RMDir\s+\/r\s+"\$INSTDIR"\s*\n\s*\$\{Else\}/);
+  assert.match(script, /\$INSTDIR\.pending/);
+  assert.match(script, /previous install was left in place/);
   const contract = windowsNativeHostContract();
   assert.equal(contract.posixModeImpersonation, false);
   const payload = readFileSync(new URL("../../../scripts/package-windows-payload.mjs", import.meta.url), "utf8");

@@ -25,7 +25,7 @@
   <a href="SECURITY.md">Security</a>
 </p>
 
-> Penglai 0.5.10 is an immutable public release built from
+> The current public product is Penglai 0.5.10, an immutable release built from
 > `c5c0bcb022c5ae47cca242deb27fe1d30444c41d`. It consumes official DSH `0.1.2-rc.1` npm packages,
 > reconciled to tag `dsh-v0.1.2-rc.1` at
 > `a66e4702047846cdaa10c66c9d3df3951f5ea70d`. All 254 package archives,
@@ -33,6 +33,9 @@
 > The release includes three native installers and all seven integrity and license files.
 > macOS is ad-hoc signed and not notarized; Windows has no Authenticode.
 > [Release notes](docs/RELEASE_NOTES_0.5.10.md) · [Verified publication](docs/PUBLICATION_MANIFEST_0.5.10.md)
+>
+> 0.5.11 is in development on this branch. It is not a published installer set.
+> Do not treat source tests as native, live-account or public-release evidence.
 
 <p align="center">
   <img src=".github/assets/0.5.5/plugin-center.png" width="49%" alt="Penglai 0.5.5 Plugin Center in the installed DSH settings">
@@ -64,6 +67,10 @@ replay to the official Session snapshot API. Upgrades from 0.5.8 and 0.5.9 use
 an isolated rc.1 DSH Home and preserve the previous generation for rollback.
 All three native installers pass credential-free onboarding and plugin checks,
 both upgrade paths, and default uninstall with user data preserved.
+
+The public download is still 0.5.10. 0.5.11 is in development on this branch
+and has no published installers. Source tests are not native, live-account or
+public-release evidence.
 
 ## What ships in 0.5.10
 
@@ -334,6 +341,9 @@ Turn 和会话界面都归 DSH。蓬莱负责那些不太耀眼、却决定桌�
 主动陪伴回放适配官方 Session 快照接口。从 0.5.8 和 0.5.9 升级时使用独立的
 rc.1 数据目录，保留旧代际用于回退。三端安装包均通过无需真实账号的引导和插件
 检查、两条升级路径，以及默认保留用户数据的卸载验证。
+
+当前公开下载仍是 0.5.10。0.5.11 还在开发，没有安装包，也没有公开发布附件。
+源码测试不能当作原生安装、真实账号或公开发布证据。
 
 ## 0.5.10 带来了什么
 

@@ -424,6 +424,23 @@ export class Store {
     return { created: true, operationId: input.operationId };
   }
 
+  peekInboundOperation(routeId: string, vendorMessageKey: string): { operationId: string; inboundId?: string; turnId?: string } | undefined {
+    const existing = this.db
+      .prepare(
+        `SELECT operation_id, inbound_id, turn_id FROM inbound_operations
+         WHERE vendor_message_key = ? AND route_id = ?`,
+      )
+      .get(vendorMessageKey, routeId) as
+      | { operation_id: string; inbound_id?: string | null; turn_id?: string | null }
+      | undefined;
+    if (!existing) return undefined;
+    return {
+      operationId: existing.operation_id,
+      ...(existing.inbound_id ? { inboundId: existing.inbound_id } : {}),
+      ...(existing.turn_id ? { turnId: existing.turn_id } : {}),
+    };
+  }
+
   putVendorReplyTarget(routeId: string, vendorTarget: string): void {
     this.db
       .prepare(

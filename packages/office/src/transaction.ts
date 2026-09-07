@@ -63,7 +63,12 @@ export function assertPathInWorkspace(path: string, workspaceRoot: string): stri
 }
 
 export function safeWorkspaceFilename(name: string): string {
-  if (!/^[A-Za-z0-9._-]{1,80}\.(docx|xlsx|pptx|pdf)$/.test(name)) {
+  if (
+    name.length > 80 || Buffer.byteLength(name, "utf8") > 240 ||
+    !/^[^\x00-\x1f\x7f<>:"/\\|?*]+\.(docx|xlsx|pptx|pdf)$/i.test(name) ||
+    name !== name.trim() || name.startsWith(".") ||
+    /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(name)
+  ) {
     throw new PenglaiError("INVALID_INPUT", "office filename must be a bounded workspace basename");
   }
   return name;

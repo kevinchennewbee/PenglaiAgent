@@ -27,6 +27,7 @@ export interface NativeWrapOpts {
 }
 
 type NativeLike = {
+  accountRef?: string | undefined;
   beginConnection(input: { method?: string; credentialRef?: string }): Promise<{
     kind: "qr" | "token" | "manifest" | "device-link";
     connection: string;
@@ -69,8 +70,11 @@ export function wrapNative(
 ): ChannelAdapter & { peekQr(operationId: string): QrPeek | undefined } {
   const manifest = getChannelManifest(id);
   let inbound: ((event: InboundChannelEvent) => void | Promise<void>) | undefined;
+  let generation = 0;
   adapter.onInbound?.(async (msg) => {
+    const seen = generation;
     const event = mapInbound(id, msg as Record<string, unknown>, opts.hashPeer);
+    if (seen !== generation) return;
     if (!event || event.chatType !== "private" || !event.provenPrivate) return;
     await inbound?.(event);
   });
@@ -82,6 +86,7 @@ export function wrapNative(
       enabled = true;
     },
     async disable() {
+      generation += 1;
       enabled = false;
       await adapter.disconnect();
     },
@@ -100,6 +105,7 @@ export function wrapNative(
       return { status: polled.status as ConnectionState };
     },
     async cancelConnection() {
+      generation += 1;
       await adapter.disconnect();
     },
     async start() {
@@ -117,16 +123,22 @@ export function wrapNative(
         connection: enabled ? (row.connection as ConnectionState) : "disabled",
       };
     },
+    accountIdentity: () => adapter.accountRef,
     sendText: (input) => adapter.sendText(input),
     async sendArtifact() {
       throw new PenglaiError("SECURITY_POLICY", `CHANNEL_ARTIFACT_SEND_UNAVAILABLE:${id}`);
     },
-    disconnect: () => adapter.disconnect(),
+    async disconnect() {
+      generation += 1;
+      await adapter.disconnect();
+    },
     async logout() {
+      generation += 1;
       enabled = false;
       await (adapter.logout ? adapter.logout() : adapter.disconnect());
     },
     async deleteCredentials() {
+      generation += 1;
       enabled = false;
       await (adapter.logout ? adapter.logout() : adapter.disconnect());
     },

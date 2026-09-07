@@ -60,7 +60,7 @@ export const SECRET_RULES = Object.freeze([
 const SKIP_PATH =
   /^(?:node_modules\/|.*\/node_modules\/|dist\/|.*\/dist\/|\.git\/|pnpm-lock\.yaml$|package-lock\.json$|.*\.(?:png|jpg|jpeg|webp|gif|icns|ico|woff2?|dylib|node|wasm|tgz|zip)$)/;
 
-const DETECTOR_LINE = /\/.+\/[gimsuy]*|\.test\(|\.includes\(|lock\.includes\(|\.replace\(|INLINE_SECRET|FORBIDDEN/;
+const DETECTOR_LINE = /^\s*(?:re:\s*|if\s*\(\s*)?\/(?![/*])(?:\\.|[^/\n])+\/[gimsuy]*(?:\.test\([^;{}]*\)\)?\s*\{?|,|;)?\s*$/;
 
 export function isSkippedScanPath(rel) {
   return SKIP_PATH.test(rel.replaceAll("\\", "/"));
@@ -71,7 +71,7 @@ export function lineLooksLikeDetector(line) {
 }
 
 function hasConcreteApiKey(line) {
-  return /\bsk-[A-Za-z0-9]{24,}/.test(line);
+  return /\bsk-[A-Za-z0-9]{20,}/.test(line);
 }
 
 export function scanText(rel, text) {

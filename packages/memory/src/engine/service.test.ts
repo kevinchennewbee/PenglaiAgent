@@ -35,6 +35,22 @@ test("mnemon service remembers, isolates workspaces, and forgets", async () => {
   memory.close();
 });
 
+test("memory library query paginates, searches, and stays inside one Workspace", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-mnemon-lib-"));
+  const memory = new MnemonMemoryService(dir, { binaryPath, allowUnpinnedTestBinary: true });
+  await memory.remember({ text: "alpha fact about Penglai", workspaceId: "ws-a", tags: "project", source: "turn:1" });
+  await memory.remember({ text: "beta secret in B", workspaceId: "ws-b", tags: "project", source: "turn:2" });
+  await memory.remember({ text: "personal preference", source: "user" });
+  const page = memory.queryLibrary({ q: "Penglai", scope: "workspace", workspaceId: "ws-a", limit: 10, offset: 0 });
+  assert.equal(page.total, 1);
+  assert.equal(page.rows[0]?.content.includes("Penglai"), true);
+  assert.equal(page.rows[0]?.workspaceId, "ws-a");
+  const other = memory.queryLibrary({ q: "Penglai", scope: "workspace", workspaceId: "ws-b", limit: 10, offset: 0 });
+  assert.equal(other.total, 0);
+  assert.throws(() => memory.queryLibrary({ scope: "workspace" }), /official Workspace/);
+  memory.close();
+});
+
 test("production service rejects an explicit unpinned Mnemon executable", () => {
   assert.throws(
     () => new MnemonMemoryService(mkdtempSync(join(tmpdir(), "penglai-mnemon-pin-")), { binaryPath }),

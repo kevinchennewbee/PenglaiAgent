@@ -94,6 +94,38 @@ export class MemoryJournal {
     return rows.slice(Math.max(0, offset), Math.max(0, offset) + Math.min(200, Math.max(1, limit)));
   }
 
+  queryLibrary(input: {
+    q?: string;
+    scope?: "personal" | "workspace";
+    workspaceId?: string;
+    includeForgotten?: boolean;
+    limit?: number;
+    offset?: number;
+  }): { total: number; offset: number; limit: number; rows: JournalRow[] } {
+    const limit = Math.min(200, Math.max(1, input.limit ?? 50));
+    const offset = Math.max(0, input.offset ?? 0);
+    const needle = (input.q ?? "").trim().toLowerCase();
+    const statuses = input.includeForgotten ? ["committed", "forgotten", "superseded"] : ["committed"];
+    let sql = `SELECT * FROM memory_journal WHERE status IN (${statuses.map(() => "?").join(",")})`;
+    const params: Array<string | number> = [...statuses];
+    if (input.scope) {
+      sql += ` AND scope = ?`;
+      params.push(input.scope);
+      if (input.scope === "workspace") {
+        sql += ` AND workspace_id = ?`;
+        params.push(input.workspaceId ?? "");
+      }
+    } else if (input.workspaceId) {
+      sql += ` AND ((scope = 'workspace' AND workspace_id = ?) OR scope = 'personal')`;
+      params.push(input.workspaceId);
+    }
+    const all = (this.db.prepare(sql).all(...params) as Record<string, string | null>[])
+      .map((row) => this.map(row))
+      .filter((row) => !needle || row.content.toLowerCase().includes(needle) || row.source.toLowerCase().includes(needle) || row.tags.toLowerCase().includes(needle))
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    return { total: all.length, offset, limit, rows: all.slice(offset, offset + limit) };
+  }
+
   listActive(scope: "personal" | "workspace", workspaceId?: string): JournalRow[] {
     if (scope === "personal") {
       return (this.db.prepare("SELECT * FROM memory_journal WHERE scope = 'personal' AND status = 'committed'").all() as Record<string, string | null>[]).map((row) => this.map(row));

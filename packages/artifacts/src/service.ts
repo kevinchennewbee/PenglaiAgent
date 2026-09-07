@@ -227,7 +227,7 @@ export class ArtifactService {
   }
 
   readControlled(id: string, scope: ArtifactReadScope): { name: string; mediaType: string; bytes: Buffer } {
-    const row = this.lookup(id);
+    const row = this.lookup(id, scope);
     if ((row.workspaceId ?? "") !== (scope.workspaceId ?? "")) fail("ARTIFACT_WORKSPACE_MISMATCH");
     if (row.sessionId && row.sessionId !== scope.sessionId) fail("ARTIFACT_SESSION_MISMATCH");
     if (row.turnId && scope.turnId && row.turnId !== scope.turnId) fail("ARTIFACT_TURN_MISMATCH");
@@ -382,21 +382,27 @@ export class ArtifactService {
     });
   }
 
-  private lookup(id: string) {
+  private lookup(id: string, scope?: ArtifactReadScope) {
     let row: Record<string, string | number | null> | undefined;
     if (/^artifact:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
       row = this.db.prepare(`SELECT * FROM artifacts WHERE bind_id = ?`).get(id.slice("artifact:".length)) as
         | Record<string, string | number | null>
         | undefined;
     } else {
-      // One local 0.5.7 development build exposed digest-shaped ids. Accept
-      // them only when they resolve to exactly one binding; never guess across
-      // Workspace/Session boundaries.
+      // Digest-shaped ids are shared CAS keys. When a read scope is present,
+      // select the binding that belongs to that Workspace/Session instead of
+      // treating two authorized copies as one ambiguous object.
       const digest = id.replace(/^sha256:/, "").toLowerCase();
       if (!/^[0-9a-f]{64}$/.test(digest)) fail("ARTIFACT_ID");
-      const rows = this.db.prepare(`SELECT * FROM artifacts WHERE sha256 = ?`).all(digest) as Array<
+      let rows = this.db.prepare(`SELECT * FROM artifacts WHERE sha256 = ?`).all(digest) as Array<
         Record<string, string | number | null>
       >;
+      if (scope) {
+        rows = rows.filter((candidate) =>
+          (candidate.workspace_id ?? "") === (scope.workspaceId ?? "") &&
+          (!candidate.session_id || candidate.session_id === (scope.sessionId ?? candidate.session_id)),
+        );
+      }
       if (rows.length > 1) fail("ARTIFACT_AMBIGUOUS_LEGACY_ID");
       row = rows[0];
     }

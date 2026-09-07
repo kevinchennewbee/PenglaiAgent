@@ -284,6 +284,14 @@ export class OwnerApprovalBroker {
       ...(row.intent.workspaceId ? { workspaceLabel: row.intent.workspaceId } : {}),
       ...(row.intent.destinationLabel ? { destinationLabel: row.intent.destinationLabel } : {}),
     });
+    const current = this.load(actionId);
+    if (current.state !== "proposed" || current.intentDigest !== row.intentDigest) fail("OWNER_PROPOSAL_STATE");
+    if (Date.parse(current.intent.expiresAt) <= this.now()) {
+      current.state = "expired";
+      this.save(current);
+      this.log(current, "expired");
+      fail("OWNER_PROPOSAL_EXPIRED");
+    }
     if (decision !== "approved") {
       row.state = "denied";
       this.save(row);

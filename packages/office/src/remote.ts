@@ -62,13 +62,26 @@ export function createOfficeRemoteApi(impl: ReturnType<typeof createOfficeServic
         bytesBase64: job.bytes.toString("base64"),
       };
     },
-    async preview(input: { jobId: string }) {
-      return impl.preview(input.jobId);
+    async preview(input: { jobId: string; sessionId?: string; workspaceId?: string }) {
+      if (!input.sessionId || !input.workspaceId) {
+        throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
+      }
+      return impl.preview(input.jobId, { sessionId: input.sessionId, workspaceId: input.workspaceId });
     },
-    async approve(input: { jobId: string }) {
-      return { receipt: await impl.approve(input.jobId) };
+    async approve(input: { jobId: string; sessionId?: string; workspaceId?: string }) {
+      if (!input.sessionId || !input.workspaceId) {
+        throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
+      }
+      return { receipt: await impl.approve(input.jobId, "commit", "", { sessionId: input.sessionId, workspaceId: input.workspaceId }) };
     },
-    commit(input: { jobId: string; receipt: string }) {
+    commit(input: { jobId: string; receipt: string; sessionId?: string; workspaceId?: string }) {
+      if (!input.sessionId || !input.workspaceId) {
+        throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
+      }
+      const job = impl.job(input.jobId);
+      if (job.sessionId !== input.sessionId || job.workspaceId !== input.workspaceId) {
+        throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
+      }
       const bytes = impl.commit(input.jobId, input.receipt);
       return { bytesBase64: bytes.toString("base64") };
     },

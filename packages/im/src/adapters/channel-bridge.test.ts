@@ -53,7 +53,7 @@ test("channel bridge drops incomplete inbound and HMAC-hashes peerRef", async ()
   assert.equal(event.vendorTarget, "D1");
   assert.equal(event.accountRef, "B1");
   assert.equal(event.provenPrivate, true);
-  assert.equal(event.idempotencyKey, "slack:B1:3");
+  assert.equal(event.idempotencyKey, "slack:B1:D1:3");
   assert.equal(event.peerRef, hashPeer("U1", "B1"));
   assert.notEqual(event.peerRef, hashPeer("U1", "B2"));
   assert.notEqual(event.peerRef, "U1");

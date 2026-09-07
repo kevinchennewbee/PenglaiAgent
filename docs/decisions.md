@@ -404,6 +404,20 @@
 - 发布：Owner 已授权正常测试、推送、PR 合并、同一干净 main SHA 的三端原生构建与安装验证、十项完整签名附件、不可变公开回读、README 和双语官网收尾。两小时测试不执行，也不是待补证据。真实账号通信仅按实际执行结果声明。
 - 文档：开发期不能拿历史 0.5.8 文档断言充当当前发布 PASS；发布后的当前 README、SECURITY、站点与发布清单必须独立校验。本地操作 SOP 不公开。历史版本决议继续作为历史记录保留。
 
+### D-067 — 0.5.11 开发冻结 rc.1 cohort，不改写 0.5.10 公开身份
+
+- 日期：2026-09-07。
+- 决定：`codex/0.5.11` 开发树冻结官方 DSH `0.1.2-rc.1` / `dsh-v0.1.2-rc.1` /
+  `a66e4702047846cdaa10c66c9d3df3951f5ea70d` 完整 254 包 npm cohort。拒绝用不完整的
+  `dsh-v0.1.3-alpha.1` 标签混装。Node `22.22.2`、Electron `43.4.0`、pnpm `11.7.0`
+  随该 cohort 保留。公开产品身份、tag 与 `release-contract.json` 仍为 **0.5.10**，
+  不可变。0.5.11 不得在无发布授权时改写 package/lock/profile/release-contract 版本。
+- 迁移/回滚：升级保留旧 DSH Home，健康检查后再切指针；插件中心恢复 last-good
+  profile；Windows 先写入 `$INSTDIR.pending`，失败则恢复 `$INSTDIR.previous`。
+- 后果：机器可读冻结记录为 `docs/0.5.11/COHORT_FREEZE.json`，必须与
+  `packages/release-identity/src/pins.ts` 和 `release-contract.json` 一致。0.5.10
+  的 tag、附件和公开下载不得改写。
+
 ## Superseded
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。

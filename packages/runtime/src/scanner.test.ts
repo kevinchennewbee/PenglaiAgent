@@ -98,7 +98,7 @@ test("R50-SEC: production scanner rejects transcript, voice reference, and grant
     /voice reference/,
   );
   assert.throws(
-    () => assertProductionBundleClean({ "grant.json": 'grantedPath: "/Users/owner/Documents"' }),
+    () => assertProductionBundleClean({ "grant.json": 'grantedPath: "/Users/owner/Documents"' }), // penglai-test-fixture
     /context grant path|owner path/,
   );
   assert.throws(

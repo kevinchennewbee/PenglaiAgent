@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createCipheriv, createDecipheriv, createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import type { ModelInput } from "@penglai/contracts";
 import { SeqIds, VirtualClock } from "@penglai/testkit";
@@ -8,6 +9,7 @@ import { RoutingControlPlane } from "@penglai/routing-core";
 import {
   MemoryVault,
   WeixinAdapter,
+  applyWeixinReceiveCursor,
   WEIXIN_TOKEN_CREDENTIAL_REF,
   WEIXIN_CONTEXT_CREDENTIAL_REF,
   parseInbound,
@@ -23,6 +25,7 @@ import {
   downloadAndDecryptWeixinVoice,
   uploadWeixinAudioFile,
   uploadWeixinVoice,
+  WEIXIN_CDN_TIMEOUT_MS,
   type WeixinVoiceMediaRef,
 } from "./cdn.js";
 import {
@@ -251,6 +254,41 @@ test("R50-VOICE: weixin inbound wav transcribes and outbound keeps a visible aud
   assert.match(fallback.filename, /\.wav$/);
   assert.equal(fallback.data.subarray(0, 4).toString("ascii"), "RIFF");
   assert.equal(released, true);
+});
+
+test("Weixin TTS locale follows the selected English or Japanese voice", async () => {
+  const { outboundTtsAttachment } = await import("./media.js");
+  const wav = toneWav();
+  const digest = createHash("sha256").update(wav).digest("hex");
+  for (const [voiceId, locale] of [["moss-en-default", "en"], ["moss-ja-soyo", "ja"]] as const) {
+    let seen = "";
+    await outboundTtsAttachment({
+      finalText: "hello",
+      sourceFinalId: `final:${voiceId}`,
+      operationId: `tts-${voiceId}`,
+      voiceId,
+    }, "voice", {
+      async synthesize(request) {
+        seen = request.locale;
+        return {
+          handle: {
+            id: "00000000-0000-4000-8000-000000000009",
+            digest,
+            bytes: wav.length,
+            durationMs: 1000,
+            voiceId: request.voiceId,
+            sourceFinalDigest: request.finalDigest,
+            ownerOperation: request.operationId,
+            expiresAt: Date.now() + 60_000,
+          },
+          operation: { operationId: request.operationId },
+        };
+      },
+      async readOutput() { return wav; },
+      async releaseOutput() {},
+    });
+    assert.equal(seen, locale);
+  }
 });
 
 function toneWav(): Buffer {
@@ -625,6 +663,24 @@ test("scanner owner identity survives restart and unknown owner blocks cursor", 
   assert.equal(store.getCursor("weixin-default-2", "weixin"), undefined);
 });
 
+test("blocked Weixin cursor stays retryable and does not advance in memory", () => {
+  assert.deepEqual(
+    applyWeixinReceiveCursor({ previousBuf: "cursor-1", nextBuf: "cursor-2", blocked: true }),
+    { buf: "cursor-1", persist: false },
+  );
+  assert.deepEqual(
+    applyWeixinReceiveCursor({ previousBuf: "cursor-1", nextBuf: "cursor-2", blocked: false }),
+    { buf: "cursor-2", persist: true },
+  );
+  const src = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+  assert.match(src, /applyWeixinReceiveCursor\(/);
+  assert.match(src, /if \(cursor\.persist\)/);
+  assert.doesNotMatch(
+    src,
+    /this\.buf = out\.buf;\s*if \(!this\.cursorBlocked\) \{\s*this\.cursors\?\.putCursor/,
+  );
+});
+
 test("R50-VOICE-014 Weixin CDN decrypts SILK and uploads one encrypted visible FILE", async () => {
   const key = Buffer.alloc(16, 0x2a);
   const cipher = createCipheriv("aes-128-ecb", key, null);
@@ -641,18 +697,31 @@ test("R50-VOICE-014 Weixin CDN decrypts SILK and uploads one encrypted visible F
     sampleRate: 24_000,
     playtimeMs: 200,
   };
-  const decrypted = await downloadAndDecryptWeixinVoice(
-    voiceRef,
-    "https://ilinkai.weixin.qq.com",
-    (async (url, init) => {
-      assert.equal(url, voiceRef.media.full_url);
-      assert.equal(init?.redirect, "error");
-      return new Response(encryptedFixture, {
-        status: 200,
-        headers: { "content-length": String(encryptedFixture.length) },
-      });
-    }) as typeof fetch,
-  );
+  const timeouts: number[] = [];
+  const originalTimeout = AbortSignal.timeout;
+  AbortSignal.timeout = ((ms: number) => {
+    timeouts.push(ms);
+    return originalTimeout(ms);
+  }) as typeof AbortSignal.timeout;
+  let decrypted: Buffer;
+  try {
+    decrypted = await downloadAndDecryptWeixinVoice(
+      voiceRef,
+      "https://ilinkai.weixin.qq.com",
+      (async (url, init) => {
+        assert.equal(url, voiceRef.media.full_url);
+        assert.equal(init?.redirect, "error");
+        assert.equal(init?.signal instanceof AbortSignal, true);
+        return new Response(encryptedFixture, {
+          status: 200,
+          headers: { "content-length": String(encryptedFixture.length) },
+        });
+      }) as typeof fetch,
+    );
+  } finally {
+    AbortSignal.timeout = originalTimeout;
+  }
+  assert.deepEqual(timeouts, [WEIXIN_CDN_TIMEOUT_MS]);
   assert.deepEqual(decrypted, SILK_FIXTURE);
 
   await assert.rejects(
@@ -679,6 +748,7 @@ test("R50-VOICE-014 Weixin CDN decrypts SILK and uploads one encrypted visible F
     },
     (async (_url, init) => {
       uploadedCiphertext = Buffer.from(init?.body as Uint8Array);
+      assert.equal(init?.signal instanceof AbortSignal, true);
       return new Response("", { status: 200, headers: { "x-encrypted-param": "download-receipt" } });
     }) as typeof fetch,
   );

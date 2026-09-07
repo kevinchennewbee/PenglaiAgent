@@ -17,6 +17,8 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
 import { PenglaiError, PenglaiRemote, t } from "@penglai/contracts";
+import { exportRedactedCenterDiagnostics } from "./diagnostics-export.js";
+import { projectOfficialUsage } from "./usage-projection.js";
 import {
   PluginDistributionClient,
   selectCatalogArtifact,
@@ -31,6 +33,9 @@ import {
   runtimePluginTarget,
   OwnerApprovalBroker,
   createHostOwnerDialog,
+  resolvePluginCatalogEntry,
+  writeInstalledOverlay,
+  assertActivationDigest,
   type PluginCatalogEntry,
   type PluginOwnerAction,
   type ProductPluginTarget,
@@ -108,25 +113,30 @@ export interface CenterRemote {
   refreshRegistry(): Promise<unknown>;
   download(id: string): Promise<unknown>;
   installDisabled(id: string, proof?: CenterOwnerProof | string): Promise<unknown>;
+  exportDiagnostics(): unknown;
+  conversationUsage(input?: Record<string, unknown>): unknown;
 }
 
-function catalogEntry(
-  entries: readonly PluginCatalogEntry[],
-  id: string,
-  registry?: PluginDistributionClient,
-  hostTarget: ProductPluginTarget = runtimePluginTarget(),
+function remoteCatalogIdentity(
+  remote: {
+    id: string;
+    version: string;
+    capabilities: string[];
+    permissions: string[];
+    provenanceClass: string;
+    license: string;
+    migration: string;
+    entry: string;
+    clientEntry?: string;
+    networkOrigins?: string[];
+    dataPaths?: string[];
+    nativeCode?: boolean;
+    publisher?: string;
+  },
+  artifactSha256: string,
+  hostTarget: ProductPluginTarget,
+  bundled?: PluginCatalogEntry,
 ): PluginCatalogEntry {
-  const entry = entries.find((candidate) => candidate.id === id);
-  if (entry) return entry;
-  if (!registry) throw new PenglaiError("INVALID_INPUT", "unlisted package");
-  const remote = registry.entry(id);
-  const artifact = selectCatalogArtifact(remote.artifacts, hostTarget);
-  if (remote.dsh.exact !== PINNED_PLUGIN_DSH) {
-    throw new PenglaiError(
-      "SECURITY_POLICY",
-      `${id} DSH pin is not ${PINNED_PLUGIN_DSH}`,
-    );
-  }
   return {
     id: remote.id,
     version: remote.version,
@@ -135,7 +145,7 @@ function catalogEntry(
     platforms: ["darwin-arm64", "darwin-x64", "win32-x64"],
     capabilities: remote.capabilities,
     permissions: remote.permissions,
-    defaultEnabled: false,
+    defaultEnabled: bundled?.defaultEnabled ?? false,
     builtIn: false,
     source: "penglai-plugin-registry",
     provenanceClass:
@@ -149,19 +159,54 @@ function catalogEntry(
       remote.provenanceClass === "community-reviewed"
         ? "community-reviewed"
         : "optional-first-party",
-    userVisible: false,
+    userVisible: bundled?.userVisible ?? false,
     updatePolicy: "signed-overlay",
-    resourcePolicy: "none",
-    sha256: artifact.sha256,
+    resourcePolicy: bundled?.resourcePolicy ?? "none",
+    sha256: artifactSha256,
     target: hostTarget,
     hasClient: Boolean(remote.clientEntry),
     entry: remote.entry,
     ...(remote.clientEntry ? { clientEntry: remote.clientEntry } : {}),
-    networkOrigins: remote.networkOrigins,
-    dataPaths: remote.dataPaths,
-    nativeCode: remote.nativeCode,
-    publisher: remote.publisher,
+    ...(remote.networkOrigins ? { networkOrigins: remote.networkOrigins } : {}),
+    ...(remote.dataPaths ? { dataPaths: remote.dataPaths } : {}),
+    ...(remote.nativeCode !== undefined ? { nativeCode: remote.nativeCode } : {}),
+    ...(remote.publisher ? { publisher: remote.publisher } : {}),
   };
+}
+
+function catalogEntry(
+  entries: readonly PluginCatalogEntry[],
+  id: string,
+  registry?: PluginDistributionClient,
+  hostTarget: ProductPluginTarget = runtimePluginTarget(),
+): PluginCatalogEntry {
+  const bundled = entries.find((candidate) => candidate.id === id);
+  if (registry) {
+    try {
+      const remote = registry.entry(id);
+      const artifact = selectCatalogArtifact(remote.artifacts, hostTarget);
+      const resolved = resolvePluginCatalogEntry({
+        ...(bundled ? { bundled } : {}),
+        remote: { id: remote.id, version: remote.version, sha256: artifact.sha256, dshExact: remote.dsh.exact },
+      });
+      if (resolved.source === "remote") {
+        return remoteCatalogIdentity(remote, artifact.sha256, hostTarget, bundled);
+      }
+    } catch {
+      /* fall through to bundled identity */
+    }
+  }
+  if (bundled) return bundled;
+  if (!registry) throw new PenglaiError("INVALID_INPUT", "unlisted package");
+  const remote = registry.entry(id);
+  const artifact = selectCatalogArtifact(remote.artifacts, hostTarget);
+  if (remote.dsh.exact !== PINNED_PLUGIN_DSH) {
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      `${id} DSH pin is not ${PINNED_PLUGIN_DSH}`,
+    );
+  }
+  return remoteCatalogIdentity(remote, artifact.sha256, hostTarget);
 }
 
 export function inventoryActivationObservation(
@@ -429,12 +474,7 @@ export function stageRegistryPackage(input: {
   } finally {
     if (packageFd !== undefined) closeSync(packageFd);
   }
-  if (createHash("sha256").update(bytes).digest("hex") !== input.entry.sha256) {
-    throw new PenglaiError(
-      "SECURITY_POLICY",
-      "downloaded package checksum mismatch",
-    );
-  }
+  assertActivationDigest(createHash("sha256").update(bytes).digest("hex"), input.entry.sha256);
   const destination = join(root, input.entry.packageFile);
   if (!isUnder(root, destination)) {
     throw new PenglaiError(
@@ -786,6 +826,24 @@ export function createCenterRemote(opts: {
       finishOwnerAction();
       return out;
     },
+    exportDiagnostics() {
+      return exportRedactedCenterDiagnostics({
+        catalog: opts.host.reconcile(),
+        txDir: opts.txDir,
+      });
+    },
+    conversationUsage(input?: Record<string, unknown>) {
+      const row = input ?? {};
+      return projectOfficialUsage({
+        occupancyTokens: row.occupancyTokens,
+        inputTokens: row.inputTokens,
+        outputTokens: row.outputTokens,
+        cacheReadTokens: row.cacheReadTokens,
+        cacheWriteTokens: row.cacheWriteTokens,
+        estimatedCost: row.estimatedCost,
+        estimatedCurrency: row.estimatedCurrency,
+      });
+    },
   };
 }
 
@@ -840,5 +898,15 @@ export class PenglaiCenterRemote extends TypertRemoteService {
   @PenglaiRemote
   installDisabled(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
     return this.impl.installDisabled(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
+  }
+
+  @PenglaiRemote
+  exportDiagnostics() {
+    return this.impl.exportDiagnostics();
+  }
+
+  @PenglaiRemote
+  conversationUsage(input?: Record<string, unknown>) {
+    return this.impl.conversationUsage(input);
   }
 }

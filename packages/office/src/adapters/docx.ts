@@ -15,6 +15,21 @@ function xmlText(xml: string): string {
     .trim();
 }
 
+function replaceBlockText(block: string, escaped: string): string {
+  let inserted = false;
+  const replaced = block.replace(/<w:t(?:\s[^>]*)?>[\s\S]*?<\/w:t>|<w:(?:tab|br|cr)\b[^>]*\/>/g, (node) => {
+    if (!/^<w:t(?:\s|>)/.test(node)) return "";
+    const text = inserted ? "" : escaped;
+    inserted = true;
+    return `<w:t xml:space="preserve">${text}</w:t>`;
+  });
+  if (inserted) return replaced;
+  const run = `<w:r><w:t xml:space="preserve">${escaped}</w:t></w:r>`;
+  if (/<\/w:p>/.test(replaced)) return replaced.replace(/<\/w:p>/, `${run}</w:p>`);
+  if (/<w:p\b[^>]*\/>/.test(replaced)) return replaced.replace(/<w:p\b([^>]*)\/>/, `<w:p$1>${run}</w:p>`);
+  return replaced.replace(/<\/w:tc>/, `<w:p>${run}</w:p></w:tc>`);
+}
+
 export async function createDocx(text: string): Promise<Buffer> {
   const doc = new Document({
     sections: [{ children: [new Paragraph({ children: [new TextRun(text)] })] }],
@@ -46,9 +61,8 @@ export async function inspectDocx(bytes: Buffer): Promise<{ text: string; parts:
   assertAuthorizedBytes(bytes);
   const entries = readZip(bytes);
   const document = entries.find((entry) => entry.name === "word/document.xml")?.data.toString("utf8") ?? "";
-  const paragraphs = [...document.matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)]
-    .map((match) => xmlText(match[0] ?? ""))
-    .filter(Boolean);
+  const paragraphs = [...document.matchAll(/<w:p\b[^>]*\/>|<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)]
+    .map((match) => xmlText(match[0] ?? ""));
   const headers = entries.filter((entry) => /^word\/(?:header|footer)\d+\.xml$/.test(entry.name)).map((entry) => xmlText(entry.data.toString("utf8"))).filter(Boolean);
   const tables = [...document.matchAll(/<w:tbl\b[\s\S]*?<\/w:tbl>/g)].map((match) => xmlText(match[0] ?? "")).filter(Boolean);
   const title = paragraphs[0] ?? "";
@@ -93,26 +107,22 @@ export function editDocx(bytes: Buffer, op:
           let cellIndex = 0;
           return row.replace(/<w:tc\b[\s\S]*?<\/w:tc>/g, (cell) => {
             if (cellIndex++ !== op.cellIndex) return cell;
-            if (/<w:t[\s>]/.test(cell)) return cell.replace(/<w:t(?:\s[^>]*)?>[\s\S]*?<\/w:t>/, `<w:t xml:space="preserve">${escaped}</w:t>`);
-            return cell.replace(/<\/w:tc>/, `<w:p><w:r><w:t xml:space="preserve">${escaped}</w:t></w:r></w:p></w:tc>`);
+            return replaceBlockText(cell, escaped);
           });
         });
       });
       if (patched === xml) throw new PenglaiError("INVALID_INPUT", "docx table cell out of range");
     } else {
-      const blocks = xml.match(/<w:p\b[\s\S]*?<\/w:p>/g) ?? [];
+      const blocks = xml.match(/<w:p\b[^>]*\/>|<w:p\b[^>]*>[\s\S]*?<\/w:p>/g) ?? [];
       if (op.paragraphIndex < 0 || op.paragraphIndex >= blocks.length) throw new PenglaiError("INVALID_INPUT", "docx paragraph index out of range");
       let index = 0;
-      patched = xml.replace(/<w:p\b[\s\S]*?<\/w:p>/g, (block) => {
+      patched = xml.replace(/<w:p\b[^>]*\/>|<w:p\b[^>]*>[\s\S]*?<\/w:p>/g, (block) => {
         if (index++ !== op.paragraphIndex) return block;
         if (op.kind === "docx.insertParagraph") {
           const added = `<w:p><w:r><w:t xml:space="preserve">${escaped}</w:t></w:r></w:p>`;
           return op.position === "before" ? `${added}${block}` : `${block}${added}`;
         }
-        if (/<w:t[\s>]/.test(block)) {
-          return block.replace(/<w:t(?:\s[^>]*)?>[\s\S]*?<\/w:t>/, `<w:t xml:space="preserve">${escaped}</w:t>`);
-        }
-        return block.replace(/<\/w:p>/, `<w:r><w:t xml:space="preserve">${escaped}</w:t></w:r></w:p>`);
+        return replaceBlockText(block, escaped);
       });
     }
     if (patched === xml) {

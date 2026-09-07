@@ -13,7 +13,12 @@ import {
   probePinnedPackages,
   withPenglaiVoiceContext,
 } from "./index.js";
-import { hostFromRc2Cordis, listenOfficialEvents } from "./plugin.js";
+import {
+  hostFromRc2Cordis,
+  listenOfficialEvents,
+  recoverOfficialDeliveriesFromHost,
+  recoverOfficialTurnDelivery,
+} from "./plugin.js";
 
 test("R1-UP-001 rejects other versions", () => {
   assert.throws(() => assertDshVersion("9.9.9"), PenglaiError);
@@ -553,4 +558,105 @@ test("official session/event pair delivers assistant final to the IM route", () 
   );
   listeners.get("session/event")?.({ id: "s" }, { type: "turn/end", data: { turn: 2 } });
   assert.equal(store.pendingOutbox("r")[0]?.payloadText, "penglai-causal-ok");
+});
+
+function recoveryPlane() {
+  const store = new Store(":memory:");
+  const plane = new RoutingControlPlane(
+    store,
+    new VirtualClock(),
+    new SeqIds(),
+    { async listWorkspaces() { return []; }, async listSessions() { return []; } },
+    { async followup() { return { dshMessageId: "x" }; }, async steer() { return { dshMessageId: "x" }; }, async cancelCurrent() {}, async removeInbox() {} },
+  );
+  store.upsertRoute({ routeId: "r", adapter: "mock", accountRef: "a", peerRef: "p", status: "active" });
+  store.putBinding({
+    routeId: "r", workspaceIdentity: "w", sessionId: "s", revision: 1, status: "active",
+    createdAt: "t", updatedAt: "t",
+  });
+  store.insertInbound({
+    inboundId: "in1", adapterMessageKey: "k", routeId: "r", bindingRevision: 1,
+    bodyKind: "text", redactedDigest: "d", state: "queued",
+  }, "hi", 1);
+  const source = { kind: "user", schema: 1, routeId: "r", inboundId: "in1", adapter: "mock" };
+  return { store, plane, source };
+}
+
+test("official durable session recovery closes claimed-turn/final/outbox without duplicate delivery", () => {
+  const first = recoveryPlane();
+  const claimed = {
+    type: "agent/inbox/claimed",
+    data: { turn: 3, message: { id: "mid", source: first.source } },
+  };
+  const assistant = {
+    type: "assistant/message",
+    data: { turn: 3, message: { content: [{ type: "text", text: "durable-final" }] } },
+  };
+  const crashWindow = recoverOfficialTurnDelivery(first.plane, {
+    sessionId: "s",
+    events: [claimed, assistant],
+  });
+  assert.equal(crashWindow.incomplete, 1);
+  assert.equal(crashWindow.delivered, 0);
+  assert.equal(first.store.pendingOutbox("r").length, 0);
+
+  const closed = recoverOfficialTurnDelivery(first.plane, {
+    sessionId: "s",
+    events: [claimed, assistant, { type: "turn/end", data: { turn: 3 } }],
+  });
+  assert.equal(closed.claimed, 1);
+  assert.equal(closed.delivered, 1);
+  assert.equal(first.store.pendingOutbox("r")[0]?.payloadText, "durable-final");
+  const outboxId = first.store.pendingOutbox("r")[0]?.outboxId;
+
+  const replay = recoverOfficialTurnDelivery(first.plane, {
+    sessionId: "s",
+    events: [claimed, assistant, { type: "turn/end", data: { turn: 3 } }],
+  });
+  assert.equal(replay.delivered, 1);
+  assert.equal(first.store.pendingOutbox("r").length, 1);
+  assert.equal(first.store.pendingOutbox("r")[0]?.outboxId, outboxId);
+
+  const spliced = recoveryPlane();
+  recoverOfficialTurnDelivery(spliced.plane, {
+    sessionId: "s",
+    events: [
+      { type: "turn/start", data: { turn: 4 } },
+      { type: "agent/inbox/spliced", data: { inserted: [{ id: "mid-2", source: spliced.source }] } },
+      { type: "assistant/message", data: { turn: 4, message: { content: [{ type: "text", text: "from-snapshot" }] } } },
+      { type: "turn/end", data: { turn: 4 } },
+    ],
+  });
+  assert.equal(spliced.store.pendingOutbox("r")[0]?.payloadText, "from-snapshot");
+});
+
+test("host recovery reads official snapshotEvents and does not duplicate outbox", async () => {
+  const { store, plane, source } = recoveryPlane();
+  const events = [
+    { type: "agent/inbox/claimed", data: { turn: 5, message: { id: "mid", source } } },
+    { type: "assistant/message", data: { turn: 5, message: { content: [{ type: "text", text: "host-final" }] } } },
+    { type: "turn/end", data: { turn: 5 } },
+  ];
+  const host = {
+    version: "0.1.2-rc.1",
+    getAgent: (id: string) =>
+      id === "s"
+        ? {
+            id,
+            session: { snapshotEvents: () => events },
+            followup() {},
+            steer() {},
+            cancel() {},
+            inbox: { remove() { return true; } },
+          }
+        : undefined,
+    listWorkspaces: () => [],
+    listSessions: async () => [{ id: "s" }],
+  };
+  const first = await recoverOfficialDeliveriesFromHost(host as never, plane);
+  const second = await recoverOfficialDeliveriesFromHost(host as never, plane);
+  assert.equal(first.delivered, 1);
+  assert.equal(second.delivered, 1);
+  assert.equal(store.pendingOutbox("r").length, 1);
+  assert.equal(store.pendingOutbox("r")[0]?.payloadText, "host-final");
 });
