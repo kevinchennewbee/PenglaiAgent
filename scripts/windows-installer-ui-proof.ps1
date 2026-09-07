@@ -126,7 +126,8 @@ function Get-PenglaiInstallerProcessIds([int]$RootProcessId, [string]$InstallerP
     $changed = $false
     foreach ($row in $rows) {
       $commandLine = [string]$row.CommandLine
-      $isBoundInstaller = (-not [string]::IsNullOrWhiteSpace($commandLine)) -and
+      $isProofHost = $commandLine.IndexOf('windows-installer-ui-proof.ps1', [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+      $isBoundInstaller = (-not $isProofHost) -and (-not [string]::IsNullOrWhiteSpace($commandLine)) -and
         ($commandLine.IndexOf($InstallerPath, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
          $commandLine.IndexOf($InstallTarget, [System.StringComparison]::OrdinalIgnoreCase) -ge 0)
       if (($ids.Contains([int]$row.ParentProcessId) -or $isBoundInstaller) -and $ids.Add([int]$row.ProcessId)) {
@@ -134,19 +135,30 @@ function Get-PenglaiInstallerProcessIds([int]$RootProcessId, [string]$InstallerP
       }
     }
   } while ($changed)
+  [void]$ids.Remove($PID)
   return @($ids)
 }
 
 function Stop-PenglaiInstallerProcessTree([int]$RootProcessId, [string]$InstallerPath, [string]$InstallTarget) {
-  $ids = @(Get-PenglaiInstallerProcessIds $RootProcessId $InstallerPath $InstallTarget | Sort-Object -Descending)
-  foreach ($processId in $ids) {
-    Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+  $leftovers = @()
+  for ($attempt = 0; $attempt -lt 10; $attempt += 1) {
+    $ids = @(Get-PenglaiInstallerProcessIds $RootProcessId $InstallerPath $InstallTarget | Sort-Object -Descending)
+    foreach ($processId in $ids) {
+      Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Milliseconds 500
+    $leftovers = @(Get-PenglaiInstallerProcessIds $RootProcessId $InstallerPath $InstallTarget | Where-Object {
+      ($_ -ne $PID) -and (Get-Process -Id $_ -ErrorAction SilentlyContinue)
+    })
+    if ($leftovers.Count -eq 0) { return }
   }
-  Start-Sleep -Milliseconds 800
-  $leftovers = @(Get-PenglaiInstallerProcessIds $RootProcessId $InstallerPath $InstallTarget | Where-Object {
-    Get-Process -Id $_ -ErrorAction SilentlyContinue
-  })
-  if ($leftovers.Count -gt 0) { throw "installer UI proof left a bound process tree running" }
+  $detail = @(
+    foreach ($processId in $leftovers) {
+      $row = Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction SilentlyContinue
+      "pid=$processId name=$($row.Name) cmd=$($row.CommandLine)"
+    }
+  ) -join '; '
+  throw "installer UI proof left a bound process tree running: $detail"
 }
 
 $installerPath = [System.IO.Path]::GetFullPath($Installer)

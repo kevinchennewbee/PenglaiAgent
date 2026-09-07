@@ -323,6 +323,9 @@ test("NSIS script always preserves user data after in-app exact deletion", () =>
   assert.match(uiProof, /UIAutomationClient/);
   assert.match(uiProof, /PrintWindow/);
   assert.doesNotMatch(uiProof, /CopyFromScreen/);
+  assert.match(uiProof, /windows-installer-ui-proof\.ps1/);
+  assert.match(uiProof, /\$ids\.Remove\(\$PID\)/);
+  assert.match(uiProof, /for \(\$attempt = 0; \$attempt -lt 10; \$attempt \+= 1\)/);
   assert.match(payload, /public-export\.json/);
   assert.match(payload, /release-info\.json/);
   assert.match(payload, /stamp-windows-exe\.mjs/);
