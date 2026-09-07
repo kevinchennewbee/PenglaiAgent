@@ -18,7 +18,11 @@ test("PDF inspect keeps full created body and does not treat title metadata as t
   const seen = await inspectPdf(bytes);
   assert.ok(seen.text.includes("alpha-line"));
   assert.ok(seen.text.length > 180);
-  assert.ok(seen.parts.some((part) => part.startsWith("page0:") && part.includes("alpha-line")));
+  assert.ok(seen.parts.some((part) => /^page\d+:/.test(part) && part.includes("alpha-line")));
+  assert.equal(
+    seen.parts.some((part) => part.startsWith("title:") && part.includes("alpha-line")),
+    false,
+  );
 });
 
 test("PDF page preview is bound to the reviewed artifact digest", async () => {
