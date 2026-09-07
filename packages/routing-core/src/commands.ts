@@ -1,4 +1,4 @@
-import { PenglaiError, type ControlCommand } from "@penglai/contracts";
+import { PenglaiError, RELEASE, type ControlCommand } from "@penglai/contracts";
 import { formatNumberedHelp, type MenuLocale } from "./menu.js";
 
 const COMMANDS = [
@@ -142,7 +142,7 @@ export const KNOWN_COMMANDS: readonly string[] = COMMANDS;
 
 export function versionText(): string {
   return [
-    "Penglai 0.5.10",
+    `Penglai ${RELEASE}`,
     "DSH 0.1.2-rc.1 dsh-v0.1.2-rc.1 a66e4702047846cdaa10c66c9d3df3951f5ea70d",
     "DSH-IM reference v3.0.5 unsigned tag 63bdfc72be1289097e3c73acb95ba9260531091d peeled 64587b3b6162fa34f1c3ddb335a254d4154c9175",
   ].join("\n");

@@ -18,8 +18,8 @@ import { FIRST_PARTY_PLUGIN_METADATA } from "../../runtime/src/plugin-catalog.js
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 
-test("release truth pins Penglai 0.5.10", () => {
-  assert.equal(PRODUCT_VERSION, "0.5.10");
+test("release truth pins Penglai 0.5.11", () => {
+  assert.equal(PRODUCT_VERSION, "0.5.11");
 });
 
 test("DSH alpha source commit and closure digests are exact", () => {
@@ -37,7 +37,7 @@ test("R55-TRUTH-003 only three exact target installers", () => {
 });
 
 test("release version has no older tag drift", () => {
-  assert.equal(PRODUCT_VERSION, "0.5.10");
+  assert.equal(PRODUCT_VERSION, "0.5.11");
   assert.equal(PRODUCT_VERSION.includes("0.5.6") || PRODUCT_VERSION.includes("0.5.7"), false);
 });
 

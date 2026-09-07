@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { timingSafeEqual } from "node:crypto";
-import { assertSafeListenHost, exactHostAllowed, exactOriginAllowed, isRecord, PenglaiError } from "@penglai/contracts";
+import { assertSafeListenHost, exactHostAllowed, exactOriginAllowed, isRecord, PenglaiError, RELEASE } from "@penglai/contracts";
 import type { RoutingControlPlane } from "@penglai/routing-core";
 
 export interface ControlServer {
@@ -64,7 +64,7 @@ export async function startControlServer(
         return;
       }
       if (req.url === "/health") {
-        res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, release: "0.5.10" }));
+        res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, release: RELEASE }));
         return;
       }
       const hdr = String(req.headers["x-penglai-token"] ?? "");

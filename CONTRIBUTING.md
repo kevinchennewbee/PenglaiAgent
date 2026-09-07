@@ -3,7 +3,7 @@
 Penglai is a desktop distribution of official DeepSeek Harness. Follow the
 current `AGENTS.md` and version contract. Commit, push, PR and merge only with
 the user's applicable authorization. Completed 0.5.10 publication does not
-authorize another release.
+authorize rewriting that release. 0.5.11 follows the current product contract.
 
 ## Prerequisites
 

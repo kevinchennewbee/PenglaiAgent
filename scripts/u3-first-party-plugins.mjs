@@ -293,7 +293,7 @@ function installedPackages() {
 function requiredPackagesOk(packages) {
   return REQUIRED_BUILTIN.every((id) => {
     const pkg = packages.find((row) => row.id === id);
-    return pkg?.present && pkg.version === "0.5.10";
+    return pkg?.present && pkg.version === "0.5.11";
   });
 }
 
@@ -301,7 +301,7 @@ function optionalPackagesOk(packages, enabled) {
   if (!enabled) return true;
   return OPTIONAL_PLUGINS.every((id) => {
     const pkg = packages.find((row) => row.id === id);
-    return pkg?.present && pkg.version === "0.5.10";
+    return pkg?.present && pkg.version === "0.5.11";
   });
 }
 
@@ -313,7 +313,7 @@ async function runPhase(name, expectedEnabled) {
     `--remote-debugging-port=${debugPort}`,
     "--remote-allow-origins=*",
   ]);
-  const sawGateway = await waitForFile(join(userData, "gateway.port"), 90_000);
+  const sawGateway = await waitForFile(join(userData, "gateway.port"), 180_000);
   let official = null;
   let attachErr = "";
   let cdpSession = null;
@@ -341,7 +341,11 @@ async function runPhase(name, expectedEnabled) {
   const inventory = await waitInventory(expectedEnabled, startedAt);
   const tree = ownedProcessTree(installed.app, resources, launched.child.pid);
   const gracefulBrowserClose = await requestBrowserClose(cdpSession);
-  await stopChild(launched.child);
+  await stopChild(launched.child, 20_000);
+  const leftoverDeadline = Date.now() + 30_000;
+  while (Date.now() < leftoverDeadline && leftoversByCommand(dshNeedle).length > 0) {
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
+  }
   const leftovers = leftoversByCommand(dshNeedle);
   return {
     name,

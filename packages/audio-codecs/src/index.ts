@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, RELEASE } from "@penglai/contracts";
 import {
   Application,
   Signal,
@@ -292,7 +292,7 @@ function opusHead(preSkip: number): Buffer {
 }
 
 function opusTags(): Buffer {
-  const vendor = Buffer.from("Penglai 0.5.10", "utf8");
+  const vendor = Buffer.from(`Penglai ${RELEASE}`, "utf8");
   const out = Buffer.alloc(8 + 4 + vendor.length + 4);
   out.write("OpusTags", 0);
   out.writeUInt32LE(vendor.length, 8);

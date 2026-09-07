@@ -1,4 +1,4 @@
-name: Native 0.5.10 release candidate
+name: Native 0.5.11 release candidate
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: native-0.5.10-${{ inputs.mode }}-${{ github.ref }}
+  group: native-0.5.11-${{ inputs.mode }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -87,12 +87,12 @@ jobs:
           - runner: macos-15
             target: darwin-aarch64
             package: package:dmg:arm
-            installer: Penglai_0.5.10_macos_aarch64.dmg
+            installer: Penglai_0.5.11_macos_aarch64.dmg
             previous: Penglai_0.5.8_macos_aarch64.dmg
           - runner: macos-15-intel
             target: darwin-x86_64
             package: package:dmg:intel
-            installer: Penglai_0.5.10_macos_x64.dmg
+            installer: Penglai_0.5.11_macos_x64.dmg
             previous: Penglai_0.5.8_macos_x64.dmg
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 300
@@ -181,7 +181,7 @@ jobs:
       - name: Upload installer and target evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.10-${{ matrix.target }}
+          name: penglai-0.5.11-${{ matrix.target }}
           if-no-files-found: error
           retention-days: 14
           path: |
@@ -306,7 +306,7 @@ jobs:
         shell: pwsh
         run: >-
           ./scripts/windows-installer-ui-proof.ps1
-          -Installer ./dist/Penglai_0.5.10_windows_x64_setup.exe
+          -Installer ./dist/Penglai_0.5.11_windows_x64_setup.exe
           -OutDir ./evidence/generated
       - name: Full installed product and onboarding suite
         shell: pwsh
@@ -346,11 +346,11 @@ jobs:
       - name: Upload installer and target evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.10-win32-x86_64
+          name: penglai-0.5.11-win32-x86_64
           if-no-files-found: error
           retention-days: 14
           path: |
-            dist/Penglai_0.5.10_windows_x64_setup.exe
+            dist/Penglai_0.5.11_windows_x64_setup.exe
             evidence/generated/local-installer-win32-x86_64.json
             evidence/generated/verify-closure-win32-x86_64.json
             evidence/generated/verify-artifact-win32-x86_64.json
@@ -398,15 +398,15 @@ jobs:
           pnpm build
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.5.10-darwin-aarch64
+          name: penglai-0.5.11-darwin-aarch64
           path: .native/darwin-aarch64
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.5.10-darwin-x86_64
+          name: penglai-0.5.11-darwin-x86_64
           path: .native/darwin-x86_64
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.5.10-win32-x86_64
+          name: penglai-0.5.11-win32-x86_64
           path: .native/win32-x86_64
       - name: Collect only target-bound evidence
         shell: bash
@@ -431,7 +431,7 @@ jobs:
       - name: Upload consolidated native evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.10-native-evidence-set
+          name: penglai-0.5.11-native-evidence-set
           if-no-files-found: error
           retention-days: 14
           path: |

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Community-verified macOS DMG for Penglai 0.5.10.
+ * Community-verified macOS DMG for Penglai 0.5.11.
  * Follows PenglaiAgent v0.4.1: complete ad-hoc app seal, codesign strict
  * verification, ordinary UDZO DMG, hdiutil verify. Not Developer ID, not notarized.
  */
@@ -78,14 +78,14 @@ const targetArg = process.argv.includes("--target")
   : process.env.PENGLAI_PACK_TARGET;
 const TARGETS = {
   "darwin-arm64": {
-    out: "dist/Penglai-v0.5.10-arm64",
-    dmg: "dist/Penglai_0.5.10_macos_aarch64.dmg",
-    from: "dist/Penglai-v0.5.10-arm64-from-dmg",
+    out: "dist/Penglai-v0.5.11-arm64",
+    dmg: "dist/Penglai_0.5.11_macos_aarch64.dmg",
+    from: "dist/Penglai-v0.5.11-arm64-from-dmg",
   },
   "darwin-x64": {
-    out: "dist/Penglai-v0.5.10-x64",
-    dmg: "dist/Penglai_0.5.10_macos_x64.dmg",
-    from: "dist/Penglai-v0.5.10-x64-from-dmg",
+    out: "dist/Penglai-v0.5.11-x64",
+    dmg: "dist/Penglai_0.5.11_macos_x64.dmg",
+    from: "dist/Penglai-v0.5.11-x64-from-dmg",
   },
 };
 if (!targetArg || !TARGETS[targetArg]) {
@@ -212,7 +212,7 @@ const dirty =
 const hash = sha256(dmgPath);
 const info = {
   productName: "Penglai",
-  productVersion: "0.5.10",
+  productVersion: "0.5.11",
   name: targetSpec.dmg
     .split("/")
     .pop()

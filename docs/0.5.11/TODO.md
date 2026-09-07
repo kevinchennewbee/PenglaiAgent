@@ -261,3 +261,13 @@ Remaining owner actions after this pass: merge PR 133 if wanted; Intel Mac + Win
 | P03–P05 | blocked | No 0.5.11 contract assets, no publication authorization, no public-byte readback. Do not rewrite 0.5.10. Do not announce 0.5.11 downloads. |
 
 Owner actions to close those rows: merge PR 133 if that is the intended development landing; run the three-target native workflow from a clean `main` SHA on matching hosts; collect installed lifecycle evidence; optionally supply live credentials or leave V11 unrun; then authorize `v0.5.11` publication.
+
+## Incremental verification — 2026-09-07 (0.5.11 identity retitle)
+
+F05 identity is now retitled on `release/0.5.11` from `origin/main` `24b7aa09`. Public 0.5.10 tags/assets are not rewritten. README/website/SECURITY.md download tables stay 0.5.10 until public 0.5.11 bytes exist.
+
+- `package.json`, workspace packages, `profile-seed`, `release-info.json`, `release-contract.json`, installer names, updater sequence 7, and `PUBLICATION_TARGET` are **0.5.11**.
+- DSH cohort snapshot paths remain `docs/0.5.10/DSH_*`. Previous public freeze remains immutable v0.5.10.
+- Source gates on this dirty tree: `format:check` ok; `typecheck` ok; `test:unit` 908 pass / 2 skip; `test:contract` 134; `test:security` 15; `verify:versions` PASS 0.5.11; `verify:identity` PASS dirty=true UNFROZEN; `verify:contracts` ok 0.5.11.
+- Intel native u3 on 0.5.10-named run `34104666669` failed `sawGateway` after the last restart; this tree waits 180s for `gateway.port` and drains leftover DSH processes before the next phase. That run cannot publish as 0.5.11.
+- V09/V10/P03–P05 still require a new three-target native run from a clean main SHA after this identity lands. Do not publish 0.5.10-named artifacts as 0.5.11.

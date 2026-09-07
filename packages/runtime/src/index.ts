@@ -19,7 +19,7 @@ import { userInfo } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { createConnection, createServer } from "node:net";
-import { PenglaiError, readExactRegularFile, assertCenterJournalHeader, centerProfileWasUntouched } from "@penglai/contracts";
+import { PenglaiError, RELEASE, readExactRegularFile, assertCenterJournalHeader, centerProfileWasUntouched } from "@penglai/contracts";
 import {
   clearIdentity,
   killIdentity,
@@ -81,7 +81,7 @@ export * from "./packaging.js";
 export * from "./fuses.js";
 export * from "./dsh-web-auth.js";
 
-export const PENGLAI_VERSION = "0.5.10";
+export const PENGLAI_VERSION = RELEASE;
 export const PINNED_DSH = "0.1.2-rc.1";
 export const PINNED_NODE = "22.22.2";
 export const PINNED_ELECTRON = "43.4.0";

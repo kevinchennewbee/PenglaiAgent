@@ -12,9 +12,9 @@
   `release-contract.json`, and the current source are the release truth. Reports
   from another model are leads, not evidence. Do not cite files that do not
   exist.
-- On `codex/0.5.10-release`, `docs/0.5.10/` and the current preview source additionally
-  govern development work. They are not public-release truth and must not modify
-  or weaken the immutable published 0.5.8 or 0.5.9 history.
+- For 0.5.11, `docs/0.5.11/` and the current source govern development work.
+  They are not public-release truth until immutable `v0.5.11` bytes exist, and
+  must not modify or weaken the published 0.5.8, 0.5.9 or 0.5.10 history.
 
 ## Product boundary
 
@@ -25,7 +25,7 @@
   optional and default off.
 - 0.5.8 is immutable public history built from official DSH
   `dsh-v0.1.2-alpha.1` / `cd5ef8148158c3a752a658978873241fdf8e2bbc`.
-- For 0.5.10 development, the Owner-fixed upstream baseline is the
+- For 0.5.11, the Owner-fixed upstream baseline remains the
   official npm `next` cohort at exact version `0.1.2-rc.1`, tag
   `dsh-v0.1.2-rc.1`, commit
   `a66e4702047846cdaa10c66c9d3df3951f5ea70d`. Penglai consumes the complete
@@ -55,10 +55,11 @@
   commit/version, digest, license, patch, and reproducible fetch/build procedure.
 - Do not claim installed, native, live, Windows, Intel, notarized, Authenticode,
   or public-release evidence from source tests or cross-build output.
-- Preview work may be committed and pushed only to `codex/0.5.10-release`. The Owner has
-  authorized eventual PR, `main` merge, three-target native build, and v0.5.10
-  publication only after the applicable gates pass. Do not change an existing
-  release tag/asset, publish preview bytes, or deploy a public surface early.
+- 0.5.11 identity, native and publication work lands through `release/0.5.11`
+  onto `main`. The Owner has authorized PR, `main` merge, three-target native
+  build, and v0.5.11 publication only after the applicable gates pass. Do not
+  change an existing release tag/asset, publish preview bytes, or deploy a
+  public download claim before public bytes exist.
 
 ## Verification and release
 
@@ -91,8 +92,8 @@
 - 产品宪法、产品与架构文档、验收清单、0.5.7 发布手册、发布契约和当前源码
   才是发布事实；不要引用不存在的状态或计划文件。其他模型的报告只能作为线索，
   不能作为证据。
-- 在 `codex/0.5.10-release` 上，`docs/0.5.10/` 与当前预览源码同时约束开发；它们不是
-  公开发布事实，也不得修改或削弱已经不可变发布的 0.5.8 或 0.5.9 历史。
+- 0.5.11 以 `docs/0.5.11/` 与当前源码约束开发；在不可变 `v0.5.11` 公网字节存在前
+  它们不是公开发布事实，也不得修改或削弱已经不可变发布的 0.5.8、0.5.9 或 0.5.10 历史。
 
 ## 产品边界
 
@@ -102,7 +103,7 @@
   插件；手机消息、语音识别、语音生成、主动陪伴为内置可选插件，默认关闭。
 - 0.5.8 是基于官方 DSH `dsh-v0.1.2-alpha.1` /
   `cd5ef8148158c3a752a658978873241fdf8e2bbc` 的不可变公开历史。
-- 0.5.10 开发的 Owner 固定上游基线为官方 npm `next` 通道的精确
+- 0.5.11 的 Owner 固定上游基线仍为官方 npm `next` 通道的精确
   `0.1.2-rc.1`，tag `dsh-v0.1.2-rc.1`、commit
   `a66e4702047846cdaa10c66c9d3df3951f5ea70d`。Penglai 必须消费完整固定且带
   registry integrity 的 254 包 DSH/vendor/Landlock cohort；不得混装不同 DSH 代际，也不得用源码路径、Git 依赖或本地重打包替代。依赖图、lockfile、runtime
@@ -122,9 +123,9 @@
 - 修能力类别，不写输入特判，不伪造 PASS，不用 mock 冒充生产，不用超时当成功。
 - 禁止提交 API Key、Token、私钥、个人路径、聊天媒体、本地配置或含隐私截图。
 - 源码测试不等于已安装、原生、在线、Windows、Intel、公证或公开发布证据。
-- 预览工作只能提交并推送到 `codex/0.5.10-release`。Owner 已授权在适用门禁全部通过后
-  创建 PR、合并 `main`、完成三端原生构建并发布 v0.5.10；不得提前改写既有发布
-  tag/附件、发布预览字节或部署公开页面。
+- 0.5.11 身份、原生与发布工作经 `release/0.5.11` 进入 `main`。Owner 已授权在适用
+  门禁全部通过后创建 PR、合并 `main`、完成三端原生构建并发布 v0.5.11；不得改写
+  既有发布 tag/附件，也不得在公网字节存在前部署 0.5.11 下载声明。
 - 三端安装引导必须完整验证全新安装、重启续跑、返回/重试、非法目录、凭据失败
   恢复、首条官方消息、升级和卸载；三个安装包必须来自同一个干净 main SHA。
 - 发布严格执行 `docs/0.5.7/RELEASE_RUNBOOK.md`，README、官网、发行说明与用户

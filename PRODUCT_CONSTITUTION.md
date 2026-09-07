@@ -39,8 +39,8 @@
 
 ## 当前发行边界
 
-- 当前产品与发布契约为 **Penglai v0.5.10**，基于官方 DSH `0.1.2-rc.1` npm cohort。蓬莱办公与蓬莱记忆为 required-builtin DSH 插件；消息连接、语音识别、语音生成、主动陪伴随包但默认关闭。机器可读候选身份来自 `packages/release-identity/src/pins.ts` 与 `release-contract.json`；该目标不代表已经公开，公开下载事实只来自不可变 GitHub Release 回读。
-- 三个 target key 全仓统一：`darwin-aarch64`、`darwin-x86_64`、`win32-x86_64`。0.5.10 目标安装包分别为 `Penglai_0.5.10_macos_aarch64.dmg`、`Penglai_0.5.10_macos_x64.dmg`、`Penglai_0.5.10_windows_x64_setup.exe`。禁止把 ARM Electron 改名成 Intel 包；禁止把 Windows 预检或交叉编译写成 native PASS。
+- 当前产品与发布契约为 **Penglai v0.5.11**，基于官方 DSH `0.1.2-rc.1` npm cohort。蓬莱办公与蓬莱记忆为 required-builtin DSH 插件；消息连接、语音识别、语音生成、主动陪伴随包但默认关闭。机器可读候选身份来自 `packages/release-identity/src/pins.ts` 与 `release-contract.json`；该目标不代表已经公开，公开下载事实只来自不可变 GitHub Release 回读。已发布的 **v0.5.10** tag 与附件保持不可变。
+- 三个 target key 全仓统一：`darwin-aarch64`、`darwin-x86_64`、`win32-x86_64`。0.5.11 目标安装包分别为 `Penglai_0.5.11_macos_aarch64.dmg`、`Penglai_0.5.11_macos_x64.dmg`、`Penglai_0.5.11_windows_x64_setup.exe`。禁止把 ARM Electron 改名成 Intel 包；禁止把 Windows 预检或交叉编译写成 native PASS。
 - 0.5.0 已发布的 Apple Silicon 客户端只能手动覆盖安装到 0.5.1；0.5.1 之后同平台才走 PUDP。不得声称 0.5.0 可一键升级。Intel/Windows 在 0.5.0 没有客户端，视为全新安装。
 - PPDP 是 0.5.1 产品能力，不是未来 TODO：签名目录、受限 GitHub 资产下载、默认禁用、主进程 Owner capability、DSH loader/profile 事务、inventory 回读。
 - 本地语音与第一方插件合同：`@penglai/asr`、`@penglai/moss-tts` 必须进入真实 DSH loader/Center，并服务 DSH Web 与 live 微信/飞书的受支持能力。会话 Read 朗读原文，不冒充翻译。`@penglai/office` 与 `@penglai/memory` 是 required-builtin；`@penglai/im`、`@penglai/asr`、`@penglai/moss-tts`、`@penglai/companion` 随包且默认关闭。旧 `@penglai/context` 只用于迁移。Goal/Todo/Skills/MCP/Web/图片 Attachments/Schedule/TokenMeter 使用 official DSH；rc.2 没有 generic file Turn API 时不得用 DOM hack 或第二会话引擎补齐。
@@ -49,8 +49,8 @@
 - community trust tier 不变：macOS ad-hoc / not notarized；Windows 无 Authenticode/SmartScreen 声誉。安装包及更新/插件清单仍须有 SHA-256、SBOM/notices，并诚实提示系统信誉警告。Penglai 自己的 Ed25519 更新/插件签名必须使用。
 - GitHub Actions 与 required CodeQL 当前可用，但不能替代安装包验收。Apple Silicon 本机可产生 darwin-aarch64 候选；Intel 与 Windows 的 native PASS 必须来自对应原生 runner。交叉构建或 Rosetta 只能作为补充证据。
 - 默认“智能整理 Workspace”：自动 curator 必须走 official Agent、禁用工具、Host 封闭校验，只能把安全项目事实写入 exact Workspace；个人/全局记忆仍需 Owner 确认，召回不得跨 Workspace。
-- Owner 已授权 0.5.10 功能分支开发与推送，在完整审核和正常门禁通过后创建 PR、合并 main，从同一干净 main SHA 完成三端原生构建及完整十项附件发布，随后更新 README、官网与公开文档。两小时测试不运行，也不是补充待办。临时 API key、聊天正文、二维码、账号身份、私有路径、profile、凭据或私钥仍不得上传。
-- **0.5.11 开发冻结**（D-067）：`codex/0.5.11` 继续消费官方 DSH `0.1.2-rc.1` 完整 254 包 npm cohort；`dsh-v0.1.3-alpha.1` 不得混装。公开产品身份仍是 **Penglai v0.5.10**。在没有新的发布授权前，不得把 package/lock/profile/`release-contract.json` 改写成 0.5.11，也不得改写已发布的 0.5.10 tag 或附件。精确冻结记录见 `docs/0.5.11/COHORT_FREEZE.json`。
+- Owner 已授权 **Penglai 0.5.11** 完整开发、正常测试、推送与 PR 合并、三端原生构建、完整十项附件发布及 README/官网收尾；固定官方 DSH `0.1.2-rc.1` npm cohort；明确排除两小时测试。已发布的 0.5.10 tag 与附件不得改写。临时 API key、聊天正文、二维码、账号身份、私有路径、profile、凭据或私钥仍不得上传。
+- **0.5.11 发布授权**（D-067）：继续消费官方 DSH `0.1.2-rc.1` 完整 254 包 npm cohort；`dsh-v0.1.3-alpha.1` 不得混装。产品身份、`package.json`、`release-contract.json` 与安装包文件名改为 **0.5.11**。精确冻结记录见 `docs/0.5.11/COHORT_FREEZE.json`。
 
 0.5.8 的预览方向不改写已经公开的 0.5.7 tag、Release、附件或历史文档。迁移到新 DSH 时必须从现行源代码与产品表面移除 WhatsApp 的说明卡、channel identity、连接路径、adapter/runtime 接线、Baileys/libsignal 依赖以及任何支持或路线图声明；Git 历史与明确标注为历史的发行审计记录继续保留。移除完成后需用 catalog、依赖闭包、lockfile、SBOM、许可证、安装包内容和用户界面反向证明 WhatsApp 不再属于 Penglai。
 

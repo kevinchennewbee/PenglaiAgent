@@ -23,18 +23,19 @@ const bundled: PluginCatalogEntry = {
 };
 
 test("newer signed remote wins; older, equal, or DSH-mismatched remote keeps bundled", () => {
+  const newerVersion = `${bundled.version}.1`;
   const newer = resolvePluginCatalogEntry({
     bundled,
     remote: {
       id: bundled.id,
-      version: "0.5.11",
+      version: newerVersion,
       sha256: "b".repeat(64),
       dshExact: PINNED_PLUGIN_DSH,
     },
   });
   assert.deepEqual(newer, {
     source: "remote",
-    version: "0.5.11",
+    version: newerVersion,
     sha256: "b".repeat(64),
     id: bundled.id,
   });
@@ -67,7 +68,7 @@ test("newer signed remote wins; older, equal, or DSH-mismatched remote keeps bun
     bundled,
     remote: {
       id: bundled.id,
-      version: "0.5.11",
+      version: newerVersion,
       sha256: "e".repeat(64),
       dshExact: "0.1.3-alpha.1",
     },
