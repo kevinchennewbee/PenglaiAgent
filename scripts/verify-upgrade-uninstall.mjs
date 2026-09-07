@@ -122,6 +122,20 @@ async function boot(app, userData, label) {
   return { gateway, inventory, freshReadiness, exitCode: code, signal };
 }
 
+function readWindowsSetupLog() {
+  const temp = process.env.TEMP || process.env.TMP || "";
+  const log = temp ? join(temp, "penglai-setup.log") : "";
+  if (!log || !existsSync(log)) return "";
+  const bytes = readFileSync(log);
+  const text =
+    bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe
+      ? bytes.subarray(2).toString("utf16le")
+      : bytes.includes(0)
+        ? bytes.toString("utf16le")
+        : bytes.toString("utf8");
+  return sanitizeEvidenceText(text, 2_000);
+}
+
 function installWindows(installer, label) {
   const run = spawnSync(installer, ["/S"], { encoding: "utf8", windowsHide: true, timeout: 20 * 60_000 });
   if (run.error || run.status !== 0) {
@@ -131,6 +145,7 @@ function installWindows(installer, label) {
       error: run.error?.code,
       stdout: sanitizeEvidenceText(String(run.stdout ?? ""), 1_000),
       stderr: sanitizeEvidenceText(String(run.stderr ?? ""), 1_000),
+      setupLog: readWindowsSetupLog(),
     });
   }
   const localAppData = process.env.LOCALAPPDATA;

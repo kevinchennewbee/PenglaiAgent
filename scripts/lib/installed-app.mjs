@@ -51,7 +51,7 @@ export function leftoversByCommand(needle) {
       [
         "-NoProfile",
         "-Command",
-        "Get-CimInstance Win32_Process | ForEach-Object { '{0} {1} {2}' -f $_.ProcessId, $_.ParentProcessId, $_.CommandLine }",
+        "Get-CimInstance Win32_Process | ForEach-Object { '{0} {1} {2} {3} {4}' -f $_.ProcessId, $_.ParentProcessId, $_.Name, $_.ExecutablePath, $_.CommandLine }",
       ],
       { encoding: "utf8" },
     );

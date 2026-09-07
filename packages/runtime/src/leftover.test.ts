@@ -233,6 +233,22 @@ test("Windows upgrade refuses the old live-tree delete-then-copy pattern", async
   const live = readFileSync(new URL("../../../scripts/nsis/Penglai.nsi", import.meta.url), "utf8");
   assertWindowsUpgradeStaging(live);
   assertWindowsNsisScript(live);
+  assert.match(live, /upgrade_rename_live/);
+  assert.match(live, /taskkill\.exe/);
+  assert.match(live, /\/IM Penglai\.exe/);
+  assert.match(live, /penglai-setup\.log/);
+  const noRetry = `
+    StrCpy $R2 "$INSTDIR.pending"
+    SetOutPath "$R2"
+    upgrade_copy_failed:
+    previous install was left in place
+    upgrade_activate_failed:
+    $INSTDIR.previous
+    ClearErrors
+    Rename "$INSTDIR" "$INSTDIR.previous"
+    IfErrors upgrade_activate_failed
+  `;
+  assert.throws(() => assertWindowsUpgradeStaging(noRetry), /stop Penglai\.exe and retry/);
   const oldLiveDeleteThenCopy = `
 RequestExecutionLevel user
 Section "Penglai"
