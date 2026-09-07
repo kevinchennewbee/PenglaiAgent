@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { PRODUCT_VERSION } from "./pins.js";
 import {
   assertPublicationOnlyChanges,
   assertWebsitePublication,
@@ -13,10 +14,11 @@ import {
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "../../..");
 const sourceSha = "a".repeat(40);
 const repo = "kevinchennewbee/PenglaiAgent";
+const tag = `v${PRODUCT_VERSION}`;
 const names = [
-  "Penglai_0.5.10_macos_aarch64.dmg",
-  "Penglai_0.5.10_macos_x64.dmg",
-  "Penglai_0.5.10_windows_x64_setup.exe",
+  `Penglai_${PRODUCT_VERSION}_macos_aarch64.dmg`,
+  `Penglai_${PRODUCT_VERSION}_macos_x64.dmg`,
+  `Penglai_${PRODUCT_VERSION}_windows_x64_setup.exe`,
 ];
 const installers = names.map((name, index) => ({
   name,
@@ -45,28 +47,31 @@ function narrative(exactBytes: boolean): string {
     const size = exactBytes
       ? new Intl.NumberFormat("en-US").format(installer.size)
       : `${(installer.size / 1024 / 1024).toFixed(1)} MiB`;
-    return `https://github.com/${repo}/releases/download/v0.5.10/${installer.name} ${size} ${installer.sha256}`;
+    return `https://github.com/${repo}/releases/download/${tag}/${installer.name} ${size} ${installer.sha256}`;
   });
   return [
-    "Penglai 0.5.10",
+    `Penglai ${PRODUCT_VERSION}`,
     "0.1.2-rc.1",
     sourceSha,
-    `https://github.com/${repo}/releases/tag/v0.5.10`,
-    "docs/RELEASE_NOTES_0.5.10.md",
+    `https://github.com/${repo}/releases/tag/${tag}`,
+    `docs/RELEASE_NOTES_${PRODUCT_VERSION}.md`,
     ...rows,
   ].join("\n");
 }
 
 function websiteNarrative(language: "chinese" | "english"): string {
-  const title = language === "chinese" ? "<title>蓬莱 0.5.10 | 下载</title>" : "<title>Penglai 0.5.10 | Download</title>";
+  const title =
+    language === "chinese"
+      ? `<title>蓬莱 ${PRODUCT_VERSION} | 下载</title>`
+      : `<title>Penglai ${PRODUCT_VERSION} | Download</title>`;
   return `${title}\n${narrative(false)}`;
 }
 
 function validInput(): WebsitePublicationInput {
   return {
     repo,
-    version: "0.5.10",
-    tag: "v0.5.10",
+    version: PRODUCT_VERSION,
+    tag,
     dshVersion: "0.1.2-rc.1",
     peeledSourceSha: sourceSha,
     targetCommitish: sourceSha,
@@ -80,9 +85,12 @@ function validInput(): WebsitePublicationInput {
     sha256Sums: sums,
     changedPaths: [
       "README.md",
-      "docs/PUBLICATION_0.5.10.md",
-      "docs/PUBLICATION_MANIFEST_0.5.10.md",
-      "docs/RELEASE_NOTES_0.5.10.md",
+      "SECURITY.md",
+      `docs/PUBLICATION_MANIFEST_${PRODUCT_VERSION}.md`,
+      `docs/RELEASE_NOTES_${PRODUCT_VERSION}.md`,
+      `docs/${PRODUCT_VERSION}/TODO.md`,
+      "packages/release-identity/src/website-publication.ts",
+      "scripts/readback-website.mjs",
       "website/index.html",
       "website/en/index.html",
       "website/styles/main.css",
@@ -95,34 +103,59 @@ function validInput(): WebsitePublicationInput {
   };
 }
 
-test("website publication binds public content to immutable v0.5.10 and its peeled commit", () => {
+test("website publication binds public content to the current immutable tag and its peeled commit", () => {
   assert.doesNotThrow(() => assertWebsitePublication(validInput()));
 });
 
-test("website publication rejects a stale 0.5.8 installer page and wrong target_commitish", () => {
+test("website publication rejects a previous-version pin and a stale installer page", () => {
+  const previous = validInput();
+  previous.version = "0.0.0";
+  previous.tag = "v0.0.0";
+  assert.throws(() => assertWebsitePublication(previous), new RegExp(`not exact v${PRODUCT_VERSION.replaceAll(".", "\\.")}`));
   const stale = validInput();
-  stale.files.chinese = stale.files.chinese.replaceAll("v0.5.10/Penglai_0.5.10", "v0.5.8/Penglai_0.5.8");
+  stale.files.chinese = stale.files.chinese.replaceAll(
+    `${tag}/Penglai_${PRODUCT_VERSION}`,
+    "v0.5.8/Penglai_0.5.8",
+  );
   assert.throws(() => assertWebsitePublication(stale), /installer URLs/);
   const wrongTarget = validInput();
   wrongTarget.targetCommitish = "b".repeat(40);
   assert.throws(() => assertWebsitePublication(wrongTarget), /target_commitish/);
 });
 
-test("website publication rejects a stale 0.5.8 HTML title even when current facts were appended", () => {
+test("website publication rejects a stale HTML title even when current facts were appended", () => {
   const staleTitle = validInput();
   staleTitle.files.english = staleTitle.files.english.replace(
-    "<title>Penglai 0.5.10 | Download</title>",
-    "<title>Penglai 0.5.8 | Download</title>\n<title>Penglai 0.5.10 | Download</title>",
+    `<title>Penglai ${PRODUCT_VERSION} | Download</title>`,
+    `<title>Penglai 0.5.8 | Download</title>\n<title>Penglai ${PRODUCT_VERSION} | Download</title>`,
   );
   assert.throws(() => assertWebsitePublication(staleTitle), /stale 0\.5\.8 title/);
 });
 
 test("website publication permits only the post-readback narrative delta", () => {
+  const required = [
+    "README.md",
+    `docs/PUBLICATION_MANIFEST_${PRODUCT_VERSION}.md`,
+    `docs/RELEASE_NOTES_${PRODUCT_VERSION}.md`,
+    "website/index.html",
+    "website/en/index.html",
+  ];
+  assert.doesNotThrow(() =>
+    assertPublicationOnlyChanges([...required, `docs/${PRODUCT_VERSION}/TODO.md`, "packages/release-identity/src/website-publication.ts"]),
+  );
   assert.throws(
-    () => assertPublicationOnlyChanges(["README.md", "website/index.html", "website/en/index.html", "apps/desktop/src/index.ts"]),
+    () => assertPublicationOnlyChanges([...required, "apps/desktop/src/index.ts"]),
     /non-publication changes/,
   );
   assert.throws(() => assertPublicationOnlyChanges(["website/index.html", "website/en/index.html"]), /README\.md/);
+  assert.throws(
+    () => assertPublicationOnlyChanges(["README.md", "website/index.html", "website/en/index.html", `docs/RELEASE_NOTES_${PRODUCT_VERSION}.md`]),
+    new RegExp(`PUBLICATION_MANIFEST_${PRODUCT_VERSION.replaceAll(".", "\\.")}`),
+  );
+  assert.throws(
+    () => assertPublicationOnlyChanges([...required, "docs/PUBLICATION_0.5.10.md"]),
+    /non-publication changes/,
+  );
 });
 
 test("SHA256SUMS parser rejects duplicate or malformed entries", () => {
@@ -150,4 +183,12 @@ test("website workflow grants write only to the main-gated deployment job", () =
   assert.ok(readback.includes('const origins = ["https://penglai.pages.dev/", "https://kevinchennewbee.github.io/PenglaiAgent/"];'));
   assert.match(readback, /digest\(bytes\) !== file\.sha256/);
   assert.match(readback, /html\.includes\(releaseSha\)/);
+  assert.match(readback, /Penglai \$\{version\}/);
+  assert.doesNotMatch(readback, /Penglai 0\.5\.10/);
+  const verifier = readFileSync(join(root, "scripts/verify-website-release.mjs"), "utf8");
+  assert.match(verifier, /v\$\{contract\.version\}/);
+  assert.doesNotMatch(verifier, /v0\.5\.10/);
+  const publication = readFileSync(join(root, "packages/release-identity/src/website-publication.ts"), "utf8");
+  assert.match(publication, /PRODUCT_VERSION/);
+  assert.doesNotMatch(publication, /=== "0\.5\.10"/);
 });

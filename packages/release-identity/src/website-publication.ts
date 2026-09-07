@@ -1,3 +1,5 @@
+import { PRODUCT_VERSION } from "./pins.js";
+
 const HEX_40 = /^[0-9a-f]{40}$/;
 const HEX_64 = /^[0-9a-f]{64}$/;
 
@@ -54,31 +56,47 @@ function installerUrls(content: string, repo: string): string[] {
   return sortedUnique(content.match(pattern) ?? []);
 }
 
-function publicationPath(path: string): boolean {
+function publicationRecords(version: string): string[] {
+  return [
+    `docs/PUBLICATION_${version}.md`,
+    `docs/PUBLICATION_MANIFEST_${version}.md`,
+    `docs/RELEASE_NOTES_${version}.md`,
+  ];
+}
+
+function publicationPath(path: string, version: string): boolean {
   return (
     path === "README.md" ||
     path === "SECURITY.md" ||
-    path === "docs/PUBLICATION_0.5.10.md" ||
-    path === "docs/PUBLICATION_MANIFEST_0.5.10.md" ||
-    path === "docs/RELEASE_NOTES_0.5.10.md" ||
-    path.startsWith("website/")
+    publicationRecords(version).includes(path) ||
+    path.startsWith(`docs/${version}/`) ||
+    path.startsWith("website/") ||
+    path.startsWith("packages/release-identity/src/website-publication") ||
+    path === "scripts/verify-website-release.mjs" ||
+    path === "scripts/readback-website.mjs" ||
+    path === ".github/workflows/deploy-website.yml"
   );
 }
 
-export function assertPublicationOnlyChanges(paths: string[]): void {
+export function assertPublicationOnlyChanges(paths: string[], version = PRODUCT_VERSION): void {
   const changed = sortedUnique(paths.filter(Boolean));
-  const forbidden = changed.filter((path) => !publicationPath(path));
+  const forbidden = changed.filter((path) => !publicationPath(path, version));
   invariant(forbidden.length === 0, `post-tag website deployment contains non-publication changes: ${forbidden.join(", ")}`);
   for (const required of [
     "README.md",
-    "docs/PUBLICATION_0.5.10.md",
-    "docs/PUBLICATION_MANIFEST_0.5.10.md",
-    "docs/RELEASE_NOTES_0.5.10.md",
+    `docs/PUBLICATION_MANIFEST_${version}.md`,
+    `docs/RELEASE_NOTES_${version}.md`,
     "website/index.html",
     "website/en/index.html",
   ]) {
     invariant(changed.includes(required), `post-readback publication did not update ${required}`);
   }
+}
+
+function titleVersions(content: string): string[] {
+  return [...content.matchAll(/<title>([^<]*)<\/title>/g)].flatMap(
+    (match) => [...(match[1] ?? "").matchAll(/\d+\.\d+\.\d+/g)].map((item) => item[0]),
+  );
 }
 
 export function parseSha256Sums(text: string): Record<string, string> {
@@ -95,15 +113,18 @@ export function parseSha256Sums(text: string): Record<string, string> {
 }
 
 export function assertWebsitePublication(input: WebsitePublicationInput): void {
-  const expectedTag = `v${input.version}`;
-  invariant(input.version === "0.5.10" && input.tag === expectedTag, "website publication is not exact v0.5.10");
+  const expectedTag = `v${PRODUCT_VERSION}`;
+  invariant(
+    input.version === PRODUCT_VERSION && input.tag === expectedTag,
+    `website publication is not exact v${PRODUCT_VERSION}`,
+  );
   invariant(HEX_40.test(input.peeledSourceSha), "peeled release source SHA is invalid");
   invariant(input.targetCommitish === input.peeledSourceSha, "Release target_commitish is not the exact peeled tag commit");
   invariant(input.releaseManifestSourceSha === input.peeledSourceSha, "release manifest source is not the peeled tag commit");
   invariant(input.draft === false && input.prerelease === false && input.immutable === true, "Release is not public immutable stable");
   exactSet(input.actualAssetNames, input.exactAssetNames, "GitHub Release assets");
   exactSet(Object.keys(input.sha256Sums), input.exactAssetNames.filter((name) => name !== "SHA256SUMS"), "SHA256SUMS");
-  assertPublicationOnlyChanges(input.changedPaths);
+  assertPublicationOnlyChanges(input.changedPaths, input.version);
 
   const tagUrl = `https://github.com/${input.repo}/releases/tag/${input.tag}`;
   const expectedUrls = input.installers.map(
@@ -117,8 +138,14 @@ export function assertWebsitePublication(input: WebsitePublicationInput): void {
 
   invariant(input.files.chinese.includes(`<title>蓬莱 ${input.version}`), "Chinese website title is not current");
   invariant(input.files.english.includes(`<title>Penglai ${input.version}`), "English website title is not current");
-  invariant(!/<title>[^<]*0\.5\.8/.test(input.files.chinese), "Chinese website retains the stale 0.5.8 title");
-  invariant(!/<title>[^<]*0\.5\.8/.test(input.files.english), "English website retains the stale 0.5.8 title");
+  for (const [label, content] of [
+    ["Chinese website", input.files.chinese],
+    ["English website", input.files.english],
+  ] as const) {
+    for (const version of titleVersions(content)) {
+      invariant(version === input.version, `${label} retains the stale ${version} title`);
+    }
+  }
 
   for (const narrative of narratives) {
     invariant(narrative.content.includes(`Penglai ${input.version}`), `${narrative.label} lacks the current product version`);
