@@ -544,10 +544,18 @@ export async function stopChild(child, timeoutMs = 8_000) {
     new Promise((resolveTimeout) => setTimeout(() => resolveTimeout({ exited: false }), timeoutMs)),
   ]);
   if (graceful.exited) return graceful.value;
-  try {
-    child.kill("SIGKILL");
-  } catch {
-    /* already gone */
+  if (process.platform === "win32" && Number.isSafeInteger(child.pid) && child.pid > 0) {
+    spawnSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"], {
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 15_000,
+    });
+  } else {
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      /* already gone */
+    }
   }
   const forced = await Promise.race([
     closed.then((value) => ({ exited: true, value })),

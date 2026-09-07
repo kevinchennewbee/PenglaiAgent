@@ -16,6 +16,7 @@ import {
   cleanupRegisteredWindowsInstallerFixture,
   installFromExactDmg,
   launchPackaged,
+  leftoversByCommand,
   readInstalledAppIdentity,
   resourcesInside,
   sha256File,
@@ -77,6 +78,24 @@ async function boot(app, userData, label) {
     userData, () => launchPackaged(executable, resources, userData),
   );
   const [code, signal] = await stopChild(launched.child);
+  const leftoverNeedles = [executable, join(resources, "runtime/dsh/lib/bin.js")].filter(Boolean);
+  const leftoverDeadline = Date.now() + 30_000;
+  while (Date.now() < leftoverDeadline) {
+    const leftover = leftoverNeedles.flatMap((needle) => leftoversByCommand(needle));
+    if (leftover.length === 0) break;
+    if (process.platform === "win32") {
+      for (const line of leftover) {
+        const pid = Number(String(line).split(/\s+/)[0]);
+        if (Number.isSafeInteger(pid) && pid > 0) {
+          spawnSync("taskkill.exe", ["/PID", String(pid), "/T", "/F"], {
+            windowsHide: true,
+            timeout: 15_000,
+          });
+        }
+      }
+    }
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
+  }
   if (!freshReadiness || !gateway || !inventory || (code !== 0 && signal === null)) {
     fail(`${label} did not boot and exit through the installed runtime`, {
       gateway,
@@ -91,9 +110,13 @@ async function boot(app, userData, label) {
 }
 
 function installWindows(installer, label) {
-  const run = spawnSync(installer, ["/S"], { encoding: "utf8" });
-  if (run.status !== 0) {
-    fail(`${label} NSIS install failed`, { status: run.status });
+  const run = spawnSync(installer, ["/S"], { encoding: "utf8", windowsHide: true, timeout: 180_000 });
+  if (run.error || run.status !== 0) {
+    fail(`${label} NSIS install failed`, {
+      status: run.status,
+      timedOut: run.error?.code === "ETIMEDOUT",
+      error: run.error?.code,
+    });
   }
   const localAppData = process.env.LOCALAPPDATA;
   if (!localAppData) fail("LOCALAPPDATA is unavailable on the Windows native runner");
@@ -213,8 +236,18 @@ if (!existsSync(sentinel)) fail("upgrade did not preserve isolated Owner data");
 if (target === "win32-x86_64") {
   const uninstaller = join(app, "Uninstall.exe");
   if (!existsSync(uninstaller)) fail("Windows uninstaller missing after upgrade");
-  const uninstall = spawnSync(uninstaller, ["/S"], { encoding: "utf8" });
-  if (uninstall.status !== 0) fail("Windows uninstaller returned failure", { status: uninstall.status });
+  const uninstall = spawnSync(uninstaller, ["/S", `_?=${app}`], {
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 180_000,
+  });
+  if (uninstall.error || uninstall.status !== 0) {
+    fail("Windows uninstaller returned failure", {
+      status: uninstall.status,
+      timedOut: uninstall.error?.code === "ETIMEDOUT",
+      error: uninstall.error?.code,
+    });
+  }
 } else {
   const exactAppRoot = requireExactChild(appRoot, ROOT, "macOS app test root");
   rmSync(exactAppRoot, { recursive: true, force: true });
