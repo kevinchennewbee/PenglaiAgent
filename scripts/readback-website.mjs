@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const version = JSON.parse(readFileSync(join(root, "release-contract.json"), "utf8")).version;
 
 const origins = ["https://penglai.pages.dev/", "https://kevinchennewbee.github.io/PenglaiAgent/"];
 const index = process.argv.indexOf("--directory");
@@ -21,7 +25,7 @@ function walk(path = "") {
 const files = walk().sort((a, b) => a.name.localeCompare(b.name));
 for (const name of ["index.html", "en/index.html"]) {
   const html = readFileSync(join(directory, name), "utf8");
-  if (!html.includes(releaseSha) || !html.includes("Penglai 0.5.10")) throw new Error(`${name} is not release-linked`);
+  if (!html.includes(releaseSha) || !html.includes(`Penglai ${version}`)) throw new Error(`${name} is not release-linked`);
 }
 const record = { command: "readback-website", verdict: "FAIL", releaseSha, siteSourceSha: process.env.GITHUB_SHA ?? null, origins: [] };
 const output = resolve("evidence/generated/website-public-readback.json");
