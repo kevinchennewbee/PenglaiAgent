@@ -34,7 +34,7 @@ A source PASS never closes a native, live, or public row.
 | F03 | `UPSTREAM_DECISIONS.md` records retain/reject | source | Recheck at publication freeze |
 | F04 | `COHORT_FREEZE.json` + `assertCohortFreeze` | source | Not a public freeze |
 | F05 | Public identity kept at 0.5.10 | source | 0.5.11 retitle needs publication authorization |
-| F06 | CONTRIBUTING Node/pnpm guidance updated | source | Memory curator docs not fully rewritten |
+| F06 | CONTRIBUTING Node/pnpm guidance updated; curator API recorded in `MEMORY_CURATOR.md` | source | Older ARCHITECTURE wording still describes a curator Agent; 0.5.11 source uses `ctx.llm.stream` |
 
 ## Security, scope and data integrity
 

@@ -232,7 +232,18 @@ In-scope 0.5.11 source was committed as `d7f20c7eeadf6722ab832f5cc3374cb7c5e6f77
 - V09: **partial / still open**. One local Apple Silicon candidate exists from `d7f20c7e`, not from `main`, and not Intel Mac or Windows x64.
 - V10: **unrun**. `verify:installed` INCOMPLETE (`no 0.5.10 installed evidence for darwin-aarch64`). Fresh/restart/Back/retry/upgrade/uninstall not executed against this DMG.
 - V11: **unrun**. No live credentials.
-- P02: local commit of in-scope source exists (`d7f20c7e`). No push/PR/merge. Owner files still uncommitted.
+- P02: local commit of in-scope source exists (`d7f20c7e`). Push/PR recorded below.
 - P03–P05: **blocked**. This DMG is a local candidate, not the contract release set, and must not be announced as a 0.5.11 download.
 
-Remaining owner actions: push/PR if wanted; Intel Mac + Windows x64 matching-native builds from one clean SHA; installed lifecycle; live observations or explicit unrun; publication authorization. Do not rewrite 0.5.10.
+Remaining owner actions after this pass: merge PR 133 if wanted; Intel Mac + Windows x64 matching-native builds from one clean SHA; installed lifecycle; live observations or explicit unrun; publication authorization. Do not rewrite 0.5.10.
+
+## Incremental verification — 2026-09-07 (PR 133)
+
+- P02 (partial): `codex/0.5.11` pushed to `origin`. PR: https://github.com/kevinchennewbee/PenglaiAgent/pull/133
+  Head `26246484` includes `d7f20c7e` (source), `e37d2a2d` (V08 docs), and the PDF/secret-scan linear scanners.
+  Owner `AGENTS.md` and `docs/0.5.7/RELEASE_RUNBOOK.md` are not in the PR.
+  Source CI PASS: https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34099447387
+  PR checks PASS: Full source gates, CodeQL, Analyze (actions/c-cpp/javascript-typescript), Cloudflare Pages. Mergeable CLEAN.
+  Merge to `main` is not done. Native Intel/Windows workflow (`native-release-candidate.yml`) requires clean `main` and was not dispatched.
+- Local extras on darwin-aarch64: `verify:asr-real` PASS, `verify:moss-real` PASS (worktree of the docs SHA; not three-target native evidence).
+- V09/V10/V11/P03–P05 unchanged: this host is Darwin arm64 only; no live credentials; no publication.

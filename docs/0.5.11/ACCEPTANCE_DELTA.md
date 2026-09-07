@@ -58,18 +58,19 @@ These files are development records, not a public 0.5.11 announcement:
 - [Development release notes](RELEASE_NOTES.md)
 - [Security notes](SECURITY.md)
 - [Upgrade design](UPGRADE.md)
+- [Memory curator API](MEMORY_CURATOR.md)
 
 Public `SECURITY.md` and `docs/RELEASE_NOTES_0.5.10.md` stay on 0.5.10.
 
 ## Remaining publication blockers
 
-- In-scope source is committed as `d7f20c7eeadf6722ab832f5cc3374cb7c5e6f77a`.
-  Owner `AGENTS.md` / `docs/0.5.7/RELEASE_RUNBOOK.md` stay uncommitted.
-- Darwin-aarch64 local candidate DMG exists for that SHA (ad-hoc, not
+- In-scope source is on `codex/0.5.11` / PR 133. Owner `AGENTS.md` /
+  `docs/0.5.7/RELEASE_RUNBOOK.md` stay uncommitted.
+- Darwin-aarch64 local candidate DMG exists for `d7f20c7e` (ad-hoc, not
   notarized). Intel Mac and Windows x64 matching-native builds do not.
 - Installed fresh/restart/Back/retry/upgrade/uninstall evidence is unrun.
 - No live model/IM credentials in this session.
-- No push/PR or GitHub Release authorization for 0.5.11.
+- No merge to `main` and no GitHub Release authorization for 0.5.11.
 
 ## 中文
 
