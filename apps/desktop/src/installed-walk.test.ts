@@ -375,6 +375,20 @@ test("installed restart requests the product lifecycle before signal fallback", 
   );
 });
 
+test("Windows child shutdown kills the process tree so NSIS upgrade is not blocked", () => {
+  const helper = readFileSync(join(root, "scripts/lib/installed-app.mjs"), "utf8");
+  const upgrade = readFileSync(join(root, "scripts/verify-upgrade-uninstall.mjs"), "utf8");
+  const stop = helper.indexOf("export async function stopChild");
+  const taskkill = helper.indexOf('spawnSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"]', stop);
+  const posixKill = helper.indexOf('child.kill("SIGKILL")', stop);
+  assert.ok(stop >= 0 && taskkill > stop, "stopChild must tree-kill Windows descendants");
+  assert.ok(posixKill > taskkill, "POSIX SIGKILL remains the non-Windows fallback");
+  assert.match(upgrade, /leftoversByCommand/);
+  assert.match(upgrade, /taskkill\.exe/);
+  assert.match(upgrade, /timeout:\s*180_000/);
+  assert.match(upgrade, /`_\?=\$\{app\}`/);
+});
+
 test("installed harness shutdown returns only after the child is gone", async (context) => {
   const { stopChild } = await import("../../../scripts/lib/installed-app.mjs");
   const child = spawn(
