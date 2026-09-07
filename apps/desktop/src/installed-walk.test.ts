@@ -396,6 +396,9 @@ test("Windows child shutdown kills the process tree so NSIS upgrade is not block
   assert.match(nsis, /upgrade_rename_live/);
   assert.match(nsis, /taskkill\.exe/);
   assert.match(nsis, /penglai-setup\.log/);
+  assert.match(nsis, /upgrade_rename_fallback/);
+  assert.match(nsis, /robocopy\.exe/);
+  assert.match(nsis, /upgrade_abort_keep_live/);
   assert.match(upgrade, /penglai-setup\.log/);
   assert.match(helper, /ExecutablePath/);
   for (const line of nsis.split(/\r?\n/)) {

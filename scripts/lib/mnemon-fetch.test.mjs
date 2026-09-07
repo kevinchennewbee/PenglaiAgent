@@ -4,9 +4,12 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Readable } from "node:stream";
 import {
   assertSafeArchiveEntry,
+  downloadHttps,
   extractZipContents,
+  isTransientMnemonDownloadStatus,
   parseFetchArgs,
   publishArchive,
   selectAssets,
@@ -45,6 +48,59 @@ test("Windows zip extraction falls back to built-in tar before PowerShell", () =
   };
   extractZipContents("mnemon.zip", "out", "win32", run);
   assert.deepEqual(commands, ["unzip", "tar"]);
+});
+
+test("downloadHttps retries a transient 504 then writes the archive", async () => {
+  let calls = 0;
+  const sleeps = [];
+  const dest = join(mkdtempSync(join(tmpdir(), "mnemon-dl-")), "mnemon.tar.gz");
+  const payload = Buffer.from("mnemon-archive");
+  const out = await downloadHttps("https://github.com/mnemon-dev/mnemon/releases/download/x", dest, {
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) {
+        return {
+          ok: false,
+          status: 504,
+          headers: { get: () => null },
+          body: { cancel: async () => undefined },
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => null },
+        body: Readable.toWeb(Readable.from(payload)),
+      };
+    },
+    sleepImpl: async (ms) => {
+      sleeps.push(ms);
+    },
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(sleeps, [1000]);
+  assert.equal(readFileSync(out).toString(), "mnemon-archive");
+  assert.equal(isTransientMnemonDownloadStatus(504), true);
+});
+
+test("downloadHttps does not retry a 404", async () => {
+  let calls = 0;
+  const dest = join(mkdtempSync(join(tmpdir(), "mnemon-404-")), "x");
+  await assert.rejects(
+    () =>
+      downloadHttps("https://github.com/mnemon-dev/mnemon/releases/download/x", dest, {
+        fetchImpl: async () => {
+          calls += 1;
+          return { ok: false, status: 404, headers: { get: () => null }, body: { cancel: async () => undefined } };
+        },
+        sleepImpl: async () => {
+          throw new Error("404 must not sleep-retry");
+        },
+      }),
+    /download failed 404/,
+  );
+  assert.equal(calls, 1);
+  assert.equal(isTransientMnemonDownloadStatus(404), false);
 });
 
 test("verified archives publish through a destination-local atomic rename", () => {

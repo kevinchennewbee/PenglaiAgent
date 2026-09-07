@@ -177,6 +177,12 @@ export function assertWindowsUpgradeStaging(script: string): void {
   if (script.indexOf("penglai-setup.log") < 0) {
     throw new Error("Windows upgrade must write a setup log when the live swap fails");
   }
+  if (script.indexOf("upgrade_rename_fallback") < 0 || script.indexOf("robocopy.exe") < 0) {
+    throw new Error("Windows upgrade must copy the staged payload over a live tree that cannot be renamed");
+  }
+  if (script.indexOf("upgrade_abort_keep_live") < 0) {
+    throw new Error("Windows upgrade must not delete INSTDIR when INSTDIR.previous was never created");
+  }
   if (script.indexOf("upgrade_activate_failed", liveRename) < 0) {
     throw new Error("Windows upgrade must fail closed when renaming the live app directory");
   }

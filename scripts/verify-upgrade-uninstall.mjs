@@ -146,6 +146,7 @@ function installWindows(installer, label) {
       stdout: sanitizeEvidenceText(String(run.stdout ?? ""), 1_000),
       stderr: sanitizeEvidenceText(String(run.stderr ?? ""), 1_000),
       setupLog: readWindowsSetupLog(),
+      lockers: leftoversByCommand(join(String(process.env.LOCALAPPDATA ?? ""), "Penglai", "app", "0.5")).slice(0, 20),
     });
   }
   const localAppData = process.env.LOCALAPPDATA;
