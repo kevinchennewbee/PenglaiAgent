@@ -84,6 +84,10 @@ async function boot(app, userData, label) {
     const leftover = leftoverNeedles.flatMap((needle) => leftoversByCommand(needle));
     if (leftover.length === 0) break;
     if (process.platform === "win32") {
+      spawnSync("taskkill.exe", ["/IM", "Penglai.exe", "/T", "/F"], {
+        windowsHide: true,
+        timeout: 15_000,
+      });
       for (const line of leftover) {
         const pid = Number(String(line).split(/\s+/)[0]);
         if (Number.isSafeInteger(pid) && pid > 0) {
@@ -110,7 +114,7 @@ async function boot(app, userData, label) {
 }
 
 function installWindows(installer, label) {
-  const run = spawnSync(installer, ["/S"], { encoding: "utf8", windowsHide: true, timeout: 180_000 });
+  const run = spawnSync(installer, ["/S"], { encoding: "utf8", windowsHide: true, timeout: 20 * 60_000 });
   if (run.error || run.status !== 0) {
     fail(`${label} NSIS install failed`, {
       status: run.status,
@@ -239,7 +243,7 @@ if (target === "win32-x86_64") {
   const uninstall = spawnSync(uninstaller, ["/S", `_?=${app}`], {
     encoding: "utf8",
     windowsHide: true,
-    timeout: 180_000,
+    timeout: 20 * 60_000,
   });
   if (uninstall.error || uninstall.status !== 0) {
     fail("Windows uninstaller returned failure", {

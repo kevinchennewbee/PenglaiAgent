@@ -72,7 +72,7 @@ Function .onInit
     StrCpy $LANGUAGE $R8
   ${EndIf}
   ${IfNot} ${RunningX64}
-    MessageBox MB_ICONSTOP "Penglai ${PENGLAI_VERSION} requires 64-bit Windows."
+    MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai ${PENGLAI_VERSION} requires 64-bit Windows." /SD IDOK
     Abort
   ${EndIf}
   ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}" "DisplayVersion"
@@ -81,7 +81,7 @@ Function .onInit
     ; string compare would treat "0.10.0" as older than "0.5.0".
     ${VersionCompare} "$0" "${PENGLAI_VERSION}" $R0
     ${If} $R0 == 1
-      MessageBox MB_ICONSTOP "Penglai refuses downgrade from $0 to ${PENGLAI_VERSION}."
+      MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai refuses downgrade from $0 to ${PENGLAI_VERSION}." /SD IDOK
       Abort
     ${EndIf}
     StrCpy $R1 "upgrade"
@@ -91,7 +91,7 @@ FunctionEnd
 Section "Penglai" SecApp
   ${If} $R1 == "upgrade"
     ${If} $INSTDIR != "$LOCALAPPDATA\Penglai\app\0.5"
-      MessageBox MB_ICONSTOP "Penglai cannot safely upgrade a custom legacy install directory. Uninstall the old version first."
+      MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai cannot safely upgrade a custom legacy install directory. Uninstall the old version first." /SD IDOK
       Abort
     ${EndIf}
     ; Stage the new payload first. Only replace the live app directory after
@@ -106,19 +106,23 @@ Section "Penglai" SecApp
     File /r "${PENGLAI_PAYLOAD}\*.*"
     IfFileExists "$R2\Penglai.exe" 0 upgrade_copy_failed
     RMDir /r "$INSTDIR.previous"
+    ClearErrors
     Rename "$INSTDIR" "$INSTDIR.previous"
+    IfErrors upgrade_activate_failed
+    ClearErrors
     Rename "$R2" "$INSTDIR"
+    IfErrors upgrade_activate_failed
     IfFileExists "$INSTDIR\Penglai.exe" 0 upgrade_activate_failed
     RMDir /r "$INSTDIR.previous"
     Goto upgrade_done
     upgrade_copy_failed:
       RMDir /r "$R2"
-      MessageBox MB_ICONSTOP "Penglai could not copy the new version. The previous install was left in place."
+      MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai could not copy the new version. The previous install was left in place." /SD IDOK
       Abort
     upgrade_activate_failed:
       RMDir /r "$INSTDIR"
       Rename "$INSTDIR.previous" "$INSTDIR"
-      MessageBox MB_ICONSTOP "Penglai could not activate the new version and restored the previous install."
+      MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai could not activate the new version and restored the previous install." /SD IDOK
       Abort
     upgrade_done:
   ${Else}
