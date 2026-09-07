@@ -202,6 +202,9 @@ export function assertWindowsUpgradeStaging(script: string): void {
   if (/RMDir\s+\/r\s+"\$LOCALAPPDATA\\Penglai\\app\\0\.5"/.test(script)) {
     throw new Error("Windows upgrade must not delete the live app tree before the new payload exists");
   }
+  if (script.indexOf("uninstall_rmdir_retry") < 0 || script.indexOf('RMDir /r "$INSTDIR.pending"') < 0) {
+    throw new Error("Windows uninstall must retry removing INSTDIR and drop upgrade staging directories");
+  }
 }
 
 export const CROSS_BUILD_TARGETS = [
