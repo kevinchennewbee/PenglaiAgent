@@ -21,6 +21,29 @@ import { installerForTarget } from "./release-targets.mjs";
 export const ARM64_DMG = join(ROOT, "dist/Penglai_0.5.11_macos_aarch64.dmg");
 export const ARM64_INSTALLER = "Penglai_0.5.11_macos_aarch64.dmg";
 
+export async function reapWindowsInstallTree(appDir, timeoutMs = 30_000) {
+  if (process.platform !== "win32") return { ok: true, leftover: [] };
+  const needles = [resolve(appDir), "Penglai.exe", "Penglai Helper"];
+  const deadline = Date.now() + timeoutMs;
+  const collect = () => [...new Set(needles.flatMap((needle) => leftoversByCommand(needle)))];
+  let leftover = collect();
+  while (Date.now() < deadline) {
+    leftover = collect();
+    if (leftover.length === 0) return { ok: true, leftover: [] };
+    spawnSync("taskkill.exe", ["/IM", "Penglai.exe", "/T", "/F"], { windowsHide: true, timeout: 15_000 });
+    spawnSync("taskkill.exe", ["/IM", "Penglai Helper.exe", "/T", "/F"], { windowsHide: true, timeout: 15_000 });
+    for (const line of leftover) {
+      const pid = Number(String(line).split(/\s+/)[0]);
+      if (Number.isSafeInteger(pid) && pid > 0) {
+        spawnSync("taskkill.exe", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, timeout: 15_000 });
+      }
+    }
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
+  }
+  leftover = collect();
+  return { ok: leftover.length === 0, leftover };
+}
+
 export function leftoversByCommand(needle) {
   if (process.platform === "win32") {
     const r = spawnSync(

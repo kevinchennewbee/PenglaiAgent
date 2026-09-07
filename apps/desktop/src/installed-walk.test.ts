@@ -384,9 +384,12 @@ test("Windows child shutdown kills the process tree so NSIS upgrade is not block
   assert.ok(stop >= 0 && taskkill > stop, "stopChild must tree-kill Windows descendants");
   assert.ok(posixKill > taskkill, "POSIX SIGKILL remains the non-Windows fallback");
   assert.match(upgrade, /leftoversByCommand/);
+  assert.match(upgrade, /reapWindowsInstallTree/);
   assert.match(upgrade, /taskkill\.exe/);
   assert.match(upgrade, /\/IM", "Penglai\.exe"/);
   assert.match(upgrade, /timeout:\s*20 \* 60_000/);
+  assert.match(helper, /export async function reapWindowsInstallTree/);
+  assert.match(helper, /Penglai Helper/);
   assert.match(upgrade, /`_\?=\$\{app\}`/);
   const nsis = readFileSync(join(root, "scripts/nsis/Penglai.nsi"), "utf8");
   assert.match(nsis, /\/SD IDOK/);
