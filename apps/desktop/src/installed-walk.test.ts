@@ -385,8 +385,12 @@ test("Windows child shutdown kills the process tree so NSIS upgrade is not block
   assert.ok(posixKill > taskkill, "POSIX SIGKILL remains the non-Windows fallback");
   assert.match(upgrade, /leftoversByCommand/);
   assert.match(upgrade, /taskkill\.exe/);
-  assert.match(upgrade, /timeout:\s*180_000/);
+  assert.match(upgrade, /\/IM", "Penglai\.exe"/);
+  assert.match(upgrade, /timeout:\s*20 \* 60_000/);
   assert.match(upgrade, /`_\?=\$\{app\}`/);
+  const nsis = readFileSync(join(root, "scripts/nsis/Penglai.nsi"), "utf8");
+  assert.match(nsis, /\/SD IDOK/);
+  assert.doesNotMatch(nsis, /MessageBox(?![^\n]*\/SD IDOK)/);
 });
 
 test("installed harness shutdown returns only after the child is gone", async (context) => {

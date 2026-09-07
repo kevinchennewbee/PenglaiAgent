@@ -159,6 +159,12 @@ export function assertWindowsUpgradeStaging(script: string): void {
   if (pendingOut < 0 || liveRename < 0 || pendingOut > liveRename) {
     throw new Error("Windows upgrade must copy the payload before renaming the live app directory");
   }
+  if (!/ClearErrors[\s\S]*Rename\s+"\$INSTDIR"\s+"\$INSTDIR\.previous"[\s\S]*IfErrors\s+upgrade_activate_failed/.test(script)) {
+    throw new Error("Windows upgrade must fail closed when renaming the live app directory");
+  }
+  if (!/\/SD\s+IDOK/.test(script) || /MessageBox(?![^\n]*\/SD\s+IDOK)/.test(script)) {
+    throw new Error("Windows NSIS MessageBox must dismiss automatically during silent install");
+  }
   if (/RMDir\s+\/r\s+"\$LOCALAPPDATA\\Penglai\\app\\0\.5"/.test(script)) {
     throw new Error("Windows upgrade must not delete the live app tree before the new payload exists");
   }
