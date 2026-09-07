@@ -294,6 +294,8 @@ const currentBoot = await boot(app, userData, "upgraded install");
 if (!existsSync(sentinel)) fail("upgrade did not preserve isolated Owner data");
 
 if (target === "win32-x86_64") {
+  await reapWindowsInstallTree(app);
+  relaxWindowsInstallLocks(app);
   const uninstaller = join(app, "Uninstall.exe");
   if (!existsSync(uninstaller)) fail("Windows uninstaller missing after upgrade");
   const uninstall = spawnSync(uninstaller, ["/S", `_?=${app}`], {

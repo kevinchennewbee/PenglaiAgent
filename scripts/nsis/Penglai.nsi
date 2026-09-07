@@ -219,7 +219,19 @@ Section "un.Penglai" SectionUninstall
   StrCpy $R0 "$INSTDIR"
   StrCpy $R1 "$LOCALAPPDATA\Penglai\app\0.5"
   ${If} $R0 S== $R1
-    RMDir /r "$INSTDIR"
+    ExecWait '"$SYSDIR\taskkill.exe" /F /T /IM Penglai.exe' $R4
+    ExecWait '"$SYSDIR\taskkill.exe" /F /T /IM "Penglai Helper.exe"' $R4
+    Sleep 1000
+    RMDir /r "$INSTDIR.pending"
+    RMDir /r "$INSTDIR.previous"
+    StrCpy $R3 "0"
+    uninstall_rmdir_retry:
+      RMDir /r "$INSTDIR"
+      IfFileExists "$INSTDIR\Penglai.exe" 0 uninstall_rmdir_done
+      Sleep 1000
+      IntOp $R3 $R3 + 1
+      IntCmp $R3 30 uninstall_rmdir_done uninstall_rmdir_retry uninstall_rmdir_done
+    uninstall_rmdir_done:
   ${Else}
     DetailPrint "Keeping custom install directory $INSTDIR (not the default app tree)."
   ${EndIf}
