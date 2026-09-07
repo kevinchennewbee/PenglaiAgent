@@ -369,7 +369,10 @@ test("installed restart requests the product lifecycle before signal fallback", 
 
   const compat = readFileSync(join(root, "scripts/u3-first-party-plugins.mjs"), "utf8");
   assert.match(compat, /requestBrowserClose\(cdpSession\)/);
-  assert.ok(compat.indexOf("requestBrowserClose(cdpSession)") < compat.indexOf("stopChild(launched.child)"));
+  assert.match(compat, /stopChild\(launched\.child(?:,\s*[\d_]+)?\)/);
+  assert.ok(
+    compat.indexOf("requestBrowserClose(cdpSession)") < compat.indexOf("stopChild(launched.child"),
+  );
 });
 
 test("installed harness shutdown returns only after the child is gone", async (context) => {

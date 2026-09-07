@@ -6,7 +6,7 @@ import { validateCohortSnapshot, verifyCohortLock } from "./lib/dsh-npm-cohort.m
 import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
 import { ROOT } from "./lib/repo.mjs";
 
-const BASE = "8f50d0e998f00b9f4b52e08a36738fbd27760e24";
+const BASE = "10ef5df4fc0fbccd2d119dfeecbc8436ccccff01";
 const pins = readReleaseIdentityPins();
 const failures = [];
 
@@ -25,7 +25,7 @@ function readJson(relative) {
 try {
   execFileSync("git", ["merge-base", "--is-ancestor", BASE, "HEAD"], { cwd: ROOT, stdio: "ignore" });
 } catch {
-  fail(`0.5.11 preview must descend from ${BASE}`);
+  fail(`0.5.11 must descend from published 0.5.10 ${BASE}`);
 }
 
 const protectedPaths = [
@@ -38,7 +38,9 @@ const protectedPaths = [
   "docs/RELEASE_NOTES_0.5.10.md",
 ];
 const protectedChanges = git(["diff", "--name-only", BASE, "--", ...protectedPaths]).split("\n").filter(Boolean);
-if (protectedChanges.length > 0) fail(`0.5.11 development rewrote immutable 0.5.8 history: ${protectedChanges.join(", ")}`);
+if (protectedChanges.length > 0) {
+  fail(`0.5.11 rewrote immutable published history: ${protectedChanges.join(", ")}`);
+}
 
 if (pins.productVersion !== "0.5.11" || pins.dsh !== "0.1.2-rc.1") {
   fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.5.11/0.1.2-rc.1`);
