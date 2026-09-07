@@ -13,7 +13,12 @@ import { CryptoIds, SystemClock } from "./runtime-ids.js";
 import { Store } from "@penglai/persistence";
 import { RoutingControlPlane } from "@penglai/routing-core";
 import { DshBridge, PINNED_DSH, withPenglaiVoiceContext, type DshHost } from "@penglai/dsh-bridge";
-import { hostFromAlpha2Cordis, listenOfficialEvents, type Alpha2CordisLike } from "@penglai/dsh-bridge/plugin";
+import {
+  hostFromAlpha2Cordis,
+  listenOfficialEvents,
+  recoverOfficialDeliveriesFromHost,
+  type Alpha2CordisLike,
+} from "@penglai/dsh-bridge/plugin";
 import { FeishuAdapter } from "@penglai/channel-feishu";
 import { ILinkTransport, WeixinAdapter } from "@penglai/channel-weixin";
 import { DingTalkAdapter } from "@penglai/channel-dingtalk";
@@ -182,6 +187,11 @@ export function apply(ctx: Alpha2CordisLike): ReturnType<typeof createRuntime> &
     if (now - lastInboundRecoveryAt >= 5_000) {
       lastInboundRecoveryAt = now;
       await rt.plane.recoverQueuedInbounds();
+      try {
+        await recoverOfficialDeliveriesFromHost(dsh, rt.plane);
+      } catch (error) {
+        if (!(error instanceof PenglaiError && error.errorClass === "DSH_UNAVAILABLE")) throw error;
+      }
     }
     for (const route of rt.store.listRoutes()) {
       const closed = rt.plane.failClosedMissingTarget(route.routeId);
@@ -217,6 +227,10 @@ export function apply(ctx: Alpha2CordisLike): ReturnType<typeof createRuntime> &
       }
     }
   };
+  host.attachSecretClearer((id) => {
+    const ref = CHANNEL_CREDENTIAL_REFS[id];
+    for (const cache of [dingtalkCreds, wecomCreds, qqCreds, slackCreds, telegramCreds, discordCreds]) delete cache[ref];
+  });
   host.attachSecretHydrator((id, serialized) => {
     const ref = CHANNEL_CREDENTIAL_REFS[id];
     try {
@@ -380,6 +394,7 @@ export {
   CHANNEL_IDS,
   CHANNEL_MANIFESTS,
   CHANNEL_RELEASE_EVIDENCE,
+  CHANNEL_WORKFLOW_CAPABILITIES,
   NATIVE_CHANNEL_IDS,
   getChannelManifest,
   listChannelManifests,

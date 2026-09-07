@@ -171,7 +171,7 @@ const sbom = {
   componentCount: components.length,
   components,
 };
-if (lock.includes("BEGIN OPENSSH PRIVATE KEY") || lock.includes("PENGLAI_FIXTURE_UPDATER_PRIVATE")) {
+if (/BEGIN OPENSSH PRIVATE KEY|PENGLAI_FIXTURE_UPDATER_PRIVATE/.test(lock)) {
   throw new Error("sbom input contained a private key");
 }
 writeFileSync("evidence/generated/sbom.json", JSON.stringify(sbom, null, 2));

@@ -226,7 +226,13 @@ test("identical bytes keep distinct opaque bindings across Workspaces", () => {
   assert.equal(a.sha256, b.sha256);
   assert.equal(artifacts.ref(a.id).workspaceId, "ws-a");
   assert.equal(artifacts.ref(b.id).workspaceId, "ws-b");
-  assert.throws(() => artifacts.readControlled(a.sha256, { workspaceId: "ws-a", sessionId: "sess-a" }), /AMBIGUOUS/);
+  const fromA = artifacts.readControlled(a.sha256, { workspaceId: "ws-a", sessionId: "sess-a" });
+  const fromB = artifacts.readControlled(b.sha256, { workspaceId: "ws-b", sessionId: "sess-b" });
+  assert.equal(fromA.name, "a.txt");
+  assert.equal(fromB.name, "b.txt");
+  assert.equal(fromA.bytes.equals(bytes), true);
+  assert.throws(() => artifacts.readControlled(a.sha256, { workspaceId: "ws-a", sessionId: "sess-b" }), /MISSING|SESSION|WORKSPACE|AMBIGUOUS/);
+  assert.throws(() => artifacts.readControlled(a.id, { workspaceId: "ws-b", sessionId: "sess-b" }), /WORKSPACE/);
   artifacts.close();
 });
 

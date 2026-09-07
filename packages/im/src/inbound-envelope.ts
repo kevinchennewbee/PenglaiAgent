@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { PenglaiError, parseClosedEnum } from "@penglai/contracts";
 import type { InboundChannelEvent } from "./channel-adapter.js";
 import type { ChannelId } from "./registry.js";
@@ -17,8 +18,23 @@ export function isForbiddenDefaultAccount(channel: string, accountRef: string): 
   return accountRef === legacyDefaultAccountId(channel);
 }
 
-export function inboundIdempotencyKey(channel: string, accountRef: string, vendorMessageId: string): string {
+export function inboundIdempotencyKey(
+  channel: string,
+  accountRef: string,
+  vendorMessageId: string,
+  vendorTarget?: string,
+): string {
+  return vendorTarget
+    ? `${channel}:${accountRef}:${vendorTarget}:${vendorMessageId}`
+    : `${channel}:${accountRef}:${vendorMessageId}`;
+}
+
+export function legacyInboundIdempotencyKey(channel: string, accountRef: string, vendorMessageId: string): string {
   return `${channel}:${accountRef}:${vendorMessageId}`;
+}
+
+export function inboundOperationKey(routeId: string, vendorMessageKey: string): string {
+  return `op:v2:${createHash("sha256").update(JSON.stringify([routeId, vendorMessageKey])).digest("hex")}`;
 }
 
 function str(value: unknown): string {
@@ -73,7 +89,7 @@ export function parseInboundEnvelope(
     peerRef: hashPeer(senderId, accountRef),
     chatType: "private",
     provenPrivate: true,
-    idempotencyKey: inboundIdempotencyKey(channel, accountRef, vendorMessageId),
+    idempotencyKey: inboundIdempotencyKey(channel, accountRef, vendorMessageId, vendorTarget),
     ...(vendorTime !== undefined ? { vendorTime } : {}),
     ...(text ? { text } : {}),
   };

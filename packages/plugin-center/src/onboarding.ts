@@ -135,6 +135,7 @@ export interface OnboardingFacts {
   workspaceId?: string;
   workspacePath?: string;
   firstConversation?: { sessionId: string; messageDigest: string; finalDigest: string };
+  lastError?: { step: OnboardingStepId; code: string; retryable: boolean; at: string };
 }
 
 export function emptyOnboarding(): OnboardingState {
@@ -661,13 +662,33 @@ export function createOnboardingHost(opts: {
         ...(catalogError ? { catalogError } : {}),
         ...(facts.selection ? { selection: facts.selection } : {}),
         ...(facts.workspaceId ? { workspaceId: facts.workspaceId } : {}),
+        ...(facts.lastError ? { lastError: facts.lastError } : {}),
       };
     },
     advance(id, evidence = {}) {
       const state = load();
-      const next = completeStepWithEvidence(state, id, state.advanceToken, evidence);
-      persistOnboarding(opts.dir, next);
-      return next;
+      try {
+        const next = completeStepWithEvidence(state, id, state.advanceToken, evidence);
+        const facts = loadOnboardingFacts(opts.dir);
+        if (facts.lastError) {
+          delete facts.lastError;
+          persistOnboardingFacts(opts.dir, facts);
+        }
+        persistOnboarding(opts.dir, next);
+        return next;
+      } catch (error) {
+        const retryable = error instanceof PenglaiError && (error.errorClass === "INVALID_INPUT" || error.message.startsWith("MISSING_CREDENTIAL"));
+        persistOnboardingFacts(opts.dir, {
+          ...loadOnboardingFacts(opts.dir),
+          lastError: {
+            step: id,
+            code: error instanceof PenglaiError ? error.message : "ONBOARDING_ADVANCE_FAILED",
+            retryable,
+            at: new Date().toISOString(),
+          },
+        });
+        throw error;
+      }
     },
     rewind(id) {
       const state = load();
@@ -692,6 +713,7 @@ export function createOnboardingHost(opts: {
         delete facts.workspacePath;
       }
       if (target <= ONBOARDING_STEPS.indexOf("first-turn-v1")) delete facts.firstConversation;
+      delete facts.lastError;
       persistOnboardingFacts(opts.dir, facts);
       persistOnboarding(opts.dir, next);
       return next;
@@ -759,7 +781,38 @@ export function loadOnboardingFacts(dir: string): OnboardingFacts {
   ) {
     facts.firstConversation = { ...raw.firstConversation };
   }
+  if (
+    raw.lastError &&
+    (ONBOARDING_STEPS as readonly string[]).includes(String(raw.lastError.step)) &&
+    typeof raw.lastError.code === "string" &&
+    raw.lastError.code.length <= 200 &&
+    typeof raw.lastError.retryable === "boolean" &&
+    typeof raw.lastError.at === "string"
+  ) {
+    facts.lastError = {
+      step: raw.lastError.step as OnboardingStepId,
+      code: raw.lastError.code,
+      retryable: raw.lastError.retryable,
+      at: raw.lastError.at,
+    };
+  }
   return facts;
+}
+
+export function resumeOnboardingCurrent(
+  completed: readonly OnboardingStepId[],
+  persisted?: string,
+): OnboardingStepId | "COMPLETE" {
+  const derived = nextStep(completed);
+  if (!persisted) return derived;
+  if (persisted === "COMPLETE") return derived === "COMPLETE" ? "COMPLETE" : derived;
+  if (!(ONBOARDING_STEPS as readonly string[]).includes(persisted)) return derived;
+  const persistedIndex = ONBOARDING_STEPS.indexOf(persisted as OnboardingStepId);
+  const skippedAhead = completed.some((step) => ONBOARDING_STEPS.indexOf(step) >= persistedIndex);
+  if (skippedAhead) return derived;
+  const missingEarlier = ONBOARDING_STEPS.slice(0, persistedIndex).some((step) => !completed.includes(step));
+  if (missingEarlier) return derived;
+  return persisted as OnboardingStepId;
 }
 
 export function loadOnboarding(dir: string): OnboardingState {
@@ -768,13 +821,15 @@ export function loadOnboarding(dir: string): OnboardingState {
   const raw = JSON.parse(readFileSync(p, "utf8")) as {
     schema?: number;
     completed?: OnboardingStepId[];
+    current?: string;
     advanceToken?: string;
   };
   if (raw.schema !== 1 && raw.schema !== 2) return emptyOnboarding();
+  const completed = raw.completed ?? [];
   return {
     schema: 2,
-    completed: raw.completed ?? [],
-    current: nextStep(raw.completed ?? []),
+    completed,
+    current: resumeOnboardingCurrent(completed, raw.current),
     advanceToken: raw.advanceToken || randomUUID(),
   };
 }

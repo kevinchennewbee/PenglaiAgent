@@ -124,6 +124,36 @@ test("R56-OWN-007 renderer may pass only actionId and Main rejects substitute fi
   }, /RENDERER_CONTRACT/);
 });
 
+test("two Owner brokers sharing one root cannot consume the same receipt twice", async () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-broker-two-"));
+  const first = broker(root);
+  const proposal = first.owner.createProposal({
+    action: "office.commit",
+    pluginId: "@penglai/office",
+    objectId: "job-shared",
+    sourceDigest: "a".repeat(64),
+  });
+  const approved = await first.owner.requestOwnerApproval(proposal.actionId);
+  if (approved.decision !== "approved") throw new Error("expected receipt");
+  const second = broker(root);
+  const input = {
+    receipt: approved.receipt,
+    intentDigest: first.owner.inspect(proposal.actionId).intentDigest,
+    actionId: proposal.actionId,
+  };
+  const outcomes = await Promise.allSettled([
+    Promise.resolve().then(() => first.owner.consumeApproval(input)),
+    Promise.resolve().then(() => second.owner.consumeApproval(input)),
+  ]);
+  const reserved = outcomes.filter((row) => row.status === "fulfilled");
+  const rejected = outcomes.filter((row) => row.status === "rejected");
+  assert.equal(reserved.length, 1);
+  assert.equal(rejected.length, 1);
+  assert.match(String((rejected[0] as PromiseRejectedResult).reason), /REPLAY/);
+  assert.equal(first.owner.inspect(proposal.actionId).state, "reserved");
+  assert.equal(second.owner.inspect(proposal.actionId).state, "reserved");
+});
+
 test("R56-OWN-008 destination labels cannot carry paths or secrets", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-broker-label-"));
   const { owner } = broker(root);

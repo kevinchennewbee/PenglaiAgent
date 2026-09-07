@@ -17,6 +17,8 @@ import {
   emptyOnboarding,
   loadOnboarding,
   persistOnboarding,
+  createOnboardingHost,
+  resumeOnboardingCurrent,
   supportsOfficialOpenAiCompatible,
   onboardingApiTestCwd,
   releaseOnboardingTestWorkspaces,
@@ -90,6 +92,48 @@ function officialServices(opts: {
     },
   };
 }
+
+test("onboarding snapshot recovery refuses skip-ahead COMPLETE and keeps retryable lastError", () => {
+  assert.equal(resumeOnboardingCurrent(["welcome-v1"], "first-turn-v1"), "appearance-locale-v1");
+  assert.equal(resumeOnboardingCurrent(["welcome-v1"], "COMPLETE"), "appearance-locale-v1");
+  assert.equal(resumeOnboardingCurrent([...ONBOARDING_STEPS], "COMPLETE"), "COMPLETE");
+  assert.equal(
+    resumeOnboardingCurrent(["welcome-v1", "appearance-locale-v1", "privacy-v1", "model-provider-v1"], "credential-v1"),
+    "credential-v1",
+  );
+
+  const dir = mkdtempSync(join(tmpdir(), "penglai-onb-resume-"));
+  persistOnboarding(dir, {
+    schema: 2,
+    completed: ["welcome-v1"],
+    current: "first-turn-v1",
+    advanceToken: "tok",
+  });
+  const loaded = loadOnboarding(dir);
+  assert.equal(loaded.current, "appearance-locale-v1");
+  assert.deepEqual(loaded.completed, ["welcome-v1"]);
+
+  const host = createOnboardingHost({ dir: mkdtempSync(join(tmpdir(), "penglai-onb-error-")) });
+  assert.throws(() => host.advance("privacy-v1"), /expected welcome-v1/);
+  const failed = host.status();
+  assert.equal(failed.current, "welcome-v1");
+  assert.equal(failed.lastError?.step, "privacy-v1");
+  assert.equal(failed.lastError?.retryable, true);
+  assert.equal(failed.lastError?.code.includes("expected welcome-v1"), true);
+  host.advance("welcome-v1", { officialWelcomeAck: true });
+  assert.equal(host.status().lastError, undefined);
+  assert.equal(host.status().current, "appearance-locale-v1");
+  const factsDir = mkdtempSync(join(tmpdir(), "penglai-onb-rewind-error-"));
+  const rewindHost = createOnboardingHost({ dir: factsDir });
+  rewindHost.advance("welcome-v1", { officialWelcomeAck: true });
+  rewindHost.advance("appearance-locale-v1", { locale: "zh", theme: "system" });
+  rewindHost.advance("privacy-v1");
+  assert.throws(() => rewindHost.advance("credential-v1"), /expected model-provider-v1/);
+  assert.equal(rewindHost.status().lastError?.retryable, true);
+  rewindHost.rewind("model-provider-v1");
+  assert.equal(rewindHost.facts().lastError, undefined);
+  assert.equal(rewindHost.status().current, "model-provider-v1");
+});
 
 test("R2I-ONB-001/002 onboarding steps are ordered and durable", () => {
   let state = emptyOnboarding();
@@ -274,6 +318,14 @@ test("R50-ONB-003/006 server validates model and API test exact Session final", 
   assert.equal((result as { passed?: boolean }).passed, true);
   assert.equal("final" in (result as object), false);
   assert.equal(passed.status().current, "workspace-v1");
+});
+
+test("wizard resume follows persisted current and surfaces retryable lastError", () => {
+  const wizard = readFileSync(new URL("../../../apps/desktop/static/wizard/wizard.js", import.meta.url), "utf8");
+  assert.match(wizard, /state\.current = status\.current/);
+  assert.match(wizard, /status\.lastError/);
+  assert.match(wizard, /screenForLedger\(state\.current\)/);
+  assert.match(wizard, /rewindOnboarding|rpc\("rewind/);
 });
 
 test("R50-ONB-003 wizard lists official providers and models through penglaiOnboarding", () => {

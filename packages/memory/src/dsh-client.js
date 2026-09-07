@@ -74,6 +74,7 @@ window.__ModuleLoader__.load({
     const REMOTE = {
       package: "@penglai/memory",
       descriptors: [
+        "queryLibrary",
         "status",
         "write",
         "deleteScope",
@@ -136,6 +137,11 @@ window.__ModuleLoader__.load({
         importConfirm: "导入检查过的旧版记忆",
         sources: "记忆来源",
         sourcesHint: "可选：授权本地资料，让蓬莱在对应范围内建立只读索引。",
+        library: "记忆库",
+        librarySearch: "搜索记忆",
+        libraryEmpty: "没有匹配的记忆。",
+        libraryMore: "下一页",
+        libraryProvenance: "来源",
       },
       en: {
         title: "Penglai Memory",
@@ -176,6 +182,11 @@ window.__ModuleLoader__.load({
         importConfirm: "Import legacy memory",
         sources: "Memory sources",
         sourcesHint: "Optional: authorize local material for read-only indexing in the selected scope.",
+        library: "Memory library",
+        librarySearch: "Search memory",
+        libraryEmpty: "No matching memories.",
+        libraryMore: "Next page",
+        libraryProvenance: "Source",
       },
     };
     const copy = () =>
@@ -225,6 +236,10 @@ window.__ModuleLoader__.load({
         correctText: "",
         importNote: "",
         skillConfirmed: false,
+        libraryQuery: "",
+        libraryRows: [],
+        libraryTotal: 0,
+        libraryOffset: 0,
       });
       const refresh = React.useCallback(() => {
         const expectedGeneration = generationRef.current;
@@ -259,6 +274,35 @@ window.__ModuleLoader__.load({
       React.useEffect(() => {
         refresh();
       }, [refresh, connectionGeneration]);
+      const refreshLibrary = React.useCallback(() => {
+        const expectedGeneration = generationRef.current;
+        if (expectedGeneration === undefined || !api?.queryLibrary) return;
+        Promise.resolve(
+          api.queryLibrary({
+            q: v.libraryQuery,
+            scope: v.scope === "workspace" ? "workspace" : v.scope === "global" ? "personal" : undefined,
+            ...(v.workspaceId ? { workspaceId: v.workspaceId } : {}),
+            limit: 20,
+            offset: v.libraryOffset,
+          }),
+        )
+          .then((raw) => {
+            if (generationRef.current !== expectedGeneration) return;
+            const x = unwrap(raw) || {};
+            set((s) => ({
+              ...s,
+              libraryRows: x.rows || [],
+              libraryTotal: x.total || 0,
+            }));
+          })
+          .catch(() => {
+            if (generationRef.current !== expectedGeneration) return;
+            set((s) => ({ ...s, libraryRows: [], libraryTotal: 0 }));
+          });
+      }, [api, v.libraryQuery, v.libraryOffset, v.scope, v.workspaceId]);
+      React.useEffect(() => {
+        refreshLibrary();
+      }, [refreshLibrary, connectionGeneration]);
       const run = (method, input, done) => {
         set((x) => ({ ...x, busy: true, error: "", notice: "" }));
         return Promise.resolve(api[method](input))
@@ -413,6 +457,42 @@ window.__ModuleLoader__.load({
                 ),
               })
             : null,
+          jsx.jsxs("section", {
+            "data-penglai-memory-library": "1",
+            children: [
+              jsx.jsx("h3", { children: t.library }),
+              jsx.jsx("input", {
+                "data-penglai-memory-library-search": "1",
+                value: v.libraryQuery,
+                placeholder: t.librarySearch,
+                onChange: (e) => set((x) => ({ ...x, libraryQuery: String(e.target.value), libraryOffset: 0 })),
+              }),
+              jsx.jsx("ul", {
+                children: v.libraryRows.length
+                  ? v.libraryRows.map((r) =>
+                      jsx.jsxs("li", {
+                        "data-penglai-memory-library-row": String(r.id),
+                        children: [
+                          String(r.content || r.text || r.id),
+                          jsx.jsx("small", {
+                            style: { display: "block", opacity: 0.75 },
+                            children: `${t.libraryProvenance}: ${String(r.source || "")} · ${String(r.createdAt || "")} · ${String(r.status || "")}`,
+                          }),
+                        ],
+                      }, String(r.id)),
+                    )
+                  : jsx.jsx("li", { children: t.libraryEmpty }),
+              }),
+              v.libraryOffset + 20 < v.libraryTotal
+                ? jsx.jsx("button", {
+                    type: "button",
+                    "data-penglai-memory-library-more": "1",
+                    onClick: () => set((x) => ({ ...x, libraryOffset: x.libraryOffset + 20 })),
+                    children: t.libraryMore,
+                  })
+                : null,
+            ],
+          }),
           jsx.jsx("ul", {
             children: v.rows.length
               ? v.rows.map((r) =>

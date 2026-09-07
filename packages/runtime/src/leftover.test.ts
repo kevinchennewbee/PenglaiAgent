@@ -228,6 +228,37 @@ test("R50-DIST: packaged identity is Penglai 0.5.10 and Windows NSIS stays curre
   assertWindowsNsisScript(readFileSync(new URL("../../../scripts/nsis/Penglai.nsi", import.meta.url), "utf8"));
 });
 
+test("Windows upgrade refuses the old live-tree delete-then-copy pattern", async () => {
+  const { assertWindowsUpgradeStaging, assertWindowsNsisScript } = await import("./packaging.js");
+  const live = readFileSync(new URL("../../../scripts/nsis/Penglai.nsi", import.meta.url), "utf8");
+  assertWindowsUpgradeStaging(live);
+  assertWindowsNsisScript(live);
+  const oldLiveDeleteThenCopy = `
+RequestExecutionLevel user
+Section "Penglai"
+  RMDir /r "$LOCALAPPDATA\\Penglai\\app\\0.5"
+  SetOutPath "$INSTDIR"
+  File /r payload\\*.*
+SectionEnd
+Section "Uninstall"
+SectionEnd
+`;
+  assert.throws(
+    () => assertWindowsUpgradeStaging(oldLiveDeleteThenCopy),
+    /stage into INSTDIR\.pending|must not delete the live app tree|copy the payload before renaming/,
+  );
+  const copyAfterRename = `
+    Rename "$INSTDIR" "$INSTDIR.previous"
+    StrCpy $R2 "$INSTDIR.pending"
+    SetOutPath "$R2"
+    upgrade_copy_failed:
+    previous install was left in place
+    upgrade_activate_failed:
+    $INSTDIR.previous
+  `;
+  assert.throws(() => assertWindowsUpgradeStaging(copyAfterRename), /copy the payload before renaming/);
+});
+
 test("R50-SEC: Windows Job/ACL contract refuses POSIX impersonation", async () => {
   const { applyWindowsCredentialAcl, assertWindowsJobHonest, refusePosixModeAsWindowsAcl, windowsJobObjectPlan } =
     await import("./windows-host.js");

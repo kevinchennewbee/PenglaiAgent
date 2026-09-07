@@ -120,7 +120,10 @@ test("0.5.7 PDF merge accepts only distinct session-bound handles and produces a
   objects.bind(rightHandle, { sessionId: "sess-1", workspaceId: "ws-1" });
   const merged = await svc.mergeAttached(leftHandle, rightHandle, "sess-1", "ws-1");
   assert.equal(merged.format, "pdf");
-  assert.deepEqual((await inspect(merged.bytes)).parts, ["pages:2"]);
+  const mergedParts = (await inspect(merged.bytes)).parts;
+  assert.equal(mergedParts[0], "pages:2");
+  assert.ok(mergedParts.some((part) => part.startsWith("page0:")));
+  assert.ok(mergedParts.some((part) => part.startsWith("page1:")));
   assert.equal(svc.job(merged.id).state, "PREVIEW_READY");
   await assert.rejects(() => svc.mergeAttached(leftHandle, leftHandle, "sess-1", "ws-1"), /different handles/);
   await assert.rejects(() => svc.mergeAttached(leftHandle, rightHandle, "sess-other", "ws-1"), /bound|UNAUTHORIZED/i);

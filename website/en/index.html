@@ -18,7 +18,9 @@
     <nav aria-label="Main navigation">
       <a href="#new">0.5.10</a>
       <a href="#inside">What ships</a>
-      <a href="#story">Story</a>
+      <a href="#setup">Setup</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#faq">FAQ</a>
       <a href="#download">Download</a>
       <a href="../" hreflang="zh-CN">中文</a>
       <a class="github" href="https://github.com/kevinchennewbee/PenglaiAgent">GitHub</a>
@@ -102,6 +104,36 @@
       </div>
     </section>
 
+    <section class="section first-run" id="setup">
+      <div class="copy">
+        <p class="eyebrow">Setup and recovery</p>
+        <h2>Install the matching artifact, then finish the wizard through the first official reply.</h2>
+        <p>Use the Apple Silicon DMG, Intel Mac DMG, or Windows x64 installer. Do not mix them. Choose language and appearance, confirm the data directory, pick a model from the official list, test your API key, and select a real Workspace. Back, retry and restart resume are supported. Uninstall keeps user data by default.</p>
+      </div>
+      <img src="../shots/0.5.5/welcome.png" alt="Penglai first-run welcome page">
+    </section>
+
+    <section class="trust section" id="privacy">
+      <p class="eyebrow">Privacy</p>
+      <h2>No Penglai account. Data stays on this computer unless you send it.</h2>
+      <div class="trust-grid">
+        <p><strong>No Penglai cloud sync.</strong> Memory, Office drafts and IM bindings live in the local user-data directory. Model calls still send the current-task context to the provider you chose.</p>
+        <p><strong>Writes and outbound delivery need their own confirmation.</strong> Office save/return, personal Memory, and plugin install use product confirmation bound to that action, not a casual chat “ok”.</p>
+        <p><strong>Diagnostics are redacted.</strong> Plugin diagnostic export must not contain credentials, chat bodies, QR codes or private absolute paths.</p>
+      </div>
+    </section>
+
+    <section class="section" id="faq">
+      <p class="eyebrow">FAQ</p>
+      <h2>The limits, before the download buttons.</h2>
+      <div class="cards">
+        <article><h3>Is Penglai another agent?</h3><p>No. Official DeepSeek Harness is the only core. Penglai owns install, lifecycle and first-party plugins.</p></article>
+        <article><h3>Which version should I download?</h3><p>The public installers are still 0.5.10. Mentions of 0.5.11 describe in-development source, not a downloadable product.</p></article>
+        <article><h3>Why does Gatekeeper warn?</h3><p>macOS packages are ad-hoc signed and not notarized; Windows has no Authenticode. That is a stated limitation, not an OS endorsement.</p></article>
+        <article><h3>Are Office and Memory on by default?</h3><p>Yes. Messaging, ASR, TTS and Companion stay off until you enable them.</p></article>
+      </div>
+    </section>
+
     <section class="download section" id="download">
       <p class="eyebrow">Penglai 0.5.10</p>
       <h2>Choose your computer.</h2>
@@ -110,7 +142,7 @@
         <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_macos_x64.dmg"><strong>macOS · Intel</strong><span>GitHub · 388.2 MiB · x86_64 Mac</span><code>6771901b5bf3b7e9e0c192125a866bf2e6c1c605655a8d07339ea37dc64ee9ea</code></a>
         <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_windows_x64_setup.exe"><strong>Windows · x64</strong><span>GitHub · 341.0 MiB · 64-bit installer</span><code>46b45bbb6a18859c7be03413b7983ad90dacc7710233130b2c81cb5a537bd484</code></a>
       </div>
-      <p class="quiet">The immutable GitHub Release is the sole authoritative public download source for 0.5.10; the Beijing mirror has not published 0.5.10. All three installers come from source <code>c5c0bcb022c5ae47cca242deb27fe1d30444c41d</code>. Full SHA256SUMS, the 1253-component SBOM, third-party notices, and signed update metadata are available on the same page. Updates are never silent.</p>
+      <p class="quiet">The current public download is still published 0.5.10. 0.5.11 is in development and has no installers or GitHub Release assets. The immutable GitHub Release is the sole authoritative public download source for 0.5.10; the Beijing mirror has not published 0.5.10. All three installers come from source <code>c5c0bcb022c5ae47cca242deb27fe1d30444c41d</code>. Full SHA256SUMS, SBOM, third-party notices, and signed update metadata are on the same page. Updates are never silent.</p>
       <div class="actions centered">
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.10">Bilingual release notes</a>
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">Security notes</a>

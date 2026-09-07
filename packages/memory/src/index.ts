@@ -362,6 +362,10 @@ export function createDurableMemoryService(opts: {
       if (!input.receipt) throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
       const hit = v2.getCandidate(input.candidateId);
       if (!hit || hit.status !== "pending") throw new PenglaiError("INVALID_INPUT", "MEMORY_CANDIDATE_MISSING");
+      v2.validateDecision(input.candidateId, "accepted", {
+        actionId: input.actionId,
+        ...(input.personal ? { personal: true } : {}),
+      });
       const sourceDigest = candidateDigest(hit);
       const reservation = reserveMemoryOwnerProof(opts.owner, {
         action: input.personal ? MEMORY_OWNER_ACTIONS.personal : MEMORY_OWNER_ACTIONS.accept,
@@ -482,6 +486,16 @@ export function createDurableMemoryService(opts: {
         pending: workspaceId ? v2.listCandidates(workspaceId).length : 0,
         mode: v2.mode(),
       };
+    },
+    queryLibrary(input: {
+      q?: string;
+      scope?: "personal" | "workspace";
+      workspaceId?: string;
+      includeForgotten?: boolean;
+      limit?: number;
+      offset?: number;
+    }) {
+      return engine.queryLibrary(input);
     },
     memoryV2: v2,
     deleteScope() {

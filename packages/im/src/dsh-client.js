@@ -212,7 +212,7 @@ window.__ModuleLoader__.load({
         qrFailed: "失败",
         qrCancelled: "已取消",
         bindHint:
-          "扫码后会自动使用官方默认工作区/会话。这里只在需要换会话时使用。",
+          "微信和飞书在确认身份后使用官方默认会话。其他通道先从本人账号发一条私聊，再在此核对账号和发送者，确认绑定后重新发送。未经确认的消息不会交给 Agent。",
         bindAction: "改绑到所选官方会话",
         workspace: "工作区",
         session: "会话",
@@ -342,7 +342,7 @@ window.__ModuleLoader__.load({
         qrFailed: "Failed",
         qrCancelled: "Cancelled",
         bindHint:
-          "After you scan, Penglai uses the official default workspace and session. Use this only to switch sessions.",
+          "Weixin and Feishu use the official default session after identity verification. For other channels, send a private message from your account, then verify the account and sender here and approve the binding. Resend your message afterward; unapproved messages never reach the Agent.",
         bindAction: "Rebind to the selected official session",
         workspace: "Workspace",
         session: "Session",
@@ -630,7 +630,7 @@ window.__ModuleLoader__.load({
         if (!peer) return;
         const objectId = `${peer.channel}:${peer.accountId}:${peer.peerId}`;
         Promise.resolve(imCall(remote, connection, "proposeBinding", {
-          action: "im.bind",
+          action: currentBinding ? "im.rebind" : "im.bind",
           objectId,
           workspaceId,
           sessionId,
@@ -710,7 +710,7 @@ window.__ModuleLoader__.load({
                 "option",
                 {
                   value: `${r.channel}:${r.accountId}:${r.peerId}`,
-                  children: `${r.channel} · ${r.peerId}`,
+                  children: `${r.channel} · ${r.senderId || r.peerId} · ${r.accountId}`,
                 },
                 `${r.channel}:${r.accountId}:${r.peerId}`,
               ),
@@ -1923,6 +1923,11 @@ window.__ModuleLoader__.load({
                             authentication: "authentication",
                             inboundText: "inbound text",
                             outboundText: "outbound text",
+                            file: "file",
+                            voice: "voice",
+                            question: "question",
+                            approval: "approval",
+                            recovery: "recovery",
                             image: "image",
                             audio: "audio",
                             reconnect: "reconnect",
@@ -1932,6 +1937,11 @@ window.__ModuleLoader__.load({
                             authentication: "认证",
                             inboundText: "接收文本",
                             outboundText: "发送文本",
+                            file: "文件",
+                            voice: "语音消息",
+                            question: "提问",
+                            approval: "审批",
+                            recovery: "恢复",
                             image: "图片",
                             audio: "语音",
                             reconnect: "重连",
@@ -2007,6 +2017,14 @@ window.__ModuleLoader__.load({
                                 ? `Source-tested: ${evidenceNames("source-tested") || "none"}; not proven live: ${evidenceNames("not-proven") || "none"}; not supported: ${evidenceNames("not-supported") || "none"}`
                                 : `源码已测：${evidenceNames("source-tested") || "无"}；尚无真实验证：${evidenceNames("not-proven") || "无"}；不支持：${evidenceNames("not-supported") || "无"}`,
                             }),
+                            c.connectionHint
+                              ? jsx.jsx("p", {
+                                  "data-penglai-im-connection-hint": c.channel,
+                                  children: (document.documentElement.lang || "zh").startsWith("en")
+                                    ? c.connectionHint.en
+                                    : c.connectionHint.zh,
+                                })
+                              : null,
                             c.error
                               ? jsx.jsxs("p", {
                                   role: "alert",

@@ -6,6 +6,7 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { lstat, open, rename, unlink } from "node:fs/promises";
@@ -174,12 +175,19 @@ export class TtsOutputRegistry {
       for (const value of raw) {
         if (!this.valid(value)) throw new Error("ledger row");
         const record = value as StoredOutput;
+        const wav = join(this.root, record.file);
+        if (!existsSync(wav)) continue;
         this.records.set(record.id, record);
       }
       const allowed = new Set(["outputs.json", ...[...this.records.values()].map((record) => record.file)]);
       for (const entry of readdirSync(this.root)) {
+        if (entry.endsWith(".part")) {
+          try { unlinkSync(join(this.root, entry)); } catch { /* leftover staging */ }
+          continue;
+        }
         if (!allowed.has(entry)) throw new Error("unknown output file");
       }
+      this.persist();
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
       throw new PenglaiError("STORE_CORRUPT", "TTS output ledger corrupt");

@@ -28,22 +28,33 @@ export async function createXlsxFromSpec(spec: XlsxCreateSpec): Promise<Buffer> 
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
-export async function inspectXlsx(bytes: Buffer): Promise<{ text: string; parts: string[] }> {
+export async function inspectXlsx(bytes: Buffer): Promise<{
+  text: string;
+  parts: string[];
+  formulaCount: number;
+  calculationStatus: "stored-formulas";
+}> {
   assertAuthorizedBytes(bytes);
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(bytes as never);
   const cells: string[] = [];
   const parts: string[] = [];
+  let formulaCount = 0;
   wb.eachSheet((sheet) => {
     parts.push(sheet.name);
     sheet.eachRow((row) => {
       row.eachCell((cell) => {
-        const value = cell.formula ? `=${cell.formula}` : String(cell.value ?? "");
+        if (cell.formula) {
+          formulaCount += 1;
+          cells.push(`=${cell.formula}`);
+          return;
+        }
+        const value = String(cell.value ?? "");
         if (value) cells.push(value);
       });
     });
   });
-  return { text: cells.join(" "), parts };
+  return { text: cells.join(" "), parts, formulaCount, calculationStatus: "stored-formulas" };
 }
 
 export async function editXlsx(

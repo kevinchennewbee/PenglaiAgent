@@ -95,9 +95,9 @@ static char *wide_to_utf8(const wchar_t *wide) {
   return out;
 }
 
-static char *current_sid_string(void) {
+static char *process_sid_string(HANDLE process) {
   HANDLE token = NULL;
-  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return NULL;
+  if (!OpenProcessToken(process, TOKEN_QUERY, &token)) return NULL;
   DWORD needed = 0;
   GetTokenInformation(token, TokenUser, NULL, 0, &needed);
   TOKEN_USER *user = (TOKEN_USER *)calloc(1, needed ? needed : 1);
@@ -114,6 +114,10 @@ static char *current_sid_string(void) {
   free(user);
   CloseHandle(token);
   return sid;
+}
+
+static char *current_sid_string(void) {
+  return process_sid_string(GetCurrentProcess());
 }
 
 static int has_reparse(const wchar_t *path) {
@@ -568,7 +572,11 @@ static int cmd_identity(DWORD pid) {
   ULONGLONG startMs = 0;
   if (!process_start_ms(pid, &startMs)) win_fail("GetProcessTimes");
   char *image = process_image(pid);
-  char *owner = current_sid_string();
+  HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+  if (!process) win_fail("OpenProcess identity");
+  char *owner = process_sid_string(process);
+  CloseHandle(process);
+  if (!owner) fail("process-owner-unavailable");
   printf("{\"ok\":true,\"command\":\"process-identity\",\"pid\":%lu,\"startMs\":%llu,\"executable\":", (unsigned long)pid, (unsigned long long)startMs);
   json_escape(stdout, image ? image : "");
   fputs(",\"owner\":", stdout);
@@ -576,41 +584,6 @@ static int cmd_identity(DWORD pid) {
   fputs("}\n", stdout);
   free(image);
   free(owner);
-  return 0;
-}
-
-static int cmd_reap_supervisors(const char *exe_utf8, DWORD keep_pid) {
-  wchar_t *expected = utf8_to_wide(exe_utf8);
-  if (!expected) fail("utf16");
-  HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-  if (snapshot == INVALID_HANDLE_VALUE) win_fail("CreateToolhelp32Snapshot");
-  PROCESSENTRY32W entry;
-  ZeroMemory(&entry, sizeof(entry));
-  entry.dwSize = sizeof(entry);
-  DWORD killed[256];
-  size_t count = 0;
-  if (Process32FirstW(snapshot, &entry)) {
-    do {
-      DWORD pid = entry.th32ProcessID;
-      if (!pid || pid == GetCurrentProcessId() || pid == keep_pid) continue;
-      HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE, FALSE, pid);
-      if (!process) continue;
-      wchar_t image[MAX_PATH * 4];
-      DWORD image_len = MAX_PATH * 4;
-      if (QueryFullProcessImageNameW(process, 0, image, &image_len) && _wcsicmp(image, expected) == 0) {
-        if (TerminateProcess(process, 1) && count < 256) killed[count++] = pid;
-      }
-      CloseHandle(process);
-    } while (Process32NextW(snapshot, &entry));
-  }
-  CloseHandle(snapshot);
-  fputs("{\"ok\":true,\"command\":\"process-reap-supervisors\",\"pids\":[", stdout);
-  for (size_t i = 0; i < count; i++) {
-    if (i) fputc(',', stdout);
-    fprintf(stdout, "%lu", (unsigned long)killed[i]);
-  }
-  fprintf(stdout, "],\"deleted\":%lu}\n", (unsigned long)count);
-  free(expected);
   return 0;
 }
 
@@ -726,12 +699,6 @@ int main(int argc, char **argv) {
     const char *pid = opt(argc, argv, "--pid");
     if (!pid) fail("pid");
     return cmd_identity((DWORD)strtoul(pid, NULL, 10));
-  }
-  if (strcmp(cmd, "process-reap-supervisors") == 0) {
-    const char *exe = opt(argc, argv, "--exe");
-    const char *keep = opt(argc, argv, "--keep-pid");
-    if (!exe) fail("exe");
-    return cmd_reap_supervisors(exe, keep ? (DWORD)strtoul(keep, NULL, 10) : 0);
   }
   if (strcmp(cmd, "process-suspend") == 0 || strcmp(cmd, "process-resume") == 0) {
     const char *pid = opt(argc, argv, "--pid");

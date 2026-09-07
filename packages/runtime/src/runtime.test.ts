@@ -789,7 +789,7 @@ test("interrupted atomic activation restores the pre-activation directory", () =
   assert.equal(existsSync(staging), false);
 });
 
-test("Center transaction is restored before DSH profile activation", () => {
+for (const schema of [2, 3]) for (const phase of ["staging", "activating", "verifying"]) test(`Center schema ${schema} ${phase} is restored before DSH profile activation`, () => {
   const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-center-preboot-")));
   const txDir = join(user.root, "profiles", "center-tx");
   mkdirSync(user.profileWeb, { recursive: true });
@@ -803,9 +803,9 @@ test("Center transaction is restored before DSH profile activation", () => {
   writeFileSync(
     join(txDir, "journal.json"),
     JSON.stringify({
-      schema: 2,
+      schema,
       operationId: "24e69732-d08b-4f05-a628-ddf0bcf99a50",
-      phase: "verifying",
+      phase,
       id: "@penglai/im",
       action: "disable",
       previousEnabled: true,

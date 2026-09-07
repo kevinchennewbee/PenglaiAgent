@@ -329,6 +329,9 @@
     const status = await rpc("status");
     state.current = status.current;
     state.completed = Array.isArray(status.completed) ? status.completed : [];
+    if (status.lastError && typeof status.lastError.code === "string") {
+      state.error = status.lastError.code;
+    }
     let providers = Array.isArray(status.providers) ? status.providers : [];
     if (providers.length === 0) {
       try {

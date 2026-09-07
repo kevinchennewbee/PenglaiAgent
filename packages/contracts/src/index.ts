@@ -20,6 +20,8 @@ export * from "./bounded-http.js";
 export * from "./closed-enum.js";
 export * from "./safe-https.js";
 export * from "./session-snapshot.js";
+export * from "./center-journal.js";
+export * from "./usage-projection.js";
 
 export const SCHEMA_VERSION = 12;
 export const RELEASE = "0.5.10";
@@ -585,6 +587,14 @@ export interface AssistantFinal {
 }
 
 export type PenglaiTtsLocale = "zh" | "en" | "ja";
+
+/** Voice ids encode locale as moss-<locale>-*. Never default English/Japanese voices to zh. */
+export function localeForMossVoiceId(voiceId: string): PenglaiTtsLocale {
+  if (typeof voiceId !== "string" || !voiceId) return "zh";
+  const marked = /^moss-(zh|en|ja)-/.exec(voiceId);
+  if (marked?.[1] === "en" || marked?.[1] === "ja" || marked?.[1] === "zh") return marked[1];
+  return "zh";
+}
 
 export interface PenglaiTtsSynthesisRequest {
   operationId: string;

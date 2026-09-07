@@ -6,6 +6,7 @@ import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
 import { assertGrant, type ContextGrant } from "./service.js";
 
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
+export const MAX_EXPANDED_BYTES = 2 * 1024 * 1024;
 export const MAX_FILES_PER_SCAN = 400;
 export const MAX_TEXT_BYTES = 256 * 1024;
 export const TEXT_EXTS = new Set([".txt", ".md", ".markdown", ".json", ".csv", ".html", ".htm", ".xml", ".yml", ".yaml", ".log"]);
@@ -50,6 +51,7 @@ function extractPdfText(buf: Buffer): string {
   const raw = buf.toString("latin1");
   const chunks: string[] = [];
   let cursor = 0;
+  let remaining = MAX_EXPANDED_BYTES;
   while (cursor < raw.length && chunks.length < 128) {
     const marker = raw.indexOf("stream", cursor);
     if (marker < 0) break;
@@ -72,14 +74,18 @@ function extractPdfText(buf: Buffer): string {
     cursor = endMarker + "endstream".length;
     let decoded: Buffer = payload;
     try {
-      decoded = Buffer.from(inflateSync(payload));
-    } catch {
+      decoded = inflateSync(payload, { maxOutputLength: Math.max(1, remaining) });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ERR_BUFFER_TOO_LARGE") throw new PenglaiError("INVALID_INPUT", "context expansion limit exceeded");
       try {
-        decoded = Buffer.from(inflateRawSync(payload));
-      } catch {
+        decoded = inflateRawSync(payload, { maxOutputLength: Math.max(1, remaining) });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ERR_BUFFER_TOO_LARGE") throw new PenglaiError("INVALID_INPUT", "context expansion limit exceeded");
         decoded = payload;
       }
     }
+    remaining -= decoded.length;
+    if (remaining < 0) throw new PenglaiError("INVALID_INPUT", "context expansion limit exceeded");
     const text = decoded.toString("utf8");
     const literals = [...text.matchAll(/\(([^()\\]{2,})\)/g)].map((m) => m[1] ?? "");
     if (literals.length) chunks.push(literals.join(" "));
@@ -111,10 +117,11 @@ function stripXml(xml: string): string {
 
 function readZipTexts(buf: Buffer, names: readonly string[]): Record<string, string> {
   const eocd = buf.lastIndexOf(Buffer.from("PK\x05\x06"));
-  if (eocd < 0) throw new PenglaiError("INVALID_INPUT", "office archive missing central directory");
+  if (eocd < 0 || eocd + 22 > buf.length) throw new PenglaiError("INVALID_INPUT", "office archive missing central directory");
   const count = buf.readUInt16LE(eocd + 10);
   let offset = buf.readUInt32LE(eocd + 16);
   const out: Record<string, string> = {};
+  let remaining = MAX_EXPANDED_BYTES;
   for (let i = 0; i < count && offset + 46 <= buf.length; i += 1) {
     if (buf.readUInt32LE(offset) !== 0x02014b50) break;
     const method = buf.readUInt16LE(offset + 10);
@@ -126,12 +133,16 @@ function readZipTexts(buf: Buffer, names: readonly string[]): Record<string, str
     const name = buf.subarray(offset + 46, offset + 46 + nameLen).toString("utf8");
     offset += 46 + nameLen + extraLen + commentLen;
     if (!names.includes(name)) continue;
+    if (localOff + 30 > buf.length) throw new PenglaiError("INVALID_INPUT", "office archive local header truncated");
     if (buf.readUInt32LE(localOff) !== 0x04034b50) continue;
     const localNameLen = buf.readUInt16LE(localOff + 26);
     const localExtra = buf.readUInt16LE(localOff + 28);
     const dataStart = localOff + 30 + localNameLen + localExtra;
+    if (dataStart + compSize > buf.length || ![0, 8].includes(method)) throw new PenglaiError("INVALID_INPUT", "office archive entry invalid");
     const compressed = buf.subarray(dataStart, dataStart + compSize);
-    const data = method === 0 ? compressed : inflateRawSync(compressed);
+    const data = method === 0 ? compressed : inflateRawSync(compressed, { maxOutputLength: Math.max(1, remaining) });
+    remaining -= data.length;
+    if (remaining < 0) throw new PenglaiError("INVALID_INPUT", "context expansion limit exceeded");
     out[name] = data.toString("utf8");
   }
   return out;

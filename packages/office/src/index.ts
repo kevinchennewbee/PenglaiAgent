@@ -20,6 +20,8 @@ export { OFFICE_TEMPLATES } from "./templates/catalog.js";
 export { assertAuthorizedBytes } from "./authorization.js";
 export { registerOfficeTools } from "./tools.js";
 export { loadPenglaiCjkFont, PENGLAI_CJK_FONT_SHA256, PENGLAI_CJK_FONT_LICENSE } from "./cjk-font.js";
+export { previewPdfPages, artifactDigest } from "./pdf-preview.js";
+export { previewOfficeStructure, bindOfficePreviewDigest, externalOpenPlan } from "./structural-preview.js";
 
 interface OfficeContext {
   tools?: { register(definition: Record<string, unknown>): unknown };

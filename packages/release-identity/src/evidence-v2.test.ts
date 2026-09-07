@@ -2,14 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { recordAssertion } from "./assertion.js";
 import {
+  aggregateSlotEvaluations,
   bindArtifactFreshness,
   evaluateEvidenceV2,
+  evaluateOneSlotRecord,
   evidenceKey,
   requiredSlots,
   resolveSubgateVerdict,
   soakSampleSetAccepted,
   tagCollection,
 } from "./evidence-v2.js";
+import { evaluateEvidenceV3 } from "./evidence-v3.js";
 import type { AcceptanceEntry } from "./registry.js";
 
 const HEAD = "ddcafb557652b01def03c62054cfcc4fa8944cb4";
@@ -246,6 +249,42 @@ test("verify:release prefers JSON INCOMPLETE/FAIL over a process that printed PA
   });
   assert.equal(fail.verdict, "FAIL");
   assert.equal(fail.exit, 1);
+});
+
+test("conflicting FAIL and PASS on one slot stay FAIL regardless of record order", () => {
+  const contract = entry("R50-TRUTH-001", "contract/all");
+  const pass = rec({
+    acceptanceId: "R50-TRUTH-001",
+    runnerClass: "contract",
+    target: "source",
+    assertionId: "pass-later",
+    status: "PASS",
+  });
+  const fail = rec({
+    acceptanceId: "R50-TRUTH-001",
+    runnerClass: "contract",
+    target: "source",
+    assertionId: "fail-first",
+    status: "FAIL",
+  });
+  const slot = requiredSlots(contract)[0]!;
+  const passEval = evaluateOneSlotRecord(pass, slot);
+  const failEval = evaluateOneSlotRecord(fail, slot);
+  assert.equal(aggregateSlotEvaluations([passEval, failEval]).status, "FAIL");
+  assert.equal(aggregateSlotEvaluations([failEval, passEval]).status, "FAIL");
+
+  for (const records of [
+    [pass, fail],
+    [fail, pass],
+  ]) {
+    const v2 = evaluateEvidenceV2({ registry: [contract], candidateSha: HEAD, records });
+    assert.equal(v2.results[0]?.status, "FAIL");
+    assert.equal(v2.verdict, "FAIL");
+    assert.equal(v2.ids[0]?.slots[0]?.status, "FAIL");
+    const v3 = evaluateEvidenceV3({ registry: [contract], candidateSha: HEAD, records });
+    assert.equal(v3.results[0]?.status, "FAIL");
+    assert.equal(v3.verdict, "FAIL");
+  }
 });
 
 test("evidence key is acceptanceId+runnerClass+target+assertionId", () => {

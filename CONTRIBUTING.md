@@ -1,13 +1,18 @@
 # Contributing to Penglai
 
-Penglai is a desktop distribution of official DeepSeek Harness. Product work happens on a single `main` branch. Do not open feature branches, worktrees, or pull requests unless the repository owner changes that contract.
+Penglai is a desktop distribution of official DeepSeek Harness. Follow the
+current `AGENTS.md` and version contract. Commit, push, PR and merge only with
+the user's applicable authorization. Completed 0.5.10 publication does not
+authorize another release.
 
 ## Prerequisites
 
 - Node `22.22.2`
-- pnpm `10.14.0`
+- pnpm `11.7.0`
 - macOS 13.0+ (macOS 14+ recommended for the current Apple Silicon native runner)
-- Do not depend on GitHub Actions. Local or self-hosted native runners are the source of installed evidence.
+- Native installed evidence still comes from matching-target installers, not from
+  `dist` staging. GitHub Actions native jobs are evidence only when they produce
+  the exact contract artifacts.
 
 ## Required reading before code
 
@@ -39,11 +44,14 @@ pnpm package:mac
 pnpm build:local-dmg --reuse-app
 ```
 
-`package:mac` refuses a dirty tree and refuses `HEAD != origin/main`. macOS arm64 and macOS x64 must be built separately. A universal app is not two installers.
+Native packaging still refuses a dirty tree for release artifacts. Apple Silicon
+and Intel Mac builds are separate installers; a universal app is not two
+installers. Follow the current version's acceptance delta, not a historical
+runbook.
 
 ## Public export
 
-`pnpm prepare:public-export` builds an allowlisted source tree and `publicExportTreeSha256`. `STATE.md`, evidence, `dist`, and private handoff documents are excluded. Public repo, tag, Release, and updater channel work are not authorized in this repository pass.
+`pnpm prepare:public-export` builds an allowlisted source tree and `publicExportTreeSha256`. `STATE.md`, evidence, `dist`, and private handoff documents are excluded. Public tag, Release and updater work require a current-version authorization.
 
 ## Secrets
 

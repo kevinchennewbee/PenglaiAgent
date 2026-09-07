@@ -1,3 +1,5 @@
+import { inboundOperationKey, legacyInboundIdempotencyKey } from "./inbound-envelope.js";
+import { OfficialImRequestStore } from "./official-requests.js";
 import {
   PenglaiError,
   assertSha256,
@@ -58,6 +60,27 @@ import {
   type ImOwnerBrokerPort,
 } from "./owner.js";
 
+function peekInboundOperation(
+  store: Store,
+  routeId: string,
+  vendorMessageKey: string,
+): { operationId: string; inboundId?: string; turnId?: string } | undefined {
+  const existing = store.db
+    .prepare(
+      `SELECT operation_id, inbound_id, turn_id FROM inbound_operations
+       WHERE vendor_message_key = ? AND route_id = ?`,
+    )
+    .get(vendorMessageKey, routeId) as
+    | { operation_id: string; inbound_id?: string | null; turn_id?: string | null }
+    | undefined;
+  if (!existing) return undefined;
+  return {
+    operationId: existing.operation_id,
+    ...(existing.inbound_id ? { inboundId: existing.inbound_id } : {}),
+    ...(existing.turn_id ? { turnId: existing.turn_id } : {}),
+  };
+}
+
 export type ChannelName = ChannelId;
 export type { ConnectionState };
 
@@ -75,6 +98,7 @@ export interface ChannelState {
   runtimeBundled: true;
   releaseEvidence: ChannelManifestV1["releaseEvidence"];
   capabilityEvidence: ChannelManifestV1["capabilityEvidence"];
+  connectionHint: ChannelManifestV1["connectionHint"];
   connectionMethods: ChannelManifestV1["connectionMethods"];
   error?: {
     code: string;
@@ -112,6 +136,7 @@ export class PenglaiImHost {
   private feishuAppId = "";
   private owner: ImOwnerBrokerPort | undefined;
   private artifacts: ArtifactService | undefined;
+  private secretClearer?: (id: ChannelId) => void;
   private secretHydrator?: (id: ChannelId, serialized: string) => void;
   private readonly adapters = new Map<ChannelId, ChannelAdapter>();
   startupFailure: MessageFailure | undefined;
@@ -120,6 +145,7 @@ export class PenglaiImHost {
   private resolveSidecarReady: (() => void) | undefined;
   private readonly statusReactions = new Map<string, StatusReactionHandle>();
   readonly bots: ImBotStore;
+  readonly officialRequests: OfficialImRequestStore;
 
   constructor(
     readonly store: Store,
@@ -148,6 +174,18 @@ export class PenglaiImHost {
     }
     this.store.redactExpiredPayloads(this.plane.clock.now());
     this.bots = new ImBotStore(this.store.db);
+    this.officialRequests = new OfficialImRequestStore(this.store.db);
+    const submitInbound = this.plane.submitInbound.bind(this.plane);
+    this.plane.submitInbound = async (env) => {
+      const answered = this.officialRequests.tryAnswerFromInbound({
+        channel: env.adapter,
+        accountId: env.accountRef,
+        peerId: env.peerRef,
+        text: env.text ?? "",
+      });
+      if (answered) return { kind: "control", text: answered };
+      return submitInbound(env);
+    };
     for (const id of CHANNEL_IDS) {
       if (!isNativeChannel(id)) this.adapters.set(id, guidedAdapter(id));
     }
@@ -155,6 +193,10 @@ export class PenglaiImHost {
 
   attachOwner(owner: ImOwnerBrokerPort): void {
     this.owner = owner;
+  }
+
+  attachSecretClearer(clear: (id: ChannelId) => void): void {
+    this.secretClearer = clear;
   }
 
   attachSecretHydrator(hydrate: (id: ChannelId, serialized: string) => void): void {
@@ -357,9 +399,9 @@ export class PenglaiImHost {
   }
 
   /** Peers that have a durable vendor reply target but no active binding. */
-  listBindableRoutes(): Array<{ channel: ChannelName; accountId: string; peerId: string }> {
+  listBindableRoutes(): Array<{ channel: ChannelName; accountId: string; peerId: string; senderId?: string }> {
     const bound = new Set(this.store.listActiveBindings().map((b) => b.routeId));
-    const out: Array<{ channel: ChannelName; accountId: string; peerId: string }> = [];
+    const out: Array<{ channel: ChannelName; accountId: string; peerId: string; senderId?: string }> = [...this.bots.pendingPeers()];
     for (const route of this.store.listRoutes()) {
       if (bound.has(route.routeId)) continue;
       const target = this.store.getVendorReplyTarget(route.routeId);
@@ -497,8 +539,12 @@ export class PenglaiImHost {
     ownerActionId: string;
     receipt?: string;
   }): BindingDto {
-    if (!isNativeChannel(input.channel)) {
+    if (!(CHANNEL_IDS as readonly string[]).includes(input.channel)) {
       throw new PenglaiError("SECURITY_POLICY", "CHANNEL_BINDING_UNAVAILABLE");
+    }
+    const peer = isNativeChannel(input.channel) ? undefined : this.bots.peer(input.channel, input.accountId, input.peerId);
+    if (!isNativeChannel(input.channel) && (!peer || !this.owner)) {
+      throw new PenglaiError("SECURITY_POLICY", "IM_PEER_APPROVAL_REQUIRED");
     }
     if (input.expectedRevision !== undefined && input.expectedRevision !== this.revision) {
       throw new PenglaiError("BINDING_STALE", "revision mismatch");
@@ -514,19 +560,20 @@ export class PenglaiImHost {
     const workspaces = this.dsh.listWorkspaces();
     const ws = workspaces.find((w) => w.id === input.workspaceId);
     if (!ws) throw new PenglaiError("INVALID_INPUT", "workspace not found");
-    if (!ws.sessionIds.includes(input.sessionId) && !this.dsh.getAgent(input.sessionId)) {
+    if (!ws.sessionIds.includes(input.sessionId)) {
       throw new PenglaiError("INVALID_INPUT", "session not in official workspace");
     }
     const objectId = imBindingObjectId(input);
     const existing = this.store.findRoute(input.channel, input.accountId, input.peerId);
+    const wasBound = existing && this.store.activeBinding(existing.routeId);
     const finishOwnerAction = consumeImOwnerProof(this.owner, {
-      action: existing ? IM_OWNER_ACTIONS.rebind : IM_OWNER_ACTIONS.bind,
+      action: wasBound ? IM_OWNER_ACTIONS.rebind : IM_OWNER_ACTIONS.bind,
       actionId: input.ownerActionId,
       objectId,
       workspaceId: input.workspaceId,
       sessionId: input.sessionId,
       resultDigest: imSourceDigest({
-        action: existing ? IM_OWNER_ACTIONS.rebind : IM_OWNER_ACTIONS.bind,
+        action: wasBound ? IM_OWNER_ACTIONS.rebind : IM_OWNER_ACTIONS.bind,
         objectId,
         workspaceId: input.workspaceId,
         sessionId: input.sessionId,
@@ -556,6 +603,10 @@ export class PenglaiImHost {
       createdAt: current?.createdAt ?? now,
       updatedAt: now,
     });
+    if (peer) {
+      this.store.putVendorReplyTarget(routeId, peer.vendorTarget);
+      this.bots.approvePeer(input.channel, input.accountId, input.peerId, revision);
+    }
     this.revision += 1;
     finishOwnerAction();
     return this.listBindings().find((b) => b.id === routeId)!;
@@ -891,6 +942,7 @@ export class PenglaiImHost {
       runtimeBundled: manifest.runtimeBundled,
       releaseEvidence: manifest.releaseEvidence,
       capabilityEvidence: manifest.capabilityEvidence,
+      connectionHint: manifest.connectionHint,
       connectionMethods: manifest.connectionMethods,
       ...(failure
         ? {
@@ -926,6 +978,7 @@ export class PenglaiImHost {
       runtimeBundled: manifest.runtimeBundled,
       releaseEvidence: manifest.releaseEvidence,
       capabilityEvidence: manifest.capabilityEvidence,
+      connectionHint: manifest.connectionHint,
       connectionMethods: manifest.connectionMethods,
       ...(failure
         ? {
@@ -1132,10 +1185,12 @@ export class PenglaiImHost {
       ...(input.receipt ? { receipt: input.receipt } : {}),
     });
     const adapter = requireAdapter(this.adapters, id);
+    this.secretClearer?.(id);
+    this.bots.revokePeers(id);
     // deleteCredentials owns the adapter-specific logout/wipe operation.
     await adapter.deleteCredentials();
     await this.vault.delete(CHANNEL_CREDENTIAL_REFS[id]);
-    this.persistChannelFlag(id, false);
+    this.store.putAdapterConfig(channelConfigAccountId(id), id, JSON.stringify({ enabled: false }));
     this.revision += 1;
     finishOwnerAction();
     return { loggedOut: true };
@@ -1247,7 +1302,12 @@ export class PenglaiImHost {
     if (!route || isNativeChannel(route.adapter) || !(CHANNEL_IDS as readonly string[]).includes(route.adapter)) return;
     const adapter = this.adapters.get(route.adapter as ChannelId);
     if (!adapter) return;
+    if (adapter.accountIdentity?.() !== route.accountRef) return;
+    const binding = this.store.activeBinding(routeId);
+    const peer = this.bots.peer(route.adapter, route.accountRef, route.peerRef);
+    if (!binding || !peer || peer.bindingRevision !== binding.revision) return;
     const target = this.plane.requireVendorTarget(routeId);
+    if (target !== peer.vendorTarget) return;
     for (const item of this.plane.dueOutbox(routeId)) {
       const claimToken = this.plane.markSending(item.outboxId, route.adapter);
       if (!claimToken) continue;
@@ -1282,14 +1342,15 @@ export class PenglaiImHost {
     this.persistChannelFlag(channel, true, adapter.exportPersistedState());
   }
 
-  private startStatusReaction(adapter: ChannelAdapter, event: InboundChannelEvent): void {
+  private startStatusReaction(adapter: ChannelAdapter, event: InboundChannelEvent, routeId: string): void {
     if (typeof adapter.react !== "function") return;
     const emojis = CHANNEL_STATUS_REACTIONS[event.channel];
     if (!emojis) return;
-    const existing = this.statusReactions.get(event.idempotencyKey);
+    const key = inboundOperationKey(routeId, event.idempotencyKey);
+    const existing = this.statusReactions.get(key);
     if (existing) return;
     const handle = beginStatusReaction({
-      key: event.idempotencyKey,
+      key,
       emojis,
       add: (emoji, signal) =>
         adapter.react!({
@@ -1308,7 +1369,7 @@ export class PenglaiImHost {
           signal,
         }),
     });
-    this.statusReactions.set(event.idempotencyKey, handle);
+    this.statusReactions.set(key, handle);
     if (this.statusReactions.size > 256) {
       const first = this.statusReactions.keys().next().value;
       if (first) this.statusReactions.delete(first);
@@ -1318,11 +1379,11 @@ export class PenglaiImHost {
   private finishStatusReaction(_adapter: string, _accountRef: string, inboundId: string, kind: "success" | "error"): void {
     const inbound = this.store.getInbound(inboundId);
     if (!inbound) return;
-    const handle = this.statusReactions.get(inbound.adapterMessageKey);
+    const handle = this.statusReactions.get(inboundOperationKey(inbound.routeId, inbound.adapterMessageKey));
     if (!handle) return;
     if (kind === "success") handle.success();
     else handle.error();
-    this.statusReactions.delete(inbound.adapterMessageKey);
+    this.statusReactions.delete(inboundOperationKey(inbound.routeId, inbound.adapterMessageKey));
   }
 
   private consumeChannelOwner(input: {
@@ -1372,6 +1433,15 @@ export class PenglaiImHost {
     ) {
       return;
     }
+    const route = this.store.findRoute(event.channel, event.accountRef, event.peerRef);
+    const binding = route && this.store.activeBinding(route.routeId);
+    const peer = this.bots.peer(event.channel, event.accountRef, event.peerRef);
+    if (!binding || !peer || peer.bindingRevision !== binding.revision || peer.vendorTarget !== event.vendorTarget || peer.senderId !== event.senderId) {
+      this.bots.observePeer(event);
+      return;
+    }
+    const workspace = this.dsh.listWorkspaces().find((row) => row.id === binding.workspaceIdentity);
+    if (!workspace?.sessionIds.includes(binding.sessionId)) return;
     const receivedAt = event.vendorTime ?? Date.now();
     const routeId = this.plane.ensureRoute({
       adapter: event.channel,
@@ -1384,14 +1454,21 @@ export class PenglaiImHost {
       text: event.text,
       receivedAt,
     });
-    const claim = this.store.claimInboundOperation({
-      operationId: `op:${event.idempotencyKey}`,
-      vendorMessageKey: event.idempotencyKey,
-      routeId,
-    });
+    const vendorMessageKey = event.idempotencyKey;
+    const legacyKey = legacyInboundIdempotencyKey(event.channel, event.accountRef, event.vendorMessageId);
+    const existing =
+      peekInboundOperation(this.store, routeId, vendorMessageKey) ??
+      peekInboundOperation(this.store, routeId, legacyKey);
+    const claim = existing
+      ? { created: false, ...existing }
+      : this.store.claimInboundOperation({
+          operationId: inboundOperationKey(routeId, vendorMessageKey),
+          vendorMessageKey,
+          routeId,
+        });
     if (!claim.created && claim.turnId) return;
     const adapter = this.adapters.get(event.channel);
-    if (adapter) this.startStatusReaction(adapter, event);
+    if (adapter) this.startStatusReaction(adapter, event, routeId);
     try {
       await this.plane.submitInbound({
         adapter: event.channel,
@@ -1406,8 +1483,8 @@ export class PenglaiImHost {
       });
       if (adapter) this.persistAdapterState(event.channel, adapter);
     } catch (error) {
-      this.statusReactions.get(event.idempotencyKey)?.error();
-      this.statusReactions.delete(event.idempotencyKey);
+      this.statusReactions.get(inboundOperationKey(routeId, event.idempotencyKey))?.error();
+      this.statusReactions.delete(inboundOperationKey(routeId, event.idempotencyKey));
       this.recordChannelFailure(event.channel, event.accountRef, error);
     }
   }

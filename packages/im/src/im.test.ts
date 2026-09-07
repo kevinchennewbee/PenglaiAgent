@@ -795,7 +795,7 @@ test("R2I-ROUTE-001 binding requires official workspace/session", async () => {
     dbPath: ":memory:",
     host: {
       version: "0.1.2-rc.1",
-      getAgent: () => undefined,
+      getAgent: () => ({ id: "foreign-session" }) as never,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
   });
@@ -812,10 +812,14 @@ test("R2I-ROUTE-001 binding requires official workspace/session", async () => {
     } as never,
     {
       version: "0.1.2-rc.1",
-      getAgent: () => undefined,
+      getAgent: () => ({ id: "foreign-session" }) as never,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
   );
+  assert.throws(() => host.createBinding({
+    channel: "weixin", accountId: "a", peerId: "p", workspaceId: "w",
+    sessionId: "foreign-session", ownerActionId: OWNER_BIND,
+  }), /session not in official workspace/);
   assert.throws(
     () =>
       host.createBinding({

@@ -162,6 +162,42 @@ export function recordFillsSlot(rec: EvidenceV2Record, slot: EvidenceSlot): bool
   return cls === slot.runnerFamily || rec.runnerId === slot.runnerFamily;
 }
 
+const SLOT_STATUS_RANK: ResultStatus[] = ["FAIL", "STALE", "NOT_RUN", "PASS"];
+
+export function evaluateOneSlotRecord(
+  rec: EvidenceV2Record,
+  slot: EvidenceSlot,
+  currentArtifact?: string,
+): SlotEvaluation {
+  if (rec.status === "FAIL") {
+    return { slot, status: "FAIL", reason: "runner reported FAIL", assertionId: rec.assertionId };
+  }
+  if (rec.status !== "PASS") {
+    return { slot, status: "NOT_RUN", reason: `runner reported ${rec.status}`, assertionId: rec.assertionId };
+  }
+  const incomplete = assertPassRecordComplete(rec);
+  if (incomplete) {
+    return { slot, status: "FAIL", reason: incomplete, assertionId: rec.assertionId };
+  }
+  if (rec.artifactSha256 && currentArtifact && rec.artifactSha256 !== currentArtifact) {
+    return {
+      slot,
+      status: "STALE",
+      reason: `artifact ${rec.artifactSha256} != current ${currentArtifact}`,
+      assertionId: rec.assertionId,
+    };
+  }
+  return { slot, status: "PASS", reason: "attributed", assertionId: rec.assertionId };
+}
+
+/** Worst status wins. A later PASS must not hide an earlier FAIL (or the reverse). */
+export function aggregateSlotEvaluations(evals: readonly SlotEvaluation[]): SlotEvaluation {
+  if (evals.length === 0) {
+    throw new Error("aggregateSlotEvaluations requires at least one evaluation");
+  }
+  return [...evals].sort((a, b) => SLOT_STATUS_RANK.indexOf(a.status) - SLOT_STATUS_RANK.indexOf(b.status))[0]!;
+}
+
 export function assertPassRecordComplete(rec: EvidenceV2Record): string | undefined {
   if (!rec.acceptanceId) return "missing acceptanceId";
   if (!rec.assertionId) return "missing assertionId";
@@ -273,8 +309,7 @@ export function evaluateEvidenceV2(opts: {
       }
       const usable = hits.filter((rec) => rec.candidateSourceSha === opts.candidateSha);
       const staleHits = hits.filter((rec) => rec.candidateSourceSha !== opts.candidateSha);
-      const rec = usable[0];
-      if (!rec) {
+      if (usable.length === 0) {
         const fromRunner = staleHits.some(
           (hit) => hit.collectionClass === "installed-runner" || hit.collectionClass === "soak-runner" || hit.collectionClass === "live-runner" || hit.collectionClass === "export-runner",
         );
@@ -299,29 +334,12 @@ export function evaluateEvidenceV2(opts: {
         }
         continue;
       }
-      // A runner that reports FAIL for this slot must surface as FAIL, not be
-      // silently dropped to NOT_RUN (which would hide the failure).
-      if (rec.status === "FAIL") {
-        slotEvals.push({ slot, status: "FAIL", reason: "runner reported FAIL", assertionId: rec.assertionId });
-        fail = true;
-        continue;
-      }
-      if (rec.status !== "PASS") {
-        slotEvals.push({ slot, status: "NOT_RUN", reason: `runner reported ${rec.status}`, assertionId: rec.assertionId });
-        continue;
-      }
-      const incomplete = assertPassRecordComplete(rec);
-      if (incomplete) {
-        slotEvals.push({ slot, status: "FAIL", reason: incomplete, assertionId: rec.assertionId });
-        fail = true;
-        continue;
-      }
-      if (rec.artifactSha256 && opts.currentArtifactByTarget?.[slot.target] && rec.artifactSha256 !== opts.currentArtifactByTarget[slot.target]) {
-        slotEvals.push({ slot, status: "STALE", reason: `artifact ${rec.artifactSha256} != current ${opts.currentArtifactByTarget[slot.target]}`, assertionId: rec.assertionId });
-        stale = true;
-        continue;
-      }
-      slotEvals.push({ slot, status: "PASS", reason: "attributed", assertionId: rec.assertionId });
+      const chosen = aggregateSlotEvaluations(
+        usable.map((hit) => evaluateOneSlotRecord(hit, slot, opts.currentArtifactByTarget?.[slot.target])),
+      );
+      slotEvals.push(chosen);
+      if (chosen.status === "FAIL") fail = true;
+      else if (chosen.status === "STALE") stale = true;
     }
     const missingTargets = slotEvals.filter((s) => s.status === "NOT_RUN").map((s) => s.slot.target);
     let status: ResultStatus = "PASS";

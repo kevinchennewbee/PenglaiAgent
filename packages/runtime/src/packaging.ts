@@ -140,6 +140,28 @@ export function assertWindowsNsisScript(script: string): void {
   if (/deletion-capability\.json|delete-plan|\$\{USERDATA\}/.test(script)) {
     throw new Error("NSIS uninstaller must never receive or execute a user-data deletion plan");
   }
+  assertWindowsUpgradeStaging(script);
+}
+
+/** Old 0.5.10 pattern deleted the live app tree then copied. Upgrade must stage first. */
+export function assertWindowsUpgradeStaging(script: string): void {
+  if (!/\$INSTDIR\.pending/.test(script)) {
+    throw new Error("Windows upgrade must stage into INSTDIR.pending before touching the live app");
+  }
+  if (!/upgrade_copy_failed/.test(script) || !/previous install was left in place/.test(script)) {
+    throw new Error("Windows upgrade must keep the previous program when the copy fails");
+  }
+  if (!/upgrade_activate_failed/.test(script) || !/\$INSTDIR\.previous/.test(script)) {
+    throw new Error("Windows upgrade must restore INSTDIR.previous when activation fails");
+  }
+  const pendingOut = script.search(/SetOutPath\s+"\$R2"/);
+  const liveRename = script.search(/Rename\s+"\$INSTDIR"\s+"\$INSTDIR\.previous"/);
+  if (pendingOut < 0 || liveRename < 0 || pendingOut > liveRename) {
+    throw new Error("Windows upgrade must copy the payload before renaming the live app directory");
+  }
+  if (/RMDir\s+\/r\s+"\$LOCALAPPDATA\\Penglai\\app\\0\.5"/.test(script)) {
+    throw new Error("Windows upgrade must not delete the live app tree before the new payload exists");
+  }
 }
 
 export const CROSS_BUILD_TARGETS = [

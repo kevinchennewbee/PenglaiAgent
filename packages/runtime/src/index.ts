@@ -19,7 +19,7 @@ import { userInfo } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { createConnection, createServer } from "node:net";
-import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
+import { PenglaiError, readExactRegularFile, assertCenterJournalHeader, centerProfileWasUntouched } from "@penglai/contracts";
 import {
   clearIdentity,
   killIdentity,
@@ -38,8 +38,10 @@ import {
   runtimePluginTarget,
 } from "./plugin-catalog.js";
 import { extractTarGz } from "./safe-tar.js";
-import { applyWindowsCredentialAcl, readOwnedWindowsJobReport, spawnOwnedDshProcess } from "./windows-host.js";
+import { applyWindowsCredentialAcl, readOwnedWindowsJobReport, spawnOwnedDshProcess, windowsNativeHostStatus } from "./windows-host.js";
 import { writeFileAtomic } from "./permissions.js";
+import { compareSemver } from "./update.js";
+import { readInstalledOverlay, shouldPreserveInstalledPlugin, writeInstalledOverlay } from "./plugin-resolution.js";
 import {
   IDLE_SUPERVISOR_RECOVERY,
   nextSupervisorHealthDecision,
@@ -525,6 +527,27 @@ export function installFirstPartyPlugins(
   for (const entry of catalog.entries) {
     const short = entry.id.replace("@penglai/", "");
     const dest = join(nm, short);
+    if (existsSync(join(dest, "package.json"))) {
+      try {
+        const installed = JSON.parse(readFileSync(join(dest, "package.json"), "utf8")) as { version?: string };
+        const overlay = readInstalledOverlay(dest);
+        if (
+          shouldPreserveInstalledPlugin({
+            bundledVersion: entry.version,
+            ...(overlay?.version ?? installed.version
+              ? { installedVersion: overlay?.version ?? installed.version }
+              : {}),
+            ...(overlay?.sha256 ? { installedSha256: overlay.sha256 } : {}),
+            ...(entry.sha256 ? { bundledSha256: entry.sha256 } : {}),
+          })
+        ) {
+          continue;
+        }
+        if (typeof installed.version === "string" && compareSemver(installed.version, entry.version) > 0) continue;
+      } catch {
+        /* invalid installed manifest is replaced by the bundled catalog entry */
+      }
+    }
     const shouldInstall =
       entry.defaultEnabled ||
       requested.has(entry.id) ||
@@ -545,6 +568,7 @@ export function installFirstPartyPlugins(
     assertPluginJsClosure(inner, id);
     rmSync(dest, { recursive: true, force: true });
     copyDir(inner, dest);
+    writeInstalledOverlay(dest, { version: entry.version, sha256: entry.sha256 });
     rmSync(tmp, { recursive: true, force: true });
   }
 }
@@ -825,11 +849,10 @@ export function recoverCenterProfileTransaction(user: UserLayout): CenterPreboot
   const txDir = join(user.root, "profiles", "center-tx");
   const journalPath = join(txDir, "journal.json");
   const lockPath = join(txDir, "active.lock");
-  const lastGood = join(txDir, "last-good");
+  let lastGood = join(txDir, "last-good");
   const activationBackup = `${user.profileWeb}.center-backup`;
   assertOwnedCenterPath(user, txDir, "Center transaction directory");
   assertOwnedCenterPath(user, user.profileWeb, "Center profile");
-  healCenterLastGoodArtifacts(txDir);
   if (!existsSync(journalPath)) {
     rmSync(lockPath, { force: true });
     return { phase: "idle" };
@@ -841,6 +864,17 @@ export function recoverCenterProfileTransaction(user: UserLayout): CenterPreboot
     id?: unknown;
     previousEnabled?: unknown;
   };
+  assertCenterJournalHeader(raw);
+  if (centerProfileWasUntouched(raw)) {
+    const partial = join(txDir, `last-good-next-${raw.operationId}`);
+    if (raw.lastGoodPhase === "snapshot") {
+      assertOwnedCenterPath(user, partial, "Center partial snapshot");
+      rmSync(partial, { recursive: true, force: true });
+    }
+    atomicJson(journalPath, { ...raw, phase: "rolled_back", recoveredAt: new Date().toISOString() });
+    rmSync(lockPath, { force: true });
+    return { phase: "rolled_back", id: raw.id, previousEnabled: raw.previousEnabled };
+  }
   if (raw.phase === "committed" || raw.phase === "rolled_back") {
     rmSync(lockPath, { force: true });
     if (raw.phase === "committed") {
@@ -853,7 +887,6 @@ export function recoverCenterProfileTransaction(user: UserLayout): CenterPreboot
   const knownId = FIRST_PARTY_PLUGIN_METADATA.some((entry) => entry.id === raw.id);
   if (
     !active ||
-    raw.schema !== 2 ||
     typeof raw.operationId !== "string" ||
     typeof raw.id !== "string" ||
     !knownId ||
@@ -861,6 +894,9 @@ export function recoverCenterProfileTransaction(user: UserLayout): CenterPreboot
   ) {
     throw new PenglaiError("STORE_CORRUPT", "Center preboot recovery journal invalid");
   }
+  const completedNext = join(txDir, `last-good-next-${raw.operationId}`);
+  if (raw.lastGoodPhase === "snapshot-ready" && existsSync(completedNext)) lastGood = completedNext;
+  else healCenterLastGoodArtifacts(txDir);
   assertOwnedCenterPath(user, lastGood, "Center last-good profile");
   if (!existsSync(lastGood) || !lstatSync(lastGood).isDirectory()) {
     throw new PenglaiError("STORE_CORRUPT", "Center last-good profile missing");
@@ -1186,7 +1222,7 @@ export function killStaleSupervisor(layout: RuntimeLayout, user: UserLayout): vo
     killIdentity({ ...previous, appRoot: layout.appRoot }, "SIGKILL");
     clearIdentity(user);
   }
-  reapDshOrphans(layout);
+  reapDshOrphans(layout, undefined, user);
 }
 
 /**
@@ -1485,7 +1521,7 @@ export class EmbeddedDshSupervisor {
     if (identity) killIdentity(identity, "SIGKILL");
     else if (child?.pid) killProcessTree(child.pid, "SIGKILL");
     if (child) await waitChildExit(child, 1000);
-    reapDshOrphans(this.layout);
+    reapDshOrphans(this.layout, undefined, user);
     if (user) clearIdentity(user);
     this.child = undefined;
     this.identity = undefined;
@@ -1597,6 +1633,8 @@ export class EmbeddedDshSupervisor {
         owner: report.owner,
         jobAssigned: true,
         supervisorPid,
+        supervisorStartMs: readProcessStartMs(supervisorPid, "win32", this.layout.appRoot),
+        supervisorExecutable: windowsNativeHostStatus("win32", this.layout.appRoot).executable ?? "",
       };
       writeIdentity(user, this.identity);
     } else {

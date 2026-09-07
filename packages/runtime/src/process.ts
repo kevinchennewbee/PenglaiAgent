@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { join, win32 } from "node:path";
 import type { RuntimeLayout, UserLayout } from "./index.js";
 import { writeFileAtomic } from "./permissions.js";
 import { invokeWindowsHost, windowsNativeHostStatus, type WindowsHostReport } from "./windows-host.js";
@@ -20,6 +20,8 @@ export interface ProcessIdentity {
   owner?: string;
   jobAssigned?: boolean;
   supervisorPid?: number;
+  supervisorStartMs?: number;
+  supervisorExecutable?: string;
 }
 
 export function identityPath(user: UserLayout): string {
@@ -85,15 +87,13 @@ export function processStillMatches(id: ProcessIdentity): boolean {
   if (platform === "win32") {
     const report = windowsIdentityReport(id.pid, id.appRoot);
     if (!report || !report.startMs) return false;
-    if (Math.abs(report.startMs - id.startMs) > 2000) return false;
-    if (report.executable && !report.executable.toLowerCase().includes(id.executable.replace(/\//g, "\\").toLowerCase().split("\\").pop() ?? "node.exe")) {
-      return false;
-    }
-    if (id.owner && report.owner && id.owner !== report.owner) return false;
+    if (report.startMs !== id.startMs) return false;
+    if (!report.executable || win32.normalize(report.executable).toLowerCase() !== win32.normalize(id.executable).toLowerCase()) return false;
+    if (id.owner && report.owner !== id.owner) return false;
     return true;
   }
   const start = readProcessStartMs(id.pid, "darwin");
-  if (!start || Math.abs(start - id.startMs) > 2000) return false;
+  if (!start || start !== id.startMs) return false;
   try {
     const cmd = execFileSync("/bin/ps", ["-p", String(id.pid), "-o", "command="], { encoding: "utf8" });
     return cmd.includes(id.executable) && cmd.includes(id.dshEntry);
@@ -150,12 +150,11 @@ function signalProcess(pid: number, signal: NodeJS.Signals): boolean {
 export function killIdentity(id: ProcessIdentity, signal: NodeJS.Signals): boolean {
   const platform = hostPlatform(id);
   if (platform === "win32") {
-    let acted = false;
-    if (id.supervisorPid && id.supervisorPid > 0) {
-      acted = signalProcess(id.supervisorPid, signal) || acted;
-    }
-    if (!processStillMatches(id)) return acted;
-    return signalProcess(id.pid, signal) || acted;
+    if (id.supervisorPid && id.supervisorStartMs && id.supervisorExecutable && processStillMatches({
+      ...id, pid: id.supervisorPid, startMs: id.supervisorStartMs, executable: id.supervisorExecutable,
+    })) return signalProcess(id.supervisorPid, signal);
+    if (!processStillMatches(id)) return false;
+    return signalProcess(id.pid, signal);
   }
   if (!processStillMatches(id)) return false;
   try {
@@ -166,35 +165,22 @@ export function killIdentity(id: ProcessIdentity, signal: NodeJS.Signals): boole
   }
 }
 
-export function reapDshOrphans(layout: RuntimeLayout, keep?: ProcessIdentity): Array<{ pid: number; ppid: number }> {
-  const platform = keep?.platform ?? process.platform;
-  if (platform === "win32") {
-    const status = windowsNativeHostStatus("win32", layout.appRoot);
-    if (!status.available || !status.executable) return [];
-    try {
-      const report = invokeWindowsHost(
-        [
-          "process-reap-supervisors",
-          "--exe",
-          status.executable,
-          ...(keep?.supervisorPid ? ["--keep-pid", String(keep.supervisorPid)] : []),
-        ],
-        { platform: "win32", appRoot: layout.appRoot },
-      );
-      return (report.pids ?? []).map((pid) => ({ pid, ppid: 0 }));
-    } catch {
-      return [];
-    }
-  }
+export function reapDshOrphans(layout: RuntimeLayout, keep?: ProcessIdentity, user?: UserLayout): Array<{ pid: number; ppid: number }> {
+  // Executable identity alone cannot distinguish two Penglai data roots.
+  // Windows children are owned through their recorded Job supervisor identity.
+  if ((keep?.platform ?? process.platform) === "win32" || !user) return [];
+  let expectedCwd: string;
+  try { expectedCwd = realpathSync(user.dshHome); } catch { return []; }
   const killed: Array<{ pid: number; ppid: number }> = [];
   for (const row of listDshCandidates(layout, "darwin")) {
     if (keep && row.pid === keep.pid) continue;
     try {
+      const cwd = execFileSync("/usr/sbin/lsof", ["-a", "-p", String(row.pid), "-d", "cwd", "-Fn"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
+        .split("\n").find((line) => line.startsWith("n"))?.slice(1);
+      if (!cwd || realpathSync(cwd) !== expectedCwd) continue;
       process.kill(row.pid, "SIGKILL");
       killed.push({ pid: row.pid, ppid: row.ppid });
-    } catch {
-      /* gone */
-    }
+    } catch { /* unverified or already gone: never signal another instance */ }
   }
   return killed;
 }

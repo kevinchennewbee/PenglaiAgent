@@ -60,18 +60,43 @@ export const SECRET_RULES = Object.freeze([
 const SKIP_PATH =
   /^(?:node_modules\/|.*\/node_modules\/|dist\/|.*\/dist\/|\.git\/|pnpm-lock\.yaml$|package-lock\.json$|.*\.(?:png|jpg|jpeg|webp|gif|icns|ico|woff2?|dylib|node|wasm|tgz|zip)$)/;
 
-const DETECTOR_LINE = /\/.+\/[gimsuy]*|\.test\(|\.includes\(|lock\.includes\(|\.replace\(|INLINE_SECRET|FORBIDDEN/;
-
 export function isSkippedScanPath(rel) {
   return SKIP_PATH.test(rel.replaceAll("\\", "/"));
 }
 
 export function lineLooksLikeDetector(line) {
-  return DETECTOR_LINE.test(line);
+  let s = String(line).trim();
+  if (s.startsWith("re:")) s = s.slice(3).trimStart();
+  else if (s.startsWith("if")) {
+    s = s.slice(2).trimStart();
+    if (s.startsWith("(")) s = s.slice(1).trimStart();
+  }
+  if (!s.startsWith("/") || s.startsWith("//") || s.startsWith("/*")) return false;
+  let i = 1;
+  while (i < s.length) {
+    const ch = s[i];
+    if (ch === "\\") {
+      i += 2;
+      continue;
+    }
+    if (ch === "/") break;
+    if (ch === "\n") return false;
+    i += 1;
+  }
+  if (i >= s.length || s[i] !== "/") return false;
+  i += 1;
+  while (i < s.length && "gimsuy".includes(s[i] ?? "")) i += 1;
+  const rest = s.slice(i).trim();
+  if (rest === "" || rest === "," || rest === ";") return true;
+  if (!rest.startsWith(".test(")) return false;
+  const close = rest.indexOf(")");
+  if (close < 0) return false;
+  const after = rest.slice(close + 1).replaceAll(")", "").trim();
+  return after === "" || after === "{";
 }
 
 function hasConcreteApiKey(line) {
-  return /\bsk-[A-Za-z0-9]{24,}/.test(line);
+  return /\bsk-[A-Za-z0-9]{20,}/.test(line);
 }
 
 export function scanText(rel, text) {

@@ -5,7 +5,13 @@ import { join } from "node:path";
 import test from "node:test";
 import { beginGuidedConnection } from "./guided.js";
 import { ImBotStore } from "./bots.js";
-import { CHANNEL_IDS, CHANNEL_MANIFESTS, NATIVE_CHANNEL_IDS, refuseFakeQr } from "./registry.js";
+import {
+  CHANNEL_IDS,
+  CHANNEL_MANIFESTS,
+  CHANNEL_WORKFLOW_CAPABILITIES,
+  NATIVE_CHANNEL_IDS,
+  refuseFakeQr,
+} from "./registry.js";
 import { OwnerApprovalBroker } from "@penglai/runtime";
 import { createRuntime } from "./index.js";
 import { CredentialsServiceVault } from "./credentials-vault.js";
@@ -43,6 +49,25 @@ test("R58-IM-001 registry lists exactly eight supported connectors", () => {
   assert.equal(CHANNEL_MANIFESTS.dingtalk.connectionMethods.includes("qr"), true);
   assert.equal(CHANNEL_MANIFESTS.wecom.connectionMethods.includes("qr"), true);
   assert.equal(CHANNEL_MANIFESTS.qq.connectionMethods.includes("qr"), true);
+  for (const row of Object.values(CHANNEL_MANIFESTS)) {
+    for (const capability of CHANNEL_WORKFLOW_CAPABILITIES) {
+      assert.equal(typeof row.capabilityEvidence[capability], "string", `${row.id}.${capability}`);
+    }
+    assert.ok(row.connectionHint.en.length > 0);
+    assert.ok(row.connectionHint.zh.length > 0);
+  }
+  assert.equal(CHANNEL_MANIFESTS.weixin.capabilityEvidence.question, "source-tested");
+  assert.equal(CHANNEL_MANIFESTS.weixin.capabilityEvidence.approval, "source-tested");
+  assert.equal(CHANNEL_MANIFESTS.weixin.capabilityEvidence.recovery, "source-tested");
+  assert.equal(CHANNEL_MANIFESTS.feishu.capabilityEvidence.question, "source-tested");
+  assert.equal(CHANNEL_MANIFESTS.feishu.capabilityEvidence.file, "source-tested");
+  assert.equal(CHANNEL_MANIFESTS.telegram.capabilityEvidence.recovery, "source-tested");
+  assert.equal(CHANNEL_MANIFESTS.telegram.capabilityEvidence.question, "not-supported");
+  assert.equal(CHANNEL_MANIFESTS.slack.capabilityEvidence.approval, "not-supported");
+  assert.match(CHANNEL_MANIFESTS.slack.connectionHint.en, /no QR shortcut/i);
+  const ui = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
+  assert.match(ui, /data-penglai-im-connection-hint/);
+  assert.match(ui, /question: "question"/);
 });
 
 test("unsupported legacy bot rows stay stored but cannot re-enter the active registry", () => {
@@ -191,6 +216,10 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
     assert.equal(state.runtimeBundled, true);
     assert.equal(state.releaseEvidence, "source-only");
     assert.equal(typeof state.capabilityEvidence.authentication, "string");
+    assert.equal(typeof state.capabilityEvidence.question, "string");
+    assert.equal(typeof state.capabilityEvidence.approval, "string");
+    assert.equal(typeof state.capabilityEvidence.recovery, "string");
+    assert.ok(state.connectionHint.en.length > 0);
   }
   assert.equal(rt.store.schemaVersion(), 12);
   assert.equal(host.listBindings().some((row) => row.channel === "weixin" && row.accountId === "docs"), false);
@@ -203,7 +232,7 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
         workspaceId: "w",
         sessionId: "s1",
       }),
-    /CHANNEL_BINDING_UNAVAILABLE/,
+    /IM_PEER_APPROVAL_REQUIRED/,
   );
   rt.store.close();
 });

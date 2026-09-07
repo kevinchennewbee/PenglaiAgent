@@ -82,3 +82,33 @@ test("Telegram does not acknowledge an update before durable inbound accepts it"
   );
   assert.equal(adapter.getUpdateOffset(), 7);
 });
+
+test("Telegram logout invalidates an in-flight connect and clears account cursor", async () => {
+  let release!: (response: Response) => void;
+  let calls = 0;
+  const adapter = new TelegramAdapter({ resolve: () => ({ token: "123:abc" }) }, async () => {
+    calls++;
+    return new Promise<Response>((resolve) => { release = resolve; });
+  });
+  adapter.restoreUpdateOffset(123);
+  const pending = adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_TELEGRAM_TOKEN" });
+  await adapter.logout();
+  release(new Response(JSON.stringify({ ok: true, result: { id: 1 } })));
+  await assert.rejects(pending, /CHANNEL_CONNECTION_CANCELLED/);
+  assert.equal(calls, 1);
+  assert.equal(adapter.connection, "disabled");
+  assert.equal(adapter.accountRef, undefined);
+  assert.equal(adapter.getUpdateOffset(), 0);
+});
+
+test("Telegram does not restore a cursor after logout while an inbound handler is pending", async () => {
+  const adapter = new TelegramAdapter({ resolve: () => undefined });
+  adapter.accountRef = "account";
+  let release!: () => void;
+  adapter.onInbound(() => new Promise<void>((resolve) => { release = resolve; }));
+  const pending = adapter.ingestUpdate({ update_id: 500, message: { message_id: 1, text: "hello", chat: { id: 1, type: "private" }, from: { id: 1 } } });
+  await adapter.logout();
+  release();
+  await pending;
+  assert.equal(adapter.getUpdateOffset(), 0);
+});

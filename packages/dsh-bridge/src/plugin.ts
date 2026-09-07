@@ -1,5 +1,7 @@
+import { PenglaiError, snapshotOfficialSession } from "@penglai/contracts";
 import type { RoutingControlPlane } from "@penglai/routing-core";
 import { claimedFromOfficial, textFromAssistantMessage } from "./index.js";
+import type { DshHost } from "./owner-ports.js";
 import type { CordisLike } from "./rc2-owner-adapter.js";
 
 export {
@@ -84,4 +86,121 @@ export function listenOfficialEvents(ctx: CordisLike, plane: RoutingControlPlane
     finals.delete(`${sessionId}:${turn}`);
     if (text) plane.onAssistantFinal({ sessionId, turnId: String(turn), text });
   });
+}
+
+function durableEvent(raw: unknown): {
+  type: string;
+  turn?: number;
+  message?: Record<string, unknown>;
+  inserted?: unknown[];
+  text: string;
+} {
+  const rec = asRecord(raw);
+  const data = asRecord(rec?.data) ?? rec ?? {};
+  const message = asRecord(data.message) ?? asRecord(rec?.message);
+  const turn = typeof data.turn === "number" ? data.turn : typeof rec?.turn === "number" ? rec.turn : undefined;
+  const inserted = Array.isArray(data.inserted) ? data.inserted : Array.isArray(rec?.inserted) ? rec.inserted : undefined;
+  return {
+    type: String(rec?.type ?? data.type ?? ""),
+    ...(turn !== undefined ? { turn } : {}),
+    ...(message ? { message } : {}),
+    ...(inserted ? { inserted } : {}),
+    text: textFromAssistantMessage(message ?? {}),
+  };
+}
+
+/**
+ * Rebuild claimed-turn/final/outbox from the official durable Session log.
+ * Live `assistant/message` is only in memory until turn/end; crash recovery
+ * must not invent a final for an unclosed turn, and must not enqueue twice.
+ */
+export function recoverOfficialTurnDelivery(
+  plane: Pick<RoutingControlPlane, "onClaimed" | "onAssistantFinal">,
+  input: { sessionId: string; events: readonly unknown[] },
+): { claimed: number; delivered: number; incomplete: number } {
+  if (!input.sessionId.trim()) {
+    throw new PenglaiError("INVALID_INPUT", "official session id required");
+  }
+  let currentTurn: number | undefined;
+  const claims = new Map<number, NonNullable<ReturnType<typeof claimedFromOfficial>>>();
+  const texts = new Map<number, string>();
+  const ended = new Set<number>();
+
+  const rememberClaim = (turn: number | undefined, message: Record<string, unknown> | undefined) => {
+    const used = turn ?? currentTurn;
+    if (typeof used !== "number" || typeof message?.id !== "string" || !message.id) return;
+    const fact = claimedFromOfficial({
+      message: { id: message.id, source: message.source ?? { kind: "unknown" } },
+      turn: used,
+      sessionId: input.sessionId,
+    });
+    if (fact) claims.set(used, fact);
+  };
+
+  for (const raw of input.events) {
+    const ev = durableEvent(raw);
+    if (ev.type === "turn/start" && typeof ev.turn === "number") currentTurn = ev.turn;
+    if (ev.type === "agent/inbox/claimed") rememberClaim(ev.turn, ev.message ?? asRecord(asRecord(raw)?.data));
+    if (ev.type === "user/message") rememberClaim(ev.turn, ev.message);
+    if (ev.type === "agent/inbox/spliced") {
+      for (const item of ev.inserted ?? []) rememberClaim(ev.turn, asRecord(item));
+    }
+    if (ev.type === "assistant/message") {
+      const used = ev.turn ?? currentTurn;
+      if (typeof used === "number" && ev.text.trim()) texts.set(used, ev.text);
+    }
+    if (ev.type === "turn/end") {
+      const used = ev.turn ?? currentTurn;
+      if (typeof used === "number") ended.add(used);
+      currentTurn = undefined;
+    }
+  }
+
+  let claimed = 0;
+  let delivered = 0;
+  let incomplete = 0;
+  for (const [turn, fact] of claims) {
+    if (!ended.has(turn)) {
+      incomplete += 1;
+      continue;
+    }
+    plane.onClaimed(fact);
+    claimed += 1;
+    const text = texts.get(turn);
+    if (!text?.trim()) {
+      incomplete += 1;
+      continue;
+    }
+    plane.onAssistantFinal({ sessionId: input.sessionId, turnId: String(turn), text });
+    delivered += 1;
+  }
+  return { claimed, delivered, incomplete };
+}
+
+export async function recoverOfficialDeliveriesFromHost(
+  host: DshHost,
+  plane: Pick<RoutingControlPlane, "onClaimed" | "onAssistantFinal">,
+): Promise<{ sessions: number; claimed: number; delivered: number; incomplete: number }> {
+  const totals = { sessions: 0, claimed: 0, delivered: 0, incomplete: 0 };
+  if (!host.listSessions) return totals;
+  let sessions: Awaited<ReturnType<NonNullable<DshHost["listSessions"]>>> = [];
+  try {
+    sessions = await host.listSessions();
+  } catch (error) {
+    if (error instanceof PenglaiError && error.errorClass === "DSH_UNAVAILABLE") return totals;
+    throw error;
+  }
+  for (const session of sessions) {
+    const agent = host.getAgent(session.id);
+    if (!agent?.session) continue;
+    totals.sessions += 1;
+    const result = recoverOfficialTurnDelivery(plane, {
+      sessionId: session.id,
+      events: snapshotOfficialSession(agent.session),
+    });
+    totals.claimed += result.claimed;
+    totals.delivered += result.delivered;
+    totals.incomplete += result.incomplete;
+  }
+  return totals;
 }

@@ -271,6 +271,16 @@ export class ILinkTransport implements WeixinTransport {
   lastToken: string | undefined;
 }
 
+/** Blocked receive must retry the same vendor cursor; advancing in-memory loses the batch. */
+export function applyWeixinReceiveCursor(input: {
+  previousBuf: string;
+  nextBuf: string;
+  blocked: boolean;
+}): { buf: string; persist: boolean } {
+  if (input.blocked) return { buf: input.previousBuf, persist: false };
+  return { buf: input.nextBuf, persist: true };
+}
+
 export class WeixinAdapter {
   authState: AuthState = "idle";
   private tokenRef = WEIXIN_TOKEN_CREDENTIAL_REF;
@@ -544,8 +554,13 @@ export class WeixinAdapter {
               if (onRaw) await onRaw(raw);
               else await this.ingest(raw);
             }
-            this.buf = out.buf;
-            if (!this.cursorBlocked) {
+            const cursor = applyWeixinReceiveCursor({
+              previousBuf: this.buf,
+              nextBuf: out.buf,
+              blocked: this.cursorBlocked,
+            });
+            this.buf = cursor.buf;
+            if (cursor.persist) {
               this.cursors?.putCursor(this.accountRef, "weixin", this.buf);
             }
           } catch (err) {

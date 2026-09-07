@@ -3,11 +3,12 @@ import test from "node:test";
 import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { ArtifactService } from "@penglai/artifacts";
 import { ObjectStore } from "@penglai/contracts";
 import { OwnerApprovalBroker } from "@penglai/runtime";
 import { createOfficeService } from "./service.js";
 import { registerOfficeTools } from "./tools.js";
-import { atomicCommitFile, assertTrustedWorkspacePath } from "./transaction.js";
+import { atomicCommitFile, assertTrustedWorkspacePath, safeWorkspaceFilename } from "./transaction.js";
 import { PENGLAI_CJK_FONT_LICENSE, PENGLAI_CJK_FONT_SHA256, loadPenglaiCjkFont } from "./cjk-font.js";
 
 function liveOffice(userData: string, extra?: Parameters<typeof createOfficeService>[0]) {
@@ -163,4 +164,69 @@ test("bundled CJK OFL font is hashed and embeddable", () => {
   assert.equal(PENGLAI_CJK_FONT_LICENSE, "OFL-1.1");
   assert.equal(PENGLAI_CJK_FONT_SHA256.length, 64);
   assert.ok(font.length > 10_000_000);
+});
+
+
+test("office job tools reject another Session and Workspace before reads or actions", async () => {
+  const { tools, dir, ctx } = registered([]);
+  ctx.workspaceRegistry.list = () => [
+    { id: "ws1", path: dir, sessionIds: ["sess-1", "sess-2"] },
+    { id: "ws2", path: dir, sessionIds: ["sess-3"] },
+  ];
+  let approvals = 0;
+  const owner = new OwnerApprovalBroker(dir, { dialog: async () => { approvals++; return "approved"; } });
+  const svc = liveOffice(dir, { owner });
+  registerOfficeTools(ctx, svc);
+  const created = await tools.get("penglai_office_create")!.execute(
+    { format: "docx", text: "private session content" }, { agent: { id: "sess-1" } },
+  ) as { id: string };
+  for (const sessionId of ["sess-2", "sess-3"]) {
+    for (const name of ["preview", "plan", "accept", "discard", "commit", "undo", "return_to_channel"]) {
+      await assert.rejects(async () => tools.get(`penglai_office_${name}`)!.execute({
+        job_id: created.id, filename: "stolen.docx",
+        operation: { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "overwritten" },
+      }, { agent: { id: sessionId } }), /not bound to this Workspace and Session/);
+    }
+  }
+  assert.equal(approvals, 0);
+  assert.equal(svc.job(created.id).state, "INSPECTED");
+  assert.match(svc.job(created.id).text, /private session content/);
+  svc.cancel(created.id);
+});
+
+test("accepted office artifact can be saved with separate exact action approval and undone", async () => {
+  const { tools, dir, ctx } = registered([]);
+  const artifacts = new ArtifactService(join(dir, "artifacts"));
+  let approvals = 0;
+  const owner = new OwnerApprovalBroker(dir, { dialog: async () => { approvals++; return "approved"; } });
+  const svc = liveOffice(dir, { owner, artifacts });
+  registerOfficeTools(ctx, svc);
+  const exec = { agent: { id: "sess-1" } };
+  const filename = "项目 汇报.docx";
+  const original = await svc.create("docx", "original content");
+  writeFileSync(join(dir, filename), original.bytes);
+  const inspected = await tools.get("penglai_office_inspect")!.execute({ filename }, exec) as { id: string };
+  assert.equal(svc.job(inspected.id).sessionId, "sess-1");
+  const planned = await tools.get("penglai_office_plan")!.execute({
+    job_id: inspected.id, operation: { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "accepted content" },
+  }, exec) as { id: string };
+  await tools.get("penglai_office_preview")!.execute({ job_id: planned.id }, exec);
+  await tools.get("penglai_office_accept")!.execute({ job_id: planned.id }, exec);
+  assert.equal(approvals, 0);
+  assert.equal(svc.job(planned.id).state, "VERIFIED");
+  await tools.get("penglai_office_commit")!.execute({ job_id: planned.id, filename }, exec);
+  assert.equal(approvals, 1);
+  assert.match((await svc.inspect(readFileSync(join(dir, filename)))).text, /accepted content/);
+  await tools.get("penglai_office_undo")!.execute({ job_id: planned.id }, exec);
+  assert.equal(approvals, 2);
+  assert.deepEqual(readFileSync(join(dir, filename)), original.bytes);
+  artifacts.close();
+});
+
+
+test("office Unicode filenames retain basename safety across supported platforms", () => {
+  for (const name of ["项目 汇报.docx", "Quarterly report.xlsx", "résumé.pdf"]) assert.equal(safeWorkspaceFilename(name), name);
+  for (const name of ["../report.docx", "folder/report.docx", "folder\\report.docx", "CON.docx", "report?.pdf", " report.pdf", "report\n.pdf"]) {
+    assert.throws(() => safeWorkspaceFilename(name), /bounded workspace basename/);
+  }
 });

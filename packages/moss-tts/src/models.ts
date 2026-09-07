@@ -827,7 +827,14 @@ export class TtsModelManager {
 
   private persistOperations(): void {
     const temp = `${this.operationsPath}.${randomUUID()}.part`;
-    writeFileSync(temp, JSON.stringify([...this.operations.values()], null, 2), { mode: 0o600, flag: "wx" });
+    const rows = [...this.operations.values()]
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      .slice(0, 32);
+    const keep = new Set(rows.map((row) => row.operationId));
+    for (const id of [...this.operations.keys()]) {
+      if (!keep.has(id)) this.operations.delete(id);
+    }
+    writeFileSync(temp, JSON.stringify(rows, null, 2), { mode: 0o600, flag: "wx" });
     renameSync(temp, this.operationsPath);
   }
 

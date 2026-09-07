@@ -17,6 +17,14 @@ interface MemorySettingsHost {
   importConfirm?(proof: { actionId: string; receipt: string }): Promise<unknown>;
   list?(scope: MemoryScope, workspaceId?: string): Array<{ id: string | number; text: string; workspaceId?: string | null }>;
   count?(workspaceId?: string): { workspace: number; personal: number; pending: number; mode: string };
+  queryLibrary?(input: {
+    q?: string;
+    scope?: "personal" | "workspace";
+    workspaceId?: string;
+    includeForgotten?: boolean;
+    limit?: number;
+    offset?: number;
+  }): unknown;
   acceptCandidate?(input: { candidateId: string; actionId: string; receipt: string; personal?: boolean }): unknown;
   rejectCandidate?(input: { candidateId: string }): unknown;
   setMemoryMode?(mode: string): unknown;
@@ -60,6 +68,18 @@ export function createMemorySettingsApi(
     return sources;
   };
   return {
+    async queryLibrary(input: {
+      q?: string;
+      scope?: "personal" | "workspace";
+      workspaceId?: string;
+      includeForgotten?: boolean;
+      limit?: number;
+      offset?: number;
+    }) {
+      if (!service.queryLibrary) throw new PenglaiError("DSH_UNAVAILABLE", "memory library unavailable");
+      if (input.scope === "workspace") requireWorkspace(input.workspaceId);
+      return service.queryLibrary(input);
+    },
     async status(input: { scope: MemoryScope; workspaceId?: string }) {
       requireScope(input.scope);
       if (input.scope === "workspace" || input.scope === "candidate") requireWorkspace(input.workspaceId);
@@ -185,6 +205,7 @@ export function createMemorySettingsApi(
 
 export class PenglaiMemoryRemote extends TypertRemoteService {
   constructor(ctx: Context, private readonly api: ReturnType<typeof createMemorySettingsApi>) { super(ctx, "penglaiMemorySettings"); }
+  @PenglaiRemote queryLibrary(input: { q?: string; scope?: "personal" | "workspace"; workspaceId?: string; includeForgotten?: boolean; limit?: number; offset?: number }) { return this.api.queryLibrary(input); }
   @PenglaiRemote status(input: { scope: MemoryScope; workspaceId?: string }) { return this.api.status(input); }
   @PenglaiRemote setMode(input: { mode: string }) { return this.api.setMode(input); }
   @PenglaiRemote proposeAction(input: { action: string; objectId: string; workspaceId?: string; sessionId?: string; sourceText?: string }) { return this.api.proposeAction(input); }
@@ -210,6 +231,7 @@ export class PenglaiMemoryRemote extends TypertRemoteService {
 export const TYPERT_REMOTE = {
   package: "@penglai/memory",
   descriptors: [
+    "queryLibrary",
     "status", "write", "deleteScope", "promoteSop", "why", "correct", "forget", "graph", "export",
     "importPreview", "importConfirm", "setMode", "proposeAction", "acceptCandidate", "rejectCandidate",
     "sourcesStatus", "sourcesIngestCapability", "sourcesReindex",

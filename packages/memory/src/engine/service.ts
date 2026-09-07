@@ -196,6 +196,20 @@ export class MnemonMemoryService {
     };
   }
 
+  queryLibrary(input: {
+    q?: string;
+    scope?: "personal" | "workspace";
+    workspaceId?: string;
+    includeForgotten?: boolean;
+    limit?: number;
+    offset?: number;
+  }) {
+    if (input.scope === "workspace" && !input.workspaceId) {
+      throw new PenglaiError("UNAUTHORIZED", "memory library requires the current official Workspace");
+    }
+    return this.journal.queryLibrary(input);
+  }
+
   async export(workspaceId?: string, includePersonal = false) {
     this.requireEnabled();
     const workspaceRows = workspaceId ? this.journal.listActive("workspace", workspaceId) : [];

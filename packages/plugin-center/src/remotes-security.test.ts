@@ -118,9 +118,11 @@ test("DSH Center remote cannot open installers or plan filesystem deletion", asy
   assert.equal("openVerifiedInstaller" in remote, false);
   assert.equal("planUninstall" in remote, false);
   assert.deepEqual(Object.keys(remote).sort(), [
+    "conversationUsage",
     "disable",
     "download",
     "enable",
+    "exportDiagnostics",
     "installDisabled",
     "installEnable",
     "list",
@@ -314,4 +316,36 @@ test("signed remote package stages only in the app-private registry root", (cont
       }),
     /symlink|outside userData/,
   );
+});
+
+test("staged registry bytes must match the catalog digest, not the declared package hash", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-registry-digest-"));
+  const cached = join(root, "cache.tgz");
+  const bytes = Buffer.from("actual-registry-package-bytes");
+  const declared = createHash("sha256").update("other-bytes").digest("hex");
+  writeFileSync(cached, bytes, { mode: 0o600 });
+  const entry = {
+    ...TEST_CATALOG[0]!,
+    id: "@penglai/office-reader",
+    version: "0.1.1",
+    packageFile: "penglai-office-reader-0.1.1.tgz",
+    source: "penglai-plugin-registry" as const,
+    sha256: declared,
+  };
+  assert.throws(
+    () =>
+      stageRegistryPackage({
+        pkg: {
+          id: entry.id,
+          version: entry.version,
+          sha256: declared,
+          size: bytes.length,
+          path: cached,
+        } as never,
+        entry,
+        userDataRoot: root,
+      }),
+    /activation digest mismatch/,
+  );
+  assert.equal(existsSync(join(root, "plugins", "packages", entry.packageFile)), false);
 });

@@ -7,6 +7,12 @@ import {
   type PenglaiMossTtsClient,
   type PenglaiTtsLocale,
 } from "@penglai/contracts";
+
+function localeForMossVoiceId(voiceId: string): PenglaiTtsLocale {
+  const marked = /^moss-(zh|en|ja)-/.exec(voiceId);
+  if (marked?.[1] === "en" || marked?.[1] === "ja" || marked?.[1] === "zh") return marked[1];
+  return "zh";
+}
 import { decodeFeishuOggOpus, encodeFeishuOggOpus, normalizeWavMono } from "@penglai/audio-codecs";
 import type { InboundFailureDiagnostic } from "@penglai/routing-core";
 
@@ -111,7 +117,7 @@ export async function outboundFeishuNativeAudio(
     finalText: input.finalText,
     finalDigest,
     voiceId: input.voiceId ?? "moss-zh-default",
-    locale: input.locale ?? "zh",
+    locale: input.locale ?? localeForMossVoiceId(input.voiceId ?? "moss-zh-default"),
   });
   try {
     const wav = await tts.readOutput(synthesized.handle, input.operationId);

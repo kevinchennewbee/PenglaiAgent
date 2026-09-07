@@ -194,6 +194,18 @@ export class AssistedUpdateCoordinator {
   }
 
   recoverOnLaunch(): UpdateCoordinatorStatus {
+    if (this.#journal.state === "COMMITTED") {
+      const matchesInstalled = this.#journal.version !== undefined &&
+        compareSemver(this.#config.currentVersion, this.#journal.version) >= 0;
+      this.#journal = {
+        ...this.#journal,
+        state: matchesInstalled ? "CURRENT" : "RECOVERY_REQUIRED",
+        drained: false,
+        ...(matchesInstalled ? { version: this.#config.currentVersion } : { errorClass: "POST_VERIFY_FAILED" }),
+      };
+      this.#persist();
+      return this.status();
+    }
     if (
       this.#journal.state === "RECOVERY_REQUIRED" &&
       this.#journal.version &&

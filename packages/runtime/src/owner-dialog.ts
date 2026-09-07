@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { OwnerDialogPort, OwnerDialogRequest } from "./owner-broker.js";
 
@@ -50,16 +50,31 @@ export function createHostOwnerDialog(
   };
 }
 
-export async function drainOwnerDialogRequests(root: string, dialog: OwnerDialogPort): Promise<number> {
+const activeDrains = new Map<string, Promise<number>>();
+
+export function drainOwnerDialogRequests(root: string, dialog: OwnerDialogPort): Promise<number> {
+  const key = resolve(root);
+  const active = activeDrains.get(key);
+  if (active) return active;
+  const drain = Promise.resolve().then(() => drainRequests(key, dialog)).finally(() => {
+    if (activeDrains.get(key) === drain) activeDrains.delete(key);
+  });
+  activeDrains.set(key, drain);
+  return drain;
+}
+
+async function drainRequests(root: string, dialog: OwnerDialogPort): Promise<number> {
   const dir = join(root, ...REQUEST_DIR);
   if (!existsSync(dir)) return 0;
   let handled = 0;
   for (const name of readdirSync(dir)) {
     if (!name.endsWith(".json") || name.includes(".tmp")) continue;
     const path = join(dir, name);
-    const raw = JSON.parse(readFileSync(path, "utf8")) as OwnerDialogRequest;
+    const source = readFileSync(path, "utf8");
+    const raw = JSON.parse(source) as OwnerDialogRequest;
     if (!raw?.actionId || !raw.action || !raw.pluginId) continue;
     const decision = await dialog(raw);
+    if (!existsSync(path) || readFileSync(path, "utf8") !== source) continue;
     writeJsonAtomic(ownerDialogResultPath(root, raw.actionId), { decision });
     rmSync(path, { force: true });
     handled += 1;

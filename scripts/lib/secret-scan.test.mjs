@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatSecretHits, FIXTURE_MARKER, scanText } from "./secret-scan.mjs";
+import { formatSecretHits, FIXTURE_MARKER, lineLooksLikeDetector, scanText } from "./secret-scan.mjs";
 
 const SAMPLE_KEY = `sk-${"abcdefghijklmnopqrstuvwxyz012345"}`;
 
@@ -37,7 +37,25 @@ test("R56-SEC-008 scanner evidence never echoes the secret value", () => {
 test("R56-SEC-007 detector regex lines without a concrete key are not hits", () => {
   const hits = scanText(
     "packages/runtime/src/update.ts",
-    "if (/BEGIN OPENSSH PRIVATE KEY|minisign sk/.test(source)) {",
+    "if (/BEGIN OPENSSH PRIVATE KEY|minisign sk/.test(source)) {", // penglai-test-fixture
   );
   assert.deepEqual(hits, []);
+});
+
+test("detector-line classification stays linear on backslash-dot noise", () => {
+  const noise = "\\.".repeat(20_000);
+  const started = Date.now();
+  assert.equal(lineLooksLikeDetector(`if (/${noise}/.test(source)) {`), true);
+  assert.equal(lineLooksLikeDetector("const live = true;"), false);
+  assert.ok(Date.now() - started < 250);
+});
+
+test("URLs and unrelated detector calls cannot suppress concrete credentials", () => {
+  const examples = [
+    ["https://example.test/endpoint?bot_", "token=synthetic-token-value"].join(""),
+    ["Authorization: Bearer ", "synthetic-token-value https://example.test/"].join(""),
+    ['const x = {"client_', 'secret":"synthetic-value"}; other.test(x);'].join(""),
+    `const key = "sk-${"a".repeat(20)}"; other.includes(key);`,
+  ];
+  for (const example of examples) assert.ok(scanText("config.ts", example).length > 0);
 });

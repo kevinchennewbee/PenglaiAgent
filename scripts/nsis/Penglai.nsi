@@ -94,16 +94,40 @@ Section "Penglai" SecApp
       MessageBox MB_ICONSTOP "Penglai cannot safely upgrade a custom legacy install directory. Uninstall the old version first."
       Abort
     ${EndIf}
-    ; The product data lives outside this fixed app directory. Remove the old
-    ; immutable payload before copying so alpha.1-only packages cannot survive
-    ; an alpha.2 upgrade.
-    RMDir /r "$LOCALAPPDATA\Penglai\app\0.5"
-  ${EndIf}
-  SetOutPath "$INSTDIR"
+    ; Stage the new payload first. Only replace the live app directory after
+    ; the copy succeeds so a failed upgrade keeps the previous program.
+    StrCpy $R2 "$INSTDIR.pending"
+    RMDir /r "$R2"
+    CreateDirectory "$R2"
+    SetOutPath "$R2"
 !ifndef PENGLAI_PAYLOAD
   !define PENGLAI_PAYLOAD "..\..\dist\runtime-staging-win32-x86_64\payload"
 !endif
-  File /r "${PENGLAI_PAYLOAD}\*.*"
+    File /r "${PENGLAI_PAYLOAD}\*.*"
+    IfFileExists "$R2\Penglai.exe" 0 upgrade_copy_failed
+    RMDir /r "$INSTDIR.previous"
+    Rename "$INSTDIR" "$INSTDIR.previous"
+    Rename "$R2" "$INSTDIR"
+    IfFileExists "$INSTDIR\Penglai.exe" 0 upgrade_activate_failed
+    RMDir /r "$INSTDIR.previous"
+    Goto upgrade_done
+    upgrade_copy_failed:
+      RMDir /r "$R2"
+      MessageBox MB_ICONSTOP "Penglai could not copy the new version. The previous install was left in place."
+      Abort
+    upgrade_activate_failed:
+      RMDir /r "$INSTDIR"
+      Rename "$INSTDIR.previous" "$INSTDIR"
+      MessageBox MB_ICONSTOP "Penglai could not activate the new version and restored the previous install."
+      Abort
+    upgrade_done:
+  ${Else}
+    SetOutPath "$INSTDIR"
+!ifndef PENGLAI_PAYLOAD
+  !define PENGLAI_PAYLOAD "..\..\dist\runtime-staging-win32-x86_64\payload"
+!endif
+    File /r "${PENGLAI_PAYLOAD}\*.*"
+  ${EndIf}
   CreateDirectory "$SMPROGRAMS\Penglai"
   CreateShortCut "$SMPROGRAMS\Penglai\Penglai.lnk" "$INSTDIR\Penglai.exe"
   WriteRegStr HKCU "Software\Penglai\0.5" "InstallDir" "$INSTDIR"

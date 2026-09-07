@@ -18,7 +18,9 @@
     <nav aria-label="主导航">
       <a href="#new">0.5.10</a>
       <a href="#inside">内置能力</a>
-      <a href="#story">缘起</a>
+      <a href="#setup">安装</a>
+      <a href="#privacy">隐私</a>
+      <a href="#faq">问答</a>
       <a href="#download">下载</a>
       <a href="./en/" hreflang="en">EN</a>
       <a class="github" href="https://github.com/kevinchennewbee/PenglaiAgent">GitHub</a>
@@ -102,6 +104,36 @@
       </div>
     </section>
 
+    <section class="section first-run" id="setup">
+      <div class="copy">
+        <p class="eyebrow">安装与恢复</p>
+        <h2>下载对应芯片的安装包，走完引导，直到第一条官方回复。</h2>
+        <p>Apple 芯片用 aarch64 DMG，Intel Mac 用 x64 DMG，Windows 用 x64 安装器。不要混用。首次打开后选择语言和外观，确认数据目录，从官方列表选择模型和供应商，测试 API Key，选择真实 Workspace。可以返回、重试和重启续接。卸载默认保留用户数据。</p>
+      </div>
+      <img src="./shots/0.5.5/welcome.png" alt="蓬莱首次引导欢迎页">
+    </section>
+
+    <section class="trust section" id="privacy">
+      <p class="eyebrow">隐私</p>
+      <h2>没有蓬莱账号。数据默认留在这台电脑。</h2>
+      <div class="trust-grid">
+        <p><strong>没有蓬莱云同步。</strong>记忆、办公草稿和消息绑定都在本机用户数据目录。模型调用仍会把当前任务需要的内容发给你选择的供应商。</p>
+        <p><strong>写入和外发要单独确认。</strong>办公保存、回传、记忆个人化、插件安装都走产品内与动作绑定的确认，而不是一句聊天里的“好的”。</p>
+        <p><strong>诊断会去掉私密内容。</strong>插件诊断导出不得包含凭据、聊天正文、二维码或私人绝对路径。</p>
+      </div>
+    </section>
+
+    <section class="section" id="faq">
+      <p class="eyebrow">常见问题</p>
+      <h2>先把限制说清楚。</h2>
+      <div class="cards">
+        <article><h3>蓬莱是另一个 Agent 吗？</h3><p>不是。官方 DeepSeek Harness 是唯一核心。蓬莱负责安装、生命周期和第一方插件。</p></article>
+        <article><h3>现在该下载哪个版本？</h3><p>公开安装包仍是 0.5.10。页面上的 0.5.11 只描述正在开发的源码，不是可下载产品。</p></article>
+        <article><h3>为什么 Gatekeeper 会提示？</h3><p>macOS 安装包是 ad-hoc 签名、未公证；Windows 没有 Authenticode。这是已知限制，不是系统背书。</p></article>
+        <article><h3>办公和记忆默认开着吗？</h3><p>是。手机消息、语音识别、语音生成和主动陪伴默认关闭，需要时再开。</p></article>
+      </div>
+    </section>
+
     <section class="download section" id="download">
       <p class="eyebrow">Penglai 0.5.10</p>
       <h2>选择你的电脑。</h2>
@@ -110,7 +142,7 @@
         <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_macos_x64.dmg"><strong>macOS · Intel</strong><span>GitHub · 388.2 MiB · x86_64 Mac</span><code>6771901b5bf3b7e9e0c192125a866bf2e6c1c605655a8d07339ea37dc64ee9ea</code></a>
         <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_windows_x64_setup.exe"><strong>Windows · x64</strong><span>GitHub · 341.0 MiB · 64 位安装器</span><code>46b45bbb6a18859c7be03413b7983ad90dacc7710233130b2c81cb5a537bd484</code></a>
       </div>
-      <p class="quiet">0.5.10 当前只以不可变 GitHub Release 为权威公开下载源；北京镜像尚未发布 0.5.10。三个安装包来自源码 <code>c5c0bcb022c5ae47cca242deb27fe1d30444c41d</code>。完整 SHA256SUMS、1253 组件 SBOM、第三方声明与签名元数据同页提供；更新不会静默执行。</p>
+      <p class="quiet">当前公开下载仍是已发布的 0.5.10。0.5.11 还在开发，没有安装包、也没有 GitHub Release 附件。0.5.10 只以不可变 GitHub Release 为权威公开下载源；北京镜像尚未发布 0.5.10。三个安装包来自源码 <code>c5c0bcb022c5ae47cca242deb27fe1d30444c41d</code>。完整 SHA256SUMS、SBOM、第三方声明与签名元数据同页提供；更新不会静默执行。</p>
       <div class="actions centered">
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.10">中英文发布说明</a>
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">安全说明</a>

@@ -5,13 +5,14 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
   writeFileSync,
   type Stats,
 } from "node:fs";
-import { isAbsolute, relative, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
 
 export const DATA_CATEGORIES = [
@@ -188,6 +189,21 @@ function pathsOverlap(a: string, b: string): boolean {
   return pathInsideOrEqual(a, b) || pathInsideOrEqual(b, a);
 }
 
+function canonicalDeleteBoundary(path: string): string {
+  let existing = resolve(path);
+  for (;;) {
+    try {
+      const canonical = realpathSync(existing);
+      return resolve(canonical, relative(existing, resolve(path)));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      const parent = dirname(existing);
+      if (parent === existing) throw error;
+      existing = parent;
+    }
+  }
+}
+
 export function assertSafeDeletePath(
   path: string,
   userDataRoot: string,
@@ -201,18 +217,33 @@ export function assertSafeDeletePath(
   if (resolved === "/" || resolved === resolve(process.env.HOME ?? "/no-home")) {
     throw new PenglaiError("SECURITY_POLICY", "refuses home");
   }
+  const canonical = canonicalDeleteBoundary(resolved);
   for (const ws of workspaceRoots) {
-    if (pathsOverlap(resolved, ws)) {
+    if (pathsOverlap(resolved, ws) || pathsOverlap(canonical, canonicalDeleteBoundary(ws))) {
       throw new PenglaiError("SECURITY_POLICY", "workspace never deleted");
     }
   }
   for (const legacy of legacyRoots) {
-    if (pathsOverlap(resolved, legacy)) {
+    if (pathsOverlap(resolved, legacy) || pathsOverlap(canonical, canonicalDeleteBoundary(legacy))) {
       throw new PenglaiError("SECURITY_POLICY", "legacy never deleted");
     }
   }
   if (!managedRoots.some((root) => pathInsideOrEqual(resolved, root))) {
     throw new PenglaiError("SECURITY_POLICY", "path outside managed data roots");
+  }
+  const managed = managedRoots.find((root) => pathInsideOrEqual(resolved, root));
+  if (!managed || !pathInsideOrEqual(canonical, canonicalDeleteBoundary(managed))) {
+    throw new PenglaiError("SECURITY_POLICY", "canonical path outside managed data roots");
+  }
+  let ancestor = resolve(managed);
+  for (const part of ["", ...relative(ancestor, resolved).split(sep).filter(Boolean)]) {
+    ancestor = resolve(ancestor, part);
+    try {
+      if (lstatSync(ancestor).isSymbolicLink()) throw new PenglaiError("SECURITY_POLICY", "symlink ancestor refused");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") break;
+      throw error;
+    }
   }
   try {
     const st = lstatSync(resolved);

@@ -3,6 +3,8 @@ import { PenglaiError } from "@penglai/contracts";
 import type { OfficeFormat, OfficeJob, OfficeService } from "./service.js";
 import { parseOfficeOperation } from "./operations.js";
 import { safeWorkspaceFilename } from "./transaction.js";
+import { previewPdfPages } from "./pdf-preview.js";
+import { previewOfficeStructure } from "./structural-preview.js";
 
 interface CordisTools {
   tools?: { register(definition: Record<string, unknown>): unknown };
@@ -29,6 +31,15 @@ function boundWorkspace(ctx: CordisTools, exec: unknown): { id: string; path: st
   const hit = workspaces.find((row) => row.sessionIds?.includes(agentId) || row.id === agentId);
   if (!hit?.path) throw new PenglaiError("UNAUTHORIZED", "agent is not bound to an official Workspace path");
   return { id: hit.id, path: hit.path, sessionId: agentId };
+}
+
+function boundJob(ctx: CordisTools, svc: OfficeService, exec: unknown, jobId: string) {
+  const ws = boundWorkspace(ctx, exec);
+  const job = svc.job(jobId);
+  if (job.workspaceId !== ws.id || job.sessionId !== ws.sessionId) {
+    throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
+  }
+  return job;
 }
 
 function asFormat(value: unknown): OfficeFormat {
@@ -82,7 +93,8 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
       const ws = boundWorkspace(ctx, exec);
       if (input.handle) return publicJob(await svc.inspectAttached(input.handle, ws.sessionId));
       if (!input.filename) throw new PenglaiError("INVALID_INPUT", "office inspect requires filename or handle");
-      return publicJob(await svc.inspectWorkspaceFile(join(ws.path, safeWorkspaceFilename(input.filename)), ws.path, ws.id));
+      const inspected = await svc.inspectWorkspaceFile(join(ws.path, safeWorkspaceFilename(input.filename)), ws.path, ws.id, ws.sessionId);
+      return publicJob(inspected);
     },
   });
   ctx.tools.register({
@@ -166,7 +178,7 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
         return publicJob(edited);
       }
       if (!input.job_id) throw new PenglaiError("INVALID_INPUT", "office plan requires job_id or handle");
-      const source = svc.job(input.job_id);
+      const source = boundJob(ctx, svc, exec, input.job_id);
       const edited = await svc.edit(source.bytes, op);
       svc.job(edited.id).workspaceId = ws.id;
       svc.job(edited.id).sessionId = ws.sessionId;
@@ -186,10 +198,20 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     },
     output: jsonOutput("office preview"),
     async execute(args: unknown, exec?: unknown) {
-      boundWorkspace(ctx, exec);
       const jobId = String((args as { job_id?: string }).job_id);
+      boundJob(ctx, svc, exec, jobId);
       const [preview, diff] = await Promise.all([svc.preview(jobId), svc.diff(jobId)]);
-      return { preview, diff };
+      const job = svc.job(jobId);
+      const structural = await previewOfficeStructure(
+        job.bytes,
+        job.digest.replace(/^sha256:/, ""),
+        job.sourcePath,
+      );
+      if (job.format === "pdf") {
+        const pdfPreview = await previewPdfPages(job.bytes, job.digest.replace(/^sha256:/, ""));
+        return { preview, diff, structural, pdfPreview: { digest: pdfPreview.digest, pages: pdfPreview.pages, scanned: pdfPreview.scanned, encrypted: pdfPreview.encrypted, pageTexts: pdfPreview.pagePreviews.map((page) => page.text) } };
+      }
+      return { preview, diff, structural };
     },
   });
   ctx.tools.register({
@@ -203,8 +225,9 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     },
     output: jsonOutput("office accept"),
     execute(args: unknown, exec?: unknown) {
-      boundWorkspace(ctx, exec);
-      return svc.accept(String((args as { job_id?: string }).job_id));
+      const jobId = String((args as { job_id?: string }).job_id);
+      boundJob(ctx, svc, exec, jobId);
+      return svc.accept(jobId);
     },
   });
   ctx.tools.register({
@@ -238,8 +261,9 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     },
     output: jsonOutput("office discard"),
     execute(args: unknown, exec?: unknown) {
-      boundWorkspace(ctx, exec);
-      return Promise.resolve(svc.cancel(String((args as { job_id?: string }).job_id))).then(() => ({ discarded: true as const }));
+      const jobId = String((args as { job_id?: string }).job_id);
+      boundJob(ctx, svc, exec, jobId);
+      return Promise.resolve(svc.cancel(jobId)).then(() => ({ discarded: true as const }));
     },
   });
   ctx.tools.register({
@@ -261,8 +285,8 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
       const ws = boundWorkspace(ctx, exec);
       const jobId = String(input.job_id);
       const filename = safeWorkspaceFilename(String(input.filename));
-      const job = svc.job(jobId);
-      if (job.state !== "PREVIEW_READY" && job.state !== "OWNER_APPROVED") {
+      const job = boundJob(ctx, svc, exec, jobId);
+      if (job.state !== "PREVIEW_READY" && job.state !== "OWNER_APPROVED" && job.state !== "VERIFIED") {
         throw new PenglaiError("SECURITY_POLICY", "office commit requires preview then Owner confirmation");
       }
       const dest = join(ws.path, filename);
@@ -286,8 +310,8 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     },
     output: jsonOutput("office undo"),
     async execute(args: unknown, exec?: unknown) {
-      boundWorkspace(ctx, exec);
       const jobId = String((args as { job_id?: string }).job_id);
+      boundJob(ctx, svc, exec, jobId);
       if (!svc.job(jobId).receipt) await svc.approve(jobId, "undo");
       const receipt = svc.job(jobId).receipt;
       if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office undo requires owner receipt");
@@ -305,8 +329,8 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     },
     output: jsonOutput("office return"),
     async execute(args: unknown, exec?: unknown) {
-      boundWorkspace(ctx, exec);
       const jobId = String((args as { job_id?: string }).job_id);
+      boundJob(ctx, svc, exec, jobId);
       if (!svc.job(jobId).receipt) await svc.approve(jobId, "return-to-channel");
       const receipt = svc.job(jobId).receipt;
       if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office return requires owner receipt");
