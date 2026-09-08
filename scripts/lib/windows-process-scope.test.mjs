@@ -4,8 +4,12 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  WINDOWS_SCOPED_STOP_POWERSHELL,
   executablePathUnderRoot,
+  nsisDollarUnescape,
+  nsisExecWaitCommands,
   nsisScopedStopContract,
+  parseNsisInstructionArgs,
   selectProcessesForInstance,
   selectProcessesUnderInstallRoot,
 } from "./windows-process-scope.mjs";
@@ -60,6 +64,29 @@ test("NSIS and upgrade verifier must not kill every Penglai.exe by image name", 
   }
   assert.match(nsis, /ExecutablePath/);
   assert.match(nsis, /StartsWith/);
+  assert.match(nsis, /PENGLAI_INSTALL_ROOT/);
+  assert.match(nsis, /\$\$env:PENGLAI_INSTALL_ROOT/);
+  assert.doesNotMatch(nsis, /GetFullPath\(''\$INSTDIR''\)/);
   assert.doesNotMatch(upgrade, /DisableRealtimeMonitoring \$true/);
   assert.doesNotMatch(upgrade, /Add-MpPreference -ExclusionPath/);
+});
+
+test("NSIS ExecWait nested single quotes are the class that yielded four parameters", () => {
+  const broken =
+    `  ExecWait '"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command "$$root = [IO.Path]::GetFullPath(''$INSTDIR'').TrimEnd([char]92); $$prefix = $$root + [char]92; Get-CimInstance Win32_Process | ForEach-Object { if ($$_.ExecutablePath -and ($$_.ExecutablePath.Equals($$root, [StringComparison]::OrdinalIgnoreCase) -or $$_.ExecutablePath.StartsWith($$prefix, [StringComparison]::OrdinalIgnoreCase))) { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue } }"' $R4`;
+  const parsed = parseNsisInstructionArgs(broken);
+  assert.equal(parsed[0], "ExecWait");
+  assert.equal(parsed.slice(1).length, 4);
+  const errors = nsisScopedStopContract(`!macro PenglaiStopScoped\n${broken}\n!macroend\n`);
+  assert.ok(errors.some((row) => row.includes("got 4")));
+  assert.ok(errors.some((row) => row.includes("nested NSIS quotes")));
+  assert.ok(errors.some((row) => row.includes("PENGLAI_INSTALL_ROOT")));
+  const nsis = readFileSync(join(root, "scripts/nsis/Penglai.nsi"), "utf8");
+  for (const command of nsisExecWaitCommands(nsis)) {
+    assert.ok(command.args.length >= 1 && command.args.length <= 2, command.line);
+  }
+  const stop = nsisExecWaitCommands(nsis).find((command) => command.line.includes("powershell.exe"));
+  assert.equal(stop?.args.length, 2);
+  assert.match(nsisDollarUnescape(stop.args[0]), /\$env:PENGLAI_INSTALL_ROOT/);
+  assert.match(WINDOWS_SCOPED_STOP_POWERSHELL, /\$env:PENGLAI_INSTALL_ROOT/);
 });

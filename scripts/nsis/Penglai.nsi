@@ -52,8 +52,15 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
 
 ; Stop only processes whose ExecutablePath is under this INSTDIR. Image-name
 ; taskkill would kill a second Penglai instance with a different install root.
+; ExecWait accepts 1-2 tokens. Nested NSIS single quotes around $INSTDIR split
+; the command ("got 4"). Pass INSTDIR through PENGLAI_INSTALL_ROOT instead.
 !macro PenglaiStopScoped
-  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command "$$root = [IO.Path]::GetFullPath(''$INSTDIR'').TrimEnd([char]92); $$prefix = $$root + [char]92; Get-CimInstance Win32_Process | ForEach-Object { if ($$_.ExecutablePath -and ($$_.ExecutablePath.Equals($$root, [StringComparison]::OrdinalIgnoreCase) -or $$_.ExecutablePath.StartsWith($$prefix, [StringComparison]::OrdinalIgnoreCase))) { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue } }"' $R4
+  System::Call 'kernel32::SetEnvironmentVariable(t "PENGLAI_INSTALL_ROOT", t "$INSTDIR") i .r9'
+  ${If} $9 == 0
+    MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai could not scope the running-app stop to this install directory." /SD IDOK
+    Abort
+  ${EndIf}
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command "$$root = [IO.Path]::GetFullPath($$env:PENGLAI_INSTALL_ROOT).TrimEnd([char]92); $$prefix = $$root + [char]92; Get-CimInstance Win32_Process | ForEach-Object { if ($$_.ExecutablePath -and ($$_.ExecutablePath.Equals($$root, [StringComparison]::OrdinalIgnoreCase) -or $$_.ExecutablePath.StartsWith($$prefix, [StringComparison]::OrdinalIgnoreCase))) { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue } }"' $R4
 !macroend
 
 !define MUI_ABORTWARNING

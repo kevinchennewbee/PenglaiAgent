@@ -236,6 +236,7 @@ test("Windows upgrade refuses the old live-tree delete-then-copy pattern", async
   assertWindowsNsisScript(live);
   assert.match(live, /upgrade_rename_live/);
   assert.match(live, /PenglaiStopScoped/);
+  assert.match(live, /PENGLAI_INSTALL_ROOT/);
   assert.match(live, /ExecutablePath/);
   assert.doesNotMatch(live, /\/IM Penglai\.exe/);
   assert.match(live, /penglai-setup\.log/);

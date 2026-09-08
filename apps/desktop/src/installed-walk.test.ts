@@ -398,6 +398,7 @@ test("Windows child shutdown kills the process tree so NSIS upgrade is not block
   assert.match(nsis, /\/SD IDOK/);
   assert.match(nsis, /upgrade_rename_live/);
   assert.match(nsis, /PenglaiStopScoped/);
+  assert.match(nsis, /PENGLAI_INSTALL_ROOT/);
   assert.match(nsis, /ExecutablePath/);
   assert.doesNotMatch(nsis, /\/IM Penglai\.exe/);
   assert.match(nsis, /penglai-setup\.log/);

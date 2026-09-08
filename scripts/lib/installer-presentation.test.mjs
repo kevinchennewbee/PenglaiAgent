@@ -38,6 +38,8 @@ test("macOS DMG background is the ink-sea bilingual drag card", () => {
   assert.match(dmg, /set position of item "Applications"/);
   assert.match(dmg, /"UDRW"/);
   assert.match(dmg, /"UDZO"/);
+  assert.match(dmg, /hdiutilConvertArgs/);
+  assert.match(dmg, /hdiutilCreateArgs/);
   assert.match(dmg, /mounted DMG missing branded background/);
   assert.doesNotMatch(dmg, /\/IM Penglai\.exe/);
 });
@@ -57,6 +59,9 @@ test("Windows NSIS welcome and header bitmaps are 24-bit branded pages", () => {
   assert.match(nsi, /MUI_WELCOMEFINISHPAGE_BITMAP/);
   assert.match(nsi, /MUI_HEADERIMAGE_BITMAP/);
   assert.match(nsi, /PenglaiStopScoped/);
+  assert.match(nsi, /PENGLAI_INSTALL_ROOT/);
+  assert.match(nsi, /\$\$env:PENGLAI_INSTALL_ROOT/);
+  assert.doesNotMatch(nsi, /GetFullPath\(''\$INSTDIR''\)/);
   assert.doesNotMatch(nsi, /\/IM Penglai\.exe/);
   assert.match(packager, /PENGLAI_WELCOME_BMP=/);
   assert.match(packager, /PENGLAI_HEADER_BMP=/);
