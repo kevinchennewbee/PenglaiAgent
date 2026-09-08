@@ -39,6 +39,7 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
 !include "WinVer.nsh"
 !include "x64.nsh"
 
+; MUI bitmap defines must precede page inserts or the compiler ignores them.
 !ifdef PENGLAI_WELCOME_BMP
   !define MUI_WELCOMEFINISHPAGE_BITMAP "${PENGLAI_WELCOME_BMP}"
   !define MUI_UNWELCOMEFINISHPAGE_BITMAP "${PENGLAI_WELCOME_BMP}"

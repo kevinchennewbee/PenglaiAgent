@@ -187,7 +187,12 @@
   }
 
   function classifyApiTestError(err) {
-    const text = err instanceof Error ? err.message : String(err);
+    const text =
+      err instanceof Error
+        ? err.message
+        : err && typeof err === "object"
+          ? [err.code, err.message].filter(Boolean).join(" ")
+          : String(err);
     if (/no adapter registered/i.test(text)) return "adapter";
     if (
       /\bAUTH\b|401|403|unauthorized|invalid.?key|authentication fails|MISSING_CREDENTIAL|no credential|no API key/i.test(
@@ -204,7 +209,12 @@
   }
 
   function formatWizardError(err, kind) {
-    const text = err instanceof Error ? err.message : String(err);
+    const text =
+      err instanceof Error
+        ? err.message
+        : err && typeof err === "object"
+          ? [err.code, err.message].filter(Boolean).join(" ")
+          : String(err);
     if (kind === "api-test") {
       const keys = {
         auth: "errorAuth",

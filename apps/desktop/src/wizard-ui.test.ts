@@ -161,6 +161,10 @@ test("wizard API-test classifier distinguishes auth, rate, model, timeout, netwo
   assert.ok(match);
   const classify = Function(`${match[0]}; return classifyApiTestError;`)() as (err: unknown) => string;
   assert.equal(classify(new Error("401 unauthorized invalid key")), "auth");
+  assert.equal(
+    classify({ isDSHRemoteError: true, code: "AUTH", message: "401 unauthorized invalid key" }),
+    "auth",
+  );
   assert.equal(classify(new Error("AUTH Authentication Fails, Your api key: ****0f08 is invalid")), "auth");
   assert.equal(classify(new Error("MISSING_CREDENTIAL no credential")), "auth");
   assert.equal(classify(new Error('llm-deepseek: no API key for provider route "deepseek-official"')), "auth");

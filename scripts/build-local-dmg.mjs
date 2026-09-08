@@ -250,6 +250,9 @@ try {
   if (!lstatSync(join(mountRoot, "Applications")).isSymbolicLink()) {
     throw new Error("mounted DMG missing Applications symlink");
   }
+  if (!existsSync(join(mountRoot, ".background", "background.png"))) {
+    throw new Error("mounted DMG missing branded background");
+  }
   run("codesign", [
     "--verify",
     "--deep",
