@@ -1015,6 +1015,12 @@ export function prepareDshHomeForBoot(input: {
       } satisfies ActiveDshHomeManifest);
       return { kind: "active", dshHome: paths.targetHome };
     }
+    if (journal.state === "rolled-back") {
+      throw new PenglaiError(
+        "DSH_UNAVAILABLE",
+        "cannot start after a Home rollback; restore the previous Penglai version",
+      );
+    }
     if (journal.state !== "prepared") {
       throw new PenglaiError("STORE_CORRUPT", "DSH home journal state is invalid without an active pointer");
     }
