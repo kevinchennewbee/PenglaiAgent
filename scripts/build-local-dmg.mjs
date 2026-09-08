@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import {
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -52,15 +53,54 @@ function createDmg(args, dmgPath) {
     if (!retryable || attempt === attempts) {
       const detail =
         result.error?.message ?? `exit ${result.status ?? "unknown"}`;
-      throw new Error(`hdiutil create failed: ${detail}`);
+      throw new Error(`hdiutil ${args[0]} failed: ${detail}`);
     }
 
     rmSync(dmgPath, { force: true });
     const delayMs = attempt * 2_000;
     process.stderr.write(
-      `hdiutil create reported Resource busy; retrying ${attempt + 1}/${attempts} after ${delayMs}ms\n`,
+      `hdiutil ${args[0]} reported Resource busy; retrying ${attempt + 1}/${attempts} after ${delayMs}ms\n`,
     );
     waitSync(delayMs);
+  }
+}
+
+function layoutDmgWindow(mountPoint) {
+  const script = `
+tell application "Finder"
+  tell disk "Penglai"
+    open
+    set current view of container window to icon view
+    set toolbar visible of container window to false
+    set statusbar visible of container window to false
+    set bounds of container window to {120, 120, 780, 520}
+    set theViewOptions to the icon view options of container window
+    set arrangement of theViewOptions to not arranged
+    set icon size of theViewOptions to 96
+    set background picture of theViewOptions to file ".background:background.png"
+    set position of item "Penglai.app" to {160, 210}
+    set position of item "Applications" to {500, 210}
+    close
+    open
+    update without registering applications
+    delay 2
+  end tell
+end tell
+`;
+  const attempts = 3;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const result = spawnSync("osascript", ["-e", script], { encoding: "utf8" });
+    if (result.stdout) process.stdout.write(result.stdout);
+    if (result.stderr) process.stderr.write(result.stderr);
+    if (result.status === 0 && existsSync(join(mountPoint, ".DS_Store"))) {
+      return;
+    }
+    if (attempt === attempts) {
+      throw new Error(
+        `DMG Finder layout failed: ${result.error?.message ?? result.stderr ?? `exit ${result.status}`}`,
+      );
+    }
+    waitSync(attempt * 1_000);
   }
 }
 
@@ -131,11 +171,23 @@ run("codesign", ["--force", "--deep", "--sign", "-", appPath]);
 run("codesign", ["--verify", "--deep", "--strict", "--verbose=2", appPath]);
 
 const dmgPath = join(ROOT, targetSpec.dmg);
+const backgroundSource = join(ROOT, "packaging", "dmg-background.png");
+if (!existsSync(backgroundSource)) {
+  throw new Error("build-local-dmg refused: packaging/dmg-background.png missing");
+}
 rmSync(dmgPath, { force: true });
 const staging = mkdtempSync(join(tmpdir(), "penglai-local-dmg-"));
+const rwDir = mkdtempSync(join(tmpdir(), "penglai-dmg-rw-image-"));
+const rwImage = join(rwDir, "penglai-rw.dmg");
+const volume = "/Volumes/Penglai";
 try {
   run("ditto", [appPath, join(staging, "Penglai.app")]);
   symlinkSync("/Applications", join(staging, "Applications"));
+  mkdirSync(join(staging, ".background"));
+  cpSync(backgroundSource, join(staging, ".background", "background.png"));
+  spawnSync("chflags", ["hidden", join(staging, ".background")], {
+    stdio: "inherit",
+  });
   createDmg(
     [
       "create",
@@ -143,6 +195,29 @@ try {
       "Penglai",
       "-srcfolder",
       staging,
+      "-format",
+      "UDRW",
+      "-ov",
+      rwImage,
+    ],
+    rwImage,
+  );
+  if (existsSync(volume)) {
+    spawnSync("hdiutil", ["detach", volume, "-force"], { stdio: "inherit" });
+  }
+  run("hdiutil", ["attach", rwImage, "-readwrite", "-noverify", "-nobrowse"]);
+  try {
+    if (!existsSync(join(volume, "Penglai.app"))) {
+      throw new Error(`RW DMG did not mount Penglai.app at ${volume}`);
+    }
+    layoutDmgWindow(volume);
+  } finally {
+    spawnSync("hdiutil", ["detach", volume, "-force"], { stdio: "inherit" });
+  }
+  createDmg(
+    [
+      "convert",
+      rwImage,
       "-format",
       "UDZO",
       "-imagekey",
@@ -154,6 +229,8 @@ try {
   );
   run("hdiutil", ["verify", dmgPath]);
 } finally {
+  spawnSync("hdiutil", ["detach", volume, "-force"], { stdio: "ignore" });
+  rmSync(rwDir, { recursive: true, force: true });
   rmSync(staging, { recursive: true, force: true });
 }
 

@@ -68,6 +68,18 @@ test("wizard CSS covers light, dark, and system color-scheme", () => {
   assert.match(css, /:root\[data-theme="dark"\]/);
   assert.match(css, /\.mark/);
   assert.match(css, /\.steps/);
+  assert.match(css, /max-height:\s*calc\(100vh - 220px\)/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+});
+
+test("wizard privacy copy is separate paragraphs, not collapsed newlines", () => {
+  const copy = extractObject("COPY", "\\{[\\s\\S]*?\\n  \\};") as {
+    zh: Record<string, string>;
+    en: Record<string, string>;
+  };
+  assert.match(js, /t\("privacyBody"\)\s*\.split\(\/\\n\\n\+\//);
+  assert.match(copy.zh.privacyBody, /\n\n/);
+  assert.match(copy.en.privacyBody, /\n\n/);
 });
 
 test("wizard zh and en copy share the same keys", () => {
