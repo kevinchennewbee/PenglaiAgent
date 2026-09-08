@@ -339,6 +339,10 @@ test("NSIS script always preserves user data after in-app exact deletion", () =>
   assert.match(payload, /payload is missing the pinned Mnemon binary or license/);
   assert.match(payload, /"LGPL_SOURCE_OFFER\.txt"/);
   assert.match(windowsWorkflow, /- name: Source and onboarding regression gates\s+shell: bash\s+run: \|/);
+  assert.doesNotMatch(workflow, /Set-MpPreference/);
+  assert.doesNotMatch(workflow, /DisableRealtimeMonitoring \$true/);
+  assert.match(workflow, /Observe Windows Defender without mutation/);
+  assert.match(workflow, /I02 default-OS remains unproven on this runner/);
   assert.match(payload, /Penglai\.ico/);
   assert.match(payload, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
   assert.match(cleanClone, /process\.platform === "win32"[\s\S]*build:windows-host/);
