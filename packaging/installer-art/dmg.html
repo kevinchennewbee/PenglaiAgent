@@ -46,6 +46,19 @@
         border: 5px solid transparent;
         border-left-color: rgba(201, 163, 106, 0.9);
       }
+      /* Paper-hall plates behind native Finder icon names (Light Mode black). */
+      .label-well {
+        position: absolute;
+        top: 248px;
+        width: 172px;
+        height: 44px;
+        background: #f6f1e8;
+        border: 1px solid #c9a36a;
+        border-radius: 6px;
+        box-shadow: 0 1px 0 rgba(11, 28, 44, 0.28);
+      }
+      .label-well-penglai { left: 74px; }
+      .label-well-apps { left: 414px; }
     </style>
   </head>
   <body>
@@ -56,5 +69,7 @@
       <p>Drag Penglai to Applications</p>
     </div>
     <div class="arrow"></div>
+    <div class="label-well label-well-penglai" aria-hidden="true"></div>
+    <div class="label-well label-well-apps" aria-hidden="true"></div>
   </body>
 </html>

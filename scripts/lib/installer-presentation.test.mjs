@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { inflateSync } from "node:zlib";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +13,92 @@ function pngSize(bytes) {
     width: bytes.readUInt32BE(16),
     height: bytes.readUInt32BE(20),
   };
+}
+
+function pngRaster(bytes) {
+  const { width, height } = pngSize(bytes);
+  const bitDepth = bytes[24];
+  const colorType = bytes[25];
+  assert.equal(bitDepth, 8);
+  assert.ok(colorType === 2 || colorType === 6, `unsupported PNG color type ${colorType}`);
+  const channels = colorType === 6 ? 4 : 3;
+  const idats = [];
+  for (let offset = 8; offset + 12 <= bytes.length; ) {
+    const len = bytes.readUInt32BE(offset);
+    const type = bytes.subarray(offset + 4, offset + 8).toString("ascii");
+    const data = bytes.subarray(offset + 8, offset + 8 + len);
+    if (type === "IDAT") idats.push(data);
+    if (type === "IEND") break;
+    offset += 12 + len;
+  }
+  const raw = inflateSync(Buffer.concat(idats));
+  const stride = width * channels;
+  const pixels = Buffer.alloc(height * stride);
+  let src = 0;
+  const prev = Buffer.alloc(stride);
+  for (let y = 0; y < height; y += 1) {
+    const filter = raw[src];
+    src += 1;
+    const row = raw.subarray(src, src + stride);
+    src += stride;
+    const out = pixels.subarray(y * stride, (y + 1) * stride);
+    if (filter === 0) {
+      row.copy(out);
+    } else if (filter === 1) {
+      for (let i = 0; i < stride; i += 1) {
+        const left = i >= channels ? out[i - channels] : 0;
+        out[i] = (row[i] + left) & 255;
+      }
+    } else if (filter === 2) {
+      for (let i = 0; i < stride; i += 1) out[i] = (row[i] + prev[i]) & 255;
+    } else if (filter === 3) {
+      for (let i = 0; i < stride; i += 1) {
+        const left = i >= channels ? out[i - channels] : 0;
+        out[i] = (row[i] + Math.floor((left + prev[i]) / 2)) & 255;
+      }
+    } else if (filter === 4) {
+      for (let i = 0; i < stride; i += 1) {
+        const a = i >= channels ? out[i - channels] : 0;
+        const b = prev[i];
+        const c = i >= channels ? prev[i - channels] : 0;
+        const p = a + b - c;
+        const pa = Math.abs(p - a);
+        const pb = Math.abs(p - b);
+        const pc = Math.abs(p - c);
+        const pr = pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+        out[i] = (row[i] + pr) & 255;
+      }
+    } else {
+      throw new Error(`unsupported PNG filter ${filter}`);
+    }
+    out.copy(prev);
+  }
+  return { width, height, channels, pixels };
+}
+
+function sampleMean(img, x0, y0, x1, y1) {
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let n = 0;
+  for (let y = y0; y < y1; y += 1) {
+    for (let x = x0; x < x1; x += 1) {
+      const i = (y * img.width + x) * img.channels;
+      r += img.pixels[i];
+      g += img.pixels[i + 1];
+      b += img.pixels[i + 2];
+      n += 1;
+    }
+  }
+  return { r: r / n, g: g / n, b: b / n };
+}
+
+function relativeLuminance({ r, g, b }) {
+  const lin = (channel) => {
+    const s = channel / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
 function bmpInfo(bytes) {
@@ -31,11 +118,24 @@ test("macOS DMG background is the ink-sea bilingual drag card", () => {
   assert.match(html, /将蓬莱拖到应用程序/);
   assert.match(html, /Drag Penglai to Applications/);
   assert.match(html, /#0b1c2c/);
+  assert.match(html, /#f6f1e8/);
+  assert.match(html, /label-well-penglai/);
+  assert.match(html, /label-well-apps/);
+  const raster = pngRaster(png);
+  const penglaiWell = relativeLuminance(sampleMean(raster, 90, 255, 230, 285));
+  const appsWell = relativeLuminance(sampleMean(raster, 430, 255, 570, 285));
+  const navyField = relativeLuminance(sampleMean(raster, 310, 200, 350, 230));
+  assert.ok(penglaiWell > 0.7, `Penglai label well too dark: ${penglaiWell}`);
+  assert.ok(appsWell > 0.7, `Applications label well too dark: ${appsWell}`);
+  assert.ok(navyField < 0.08, `ink-sea field too light: ${navyField}`);
   const dmg = readFileSync(join(root, "scripts/build-local-dmg.mjs"), "utf8");
   assert.match(dmg, /packaging\/dmg-background\.png/);
   assert.match(dmg, /background picture of theViewOptions/);
   assert.match(dmg, /set position of item "Penglai.app"/);
   assert.match(dmg, /set position of item "Applications"/);
+  assert.match(dmg, /pathbar visible of container window to false/);
+  assert.match(dmg, /sidebar width of container window to 0/);
+  assert.match(dmg, /text size of theViewOptions to 12/);
   assert.match(dmg, /"UDRW"/);
   assert.match(dmg, /"UDZO"/);
   assert.match(dmg, /hdiutilConvertArgs/);
