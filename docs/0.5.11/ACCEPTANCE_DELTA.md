@@ -1,11 +1,23 @@
 # Penglai 0.5.11 acceptance delta
 
+> **Historical snapshot and final ruling (2026-09-08).** The body below is
+> the 0.5.11 **development-tree** acceptance delta, preserved as a snapshot.
+> **Final published ruling:** immutable GitHub Release
+> [`v0.5.11`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.11)
+> from source SHA `77e7105773b4d43abb7315ea6e83abe17e646cb4` on 2026-09-07.
+> See `docs/PUBLICATION_MANIFEST_0.5.11.md`. Live website origin readback is
+> recorded from `main` `87f6aec04b2b77d45a5c2b280d1b75332a80eb33`. Sentences
+> below that the tree is unmerged, unauthorized, unbuilt, or that public
+> downloads remain 0.5.10 describe that development snapshot, not the
+> published release. 0.5.12 work is in `docs/0.5.12/`.
+
 This delta is for Penglai **0.5.11**. It does not replace
 `docs/0.5.10/ACCEPTANCE_DELTA.md`. Published **v0.5.10** tags and assets stay
 immutable.
 
-Public README/website download tables remain **0.5.10** until immutable
-`v0.5.11` GitHub Release bytes exist and are read back.
+Snapshot (not the published ruling): public README/website download tables
+remained **0.5.10** until immutable `v0.5.11` GitHub Release bytes existed
+and were read back. Published ruling: they now record v0.5.11.
 
 ## In scope for this development tree
 
@@ -63,15 +75,21 @@ These files are development records, not a public 0.5.11 announcement:
 
 Public `SECURITY.md` and `docs/RELEASE_NOTES_0.5.10.md` stay on 0.5.10.
 
-## Remaining publication blockers
+## Remaining publication blockers (development-tree snapshot only)
 
-- In-scope source is on `codex/0.5.11` / PR 133. Owner `AGENTS.md` /
-  `docs/0.5.7/RELEASE_RUNBOOK.md` stay uncommitted.
-- Darwin-aarch64 local candidate DMG exists for `d7f20c7e` (ad-hoc, not
-  notarized). Intel Mac and Windows x64 matching-native builds do not.
-- Installed fresh/restart/Back/retry/upgrade/uninstall evidence is unrun.
-- No live model/IM credentials in this session.
-- No merge to `main` and no GitHub Release authorization for 0.5.11.
+The following bullets are **historical snapshot text** from the 0.5.11
+development tree. They are **not** the published ruling. Published v0.5.11
+exists; see the header of this file and `docs/PUBLICATION_MANIFEST_0.5.11.md`.
+
+- Snapshot: in-scope source was on `codex/0.5.11` / PR 133. Owner `AGENTS.md` /
+  `docs/0.5.7/RELEASE_RUNBOOK.md` stayed uncommitted in that tree.
+- Snapshot: Darwin-aarch64 local candidate DMG existed for `d7f20c7e` (ad-hoc, not
+  notarized). Intel Mac and Windows x64 matching-native builds did not yet.
+- Snapshot: installed fresh/restart/Back/retry/upgrade/uninstall evidence was unrun
+  on that tree.
+- Snapshot: no live model/IM credentials in that session.
+- Snapshot: that tree had not yet merged to `main` or published GitHub Release
+  `v0.5.11`. The published ruling superseded this list.
 
 ## 中文
 

@@ -116,9 +116,9 @@ test("/version is a local control command and does not mention a second host", (
   assert.deepEqual(parseCommand("/version"), { type: "version" });
   assert.deepEqual(parseCommand("/版本"), { type: "version" });
   const text = versionText();
-  assert.match(text, /Penglai 0\.5\.11/);
-  assert.match(text, /DSH 0\.1\.2-rc\.1/);
-  assert.match(text, /a66e4702047846cdaa10c66c9d3df3951f5ea70d/);
+  assert.match(text, /Penglai 0\.5\.12/);
+  assert.match(text, /DSH 0\.1\.3-alpha\.2/);
+  assert.match(text, /82a5fd61a7cf5c293cec4bdff68f455398d685e9/);
   assert.match(text, /DSH-IM reference v3\.0\.5/);
   assert.match(text, /64587b3b6162fa34f1c3ddb335a254d4154c9175/);
   assert.doesNotMatch(text, /ea5176be93cf0a5959397bd15d3ef614811a2a67/);

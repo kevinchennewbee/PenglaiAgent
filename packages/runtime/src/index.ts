@@ -82,10 +82,10 @@ export * from "./fuses.js";
 export * from "./dsh-web-auth.js";
 
 export const PENGLAI_VERSION = RELEASE;
-export const PINNED_DSH = "0.1.2-rc.1";
-export const PINNED_NODE = "22.22.2";
-export const PINNED_ELECTRON = "43.4.0";
-export const NODE_TARBALL_SHA256 = "db4b275b83736df67533529a18cc55de2549a8329ace6c7bcc68f8d22d3c9000";
+export const PINNED_DSH = "0.1.3-alpha.2";
+export const PINNED_NODE = "22.23.2";
+export const PINNED_ELECTRON = "43.6.0";
+export const NODE_TARBALL_SHA256 = "61130f394c1630d211dd50aecc4353d379480f36d3ac913cd85dbba1aed585c6";
 
 function readRegularFileNoFollow(path: string): Buffer | undefined;
 function readRegularFileNoFollow(path: string, encoding: "utf8"): string | undefined;

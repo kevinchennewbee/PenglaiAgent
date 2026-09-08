@@ -125,8 +125,8 @@ export class MnemonRunner {
       child.on("error", reject);
       child.on("close", (code) => resolve({ stdout, stderr, exitCode: code ?? 1 }));
     });
-    if (result.exitCode !== 0 || !result.stdout.includes("0.2.4")) {
-      throw new PenglaiError("DSH_UNAVAILABLE", "mnemon --version is not 0.2.4");
+    if (result.exitCode !== 0 || !result.stdout.includes("0.2.8")) {
+      throw new PenglaiError("DSH_UNAVAILABLE", "mnemon --version is not 0.2.8");
     }
     return result.stdout.trim();
   }

@@ -675,11 +675,24 @@ export class ProductionCompanionService {
     }
     const provider = config.provider;
     const model = config.model;
-    const raw = await this.ctx.agents!.resume({
-      resumeSessionId: config.companionSessionId,
-      agentOptions: { provider, model },
-      setup: (agentCtx) => this.setupAgentContext(agentCtx),
-    });
+    let raw;
+    try {
+      raw = await this.ctx.agents!.resume({
+        resumeSessionId: config.companionSessionId,
+        agentOptions: { provider, model },
+        setup: (agentCtx) => this.setupAgentContext(agentCtx),
+      });
+    } catch (error) {
+      const owned =
+        error && typeof error === "object" && (error as { name?: string }).name === "SessionAlreadyOwnedError";
+      if (owned) {
+        throw new PenglaiError(
+          "DSH_UNAVAILABLE",
+          "companion session is already owned by another handle",
+        );
+      }
+      throw error;
+    }
     if (!raw?.agent || typeof raw.dispose !== "function")
       throw new PenglaiError(
         "DSH_CONTRACT_DRIFT",

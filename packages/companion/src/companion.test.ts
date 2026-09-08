@@ -460,6 +460,70 @@ test("Companion apply stays up when penglaiImCore is missing", async () => {
   }
 });
 
+test("companion resume refuses an unowned live Agent and fails honestly on SessionAlreadyOwnedError", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-companion-owned-"));
+  const previous = process.env.PENGLAI_USER_DATA;
+  process.env.PENGLAI_USER_DATA = dir;
+  let first: ReturnType<typeof apply> | undefined;
+  let second: ReturnType<typeof apply> | undefined;
+  let third: ReturnType<typeof apply> | undefined;
+  try {
+    const rt = fakeRuntime();
+    first = apply(rt.ctx as never);
+    await first.ready;
+    const enableInput = {
+      bindingId: "route-1",
+      workspaceId: "workspace-1",
+      sessionId: "source-session",
+      quietStartHour: 0,
+      quietEndHour: 0,
+      dailyCap: 1,
+      recentInteractionMinutes: 0,
+      intensity: "gentle",
+      deliveryMode: "text",
+      locale: "zh",
+      signals: ["periodic"],
+    } as const;
+    const owner = new OwnerApprovalBroker(dir, { dialog: async () => "approved" });
+    const proposal = first.proposeEnable(enableInput);
+    const decision = await owner.requestOwnerApproval(proposal.actionId);
+    const config = await first.enable({
+      ...enableInput,
+      actionId: proposal.actionId,
+      receipt: decision.receipt!,
+    });
+    const companionSessionId = config.companionSessionId!;
+    await first.close();
+    first = undefined;
+    // Close disposes this instance's handle. Re-seed a leftover live Agent
+    // to prove a later Companion instance still refuses an id it does not own.
+    rt.live.set(companionSessionId, { id: companionSessionId });
+    assert.ok(rt.live.get(companionSessionId));
+    second = apply(rt.ctx as never);
+    await second.ready;
+    assert.match(String(second.status().runtimeError ?? ""), /unowned live Agent/);
+    await second.close();
+    second = undefined;
+
+    rt.live.delete(companionSessionId);
+    rt.ctx.agents.resume = async () => {
+      const error = new Error("session already owned");
+      error.name = "SessionAlreadyOwnedError";
+      throw error;
+    };
+    third = apply(rt.ctx as never);
+    await third.ready;
+    assert.match(String(third.status().runtimeError ?? ""), /already owned by another handle/);
+  } finally {
+    await first?.close();
+    await second?.close();
+    await third?.close();
+    if (previous === undefined) delete process.env.PENGLAI_USER_DATA;
+    else process.env.PENGLAI_USER_DATA = previous;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("production Companion apply refuses in-memory fallback", () => {
   const previous = process.env.PENGLAI_USER_DATA;
   delete process.env.PENGLAI_USER_DATA;

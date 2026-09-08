@@ -23,6 +23,11 @@ test("license policy rejects unknown and copyleft production dependencies", () =
     classifyLicense("@img/sharp-win32-x64", "Apache-2.0 AND LGPL-3.0-or-later", "0.35.4").disposition,
     "lgpl-runtime-source-offer-required",
   );
+  assert.equal(
+    classifyLicense("poppler-pdftoppm", "GPL-2.0-only OR GPL-3.0-only").disposition,
+    "gpl-separate-helper-mere-aggregation",
+  );
+  assert.throws(() => classifyLicense("libsignal", "GPL-2.0-only OR GPL-3.0-only"), /unapproved copyleft/);
 });
 
 test("lock integrity parser is LF/CRLF invariant and handles scoped peer keys", () => {

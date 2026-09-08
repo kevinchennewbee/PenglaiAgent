@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
-const EXPECTED_ALPHA_SHA = "a66e4702047846cdaa10c66c9d3df3951f5ea70d";
+const EXPECTED_ALPHA_SHA = "82a5fd61a7cf5c293cec4bdff68f455398d685e9";
 
 function fail(message) {
   process.stderr.write(`DSH_ALPHA_OWNER_REMOTES_FAIL ${message}\n`);

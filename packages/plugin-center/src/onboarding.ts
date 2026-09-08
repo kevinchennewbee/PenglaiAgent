@@ -8,6 +8,7 @@ export { classifyApiTestError, type ApiTestErrorClass };
 export interface OfficialSessionLog {
   id?: string;
   events?: readonly unknown[];
+  snapshotEvents?: () => readonly unknown[];
   deriveMessages?: () => unknown[];
 }
 
@@ -76,7 +77,7 @@ export const OFFICIAL_THEME_SETTINGS_NS = "ui-theme" as const;
 export const OFFICIAL_SETTINGS_PREFERENCE_FIELD = "preference" as const;
 export const OFFICIAL_WELCOME_SETTINGS_NS = "ui-onboarding" as const;
 export const OFFICIAL_WELCOME_ACK_FIELD = "welcomeNoticeVersion" as const;
-/** Exact acknowledgement version exported by the fixed DSH 0.1.2-rc.1 source. */
+/** Exact acknowledgement version exported by the fixed DSH 0.1.3-alpha.2 source. */
 export const DSH_WELCOME_NOTICE_VERSION = "2026-08-13.1" as const;
 
 export const ONBOARDING_STEPS = [
@@ -919,6 +920,25 @@ function textFromAssistantChunk(data: unknown): string {
   return chunk?.type === "text-delta" && typeof chunk.text === "string" ? chunk.text : "";
 }
 
+function textFromAssistantStream(data: unknown): string {
+  const stream = asRecord(data)?.stream;
+  if (!Array.isArray(stream)) return "";
+  const parts: string[] = [];
+  for (const record of stream) {
+    const row = asRecord(record);
+    if (!row) continue;
+    if ((row.type === "text-chunks" || row.type === "reasoning-chunks") && Array.isArray(row.texts)) {
+      parts.push(row.texts.filter((text): text is string => typeof text === "string").join(""));
+      continue;
+    }
+    if (row.type === "chunk") {
+      const chunk = asRecord(row.chunk);
+      if (chunk?.type === "text-delta" && typeof chunk.text === "string") parts.push(chunk.text);
+    }
+  }
+  return parts.join("");
+}
+
 export function durableFinalFromOfficialSession(session: unknown): {
   final: string;
   turnCompleted: boolean;
@@ -929,11 +949,16 @@ export function durableFinalFromOfficialSession(session: unknown): {
   let final = "";
   let turnCompleted = false;
   let reason: unknown;
-  for (const raw of rec.events ?? []) {
+  const events = typeof rec.snapshotEvents === "function" ? rec.snapshotEvents() : rec.events ?? [];
+  for (const raw of events) {
     const event = asRecord(raw);
     if (!event) continue;
     const data = asRecord(event.data) ?? event;
     if (event.type === "assistant/chunk") final += textFromAssistantChunk(data);
+    if (event.type === "assistant/attempt") {
+      const assembled = textFromOfficialMessage(asRecord(data.message) ?? data.message) || textFromAssistantStream(data);
+      if (assembled) final = assembled;
+    }
     if (event.type === "assistant/message") {
       const assembled = textFromOfficialMessage(asRecord(data.message) ?? data.message);
       if (assembled) final = assembled;
@@ -969,22 +994,37 @@ export function viewOfficialSessionEvent(args: unknown[]): {
   const first = asRecord(args[0]);
   const second = asRecord(args[1]);
   const wrapped = first ? asRecord(first.event) : undefined;
+  const streamPayload = first?.frame ? first : second?.frame ? second : undefined;
+  const streamFrame = asRecord(streamPayload?.frame);
+  const streamAgent = asRecord(streamPayload?.agent);
   const event =
     second && typeof second.type === "string" ? second : first && typeof first.type === "string" ? first : wrapped;
   const data = event ? asRecord(event.data) : undefined;
   const message = data ? asRecord(data.message) : event ? asRecord(event.message) : undefined;
   const firstId = first && "id" in first ? first.id : undefined;
+  const agentId = typeof streamAgent?.id === "string" ? streamAgent.id : undefined;
   const sessionId =
     (typeof firstId === "string" && firstId) ||
+    agentId ||
     (typeof event?.sessionId === "string" ? event.sessionId : undefined) ||
     (typeof data?.sessionId === "string" ? data.sessionId : undefined) ||
     (typeof wrapped?.sessionId === "string" ? wrapped.sessionId : undefined) ||
     undefined;
   const content = textBlocks(message?.content);
-  const chunkText = textFromAssistantChunk(data);
+  const streamChunk = streamFrame?.type === "chunk" ? asRecord(streamFrame.chunk) : undefined;
+  const liveStreamText =
+    streamChunk?.type === "text-delta" && typeof streamChunk.text === "string" ? streamChunk.text : "";
+  const chunkText =
+    liveStreamText ||
+    textFromAssistantChunk(data) ||
+    (event?.type === "assistant/attempt" ? textFromAssistantStream(data) : "");
   const reason = data && "reason" in data ? data.reason : event && "reason" in event ? event.reason : undefined;
   return {
-    type: typeof event?.type === "string" ? event.type : "",
+    type: streamFrame
+      ? "agent/assistant-stream"
+      : typeof event?.type === "string"
+        ? event.type
+        : "",
     ...(sessionId ? { sessionId } : {}),
     ...(content ? { content } : {}),
     ...(chunkText ? { chunkText } : {}),
@@ -1029,7 +1069,8 @@ async function runOfficialTurn(
     const text = Array.isArray(view.content)
       ? view.content.filter((block) => block.type === "text").map((block) => block.text ?? "").join("")
       : "";
-    if (view.type === "assistant/chunk" && view.chunkText) final += view.chunkText;
+    if (view.type === "agent/assistant-stream" && view.chunkText) final += view.chunkText;
+    if (view.type === "assistant/attempt" && view.chunkText) final = view.chunkText;
     if (view.type === "assistant/message" && text) final = text;
     if (view.type === "turn/end") {
       turnCompleted = true;
@@ -1045,6 +1086,7 @@ async function runOfficialTurn(
     timer = setTimeout(() => resolve(), 120_000);
   });
   const disposeEvent = ctx.on?.("session/event", onEvent);
+  const disposeStream = ctx.on?.("agent/assistant-stream", onEvent);
   let handle: Awaited<ReturnType<NonNullable<OfficialUsableCtx["agents"]>["create"]>> | undefined;
   try {
     handle = await ctx.agents.create({
@@ -1091,6 +1133,7 @@ async function runOfficialTurn(
   } finally {
     clearTimeout(timer);
     if (typeof disposeEvent === "function") disposeEvent();
+    if (typeof disposeStream === "function") disposeStream();
     await handle?.dispose();
   }
   if (turnFailure) throw turnFailure;

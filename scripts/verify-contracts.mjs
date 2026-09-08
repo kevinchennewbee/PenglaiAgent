@@ -24,7 +24,7 @@ if (desktop.dependencies["@deepseek-ai/dsh"] !== PINNED_DSH) {
   console.error("desktop DSH pin drift");
   process.exit(1);
 }
-const cohortBytes = readFileSync(join(ROOT, "docs/0.5.10/DSH_NPM_COHORT.json"));
+const cohortBytes = readFileSync(join(ROOT, "docs/0.5.12/DSH_NPM_COHORT.json"));
 const cohort = JSON.parse(cohortBytes.toString("utf8"));
 if (
   cohort.version !== PINNED_DSH ||
@@ -32,7 +32,7 @@ if (
   cohort.rootTarballSha256 !== PINNED_DSH_TARBALL_SHA256 ||
   createHash("sha256").update(cohortBytes).digest("hex") !== PINNED_DSH_CLOSURE_MANIFEST_SHA256
 ) {
-  console.error("0.5.10 DSH npm cohort is missing the current source or registry identity");
+  console.error("0.5.12 DSH npm cohort is missing the current source or registry identity");
   process.exit(1);
 }
 const historicalAdr = readFileSync(join(ROOT, "docs/adr/0033-dsh-011-rc1-three-targets.md"), "utf8");
@@ -60,7 +60,7 @@ if (probe.status !== 0) {
 }
 if (probe.stdout) process.stdout.write(probe.stdout);
 const lockText = lock;
-if (!lockText.includes("@larksuiteoapi/node-sdk@1.73.0")) {
+if (!lockText.includes("@larksuiteoapi/node-sdk@1.73.3")) {
   console.error("lock missing pinned Lark SDK");
   process.exit(1);
 }
@@ -148,4 +148,4 @@ if (!ensure.includes("--target") || ensure.includes("this script has no --arch")
   console.error("ensure-electron is still host-only");
   process.exit(1);
 }
-console.log("verify:contracts ok", PINNED_DSH, "lark 1.73.0", "audio codecs 3.7.1/0.2.0", `release-contract ${PRODUCT_VERSION}`);
+console.log("verify:contracts ok", PINNED_DSH, "lark 1.73.3", "audio codecs 3.7.1/0.2.0", `release-contract ${PRODUCT_VERSION}`);

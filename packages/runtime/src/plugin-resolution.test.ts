@@ -81,7 +81,7 @@ test("newer signed remote wins; older, equal, or DSH-mismatched remote keeps bun
       resolvePluginCatalogEntry({
         remote: {
           id: "@penglai/office",
-          version: "0.5.11",
+          version: "0.5.12",
           sha256: "f".repeat(64),
           dshExact: "0.1.3-alpha.1",
         },
@@ -94,21 +94,21 @@ test("newer signed remote wins; older, equal, or DSH-mismatched remote keeps bun
         bundled,
         remote: {
           id: bundled.id,
-          version: "0.5.11",
+          version: "0.5.12",
           sha256: "not-a-digest",
           dshExact: PINNED_PLUGIN_DSH,
         },
       }),
     /digest required/,
   );
-  assert.equal(comparePluginVersion("0.5.11", "0.5.10"), 1);
+  assert.equal(comparePluginVersion("0.5.12", "0.5.11"), 1);
   assert.equal(comparePluginVersion("0.5.10", "0.5.10.1"), -1);
 });
 
 test("boot reseeding preserves a newer overlay and refreshes same-version first-party tarballs", () => {
   assert.equal(
     shouldPreserveInstalledPlugin({
-      installedVersion: "0.5.11",
+      installedVersion: "0.5.12",
       installedSha256: "b".repeat(64),
       bundledVersion: "0.5.10",
       bundledSha256: "a".repeat(64),
@@ -151,10 +151,10 @@ test("activation digest must match the staged bytes, not a declared identity", (
   assert.throws(() => assertActivationDigest("b".repeat(64), expected), /activation digest mismatch/);
   assert.throws(() => assertActivationDigest("short", expected), /activation digest mismatch/);
   const dest = mkdtempSync(join(tmpdir(), "penglai-overlay-"));
-  writeInstalledOverlay(dest, { version: "0.5.11", sha256: expected });
-  assert.deepEqual(readInstalledOverlay(dest), { version: "0.5.11", sha256: expected });
+  writeInstalledOverlay(dest, { version: "0.5.12", sha256: expected });
+  assert.deepEqual(readInstalledOverlay(dest), { version: "0.5.12", sha256: expected });
   assert.match(readFileSync(overlayIdentityPath(dest), "utf8"), /"schema":1/);
-  assert.throws(() => writeInstalledOverlay(dest, { version: "0.5.11", sha256: "nope" }), /overlay digest required/);
+  assert.throws(() => writeInstalledOverlay(dest, { version: "0.5.12", sha256: "nope" }), /overlay digest required/);
 });
 
 test("first-party install path records overlay identity and skips a newer overlay", () => {

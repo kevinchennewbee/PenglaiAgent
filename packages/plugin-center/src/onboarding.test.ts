@@ -11,6 +11,7 @@ import {
   canMarkTestPassed,
   classifyApiTestError,
   viewOfficialSessionEvent,
+  durableFinalFromOfficialSession,
   completeStep,
   completeStepWithEvidence,
   credentialDescriptor,
@@ -650,6 +651,28 @@ test("viewOfficialSessionEvent reads session.id from the official subject", () =
   ]);
   assert.equal(legacy.sessionId, "sess-legacy");
   assert.equal(legacy.type, "turn/end");
+
+  const streamed = viewOfficialSessionEvent([
+    { agent: { id: "sess-stream" }, frame: { type: "chunk", chunk: { type: "text-delta", text: "Hello" } } },
+  ]);
+  assert.equal(streamed.sessionId, "sess-stream");
+  assert.equal(streamed.type, "agent/assistant-stream");
+  assert.equal(streamed.chunkText, "Hello");
+});
+
+test("durableFinalFromOfficialSession reads v2 snapshotEvents without assistant/chunk", () => {
+  const events = [
+    { type: "assistant/attempt", data: { turn: 1, step: 1, stream: [{ type: "text-chunks", texts: ["partial"] }] } },
+    {
+      type: "assistant/message",
+      data: { turn: 1, step: 1, message: { content: [{ type: "text", text: "final-ok" }] } },
+    },
+    { type: "turn/end", data: { turn: 1, reason: { kind: "completed" } } },
+  ];
+  const seen = durableFinalFromOfficialSession({ snapshotEvents: () => events });
+  assert.equal(seen.final, "final-ok");
+  assert.equal(seen.turnCompleted, true);
+  assert.equal(durableFinalFromOfficialSession({ snapshotEvents: () => events }).final.includes("partial"), false);
 });
 
 test("official nonce Turn observes (session, event) firehose without sessionId in data", async () => {
@@ -741,17 +764,19 @@ test("official nonce Turn reads whenIdle + durable session log without a firehos
     { type: "turn/start", data: { turn: 1 } },
     { type: "step/start", data: { turn: 1, step: 1 } },
     {
-      type: "assistant/chunk",
-      data: { turn: 1, step: 1, chunk: { type: "text-delta", index: 0, text: `PENGLAI_OK_${nonce}` } },
-    },
-    {
       type: "assistant/message",
-      data: { turn: 1, step: 1, message: { role: "assistant", content: [] }, usage: { outputTokens: 64 } },
+      data: {
+        turn: 1,
+        step: 1,
+        message: { role: "assistant", content: [{ type: "text", text: `PENGLAI_OK_${nonce}` }] },
+        usage: { outputTokens: 64 },
+      },
     },
     { type: "turn/end", data: { turn: 1, reason: { kind: "completed" } } },
   ];
+  assert.equal(durableFinalFromOfficialSession({ snapshotEvents: () => events }).final, `PENGLAI_OK_${nonce}`);
+  assert.equal(durableFinalFromOfficialSession({ snapshotEvents: () => events }).turnCompleted, true);
   assert.equal(durableFinalFromOfficialSession({ events }).final, `PENGLAI_OK_${nonce}`);
-  assert.equal(durableFinalFromOfficialSession({ events }).turnCompleted, true);
 
   const impl = createPenglaiOnboardingRemoteImpl({
     dir: mkdtempSync(join(tmpdir(), "penglai-onb-idle-")),

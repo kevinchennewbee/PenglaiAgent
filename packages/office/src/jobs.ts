@@ -153,6 +153,7 @@ export class OfficeJobStore {
     sessionId?: string;
     routeId?: string;
     attachmentHandle?: string;
+    parentArtifactId?: string;
     sourcePath?: string;
     destPath?: string;
     ops?: OfficeOperation[];
@@ -180,6 +181,7 @@ export class OfficeJobStore {
       ...(input.sessionId ? { sessionId: input.sessionId } : {}),
       ...(input.routeId ? { routeId: input.routeId } : {}),
       ...(input.attachmentHandle ? { attachmentHandle: input.attachmentHandle } : {}),
+      ...(input.parentArtifactId ? { parentArtifactId: input.parentArtifactId } : {}),
       ...(input.sourcePath ? { sourcePath: input.sourcePath } : {}),
       ...(input.destPath ? { destPath: input.destPath } : {}),
     };

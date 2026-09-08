@@ -26,7 +26,7 @@ import { evidenceName, installerForTarget, nativeBlocked, parseTargetArg } from 
 import { writeEvidenceJson } from "./lib/evidence-json.mjs";
 import { probeLiveHttpWs, proxyAuthBoundaryHealthy } from "./lib/runner-live.mjs";
 
-const PRODUCT_VERSION = "0.5.11";
+const PRODUCT_VERSION = "0.5.12";
 const PROVIDER = "deepseek-official";
 const PREFERRED_MODEL = "deepseek-v4-flash-vision-exp";
 const capturePublicShots = process.env.PENGLAI_CAPTURE_PUBLIC_SHOTS === "1";

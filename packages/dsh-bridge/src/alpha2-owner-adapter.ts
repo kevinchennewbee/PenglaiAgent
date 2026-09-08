@@ -2,6 +2,20 @@ import { PenglaiError } from "@penglai/contracts";
 import { KNOWN_SESSION_EVENT_TYPES } from "@deepseek-ai/dsh-session";
 import type { DshAgentLike, DshHost, DshModelSelection } from "./owner-ports.js";
 
+const ALPHA13_SESSION_EVENT_TYPES = new Set<string>([
+  ...KNOWN_SESSION_EVENT_TYPES,
+  "assistant/attempt",
+]);
+
+function isKnownOfficialSessionEvent(type: string): boolean {
+  return ALPHA13_SESSION_EVENT_TYPES.has(type);
+}
+
+function isSessionAlreadyOwned(error: unknown): boolean {
+  const err = error && typeof error === "object" ? (error as { name?: unknown; message?: unknown }) : undefined;
+  return err?.name === "SessionAlreadyOwnedError" || /already owned/i.test(String(err?.message ?? error ?? ""));
+}
+
 interface AlphaSessionSummary {
   sessionId: string;
   projections?: { asOfSeq: number; values?: Record<string, unknown> };
@@ -57,7 +71,7 @@ export function foldAlpha2ModelSelection(events: readonly AlphaSessionEvent[]): 
   let lastUsed: DshModelSelection | undefined;
   let pending: DshModelSelection | undefined;
   for (const event of events) {
-    if (typeof event.type !== "string" || !KNOWN_SESSION_EVENT_TYPES.has(event.type)) {
+    if (typeof event.type !== "string" || !isKnownOfficialSessionEvent(event.type)) {
       if (event.ignorable === true) continue;
       throw new PenglaiError("DSH_CONTRACT_DRIFT", "required alpha.2 Session event is unknown");
     }
@@ -84,7 +98,7 @@ export function foldAlpha2ModelSelection(events: readonly AlphaSessionEvent[]): 
 export function foldAlpha2Title(events: readonly AlphaSessionEvent[]): string | undefined {
   let title: string | undefined;
   for (const event of events) {
-    if (typeof event.type !== "string" || !KNOWN_SESSION_EVENT_TYPES.has(event.type)) {
+    if (typeof event.type !== "string" || !isKnownOfficialSessionEvent(event.type)) {
       if (event.ignorable === true) continue;
       throw new PenglaiError("DSH_CONTRACT_DRIFT", "required alpha.2 Session event is unknown");
     }
@@ -116,9 +130,18 @@ export function hostFromAlpha2Cordis(ctx: Alpha2CordisLike, version: string): Ds
     async resumeAgent(sessionId: string) {
       if (!ctx.agents?.resume) throw new PenglaiError("DSH_UNAVAILABLE", "official alpha.2 agents.resume is required");
       const { unwrapAgent, isAgentHandle } = await import("./contracts.js");
-      const raw = await ctx.agents.resume({ resumeSessionId: sessionId });
-      if (isAgentHandle(raw)) handles.set(sessionId, raw);
-      return unwrapAgent(raw);
+      try {
+        const raw = await ctx.agents.resume({ resumeSessionId: sessionId });
+        if (isAgentHandle(raw)) handles.set(sessionId, raw);
+        return unwrapAgent(raw);
+      } catch (error) {
+        const live = ctx.agents.get(sessionId) as DshAgentLike | undefined;
+        if (live && isSessionAlreadyOwned(error)) return live;
+        if (isSessionAlreadyOwned(error)) {
+          throw new PenglaiError("DSH_UNAVAILABLE", "session is already owned by another handle");
+        }
+        throw error;
+      }
     },
     listWorkspaces() {
       return (ctx.workspaceRegistry?.list() ?? []).map((workspace) => ({
@@ -131,19 +154,13 @@ export function hostFromAlpha2Cordis(ctx: Alpha2CordisLike, version: string): Ds
     async listSessions() {
       const controller = requiredController(ctx);
       const result = await controller.list({}, new AbortController().signal);
-      return Promise.all(result.items.map(async (item) => {
-        const inspected = await controller.inspect(item.sessionId);
-        const events = inspected?.events ?? [];
-        const lastSeq = events.reduce(
-          (highest, event) => typeof event.seq === "number" ? Math.max(highest, event.seq) : highest,
-          -1,
-        );
+      return result.items.map((item) => {
         const projected = item.projections?.values?.title;
-        const title = item.projections?.asOfSeq === lastSeq && typeof projected === "string"
-          ? projected
-          : foldAlpha2Title(events);
-        return { id: item.sessionId, ...(typeof title === "string" ? { title } : {}) };
-      }));
+        return {
+          id: item.sessionId,
+          ...(typeof projected === "string" ? { title: projected } : {}),
+        };
+      });
     },
     async createSession(workspaceIdentity: string, title?: string) {
       const controller = requiredController(ctx);
@@ -161,12 +178,9 @@ export function hostFromAlpha2Cordis(ctx: Alpha2CordisLike, version: string): Ds
       const projection = summary?.projections?.values?.modelSelection;
       const projected = projection && typeof projection === "object"
         ? modelSelection((projection as Record<string, unknown>).next)
+          ?? modelSelection((projection as Record<string, unknown>).lastUsed)
         : undefined;
-      const inspected = await controller.inspect(sessionId);
-      const events = inspected?.events ?? [];
-      const lastSeq = events.length ? events[events.length - 1]?.seq : -1;
-      const projectionCurrent = projected && summary?.projections?.asOfSeq === lastSeq;
-      const current = (projectionCurrent ? projected : foldAlpha2ModelSelection(events)) ?? catalog.default;
+      const current = projected ?? catalog.default;
       const groups = catalog.groups.map((group) => ({
         id: group.id,
         name: group.name,

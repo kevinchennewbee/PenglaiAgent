@@ -63,7 +63,7 @@ export function boundWorkspaceId(ctx: CordisContextLike, exec: unknown): string 
     throw new PenglaiError("UNAUTHORIZED", "model extra.sessionId is not a workspace authority");
   }
   const workspaces = ctx.workspaceRegistry?.list() ?? [];
-  const hit = workspaces.find((row) => row.sessionIds?.includes(agentId) || row.id === agentId);
+  const hit = workspaces.find((row) => row.sessionIds?.includes(agentId));
   if (!hit) throw new PenglaiError("UNAUTHORIZED", "agent is not bound to an official Workspace");
   return hit.id;
 }

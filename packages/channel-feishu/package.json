@@ -1,6 +1,6 @@
 {
   "name": "@penglai/channel-feishu",
-  "version": "0.5.11",
+  "version": "0.5.12",
   "private": true,
   "type": "module",
   "exports": {
@@ -10,7 +10,7 @@
     }
   },
   "dependencies": {
-    "@larksuiteoapi/node-sdk": "1.73.0",
+    "@larksuiteoapi/node-sdk": "1.73.3",
     "@penglai/audio-codecs": "workspace:*",
     "@penglai/contracts": "workspace:*",
     "@penglai/routing-core": "workspace:*",

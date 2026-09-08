@@ -1,4 +1,5 @@
 import { createDecipheriv, randomBytes } from "node:crypto";
+import { RELEASE } from "@penglai/contracts";
 
 const PORTAL_ORIGIN = "https://q.qq.com";
 const CREATE_PATH = "/lite/create_bind_task";
@@ -72,7 +73,7 @@ async function postPortal(
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "User-Agent": "PenglaiAgent/0.5.11 QQBotOnboard",
+        "User-Agent": `PenglaiAgent/${RELEASE} QQBotOnboard`,
       },
       body: JSON.stringify(body),
       redirect: "follow",

@@ -59,8 +59,8 @@ const mnemon = (args, timeoutMs = 15_000) => {
 };
 
 const version = mnemon(["--version"]);
-if (version.status !== 0 || !String(version.stdout).includes("0.2.4")) {
-  const manifest = finishEvidenceRun(run, "FAIL", "bundled mnemon --version is not 0.2.4");
+if (version.status !== 0 || !String(version.stdout).includes("0.2.8")) {
+  const manifest = finishEvidenceRun(run, "FAIL", "bundled mnemon --version is not 0.2.8");
   finish("FAIL", { command: "verify:bundled-runtime", reason: manifest.reason, dir: manifest.dir });
 }
 const remembered = mnemon(["remember", "bundled-penglai-memory", "--cat", "fact", "--source", "user"]);

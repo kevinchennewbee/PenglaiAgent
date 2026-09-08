@@ -1,4 +1,4 @@
-export const PINNED_LARK_SDK = "1.73.0";
+export const PINNED_LARK_SDK = "1.73.3";
 export const PINNED_LARK_COMMIT = "f54b49f3566c52b54c598194b7ed3015e3e24224";
 export const FEISHU_RECEIVE_EVENT = "im.message.receive_v1";
 export const FEISHU_MIN_SCOPES = ["im:message.p2p_msg:readonly", "im:message:send_as_bot"] as const;

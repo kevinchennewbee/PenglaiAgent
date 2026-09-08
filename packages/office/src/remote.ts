@@ -2,6 +2,8 @@ import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
 import { PenglaiError, PenglaiRemote } from "@penglai/contracts";
 import type { createOfficeService, OfficeFormat, OfficeOperation } from "./service.js";
+import { createPdf } from "./adapters/pdf.js";
+import { artifactDigest, previewPdfPages, publicPdfPreview } from "./pdf-preview.js";
 
 const FORMATS = new Set<OfficeFormat>(["docx", "xlsx", "pptx", "pdf"]);
 const MAX_OFFICE_BYTES = 8 * 1024 * 1024;
@@ -36,9 +38,15 @@ export function createOfficeRemoteApi(impl: ReturnType<typeof createOfficeServic
       const seen = await impl.inspect(bytesFromBase64(input.bytesBase64));
       return { format: seen.format, text: seen.text, parts: seen.parts, warnings: seen.warnings };
     },
-    async create(input: { format: OfficeFormat; text: string }) {
+    async create(input: { format: OfficeFormat; text: string; sessionId: string; workspaceId: string }) {
+      if (!input.sessionId || !input.workspaceId) {
+        throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
+      }
       if (!FORMATS.has(input.format)) throw new PenglaiError("INVALID_INPUT", "unsupported office format");
-      const job = await impl.create(input.format, input.text);
+      const job = await impl.create(input.format, input.text, {
+        workspaceId: input.workspaceId,
+        sessionId: input.sessionId,
+      });
       return {
         id: job.id,
         format: job.format,
@@ -48,11 +56,24 @@ export function createOfficeRemoteApi(impl: ReturnType<typeof createOfficeServic
         bytesBase64: job.bytes.toString("base64"),
       };
     },
-    async edit(input: { bytesBase64: string; operation?: OfficeOperation; replacement?: string; format?: OfficeFormat }) {
+    async edit(input: {
+      bytesBase64: string;
+      sessionId: string;
+      workspaceId: string;
+      operation?: OfficeOperation;
+      replacement?: string;
+      format?: OfficeFormat;
+    }) {
+      if (!input.sessionId || !input.workspaceId) {
+        throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
+      }
       const bytes = bytesFromBase64(input.bytesBase64);
       const format = input.format ?? (await impl.inspect(bytes)).format;
       const op = input.operation ?? defaultOp(format, input.replacement ?? "");
-      const job = await impl.edit(bytes, op);
+      const job = await impl.edit(bytes, op, {
+        workspaceId: input.workspaceId,
+        sessionId: input.sessionId,
+      });
       return {
         id: job.id,
         format: job.format,
@@ -74,6 +95,10 @@ export function createOfficeRemoteApi(impl: ReturnType<typeof createOfficeServic
       }
       return { receipt: await impl.approve(input.jobId, "commit", "", { sessionId: input.sessionId, workspaceId: input.workspaceId }) };
     },
+    async samplePdfPreview() {
+      const bytes = await createPdf("Penglai Office PDF page preview");
+      return publicPdfPreview(await previewPdfPages(bytes, artifactDigest(bytes)));
+    },
     commit(input: { jobId: string; receipt: string; sessionId?: string; workspaceId?: string }) {
       if (!input.sessionId || !input.workspaceId) {
         throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
@@ -82,7 +107,10 @@ export function createOfficeRemoteApi(impl: ReturnType<typeof createOfficeServic
       if (job.sessionId !== input.sessionId || job.workspaceId !== input.workspaceId) {
         throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
       }
-      const bytes = impl.commit(input.jobId, input.receipt);
+      const bytes = impl.commit(input.jobId, input.receipt, {
+        sessionId: input.sessionId,
+        workspaceId: input.workspaceId,
+      });
       return { bytesBase64: bytes.toString("base64") };
     },
   };
@@ -112,32 +140,44 @@ export class PenglaiOfficeRemote extends TypertRemoteService {
   }
 
   @PenglaiRemote
-  create(input: { format: OfficeFormat; text: string }) {
+  create(input: { format: OfficeFormat; text: string; sessionId: string; workspaceId: string }) {
     return createOfficeRemoteApi(this.impl).create(input);
   }
 
   @PenglaiRemote
-  edit(input: { bytesBase64: string; operation?: OfficeOperation; replacement?: string; format?: OfficeFormat }) {
+  edit(input: {
+    bytesBase64: string;
+    sessionId: string;
+    workspaceId: string;
+    operation?: OfficeOperation;
+    replacement?: string;
+    format?: OfficeFormat;
+  }) {
     return createOfficeRemoteApi(this.impl).edit(input);
   }
 
   @PenglaiRemote
-  preview(input: { jobId: string }) {
+  preview(input: { jobId: string; sessionId: string; workspaceId: string }) {
     return createOfficeRemoteApi(this.impl).preview(input);
   }
 
   @PenglaiRemote
-  approve(input: { jobId: string }) {
+  approve(input: { jobId: string; sessionId: string; workspaceId: string }) {
     return createOfficeRemoteApi(this.impl).approve(input);
   }
 
   @PenglaiRemote
-  commit(input: { jobId: string; receipt: string }) {
+  commit(input: { jobId: string; receipt: string; sessionId: string; workspaceId: string }) {
     return createOfficeRemoteApi(this.impl).commit(input);
+  }
+
+  @PenglaiRemote
+  samplePdfPreview() {
+    return createOfficeRemoteApi(this.impl).samplePdfPreview();
   }
 }
 
 export const TYPERT_REMOTE = {
   package: "@penglai/office",
-  descriptors: ["health", "templates", "inspect", "create", "edit", "preview", "approve", "commit"],
+  descriptors: ["health", "templates", "inspect", "create", "edit", "preview", "approve", "commit", "samplePdfPreview"],
 };

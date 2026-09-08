@@ -152,7 +152,7 @@ export function assertNoLatestDownloads(text: string): void {
   }
 }
 
-export const COHORT_FREEZE_KIND = "penglai-0.5.11-development-cohort-freeze" as const;
+export const COHORT_FREEZE_KIND = "penglai-0.5.12-development-cohort-freeze" as const;
 export const REJECTED_DSH_SUCCESSOR_TAG = "dsh-v0.1.3-alpha.1" as const;
 
 export interface CohortFreezeRecord {
@@ -162,7 +162,7 @@ export interface CohortFreezeRecord {
   publicRelease: { productVersion: string; tag: string; immutable: true };
   previousPublicRelease?: { productVersion: string; tag: string; immutable: true };
   development: {
-    versionLabel: "0.5.11";
+    versionLabel: "0.5.12";
     publicationAuthorized: boolean;
     identityRetitled: boolean;
   };
@@ -200,18 +200,18 @@ export function assertCohortFreeze(input: {
   }
   if (freeze.status === "publication-authorized") {
     if (freeze.development.publicationAuthorized !== true || freeze.development.identityRetitled !== true) {
-      throw new PenglaiError("SECURITY_POLICY", "publication-authorized freeze must retitle 0.5.11");
+      throw new PenglaiError("SECURITY_POLICY", "publication-authorized freeze must retitle 0.5.12");
     }
     if (
-      freeze.previousPublicRelease?.productVersion !== "0.5.10" ||
-      freeze.previousPublicRelease.tag !== "v0.5.10" ||
+      freeze.previousPublicRelease?.productVersion !== "0.5.11" ||
+      freeze.previousPublicRelease.tag !== "v0.5.11" ||
       freeze.previousPublicRelease.immutable !== true
     ) {
-      throw new PenglaiError("SECURITY_POLICY", "published 0.5.10 identity must stay immutable");
+      throw new PenglaiError("SECURITY_POLICY", "published 0.5.11 identity must stay immutable");
     }
   } else if (freeze.status === "development-frozen") {
     if (freeze.development.publicationAuthorized !== false || freeze.development.identityRetitled !== false) {
-      throw new PenglaiError("SECURITY_POLICY", "0.5.11 identity retitle requires publication authorization");
+      throw new PenglaiError("SECURITY_POLICY", "0.5.12 identity retitle requires publication authorization");
     }
   } else {
     throw new PenglaiError("INVALID_INPUT", "cohort freeze identity");

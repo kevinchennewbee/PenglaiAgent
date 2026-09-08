@@ -1,14 +1,14 @@
-; Penglai 0.5.11 current-user NSIS Setup.
+; Penglai 0.5.12 current-user NSIS Setup.
 ; Cross-compiled / compiled only on Windows x64. This source is the contract
 ; for install identity, bilingual UI, and unconditional userData preservation.
 ; Exact data deletion is completed inside Penglai before the uninstaller runs.
 ; Native PASS is reserved for win-x64.
 
 !ifndef PENGLAI_VERSION
-  !define PENGLAI_VERSION "0.5.11"
+  !define PENGLAI_VERSION "0.5.12"
 !endif
 !ifndef PENGLAI_OUTFILE
-  !define PENGLAI_OUTFILE "Penglai_0.5.11_windows_x64_setup.exe"
+  !define PENGLAI_OUTFILE "Penglai_0.5.12_windows_x64_setup.exe"
 !endif
 
 Unicode true
@@ -38,6 +38,12 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
 !include "WordFunc.nsh"
 !include "WinVer.nsh"
 !include "x64.nsh"
+
+; Stop only processes whose ExecutablePath is under this INSTDIR. Image-name
+; taskkill would kill a second Penglai instance with a different install root.
+!macro PenglaiStopScoped
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command "$$root = [IO.Path]::GetFullPath(''$INSTDIR'').TrimEnd([char]92); $$prefix = $$root + [char]92; Get-CimInstance Win32_Process | ForEach-Object { if ($$_.ExecutablePath -and ($$_.ExecutablePath.Equals($$root, [StringComparison]::OrdinalIgnoreCase) -or $$_.ExecutablePath.StartsWith($$prefix, [StringComparison]::OrdinalIgnoreCase))) { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue } }"' $R4
+!macroend
 
 !define MUI_ABORTWARNING
 !insertmacro MUI_PAGE_WELCOME
@@ -110,8 +116,7 @@ Section "Penglai" SecApp
     ; Chromium helpers can keep INSTDIR open after Penglai.exe has already exited.
     StrCpy $R3 "0"
     upgrade_rename_live:
-      ExecWait '"$SYSDIR\taskkill.exe" /F /T /IM Penglai.exe' $R4
-      ExecWait '"$SYSDIR\taskkill.exe" /F /T /IM "Penglai Helper.exe"' $R4
+      !insertmacro PenglaiStopScoped
       Sleep 1000
       ClearErrors
       Rename "$INSTDIR" "$INSTDIR.previous"
@@ -129,7 +134,7 @@ Section "Penglai" SecApp
       IntCmp $R3 90 upgrade_pending_fallback upgrade_rename_pending_retry upgrade_pending_fallback
     upgrade_pending_fallback:
       CreateDirectory "$INSTDIR"
-      ExecWait '"$SYSDIR\robocopy.exe" "$R2" "$INSTDIR" /E /IS /IT /R:5 /W:2 /NFL /NDL /NJH /NJS' $R4
+      ExecWait '"$SYSDIR\robocopy.exe" "$R2" "$INSTDIR" /E /PURGE /IS /IT /R:5 /W:2 /NFL /NDL /NJH /NJS' $R4
       IntCmp $R4 8 upgrade_activate_failed 0 upgrade_activate_failed
       IfFileExists "$INSTDIR\Penglai.exe" 0 upgrade_activate_failed
       RMDir /r "$R2"
@@ -146,8 +151,17 @@ Section "Penglai" SecApp
       ; has exited. Copy the staged payload over the live tree instead of
       ; deleting INSTDIR, and only then drop the pending staging directory.
       CreateDirectory "$INSTDIR.previous"
+      ClearErrors
       CopyFiles /SILENT "$INSTDIR\*.*" "$INSTDIR.previous"
-      ExecWait '"$SYSDIR\robocopy.exe" "$R2" "$INSTDIR" /E /IS /IT /R:5 /W:2 /NFL /NDL /NJH /NJS' $R4
+      IfErrors upgrade_backup_failed
+      IfFileExists "$INSTDIR.previous\Penglai.exe" 0 upgrade_backup_failed
+      ${GetSize} "$INSTDIR" "/S=0K" $R6 $R7 $R8
+      ${GetSize} "$INSTDIR.previous" "/S=0K" $R5 $R7 $R8
+      StrCmp $R6 $R5 0 upgrade_backup_failed
+      IfFileExists "$INSTDIR\resources\release-info.json" 0 upgrade_backup_ready
+      IfFileExists "$INSTDIR.previous\resources\release-info.json" 0 upgrade_backup_failed
+      upgrade_backup_ready:
+      ExecWait '"$SYSDIR\robocopy.exe" "$R2" "$INSTDIR" /E /PURGE /IS /IT /R:5 /W:2 /NFL /NDL /NJH /NJS' $R4
       IntCmp $R4 8 upgrade_activate_failed 0 upgrade_activate_failed
       IfFileExists "$INSTDIR\Penglai.exe" 0 upgrade_activate_failed
       RMDir /r "$R2"
@@ -162,14 +176,31 @@ Section "Penglai" SecApp
       FileClose $R8
       MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai could not copy the new version. The previous install was left in place." /SD IDOK
       Abort
+    upgrade_backup_failed:
+      RMDir /r "$INSTDIR.previous"
+      FileOpen $R8 "$TEMP\penglai-setup.log" w
+      FileWrite $R8 "phase=backup-failed r3=$R3$\r$\n"
+      FileClose $R8
+      MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai could not copy a recoverable backup of the current install. The previous install was left in place." /SD IDOK
+      Abort
     upgrade_activate_failed:
       FileOpen $R8 "$TEMP\penglai-setup.log" w
       FileWrite $R8 "phase=activate-failed r3=$R3$\r$\n"
       FileClose $R8
       IfFileExists "$INSTDIR.previous\Penglai.exe" 0 upgrade_abort_keep_live
       RMDir /r "$INSTDIR"
+      IfFileExists "$INSTDIR\Penglai.exe" upgrade_restore_failed
+      ClearErrors
       Rename "$INSTDIR.previous" "$INSTDIR"
+      IfErrors upgrade_restore_failed
+      IfFileExists "$INSTDIR\Penglai.exe" 0 upgrade_restore_failed
       MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai could not activate the new version and restored the previous install." /SD IDOK
+      Abort
+    upgrade_restore_failed:
+      FileOpen $R8 "$TEMP\penglai-setup.log" w
+      FileWrite $R8 "phase=restore-failed r3=$R3$\r$\n"
+      FileClose $R8
+      MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai could not activate the new version and could not verify restore of the previous install." /SD IDOK
       Abort
     upgrade_abort_keep_live:
       MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai could not activate the new version. The previous install was left in place." /SD IDOK
@@ -219,8 +250,7 @@ Section "un.Penglai" SectionUninstall
   StrCpy $R0 "$INSTDIR"
   StrCpy $R1 "$LOCALAPPDATA\Penglai\app\0.5"
   ${If} $R0 S== $R1
-    ExecWait '"$SYSDIR\taskkill.exe" /F /T /IM Penglai.exe' $R4
-    ExecWait '"$SYSDIR\taskkill.exe" /F /T /IM "Penglai Helper.exe"' $R4
+    !insertmacro PenglaiStopScoped
     Sleep 1000
     RMDir /r "$INSTDIR.pending"
     RMDir /r "$INSTDIR.previous"

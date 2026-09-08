@@ -152,6 +152,9 @@ export const REQUIRED_PUBLIC_DOCS = [
   "docs/0.5.10/DSH_NPM_COHORT.json",
   "docs/0.5.10/DSH_ALPHA_PACKAGED_BYTES.json",
   "docs/0.5.10/UPGRADE_SOURCES.json",
+  "docs/0.5.11/ACCEPTANCE_DELTA.md",
+  "docs/PUBLICATION_MANIFEST_0.5.11.md",
+  "docs/0.5.12/DSH_NPM_COHORT.json",
 ] as const;
 
 export interface ExportFile {

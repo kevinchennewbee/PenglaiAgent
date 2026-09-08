@@ -16,9 +16,9 @@ test("assemble-release refuses a signing key that does not match the embedded up
     mkdirSync(staging);
     const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
     const names = [
-      "Penglai_0.5.11_macos_aarch64.dmg",
-      "Penglai_0.5.11_macos_x64.dmg",
-      "Penglai_0.5.11_windows_x64_setup.exe",
+      "Penglai_0.5.12_macos_aarch64.dmg",
+      "Penglai_0.5.12_macos_x64.dmg",
+      "Penglai_0.5.12_windows_x64_setup.exe",
     ];
     const nativeEvidence = join(temp, "native-evidence");
     mkdirSync(nativeEvidence);

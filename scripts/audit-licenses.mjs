@@ -22,7 +22,7 @@ const officeReq = createRequire(`${process.cwd()}/packages/office/package.json`)
 const feishuReq = createRequire(`${process.cwd()}/packages/channel-feishu/package.json`);
 const FUNASR_LICENSE_SHA256 = "7dba975a2069691db4992b0592d70828b330d2f8a30a71450f4e152a554e84f8";
 const SHERPA_LICENSE_SHA256 = "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30";
-const SHERPA_INTEGRITY = "sha512-kq3HgrXdbYCgK44U0gd2Cpnahf7qa59caPnROI7dy1+nKou8KdAsV9yUsCScZqTewvRyR/khUS97X26KE4JRMw==";
+const SHERPA_INTEGRITY = "sha512-t6fsJmLWG5N51L950kr0u3sqP/bppOoLed0DWAXwJ/l1ziRPTwkvNy28aXb2720g9p8NbYoLLOS/GOf+vJTeZg==";
 const ONNX_RUNTIME_INTEGRITY = "sha512-OBTsG0W8ddBVOeVVVychpVBS87A9YV5sa2hJ6lc025T97Le+J4v++PwSC4XFs1C62SWyNdof0Mh4KvnZgtt4aw==";
 const SENTENCEPIECE_INTEGRITY = "sha512-HN6teKCRO9tz37zbaNI3i+vMZ/JRWDt6kmZ7OVpzQv1jZHyYNmf5tE7CFpIYN86+y9TLB0cuscMdA3OHhT/MhQ==";
 const MOSS_SOURCE_COMMIT = "cc7bdf19c7639c0870dab22045a33b442760f6be";
@@ -59,18 +59,18 @@ function packageJsonFor(packageName, resolver = mossReq, fromDir) {
 
 const licenses = [
   { name: "penglaiagent", license: "MIT" },
-  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.2-rc.1" },
-  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.2-rc.1" },
-  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.2-rc.1" },
-  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.2-rc.1" },
+  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.3-alpha.2" },
+  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.3-alpha.2" },
+  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.3-alpha.2" },
+  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.3-alpha.2" },
   { name: "Tencent openclaw-weixin protocol reference", license: "MIT", commit: "cef0bfc390393f716903e16d50408118047f87e0" },
   { name: "typescript", license: "Apache-2.0" },
   { name: "tsx", license: "MIT" },
-  { name: "electron", license: "MIT", pin: "43.4.0" },
+  { name: "electron", license: "MIT", pin: "43.6.0" },
   {
     name: "@larksuiteoapi/node-sdk",
     license: "MIT",
-    pin: "1.73.0",
+    pin: "1.73.3",
     commit: "f54b49f3566c52b54c598194b7ed3015e3e24224",
     bundledInInstaller: true,
   },
@@ -245,7 +245,7 @@ if (uuidInfo.pkg.version !== "11.1.1" || uuidInfo.pkg.license !== "MIT") {
   process.exit(1);
 }
 for (const [resolver, fromDir, name, version, license] of [
-  [feishuReq, join(process.cwd(), "packages/channel-feishu"), "@larksuiteoapi/node-sdk", "1.73.0", "MIT"],
+  [feishuReq, join(process.cwd(), "packages/channel-feishu"), "@larksuiteoapi/node-sdk", "1.73.3", "MIT"],
   [officeReq, join(process.cwd(), "packages/office"), "docx", "9.7.1", "MIT"],
   [officeReq, join(process.cwd(), "packages/office"), "exceljs", "4.4.0", "MIT"],
   [officeReq, join(process.cwd(), "packages/office"), "@liustack/pptfast", "0.20.0", "MIT"],
@@ -274,7 +274,7 @@ if (
   process.exit(1);
 }
 const lock = readFileSync("pnpm-lock.yaml", "utf8");
-if (!lock.includes(`sherpa-onnx@1.13.5:`) || !lock.includes(`integrity: ${SHERPA_INTEGRITY}`)) {
+if (!lock.includes(`sherpa-onnx@1.13.7:`) || !lock.includes(`integrity: ${SHERPA_INTEGRITY}`)) {
   console.error("sherpa-onnx lock integrity missing");
   process.exit(1);
 }

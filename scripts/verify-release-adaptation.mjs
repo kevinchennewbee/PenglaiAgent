@@ -6,7 +6,7 @@ import { validateCohortSnapshot, verifyCohortLock } from "./lib/dsh-npm-cohort.m
 import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
 import { ROOT } from "./lib/repo.mjs";
 
-const BASE = "10ef5df4fc0fbccd2d119dfeecbc8436ccccff01";
+const BASE = "87f6aec04b2b77d45a5c2b280d1b75332a80eb33";
 const pins = readReleaseIdentityPins();
 const failures = [];
 
@@ -25,7 +25,7 @@ function readJson(relative) {
 try {
   execFileSync("git", ["merge-base", "--is-ancestor", BASE, "HEAD"], { cwd: ROOT, stdio: "ignore" });
 } catch {
-  fail(`0.5.11 must descend from published 0.5.10 ${BASE}`);
+  fail(`0.5.12 must descend from published 0.5.11 ${BASE}`);
 }
 
 const protectedPaths = [
@@ -36,18 +36,19 @@ const protectedPaths = [
   "docs/RELEASE_NOTES_0.5.8.md",
   "docs/PUBLICATION_MANIFEST_0.5.10.md",
   "docs/RELEASE_NOTES_0.5.10.md",
+  "docs/PUBLICATION_MANIFEST_0.5.11.md",
 ];
 const protectedChanges = git(["diff", "--name-only", BASE, "--", ...protectedPaths]).split("\n").filter(Boolean);
 if (protectedChanges.length > 0) {
-  fail(`0.5.11 rewrote immutable published history: ${protectedChanges.join(", ")}`);
+  fail(`0.5.12 rewrote immutable published history: ${protectedChanges.join(", ")}`);
 }
 
-if (pins.productVersion !== "0.5.11" || pins.dsh !== "0.1.2-rc.1") {
-  fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.5.11/0.1.2-rc.1`);
+if (pins.productVersion !== "0.5.12" || pins.dsh !== "0.1.3-alpha.2") {
+  fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.5.12/0.1.3-alpha.2`);
 }
-if (existsSync(join(ROOT, ".pnpmfile.mjs"))) fail("0.5.11 must not activate the historical alpha.1 source resolver");
+if (existsSync(join(ROOT, ".pnpmfile.mjs"))) fail("0.5.12 must not activate the historical alpha.1 source resolver");
 
-const snapshotPath = join(ROOT, "docs/0.5.10/DSH_NPM_COHORT.json");
+const snapshotPath = join(ROOT, "docs/0.5.12/DSH_NPM_COHORT.json");
 const snapshotBytes = readFileSync(snapshotPath);
 const snapshot = JSON.parse(snapshotBytes.toString("utf8"));
 try {
@@ -60,17 +61,17 @@ if (snapshotSha256 !== pins.dshSource.closureManifestSha256) {
   fail(`DSH npm cohort digest ${snapshotSha256} != release pin ${pins.dshSource.closureManifestSha256}`);
 }
 
-const packagedBytes = readJson("docs/0.5.10/DSH_ALPHA_PACKAGED_BYTES.json");
+const packagedBytes = readJson("docs/0.5.12/DSH_ALPHA_PACKAGED_BYTES.json");
 if (
   packagedBytes.schema !== 2 ||
   packagedBytes.dsh !== pins.dsh ||
   packagedBytes.mode !== "official-npm-cohort-no-source-patch" ||
   packagedBytes.source?.tag !== pins.dshSource.tag ||
   packagedBytes.source?.commit !== pins.dshSource.commit ||
-  packagedBytes.source?.tree !== "27ab636bb3d77e698f5637e518db44ae1f61e262" ||
-  packagedBytes.source?.cohortManifest !== "docs/0.5.10/DSH_NPM_COHORT.json"
+  packagedBytes.source?.tree !== "897a54135c8440f3736d16100cf9cbfb40015ae5" ||
+  packagedBytes.source?.cohortManifest !== "docs/0.5.12/DSH_NPM_COHORT.json"
 ) {
-  fail("DSH packaged-byte policy identity is not the fixed rc.1 source and npm cohort");
+  fail("DSH packaged-byte policy identity is not the fixed alpha.2 source and npm cohort");
 }
 const cohortByName = new Map(snapshot.packages.map((entry) => [entry.name, entry]));
 for (const row of packagedBytes.officialBytes ?? []) {
@@ -88,7 +89,7 @@ for (const row of packagedBytes.officialBytes ?? []) {
   }
   const target = join(ROOT, row.relative);
   if (!existsSync(target)) {
-    fail(`packaged byte ${row.id} is missing from the installed rc.1 graph`);
+    fail(`packaged byte ${row.id} is missing from the installed alpha.2 graph`);
     continue;
   }
   const actual = createHash("sha256").update(readFileSync(target)).digest("hex");
@@ -110,14 +111,16 @@ for (const forbidden of ["0.1.2-alpha.1", "penglai-dsh-source", "@deepseek-ai/ds
   if (lock.includes(forbidden)) fail(`active lock contains forbidden ${forbidden}`);
 }
 for (const required of [
-  "@deepseek-ai/dsh@0.1.2-rc.1",
-  "@deepseek-ai/dsh-client-ui-schedule@0.1.2-rc.1",
-  "@deepseek-ai/dsh-deque@0.1.2-rc.1",
-  "@deepseek-ai/dsh-util-time@0.1.2-rc.1",
-  "@deepseek-ai/dsh-util-values@0.1.2-rc.1",
+  "@deepseek-ai/dsh@0.1.3-alpha.2",
+  "@deepseek-ai/dsh-http-proxy@0.1.3-alpha.2",
+  "@deepseek-ai/dsh-client-ui-schedule@0.1.3-alpha.2",
+  "@deepseek-ai/dsh-deque@0.1.3-alpha.2",
+  "@deepseek-ai/dsh-util-time@0.1.3-alpha.2",
+  "@deepseek-ai/dsh-util-values@0.1.3-alpha.2",
 ]) {
   if (!lock.includes(required)) fail(`active lock is missing ${required}`);
 }
+if (lock.includes("@deepseek-ai/dsh@0.1.2-rc.1")) fail("active lock still contains rc.1 DSH");
 const cordisVersions = new Set([...lock.matchAll(/@deepseek-ai\/cordis@(\d+\.\d+\.\d+)/g)].map((match) => match[1]));
 if (cordisVersions.size !== 1 || !cordisVersions.has("4.0.2")) {
   fail(`active lock has unexpected Cordis versions: ${[...cordisVersions].join(", ") || "none"}`);
@@ -135,7 +138,7 @@ const manifestGate = spawnSync(process.execPath, [join(ROOT, "scripts/migrate-re
   cwd: ROOT,
   encoding: "utf8",
 });
-if (manifestGate.status !== 0) fail(manifestGate.stderr || manifestGate.stdout || "0.5.11 manifest gate failed");
+if (manifestGate.status !== 0) fail(manifestGate.stderr || manifestGate.stdout || "0.5.12 manifest gate failed");
 
 for (const relative of [
   "packages/dsh-bridge/src/index.ts",
@@ -144,7 +147,7 @@ for (const relative of [
   "packages/plugin-registry/src/catalog-schema.ts",
 ]) {
   const source = readFileSync(join(ROOT, relative), "utf8");
-  if (source.includes("0.1.2-alpha.1") || !source.includes("0.1.2-rc.1")) fail(`${relative} is not on rc.1`);
+  if (source.includes("0.1.2-alpha.1") || !source.includes("0.1.3-alpha.2")) fail(`${relative} is not on 0.1.3-alpha.2`);
 }
 
 if (failures.length > 0) {

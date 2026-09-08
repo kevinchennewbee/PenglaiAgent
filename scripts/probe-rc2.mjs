@@ -22,7 +22,7 @@ const larkOk = {
   hasWSClient: typeof (lark.WSClient ?? lark.default?.WSClient) === "function",
   hasEventDispatcher: typeof (lark.EventDispatcher ?? lark.default?.EventDispatcher) === "function",
 };
-if (larkOk.version !== "1.73.0" || !larkOk.hasClient || !larkOk.hasWSClient || !larkOk.hasEventDispatcher) {
+if (larkOk.version !== "1.73.3" || !larkOk.hasClient || !larkOk.hasWSClient || !larkOk.hasEventDispatcher) {
   console.error("lark sdk pin/API probe failed", larkOk);
   process.exit(1);
 }

@@ -23,14 +23,14 @@ const targetArg = process.argv.includes("--target")
   : process.env.PENGLAI_PACK_TARGET;
 const TARGETS = {
   "darwin-arm64": {
-    out: "dist/Penglai-v0.5.11-arm64",
-    zip: "dist/Penglai-v0.5.11-arm64.zip",
+    out: "dist/Penglai-v0.5.12-arm64",
+    zip: "dist/Penglai-v0.5.12-arm64.zip",
     triple: "darwin-arm64",
     runtimeTarget: "darwin-aarch64",
   },
   "darwin-x64": {
-    out: "dist/Penglai-v0.5.11-x64",
-    zip: "dist/Penglai-v0.5.11-x64.zip",
+    out: "dist/Penglai-v0.5.12-x64",
+    zip: "dist/Penglai-v0.5.12-x64.zip",
     triple: "darwin-x64",
     runtimeTarget: "darwin-x86_64",
   },
@@ -145,6 +145,18 @@ const penglaiExec = join(contents, "MacOS", "Penglai");
 if (existsSync(macExec) && !existsSync(penglaiExec)) {
   execFileSync("mv", [macExec, penglaiExec]);
 }
+const popplerSrc = join(ROOT, "third_party", "poppler", targetSpec.runtimeTarget);
+if (!existsSync(join(popplerSrc, "pdftoppm"))) {
+  const fetched = spawnSync(process.execPath, [join(ROOT, "scripts", "fetch-poppler.mjs"), "--target", targetSpec.runtimeTarget], {
+    cwd: ROOT,
+    stdio: "inherit",
+  });
+  if (fetched.status !== 0 || !existsSync(join(popplerSrc, "pdftoppm"))) {
+    console.error(`bundled Poppler pdftoppm missing at ${popplerSrc}`);
+    process.exit(1);
+  }
+}
+cpSync(popplerSrc, join(contents, "MacOS", "poppler"), { recursive: true });
 const fwRes = join(
   contents,
   "Frameworks/Electron Framework.framework/Versions/A/Resources",
@@ -225,12 +237,12 @@ if (existsSync(framework)) {
 }
 writeFileSync(
   join(outRoot, "README-UNSIGNED.txt"),
-  "Penglai 0.5.11 community release. trustTier=community-verified. Ad-hoc signed, not notarized. Gatekeeper may warn; do not disable system security.\n",
+  "Penglai 0.5.12 community release. trustTier=community-verified. Ad-hoc signed, not notarized. Gatekeeper may warn; do not disable system security.\n",
 );
 
 const info = {
   productName: "Penglai",
-  productVersion: "0.5.11",
+  productVersion: "0.5.12",
   name: targetSpec.out.split("/").pop(),
   buildNumber: 0,
   candidateOrdinal: 0,
@@ -242,10 +254,10 @@ const info = {
   treeDirty: dirty.length > 0,
   targetPlatform: targetSpec.triple,
   minimumMacOS: "13.0",
-  electron: "43.4.0",
-  node: "22.22.2",
-  embeddedNode: "22.22.2",
-  dsh: "0.1.2-rc.1",
+  electron: releasePins.electron,
+  node: releasePins.node,
+  embeddedNode: releasePins.node,
+  dsh: "0.1.3-alpha.2",
   dshSource: releasePins.dshSource,
   profileSchema: 3,
   catalogSchema: 3,

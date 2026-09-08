@@ -63,6 +63,8 @@ test("office conversation tools inspect, plan, preview, commit, undo without mod
   assert.equal(names.includes("penglai_office_commit"), true);
   const exec = { agent: { id: "sess-1" } };
   const created = await tools.get("penglai_office_create")?.execute({ format: "docx", text: "hello office tools" }, exec);
+  assert.equal(svc.job((created as { id: string }).id).workspaceId, "ws1");
+  assert.equal(svc.job((created as { id: string }).id).sessionId, "sess-1");
   const planned = await tools.get("penglai_office_plan")?.execute({
     job_id: (created as { id: string }).id,
     operation: { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "revised-tools" },
@@ -124,8 +126,9 @@ test("office return sends bytes only to the route captured on the attached handl
   const { handle } = objects.put(created.bytes, { kind: "office", mime: "application/vnd.openxmlformats-officedocument" });
   objects.bind(handle, { sessionId: "sess-1", workspaceId: "ws-1", routeId: "route-feishu-1" });
   const attached = await svc.inspectAttached(handle, "sess-1");
-  const receipt = await svc.approve(attached.id, "return-to-channel");
-  const returned = await svc.returnToChannel(attached.id, receipt);
+  const scope = { sessionId: "sess-1", workspaceId: "ws-1" };
+  const receipt = await svc.approve(attached.id, "return-to-channel", "", scope);
+  const returned = await svc.returnToChannel(attached.id, receipt, scope);
   assert.deepEqual(
     { routeId: delivered?.routeId, sessionId: delivered?.sessionId, workspaceId: delivered?.workspaceId },
     { routeId: "route-feishu-1", sessionId: "sess-1", workspaceId: "ws-1" },
@@ -134,8 +137,11 @@ test("office return sends bytes only to the route captured on the attached handl
   assert.equal(returned.channel, "feishu");
   assert.equal(returned.delivered, true);
 
-  const local = await svc.create("pdf", "local-only");
-  await assert.rejects(() => svc.approve(local.id, "return-to-channel"), /no original IM route/);
+  const local = await svc.create("pdf", "local-only", { workspaceId: "ws-1", sessionId: "sess-1" });
+  await assert.rejects(
+    () => svc.approve(local.id, "return-to-channel", "", { sessionId: "sess-1", workspaceId: "ws-1" }),
+    /no original IM route/,
+  );
 });
 
 test("atomic commit refuses parent symlink and destination symlink", (t) => {
@@ -191,7 +197,7 @@ test("office job tools reject another Session and Workspace before reads or acti
   assert.equal(approvals, 0);
   assert.equal(svc.job(created.id).state, "INSPECTED");
   assert.match(svc.job(created.id).text, /private session content/);
-  svc.cancel(created.id);
+  await svc.cancel(created.id, { workspaceId: "ws1", sessionId: "sess-1" });
 });
 
 test("accepted office artifact can be saved with separate exact action approval and undone", async () => {
@@ -223,6 +229,19 @@ test("accepted office artifact can be saved with separate exact action approval 
   artifacts.close();
 });
 
+
+test("office tools do not bind a Workspace when exec.agent.id equals the workspace id", async () => {
+  const names: string[] = [];
+  const { tools, ctx } = registered(names);
+  const dir = ctx.workspaceRegistry.list()[0]?.path ?? "";
+  ctx.workspaceRegistry.list = () => [{ id: "ws1", path: dir, sessionIds: ["sess-1"] }];
+  const svc = liveOffice(dir);
+  registerOfficeTools(ctx, svc);
+  await assert.rejects(
+    () => tools.get("penglai_office_create")?.execute({ format: "docx", text: "spoof" }, { agent: { id: "ws1" } }),
+    /not bound to an official Workspace/,
+  );
+});
 
 test("office Unicode filenames retain basename safety across supported platforms", () => {
   for (const name of ["项目 汇报.docx", "Quarterly report.xlsx", "résumé.pdf"]) assert.equal(safeWorkspaceFilename(name), name);

@@ -200,6 +200,21 @@ try {
   });
 }
 
+const popplerSrc = join(ROOT, "third_party", "poppler", "win32-x86_64");
+if (!existsSync(join(popplerSrc, "pdftoppm.exe"))) {
+  const fetched = spawnSync(process.execPath, [join(ROOT, "scripts", "fetch-poppler.mjs"), "--target", "win32-x86_64"], {
+    cwd: ROOT,
+    stdio: "inherit",
+  });
+  if (fetched.status !== 0 || !existsSync(join(popplerSrc, "pdftoppm.exe"))) {
+    finish("FAIL", {
+      command: "package:windows-payload",
+      reason: "bundled Poppler pdftoppm.exe missing",
+    });
+  }
+}
+cpSync(popplerSrc, join(payload, "poppler"), { recursive: true });
+
 const resources = join(payload, "resources");
 mkdirSync(resources, { recursive: true });
 cpSync(join(ROOT, "dist", "desktop-bundle"), join(resources, "app"), {
@@ -244,7 +259,7 @@ if (native) {
     `${JSON.stringify(
       {
         productName: "Penglai",
-        productVersion: "0.5.11",
+        productVersion: "0.5.12",
         buildNumber: 0,
         candidateOrdinal: 0,
         candidateKind: "public-community-release",
@@ -254,10 +269,10 @@ if (native) {
         sourceSha: git.head,
         treeDirty: false,
         targetPlatform: "win32-x64",
-        electron: "43.4.0",
-        node: "22.22.2",
-        embeddedNode: "22.22.2",
-        dsh: "0.1.2-rc.1",
+        electron: releasePins.electron,
+        node: releasePins.node,
+        embeddedNode: releasePins.node,
+        dsh: "0.1.3-alpha.2",
         dshSource: releasePins.dshSource,
         profileSchema: 3,
         catalogSchema: 3,

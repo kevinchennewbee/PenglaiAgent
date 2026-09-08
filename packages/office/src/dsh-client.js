@@ -93,6 +93,7 @@ window.__ModuleLoader__.load({
         xlsx: "Excel 表格",
         pptx: "PowerPoint 演示",
         pdf: "PDF 文档",
+        pdfPages: "PDF 页预览是绑定摘要的页面图像。没有图像时只显示正文，正文不是图片。",
       },
       en: {
         title: "Penglai Office",
@@ -108,6 +109,7 @@ window.__ModuleLoader__.load({
         xlsx: "Excel workbook",
         pptx: "PowerPoint deck",
         pdf: "PDF document",
+        pdfPages: "PDF page previews are digest-bound page images. If no image is available, Penglai shows the extracted text and does not treat that text as a picture.",
       },
     };
     function localeCopy() {
@@ -133,27 +135,32 @@ window.__ModuleLoader__.load({
       const connectionGeneration = useConnectionGeneration(
         (generation) => generation?.id,
       );
-      const [view, setView] = React.useState({ status: "loading", templates: [], error: "", copied: "" });
+      const [view, setView] = React.useState({ status: "loading", templates: [], error: "", copied: "", pdfPages: [] });
       React.useEffect(() => {
         if (
           connectionGeneration === undefined ||
           !api?.health ||
           !api?.templates
         ) {
-          setView({ status: "error", templates: [], error: t.unavailable, copied: "" });
+          setView({ status: "error", templates: [], error: t.unavailable, copied: "", pdfPages: [] });
           return;
         }
         let current = true;
-        Promise.all([api.health(), api.templates()])
-          .then(([health, templates]) => {
+        Promise.all([api.health(), api.templates(), api.samplePdfPreview ? api.samplePdfPreview() : Promise.resolve(null)])
+          .then(([health, templates, sample]) => {
             if (!current) return;
             const seen = unwrapRemote(health) || {};
             const rows = unwrapRemote(templates);
+            const preview = sample ? unwrapRemote(sample) : undefined;
+            const pdfPages = Array.isArray(preview?.pagePreviews)
+              ? preview.pagePreviews.filter((page) => page?.raster?.png && page.raster.dataBase64)
+              : [];
             setView({
               status: seen.state === "active" || seen.healthy === true ? "ready" : "error",
               templates: Array.isArray(rows) ? rows : [],
               error: "",
               copied: "",
+              pdfPages,
             });
           })
           .catch(() => {
@@ -163,6 +170,7 @@ window.__ModuleLoader__.load({
               templates: [],
               error: t.unavailable,
               copied: "",
+              pdfPages: [],
             });
           });
         return () => {
@@ -236,6 +244,20 @@ window.__ModuleLoader__.load({
             }, example)),
           }),
           view.copied ? jsx.jsx("p", { role: "status", children: t.copied }) : null,
+          jsx.jsx("p", { "data-penglai-office-pdf-preview": "1", children: t.pdfPages }),
+          view.pdfPages.length
+            ? jsx.jsx("div", {
+                "data-penglai-office-pdf-pages": String(view.pdfPages.length),
+                children: view.pdfPages.map((page, index) =>
+                  jsx.jsx("img", {
+                    alt: `PDF page ${index + 1}`,
+                    src: `data:image/png;base64,${page.raster.dataBase64}`,
+                    width: page.width || 612,
+                    height: page.height || 792,
+                  }, String(index)),
+                ),
+              })
+            : null,
           jsx.jsx("p", { "data-penglai-office-safety": "1", children: t.safety }),
         ],
       });

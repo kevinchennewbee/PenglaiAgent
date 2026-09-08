@@ -1,4 +1,4 @@
-# Penglai 0.5.11 product contract
+# Penglai 0.5.12 product contract
 
 ## English
 
@@ -11,18 +11,20 @@ first run, process supervision, local data boundaries, assisted updates,
 uninstall, and a reviewed set of DSH plugins. It does not ship a second agent,
 provider gateway, session store, or chat page.
 
-Version 0.5.11 targets Apple Silicon, Intel Mac, and Windows x64 with official DSH
-`0.1.2-rc.1`. A fresh user brings a provider credential, selects an official
+Version 0.5.12 targets Apple Silicon, Intel Mac, and Windows x64 with official DSH
+`0.1.3-alpha.2`. A fresh user brings a provider credential, selects an official
 model and Workspace, receives a real first DSH reply, and then uses the official
-DSH Web interface. Published 0.5.10 remains immutable.
+DSH Web interface. Published 0.5.10 and 0.5.11 remain immutable. Public README
+and website download tables stay on published v0.5.11 until immutable v0.5.12
+bytes are read back.
 
 ### 2. Supported platforms
 
 | Device | Exact installer |
 | --- | --- |
-| Apple Silicon, macOS 13+ | `Penglai_0.5.11_macos_aarch64.dmg` |
-| Intel Mac, macOS 13+ | `Penglai_0.5.11_macos_x64.dmg` |
-| Windows 10+ x64 | `Penglai_0.5.11_windows_x64_setup.exe` |
+| Apple Silicon, macOS 13+ | `Penglai_0.5.12_macos_aarch64.dmg` |
+| Intel Mac, macOS 13+ | `Penglai_0.5.12_macos_x64.dmg` |
+| Windows 10+ x64 | `Penglai_0.5.12_windows_x64_setup.exe` |
 
 The app contains its target Electron, Node, DSH closure, profile seed, bundled
 plugins, licenses, and integrity metadata. It never falls back to a system Node,
@@ -91,7 +93,7 @@ Write, export, return, and undo approval binds the exact job, source/result
 digest, destination, Workspace, Session, and revision. Approval completes only
 after the mutation or delivery succeeds.
 
-Official DSH 0.1.2-rc.1 conversation Turns support text and images, not generic file
+Official DSH 0.1.3-alpha.2 conversation Turns support text and images, not generic file
 blocks. Penglai therefore does not claim ordinary composer DOCX/XLSX/PPTX/PDF
 attachments. Official images continue through the official image store. Files
 received through live IM or selected through Office use the scoped artifact
@@ -180,9 +182,9 @@ Agent、模型、工具、审批、Workspace、Session、Turn 和会话 UI。蓬
 首次引导、进程监管、本地数据边界、辅助升级、卸载和经过审核的 DSH 插件，不另造
 Agent、模型网关、Session 存储或聊天页。
 
-0.5.10 固定 DSH `0.1.2-rc.1`，支持 Apple 芯片、Intel Mac 和 Windows x64。
+0.5.12 固定 DSH `0.1.3-alpha.2`，支持 Apple 芯片、Intel Mac 和 Windows x64。
 用户自备模型密钥，选择 official 模型和 Workspace，收到第一条真实 DSH 回复后进入
-official DSH Web。
+official DSH Web。已发布的 0.5.10 与 0.5.11 保持不可变。
 
 ### 2. 全新安装
 

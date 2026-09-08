@@ -11,24 +11,24 @@
     },
     {
       "id": "mnemon",
-      "release": "v0.2.4",
-      "commit": "67ed1a2f80de902fd041eeaf3b90e7e3d2480d5b",
-      "license": "MIT + Apache-2.0",
+      "release": "v0.2.8",
+      "commit": "da9b7da0e3e7f10c84d5f8e9a42e24453c8159bb",
+      "license": "Apache-2.0",
       "assets": [
         {
           "target": "darwin-aarch64",
-          "filename": "mnemon_0.2.4_darwin_arm64.tar.gz",
-          "sha256": "d363b6f3826acc50b9e21aa298c8d36010c53c480000878a13b6d41d5d5dcbd6"
+          "filename": "mnemon_0.2.8_darwin_arm64.tar.gz",
+          "sha256": "96159ad2fe8f0531b5a00ab009849614c234032146b95fa2db5aa726a8922e2d"
         },
         {
           "target": "darwin-x86_64",
-          "filename": "mnemon_0.2.4_darwin_amd64.tar.gz",
-          "sha256": "fd4cae937a28851848ea8d6916e2137cc0a0441a97873f691fa1a07ce76b51a7"
+          "filename": "mnemon_0.2.8_darwin_amd64.tar.gz",
+          "sha256": "bede7424e076850327485bcbe5a04667abb0f2190c35d6bb4f281e1b86117a36"
         },
         {
           "target": "win32-x86_64",
-          "filename": "mnemon_0.2.4_windows_amd64.zip",
-          "sha256": "5194137995f2193de73a5b3fb22f39fb773f1c0f8db5f6f96eaced5f94422b8c"
+          "filename": "mnemon_0.2.8_windows_amd64.zip",
+          "sha256": "a61be46f98a243cf6b1194241ef808a880ba57a1c5c2cb0f7152502db80655f3"
         }
       ]
     },
@@ -105,6 +105,34 @@
       "licenseFile": "third_party/LICENSE-qqbot-agent-sdk.txt",
       "use": "selective TypeScript rewrite of official QQ bot scan onboarding; upstream Python runtime is not shipped",
       "provenance": "docs/0.5.7/provenance/qqbot-agent-sdk-onboard.md"
+    },
+    {
+      "id": "poppler-pdftoppm",
+      "upstream": "https://poppler.freedesktop.org/",
+      "version": "26.09.0",
+      "license": "GPL-2.0-only OR GPL-3.0-only",
+      "disposition": "gpl-separate-helper-mere-aggregation",
+      "feedstock": "https://github.com/conda-forge/poppler-feedstock",
+      "feedstockCommit": "13d784d77510e73d6066a75a79cd8e6040a6a261",
+      "sourceSha256": "8059eadb6805340768f138c465b57f8164c92b4a0773c37ef031ea6c0d987b2e",
+      "use": "spawned sibling pdftoppm helper for Office page rasters; not linked into Electron or DSH",
+      "assets": [
+        {
+          "target": "darwin-aarch64",
+          "filename": "poppler-26.09.0-hb6e6627_0.conda",
+          "sha256": "0d2e5190ab4657da34560810bf326f4c5a22766152fecca603b5a06d1eba30b1"
+        },
+        {
+          "target": "darwin-x86_64",
+          "filename": "poppler-26.09.0-hb8a767d_0.conda",
+          "sha256": "7d0f2b3de7c9d2176e6356c10b478f9d539a79368b8741e43467a6e99e4dee68"
+        },
+        {
+          "target": "win32-x86_64",
+          "filename": "poppler-26.09.0-h924501e_0.conda",
+          "sha256": "bb319f6881d91e175f90a9d33a25313e4cfddc15dd234521519985baf92fefcd"
+        }
+      ]
     },
     {
       "id": "noto-sans-sc",

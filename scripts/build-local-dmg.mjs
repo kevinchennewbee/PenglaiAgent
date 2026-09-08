@@ -78,14 +78,14 @@ const targetArg = process.argv.includes("--target")
   : process.env.PENGLAI_PACK_TARGET;
 const TARGETS = {
   "darwin-arm64": {
-    out: "dist/Penglai-v0.5.11-arm64",
-    dmg: "dist/Penglai_0.5.11_macos_aarch64.dmg",
-    from: "dist/Penglai-v0.5.11-arm64-from-dmg",
+    out: "dist/Penglai-v0.5.12-arm64",
+    dmg: "dist/Penglai_0.5.12_macos_aarch64.dmg",
+    from: "dist/Penglai-v0.5.12-arm64-from-dmg",
   },
   "darwin-x64": {
-    out: "dist/Penglai-v0.5.11-x64",
-    dmg: "dist/Penglai_0.5.11_macos_x64.dmg",
-    from: "dist/Penglai-v0.5.11-x64-from-dmg",
+    out: "dist/Penglai-v0.5.12-x64",
+    dmg: "dist/Penglai_0.5.12_macos_x64.dmg",
+    from: "dist/Penglai-v0.5.12-x64-from-dmg",
   },
 };
 if (!targetArg || !TARGETS[targetArg]) {
@@ -212,7 +212,7 @@ const dirty =
 const hash = sha256(dmgPath);
 const info = {
   productName: "Penglai",
-  productVersion: "0.5.11",
+  productVersion: "0.5.12",
   name: targetSpec.dmg
     .split("/")
     .pop()
@@ -228,10 +228,10 @@ const info = {
   treeDirty: dirty,
   targetPlatform: targetArg,
   minimumMacOS: "13.0",
-  electron: "43.4.0",
-  node: "22.22.2",
-  embeddedNode: "22.22.2",
-  dsh: "0.1.2-rc.1",
+  electron: releasePins.electron,
+  node: releasePins.node,
+  embeddedNode: releasePins.node,
+  dsh: "0.1.3-alpha.2",
   dshSource: releasePins.dshSource,
   profileSchema: 3,
   catalogSchema: 3,

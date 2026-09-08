@@ -1,0 +1,433 @@
+{
+  "checkedAt": "2026-09-08",
+  "distTags": {
+    "alpha": "0.1.3-alpha.2",
+    "latest": "0.1.2-rc.1",
+    "next": "0.1.2-rc.1"
+  },
+  "rootPackage": {
+    "status": 200,
+    "version": "0.1.3-alpha.2",
+    "integrity": "sha512-rmf4xgzU9+abvaQ//slyBBhADtPu8fv+SZjxmh4GJwJMZipVa7hNU5m23HgVcB3LNmuGltuQ7jyypuhJ5yU69A==",
+    "shasum": "4f421920af35f1f9526eb0af2279bec36c304d3e",
+    "tarball": "https://registry.npmjs.org/@deepseek-ai/dsh/-/dsh-0.1.3-alpha.2.tgz",
+    "gitHead": null,
+    "publishedAt": "2026-09-07T13:11:36.213Z"
+  },
+  "tagCommits": {
+    "alpha2": "82a5fd61a7cf5c293cec4bdff68f455398d685e9\trefs/tags/dsh-v0.1.3-alpha.2",
+    "alpha1": "d347e703908d0406b7a7ef80e3a0e594d86b2215\trefs/tags/dsh-v0.1.3-alpha.1"
+  },
+  "rc1Count": 254,
+  "alpha2Found": 242,
+  "alpha2MissingAfterRetry": [
+    {
+      "name": "@deepseek-ai/cordis",
+      "status": 404,
+      "rc1Version": "4.0.2",
+      "category": "vendor"
+    },
+    {
+      "name": "@deepseek-ai/cordis-plugin-group",
+      "status": 404,
+      "rc1Version": "1.0.2",
+      "category": "vendor"
+    },
+    {
+      "name": "@deepseek-ai/cordis-plugin-hmr",
+      "status": 404,
+      "rc1Version": "1.0.17",
+      "category": "vendor"
+    },
+    {
+      "name": "@deepseek-ai/cordis-plugin-include",
+      "status": 404,
+      "rc1Version": "1.0.7",
+      "category": "vendor"
+    },
+    {
+      "name": "@deepseek-ai/cordis-plugin-loader",
+      "status": 404,
+      "rc1Version": "1.0.3",
+      "category": "vendor"
+    },
+    {
+      "name": "@deepseek-ai/cordis-plugin-logger-console",
+      "status": 404,
+      "rc1Version": "1.0.2",
+      "category": "vendor"
+    },
+    {
+      "name": "@deepseek-ai/cordis-plugin-timer",
+      "status": 404,
+      "rc1Version": "1.1.4",
+      "category": "vendor"
+    },
+    {
+      "name": "@deepseek-ai/cosmokit",
+      "status": 404,
+      "rc1Version": "1.8.3",
+      "category": "vendor"
+    },
+    {
+      "name": "@deepseek-ai/node-addon-landlock-run",
+      "status": 404,
+      "rc1Version": "0.1.1",
+      "category": "landlock"
+    },
+    {
+      "name": "@deepseek-ai/node-addon-landlock-run-linux-arm64",
+      "status": 404,
+      "rc1Version": "0.1.1",
+      "category": "landlock"
+    },
+    {
+      "name": "@deepseek-ai/node-addon-landlock-run-linux-x64",
+      "status": 404,
+      "rc1Version": "0.1.1",
+      "category": "landlock"
+    },
+    {
+      "name": "@deepseek-ai/schemastery",
+      "status": 404,
+      "rc1Version": "3.18.2",
+      "category": "vendor"
+    }
+  ],
+  "retriedOk": [
+    "@deepseek-ai/dsh-app-boot",
+    "@deepseek-ai/dsh-client-ui-conversation",
+    "@deepseek-ai/dsh-client-ui-goal",
+    "@deepseek-ai/dsh-client-ui-schedule",
+    "@deepseek-ai/dsh-sdk-client"
+  ],
+  "extraFromRootDeps": [
+    "@deepseek-ai/dsh-http-proxy"
+  ],
+  "pinnedOtherVersionHits": [
+    {
+      "name": "@deepseek-ai/cordis",
+      "version": "4.0.2",
+      "ok": true,
+      "integrity": "sha512-asOnXP1TzFSFQlHb1iegDZp0z/8WD1c7YNrwJR/Tx2bzNuMXfcekE/I67Iv6SQXeLB4csxqCngzQKANP7gdw0g==",
+      "shasum": "ddffbc3b366dd71fe5f0a61c483cbe0c72df5103",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/cordis/-/cordis-4.0.2.tgz",
+      "gitHead": null,
+      "license": "MIT",
+      "status": 200
+    },
+    {
+      "name": "@deepseek-ai/cordis-plugin-group",
+      "version": "1.0.2",
+      "ok": true,
+      "integrity": "sha512-OeGiPD793Mhma9+rGIox95neuufwOFTqQ5jooFgrMK/Mn7Fp7Hkv/d7VKMXZz40iks2fZCbiFE6p9WjTVTQRdg==",
+      "shasum": "c44808af9a7bb6cdc1722c12699a2a092a0da70c",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/cordis-plugin-group/-/cordis-plugin-group-1.0.2.tgz",
+      "gitHead": null,
+      "license": "MIT",
+      "status": 200
+    },
+    {
+      "name": "@deepseek-ai/cordis-plugin-hmr",
+      "version": "1.0.17",
+      "ok": true,
+      "integrity": "sha512-o1BooaJpwd+C80Tn5+B48MGqrfNZydlfRVQjmCrrULA4nCmlMqBKjDF2FmcZoNP+L2uX9m/6DdGKVtFpQRQVUQ==",
+      "shasum": "a1b5a1dd7499c595e3c9c97ecfaae1fbfff74208",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/cordis-plugin-hmr/-/cordis-plugin-hmr-1.0.17.tgz",
+      "gitHead": null,
+      "license": "MIT",
+      "status": 200
+    },
+    {
+      "name": "@deepseek-ai/cordis-plugin-include",
+      "version": "1.0.7",
+      "ok": true,
+      "integrity": "sha512-bZ4S1YuOmwOeE97HnslQ6ggVQbaWz4GejJ8OcY4P/DIyc1Qhu/3Szt1XSw6c/pd37kRkxxJXGwt4cmCxWSBBuw==",
+      "shasum": "931a143e5edbd9d94b736287de8a287c5197b6e6",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/cordis-plugin-include/-/cordis-plugin-include-1.0.7.tgz",
+      "gitHead": null,
+      "license": "MIT",
+      "status": 200
+    },
+    {
+      "name": "@deepseek-ai/cordis-plugin-loader",
+      "version": "1.0.3",
+      "ok": true,
+      "integrity": "sha512-YNcHiH7TRFrgnRbQU7qdS1spABUFFHg04QpB9DdboPEjgKLTFfeEAvr6Y7qll3/nGgqywDQdk1tYshqKO0p1WQ==",
+      "shasum": "1170e40ca55f5326a316cee23a2de361fa05a291",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/cordis-plugin-loader/-/cordis-plugin-loader-1.0.3.tgz",
+      "gitHead": null,
+      "license": "MIT",
+      "status": 200
+    },
+    {
+      "name": "@deepseek-ai/cordis-plugin-logger-console",
+      "version": "1.0.2",
+      "ok": true,
+      "integrity": "sha512-CTiKyDqC8/Of36ItrnePTdvnhitTzoUsKInFQ+MxZjECbm2oiSxt2oa2pq/h+Ly4bqUwfTcQJjTIVhHCCwJFcQ==",
+      "shasum": "5e04c8d58ddd27393b15e957983b340e568af038",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/cordis-plugin-logger-console/-/cordis-plugin-logger-console-1.0.2.tgz",
+      "gitHead": null,
+      "license": "MIT",
+      "status": 200
+    },
+    {
+      "name": "@deepseek-ai/cordis-plugin-timer",
+      "version": "1.1.4",
+      "ok": true,
+      "integrity": "sha512-GhxOiU+TF2BbNBKlV2N24zvfv2Kh7RxkFW1hjML6s+DOb+y2zomzbeC5zHIIjsc/rpRwbKpDNucPGSwkH0ChXw==",
+      "shasum": "8b5506a0392079833ea0e49138d0a95cf8e4f97d",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/cordis-plugin-timer/-/cordis-plugin-timer-1.1.4.tgz",
+      "gitHead": null,
+      "license": "MIT",
+      "status": 200
+    },
+    {
+      "name": "@deepseek-ai/cosmokit",
+      "version": "1.8.3",
+      "ok": true,
+      "integrity": "sha512-qBo+ronVM6Eu2WNVJXi8JcMiqZ19T9BRIpV+5qJUFPXjGH/Z0QKcQMC/IZJ7L394YTOtJgcovbk9qP0w2GsBXQ==",
+      "shasum": "5219a57579dd029fa4cfb55cff35c18af1f46014",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/cosmokit/-/cosmokit-1.8.3.tgz",
+      "gitHead": null,
+      "license": "MIT",
+      "status": 200
+    },
+    {
+      "name": "@deepseek-ai/node-addon-landlock-run",
+      "version": "0.1.1",
+      "ok": true,
+      "integrity": "sha512-aHGhlQJEutfobKM/4K59SERbT7RmQdD2oMKzD8Bne/Ps7TeT8AweCN+dpdfuxQhMNbFcJMymrgPnID0WYQ30Tw==",
+      "shasum": "6f88e68efce96ce8dbc11dcec1eb97750368a3a2",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/node-addon-landlock-run/-/node-addon-landlock-run-0.1.1.tgz",
+      "gitHead": null,
+      "license": "BSD-3-Clause",
+      "status": 200
+    },
+    {
+      "name": "@deepseek-ai/node-addon-landlock-run-linux-arm64",
+      "version": "0.1.1",
+      "ok": true,
+      "integrity": "sha512-lYY2RbcPW4rGRM5hVJbrXlvLqyBxeJBjBqvt+QTHTU+GtfUVVjTODKa4e3CRwMQoCEpOjoARdQBHbN7HvE72WQ==",
+      "shasum": "74aeb2df7eda257f266ce77782c516bc85dce2c6",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/node-addon-landlock-run-linux-arm64/-/node-addon-landlock-run-linux-arm64-0.1.1.tgz",
+      "gitHead": null,
+      "license": "BSD-3-Clause",
+      "status": 200
+    },
+    {
+      "name": "@deepseek-ai/node-addon-landlock-run-linux-x64",
+      "version": "0.1.1",
+      "ok": true,
+      "integrity": "sha512-OHAzPW2Coe/iYobAJAAA8CeVrBoKV4BnNHsgwvXwOfishxkUVSWSvdyxrZPiwYRXutpIGVrSo9zV3WOQy2euBA==",
+      "shasum": "2c74070ba0ab38a05966fa0210a253d9b187ae3a",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/node-addon-landlock-run-linux-x64/-/node-addon-landlock-run-linux-x64-0.1.1.tgz",
+      "gitHead": null,
+      "license": "BSD-3-Clause",
+      "status": 200
+    },
+    {
+      "name": "@deepseek-ai/schemastery",
+      "version": "3.18.2",
+      "ok": true,
+      "integrity": "sha512-njDtZsznjYxok7KLLlHOPyuv2efdWVbSflAHgztSfbMsg+CVraEoRe2DjOCgClYv3ZCSm7WXoaUkbB/+RY7tWQ==",
+      "shasum": "af3a3210e3c71cbfdcf34423982da3aa2550fa7a",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/schemastery/-/schemastery-3.18.2.tgz",
+      "gitHead": null,
+      "license": "MIT",
+      "status": 200
+    }
+  ],
+  "packageCountNote": "do not assume 254; found is dsh 0.1.3-alpha.2 same-name set; vendor/landlock keep independent versions",
+  "node": {
+    "v22.23.2": {
+      "lts": "Jod",
+      "security": true,
+      "date": "2026-07-28"
+    },
+    "v22.22.2": {
+      "lts": "Jod",
+      "security": true,
+      "date": "2026-03-24"
+    }
+  },
+  "electron": {
+    "distTags": {
+      "unsupported": "2.1.0-unsupported.20180809",
+      "1-8-x": "1.8.8",
+      "1-7-x": "1.7.16",
+      "beta-4-0-x": "4.0.0-beta.11",
+      "beta-3-1-x": "3.1.0-beta.5",
+      "2-0-x": "2.0.18",
+      "3-0-x": "3.0.16",
+      "4-0-x": "4.0.8",
+      "beta-5-0-x": "5.0.0-beta.9",
+      "4-1-x": "4.1.5",
+      "3-1-x": "3.1.12",
+      "beta-6-0-x": "6.0.0-beta.15",
+      "6-0-x": "6.0.12",
+      "beta-7-0-x": "7.0.0-beta.7",
+      "4-2-x": "4.2.12",
+      "7-0-x": "7.0.1",
+      "5-0-x": "5.0.13",
+      "beta-8-x-y": "8.0.0-beta.9",
+      "7-1-x": "7.1.14",
+      "7-2-x": "7.2.4",
+      "beta-9-x-y": "9.0.0-beta.24",
+      "6-1-x": "6.1.12",
+      "beta-10-x-y": "10.0.0-beta.25",
+      "7-3-x": "7.3.3",
+      "beta-11-x-y": "11.0.0-beta.23",
+      "8-x-y": "8.5.5",
+      "beta-12-x-y": "12.0.0-beta.31",
+      "9-x-y": "9.4.4",
+      "origin/11-x-y": "11.4.0",
+      "beta-13-x-y": "13.0.0-beta.28",
+      "10-x-y": "10.4.7",
+      "alpha-15-x-y": "15.0.0-alpha.10",
+      "beta-14-x-y": "14.0.0-beta.25",
+      "11-x-y": "11.5.0",
+      "beta-15-x-y": "15.0.0-beta.7",
+      "alpha-16-x-y": "16.0.0-alpha.9",
+      "beta-16-x-y": "16.0.0-beta.9",
+      "12-x-y": "12.2.3",
+      "alpha-17-x-y": "17.0.0-alpha.6",
+      "beta-17-x-y": "17.0.0-beta.9",
+      "13-x-y": "13.6.9",
+      "alpha-18-x-y": "18.0.0-alpha.5",
+      "beta-18-x-y": "18.0.0-beta.6",
+      "14-x-y": "14.2.9",
+      "alpha-19-x-y": "19.0.0-alpha.5",
+      "beta-19-x-y": "19.0.0-beta.8",
+      "15-x-y": "15.5.7",
+      "16-x-y": "16.2.8",
+      "alpha-20-x-y": "20.0.0-alpha.7",
+      "beta-20-x-y": "20.0.0-beta.13",
+      "17-x-y": "17.4.11",
+      "alpha-21-x-y": "21.0.0-alpha.6",
+      "beta-21-x-y": "21.0.0-beta.8",
+      "18-x-y": "18.3.15",
+      "alpha-22-x-y": "22.0.0-alpha.8",
+      "beta-22-x-y": "22.0.0-beta.8",
+      "19-x-y": "19.1.9",
+      "alpha-23-x-y": "23.0.0-alpha.3",
+      "beta-23-x-y": "23.0.0-beta.8",
+      "20-x-y": "20.3.12",
+      "alpha-24-x-y": "24.0.0-alpha.7",
+      "beta-24-x-y": "24.0.0-beta.7",
+      "21-x-y": "21.4.4",
+      "alpha-25-x-y": "25.0.0-alpha.6",
+      "beta-25-x-y": "25.0.0-beta.8",
+      "alpha-26-x-y": "26.0.0-alpha.8",
+      "beta-26-x-y": "26.0.0-beta.12",
+      "23-x-y": "23.3.13",
+      "alpha-27-x-y": "27.0.0-alpha.6",
+      "beta-27-x-y": "27.0.0-beta.9",
+      "22-x-y": "22.3.27",
+      "24-x-y": "24.8.8",
+      "alpha-28-x-y": "28.0.0-alpha.7",
+      "beta-28-x-y": "28.0.0-beta.11",
+      "25-x-y": "25.9.8",
+      "alpha-29-x-y": "29.0.0-alpha.11",
+      "beta-29-x-y": "29.0.0-beta.12",
+      "26-x-y": "26.6.10",
+      "alpha-30-x-y": "30.0.0-alpha.7",
+      "beta-30-x-y": "30.0.0-beta.8",
+      "27-x-y": "27.3.11",
+      "alpha-31-x-y": "31.0.0-alpha.5",
+      "28-x-y": "28.3.3",
+      "beta-31-x-y": "31.0.0-beta.10",
+      "alpha-32-x-y": "32.0.0-alpha.10",
+      "beta-32-x-y": "32.0.0-beta.7",
+      "29-x-y": "29.4.6",
+      "30-x-y": "30.5.1",
+      "alpha-33-x-y": "33.0.0-alpha.6",
+      "beta-33-x-y": "33.0.0-beta.11",
+      "alpha-34-x-y": "34.0.0-alpha.9",
+      "beta-34-x-y": "34.0.0-beta.16",
+      "31-x-y": "31.7.7",
+      "alpha-35-x-y": "35.0.0-alpha.5",
+      "beta-35-x-y": "35.0.0-beta.13",
+      "32-x-y": "32.3.3",
+      "alpha-36-x-y": "36.0.0-alpha.6",
+      "beta-36-x-y": "36.0.0-beta.9",
+      "33-x-y": "33.4.11",
+      "alpha-37-x-y": "37.0.0-alpha.7",
+      "34-x-y": "34.5.8",
+      "beta-37-x-y": "37.0.0-beta.9",
+      "alpha-38-x-y": "38.0.0-alpha.13",
+      "35-x-y": "35.7.5",
+      "beta-38-x-y": "38.0.0-beta.11",
+      "alpha-39-x-y": "39.0.0-alpha.9",
+      "36-x-y": "36.9.5",
+      "beta-39-x-y": "39.0.0-beta.5",
+      "alpha-40-x-y": "40.0.0-alpha.8",
+      "37-x-y": "37.10.3",
+      "beta-40-x-y": "40.0.0-beta.9",
+      "alpha-41-x-y": "41.0.0-alpha.6",
+      "beta-41-x-y": "41.0.0-beta.8",
+      "38-x-y": "38.8.6",
+      "alpha-42-x-y": "42.0.0-alpha.6",
+      "beta-42-x-y": "42.0.0-beta.8",
+      "39-x-y": "39.8.10",
+      "alpha-43-x-y": "43.0.0-alpha.7",
+      "beta-43-x-y": "43.0.0-beta.8",
+      "40-x-y": "40.10.6",
+      "alpha-44-x-y": "44.0.0-alpha.9",
+      "beta": "44.0.0-beta.6",
+      "beta-44-x-y": "44.0.0-beta.6",
+      "41-x-y": "41.10.7",
+      "alpha-45-x-y": "45.0.0-alpha.5",
+      "alpha": "45.0.0-alpha.5",
+      "latest": "44.2.0",
+      "44-x-y": "44.2.0",
+      "42-x-y": "42.11.2",
+      "43-x-y": "43.6.0"
+    },
+    "43.4.0": {
+      "status": 200,
+      "integrity": "sha512-3qxGF0CeQbiox5oWV1JlbWGQ1VerbmDhTFqW4sJ8h7uqTHniFYPObXJcDna0DMh32et0fFyKzz0YY8lJv3t5jg=="
+    },
+    "43.6.0": {
+      "status": 200,
+      "integrity": "sha512-DqVKYV+FXheMSLTxcMQ+NCo78BDgpnToSyIzXctlUtbP3lRGEuoo1P+C2n/90rJ7TvHgzP0bpP9fbbXxp4noIg==",
+      "version": "43.6.0"
+    },
+    "44.2.0": {
+      "status": 200,
+      "integrity": "sha512-oK1icjhapp3xsUZycO9WZaLmd3hJnA7ieobC4mpdtO1pEN+PPGWpA3m1Mgzzuc1wzSD2Wai4zcH4yfpGJqxFMA=="
+    }
+  },
+  "sdks": {
+    "@larksuiteoapi/node-sdk@1.73.3": {
+      "ok": true,
+      "status": 200,
+      "integrity": "sha512-14Zj8r3f5CEIvpRuzb5HSYyp6O092N1kQkGHg6Kwi/c7B0CmXeCHBVM3Pmn0ozP5JvvAQd/PXBzW48rMH6cj4Q=="
+    },
+    "@larksuiteoapi/node-sdk@1.73.0": {
+      "ok": true,
+      "status": 200,
+      "integrity": "sha512-gs4EiupJ6RdYAEJGtuYrCVsB7wSMBwtUDK+ilpmOHD6RTvbtciW6AWciQO9coOQVuBZfh7hvAi25dPfCsny/nA=="
+    },
+    "sherpa-onnx-node@1.13.7": {
+      "ok": true,
+      "status": 200,
+      "integrity": "sha512-0XGV7arGngBCnol0m8OLyqlnaUm19Q1KmetVj1DDBdymXa1upmAHZDwNdN47gjsEhqE5hXUEyc1vRQoXrNhNVg=="
+    },
+    "onnxruntime-node@1.29.0": {
+      "ok": true,
+      "status": 200,
+      "integrity": "sha512-WjiVVB72riILz8HbYvxvmjKyE/WmkYoSfKY++axo5jAR609HQg8MwiG/HhShpTcJfmmAdzxxmB+MMST3A+SiPA=="
+    },
+    "onnxruntime-node@1.23.2": {
+      "ok": true,
+      "status": 200,
+      "integrity": "sha512-OBTsG0W8ddBVOeVVVychpVBS87A9YV5sa2hJ6lc025T97Le+J4v++PwSC4XFs1C62SWyNdof0Mh4KvnZgtt4aw=="
+    }
+  },
+  "mnemonGithubStatus": 404,
+  "mnemonReleases": {
+    "error": "{'error': 'HTTP Error 404: Not Found'}"
+  },
+  "blocker": null
+}

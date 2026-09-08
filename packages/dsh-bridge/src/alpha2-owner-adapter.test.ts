@@ -49,7 +49,7 @@ test("alpha.2 adapter uses the official sessionController for list, create, rena
       },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.2-rc.1");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.3-alpha.2");
   assert.deepEqual(await host.listSessions?.(), [{ id: "session-1", title: "Official title" }]);
   assert.deepEqual(await host.createSession?.("workspace-1", "Penglai"), { id: "session-2" });
   const directory = await host.describeSessionModels?.("session-1");
@@ -88,11 +88,45 @@ test("alpha.2 model-selection fallback folds official durable events exactly", (
   );
 });
 
-test("alpha.2 title fallback rejects stale projections and folds the durable rename", async () => {
+test("alpha.2 listSessions trusts title projections and does not inspect cold logs", async () => {
+  let inspected = 0;
+  const ctx = {
+    on() {},
+    agents: { get() { return undefined; } },
+    workspaceRegistry: { list: () => [] },
+    sessionController: {
+      async list() {
+        return {
+          items: [
+            { sessionId: "session-1", projections: { asOfSeq: 1, values: { title: "Projected" } } },
+            { sessionId: "session-2" },
+          ],
+        };
+      },
+      async inspect() {
+        inspected += 1;
+        return { events: [{ type: "session/title", seq: 1, time: 1, data: { title: "Inspected" } }] };
+      },
+      async create() { return { sessionId: "unused" }; },
+      async rename(request: { title: string }) { return { title: request.title, seq: 1 }; },
+      async modelCatalog() { return { default: { provider: "p", model: "m" }, routableProviders: [], groups: [] }; },
+      async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
+    },
+  };
+  const host = hostFromAlpha2Cordis(ctx, "0.1.3-alpha.2");
+  assert.deepEqual(await host.listSessions?.(), [
+    { id: "session-1", title: "Projected" },
+    { id: "session-2" },
+  ]);
+  assert.equal(inspected, 0);
+});
+
+test("alpha.2 listSessions trusts the official title projection and does not inspect to refresh it", async () => {
   assert.equal(foldAlpha2Title([
     { type: "session/title", seq: 1, time: 1, data: { title: "Old" } },
     { type: "session/title", seq: 2, time: 2, data: { title: "Current" } },
   ]), "Current");
+  let inspected = 0;
   const ctx = {
     on() {},
     agents: { get() { return undefined; } },
@@ -102,6 +136,7 @@ test("alpha.2 title fallback rejects stale projections and folds the durable ren
         return { items: [{ sessionId: "session-1", projections: { asOfSeq: 1, values: { title: "Old" } } }] };
       },
       async inspect() {
+        inspected += 1;
         return { events: [
           { type: "session/title", seq: 1, time: 1, data: { title: "Old" } },
           { type: "session/title", seq: 2, time: 2, data: { title: "Current" } },
@@ -113,11 +148,17 @@ test("alpha.2 title fallback rejects stale projections and folds the durable ren
       async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.2-rc.1");
-  assert.deepEqual(await host.listSessions?.(), [{ id: "session-1", title: "Current" }]);
+  const host = hostFromAlpha2Cordis(ctx, "0.1.3-alpha.2");
+  assert.deepEqual(await host.listSessions?.(), [{ id: "session-1", title: "Old" }]);
+  assert.equal(inspected, 0);
+  assert.equal(foldAlpha2Title([
+    { type: "session/title", seq: 1, time: 1, data: { title: "Old" } },
+    { type: "session/title", seq: 2, time: 2, data: { title: "Current" } },
+  ]), "Current");
 });
 
-test("alpha.2 adapter rejects a stale model projection and folds the current log", async () => {
+test("alpha.2 adapter uses list model projections and does not inspect cold logs", async () => {
+  let inspected = 0;
   const ctx = {
     on() {},
     agents: { get() { return undefined; } },
@@ -128,33 +169,85 @@ test("alpha.2 adapter rejects a stale model projection and folds the current log
           sessionId: "session-1",
           projections: {
             asOfSeq: 4,
-            values: { modelSelection: { next: { provider: "deepseek", model: "stale" } } },
+            values: { modelSelection: { next: { provider: "deepseek", model: "projected" } } },
           },
         }] };
       },
       async create() { return { sessionId: "unused" }; },
       async inspect() {
+        inspected += 1;
         return { events: [
-          { type: "model/selection", seq: 4, time: 1, data: { provider: "deepseek", model: "stale" } },
-          { type: "model/selection", seq: 5, time: 2, data: { provider: "deepseek", model: "current" } },
+          { type: "model/selection", seq: 5, time: 2, data: { provider: "deepseek", model: "log-only" } },
         ] };
       },
       async modelCatalog() {
         return {
           default: { provider: "deepseek", model: "default" },
           routableProviders: ["deepseek"],
-          groups: [{ id: "deepseek", name: "DeepSeek", models: [{ id: "current", name: "Current" }] }],
+          groups: [{ id: "deepseek", name: "DeepSeek", models: [{ id: "projected", name: "Projected" }] }],
         };
       },
       async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
       async rename(request: { title: string }) { return { title: request.title, seq: 1 }; },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.2-rc.1");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.3-alpha.2");
   assert.deepEqual((await host.describeSessionModels?.("session-1"))?.current, {
     provider: "deepseek",
-    model: "current",
+    model: "projected",
   });
+  assert.equal(inspected, 0);
+});
+
+test("alpha.2 resume reuses an in-process live Agent on SessionAlreadyOwnedError", async () => {
+  const live = { id: "session-1" };
+  const ctx = {
+    on() {},
+    agents: {
+      get(id: string) { return id === "session-1" ? live : undefined; },
+      async resume() {
+        const error = new Error("session already owned");
+        error.name = "SessionAlreadyOwnedError";
+        throw error;
+      },
+    },
+    workspaceRegistry: { list: () => [] },
+    sessionController: {
+      async list() { return { items: [] }; },
+      async create() { return { sessionId: "unused" }; },
+      async inspect() { return { events: [] }; },
+      async rename(request: { title: string }) { return { title: request.title, seq: 1 }; },
+      async modelCatalog() { return { default: { provider: "p", model: "m" }, routableProviders: [], groups: [] }; },
+      async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
+    },
+  };
+  const host = hostFromAlpha2Cordis(ctx, "0.1.3-alpha.2");
+  assert.equal(await host.resumeAgent("session-1"), live);
+});
+
+test("alpha.2 resume fails closed when SessionAlreadyOwnedError has no live Agent", async () => {
+  const ctx = {
+    on() {},
+    agents: {
+      get() { return undefined; },
+      async resume() {
+        const error = new Error("session already owned");
+        error.name = "SessionAlreadyOwnedError";
+        throw error;
+      },
+    },
+    workspaceRegistry: { list: () => [] },
+    sessionController: {
+      async list() { return { items: [] }; },
+      async create() { return { sessionId: "unused" }; },
+      async inspect() { return { events: [] }; },
+      async rename(request: { title: string }) { return { title: request.title, seq: 1 }; },
+      async modelCatalog() { return { default: { provider: "p", model: "m" }, routableProviders: [], groups: [] }; },
+      async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
+    },
+  };
+  const host = hostFromAlpha2Cordis(ctx, "0.1.3-alpha.2");
+  await assert.rejects(() => host.resumeAgent("session-1"), /already owned by another handle/);
 });
 
 test("alpha.2 adapter has no apiProxy access path", () => {
@@ -165,5 +258,5 @@ test("alpha.2 adapter has no apiProxy access path", () => {
       return Reflect.get(target, property, receiver);
     } },
   );
-  assert.doesNotThrow(() => hostFromAlpha2Cordis(ctx, "0.1.2-rc.1"));
+  assert.doesNotThrow(() => hostFromAlpha2Cordis(ctx, "0.1.3-alpha.2"));
 });

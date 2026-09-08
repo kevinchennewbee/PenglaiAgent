@@ -294,11 +294,11 @@ function writeDeterministicTgz(stage, tgz) {
   }
 }
 
-const PINNED_LARK_SDK = "1.73.0";
+const PINNED_LARK_SDK = "1.73.3";
 const LARK_SDK = "@larksuiteoapi/node-sdk";
 const PINNED_QRCODE = "1.5.4";
 const QRCODE = "qrcode";
-const PINNED_SHERPA_ONNX = "1.13.5";
+const PINNED_SHERPA_ONNX = "1.13.7";
 const SHERPA_ONNX = "sherpa-onnx";
 const PINNED_ONNX_RUNTIME_NODE = "1.23.2";
 const ONNX_RUNTIME_NODE = "onnxruntime-node";
@@ -1221,7 +1221,7 @@ for (const p of packs) {
         filename: "packed-office-smoke.pptx",
         theme: { id: "consulting" },
         slides: [
-          { type: "cover", heading: "Penglai Office", subheading: "0.5.11" },
+          { type: "cover", heading: "Penglai Office", subheading: "0.5.12" },
           { type: "ending", heading: "Packed runtime" },
         ],
       }),

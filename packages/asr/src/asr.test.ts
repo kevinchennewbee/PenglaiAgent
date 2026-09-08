@@ -626,8 +626,8 @@ test("R50-VOICE: sherpa runtime is the pinned real package and worker owner is l
     modelPath: "/not-loaded-until-transcription/model.int8.onnx",
     tokensPath: "/not-loaded-until-transcription/tokens.txt",
   });
-  assert.equal(engine.runtime.packageVersion, "1.13.5");
-  assert.equal(engine.runtime.gitSha1, "3dc7c569");
+  assert.equal(engine.runtime.packageVersion, "1.13.7");
+  assert.equal(engine.runtime.gitSha1, "917bed95");
   assert.equal(engine.runtime.onnxruntimeVersion, "1.27.1");
   await engine.dispose();
 });

@@ -303,7 +303,9 @@ test("NSIS script always preserves user data after in-app exact deletion", () =>
   assert.match(script, /\$INSTDIR\.pending/);
   assert.match(script, /previous install was left in place/);
   assert.match(script, /upgrade_rename_live/);
-  assert.match(script, /taskkill\.exe/);
+  assert.match(script, /PenglaiStopScoped/);
+  assert.match(script, /ExecutablePath/);
+  assert.doesNotMatch(script, /\/IM Penglai\.exe/);
   assert.match(script, /penglai-setup\.log/);
   assert.match(script, /upgrade_rename_fallback/);
   assert.match(script, /upgrade_pending_fallback/);

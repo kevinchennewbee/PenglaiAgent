@@ -319,13 +319,13 @@ export class AsrModelManager {
 
   describeCapability(): {
     plugin: "active";
-    engine: "sherpa-onnx-1.13.5";
+    engine: "sherpa-onnx-1.13.7";
     model: AsrModelState;
     enterTurn: false;
   } {
     return {
       plugin: "active",
-      engine: "sherpa-onnx-1.13.5",
+      engine: "sherpa-onnx-1.13.7",
       model: this.state,
       enterTurn: false,
     };
@@ -616,7 +616,7 @@ export class AsrModelManager {
       }
       let existing = opened.size;
       const headers: Record<string, string> = {
-        "User-Agent": "Penglai/0.5.11 model-manager",
+        "User-Agent": "Penglai/0.5.12 model-manager",
       };
       if (existing) headers.Range = `bytes=${existing}-`;
       const response = await this.fetchPinned(file.url, headers, signal);

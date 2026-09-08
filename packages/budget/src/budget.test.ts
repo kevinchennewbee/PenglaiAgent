@@ -121,6 +121,17 @@ test("R50-BUDGET-001..005 production plugin gates the resolved official route an
     listeners.get("session/event")?.(
       { id: "s1" },
       {
+        type: "assistant/attempt",
+        data: {
+          turn: 1,
+          step: 1,
+          stream: [{ type: "chunk", time: 1, chunk: { type: "usage", usage: { inputTokens: 5, outputTokens: 1 } } }],
+        },
+      },
+    );
+    listeners.get("session/event")?.(
+      { id: "s1" },
+      {
         type: "assistant/chunk",
         data: { turn: 1, step: 1, chunk: { type: "usage", usage: { inputTokens: 30, outputTokens: 10 } } },
       },

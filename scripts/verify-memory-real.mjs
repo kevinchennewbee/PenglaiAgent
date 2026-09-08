@@ -51,8 +51,8 @@ if (invalid.status === 0) {
 }
 
 const version = mnemon(mkdtempSync(join(tmpdir(), "mnemon-ver-")), ["--version"]);
-if (version.status !== 0 || !String(version.stdout).includes("0.2.4")) {
-  const manifest = finishEvidenceRun(run, "FAIL", "mnemon --version is not 0.2.4");
+if (version.status !== 0 || !String(version.stdout).includes("0.2.8")) {
+  const manifest = finishEvidenceRun(run, "FAIL", "mnemon --version is not 0.2.8");
   console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
   process.exit(EXIT_BY_VERDICT.FAIL);
 }
