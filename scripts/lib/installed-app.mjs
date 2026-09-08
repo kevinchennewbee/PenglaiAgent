@@ -174,6 +174,15 @@ export function windowsFixtureRemovalObserved({ installDirExists, registeredInst
   return !installDirExists && !registeredInstallDir && !uninstallCommand;
 }
 
+/** I01 keeps a custom INSTDIR. Default-tree uninstall must still remove payload. */
+export function windowsFixtureUninstallFollowUp(residue) {
+  const classified = residue && typeof residue === "object" ? residue : classifyUninstallResidue([]);
+  if (classified.payloadRemoved) {
+    return { action: "uninstaller-residual-only", leftover: classified.uninstallerOnly };
+  }
+  return { action: "harness-remove-controlled-custom-dir", leftover: classified.payload };
+}
+
 function waitForWindowsProductRegistryClear(timeoutMs) {
   const sleeper = new Int32Array(new SharedArrayBuffer(4));
   const deadline = Date.now() + timeoutMs;
@@ -256,15 +265,12 @@ export function cleanupRegisteredWindowsInstallerFixture() {
     };
   }
   const residue = classifyUninstallResidue(listInstallTreeFiles(installDir));
-  if (!residue.payloadRemoved) {
-    return {
-      ok: false,
-      cleaned: false,
-      reason: "registered Penglai fixture uninstaller left app payload",
-      leftover: residue.payload.slice(0, 40),
-    };
+  const followUp = windowsFixtureUninstallFollowUp(residue);
+  if (followUp.action === "uninstaller-residual-only") {
+    removeUninstallerResidualOnly(installDir, residue);
+  } else {
+    removeTreeNoFollow(installDir);
   }
-  removeUninstallerResidualOnly(installDir, residue);
   const fullyRemoved = windowsFixtureRemovalObserved({
     installDirExists: existsSync(installDir),
     registeredInstallDir: queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir"),
@@ -273,7 +279,13 @@ export function cleanupRegisteredWindowsInstallerFixture() {
   if (!fullyRemoved) {
     return { ok: false, cleaned: false, reason: "registered Penglai fixture cleanup left install state" };
   }
-  return { ok: true, cleaned: true, installDir };
+  return {
+    ok: true,
+    cleaned: true,
+    installDir,
+    leftover: followUp.leftover,
+    fixtureFollowUp: followUp.action,
+  };
 }
 
 export function installFromExactDmg(dmgPath, destRoot, installerName = ARM64_INSTALLER) {
