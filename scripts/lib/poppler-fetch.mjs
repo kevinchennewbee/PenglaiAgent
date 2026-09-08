@@ -431,23 +431,142 @@ export function assertDarwinOtoolClean(path) {
   if (/\/opt\/homebrew/i.test(text)) throw new Error(`homebrew path in ${path}`);
   if (/miniforge|conda-bld|_h_env_placehold/i.test(text)) throw new Error(`conda prefix leftover in ${path}`);
   if (/@loader_path\/\.\.\/lib/.test(text)) throw new Error(`stale @loader_path/../lib in ${path}`);
-}
-
-function installNameToolBin() {
-  const clt = "/Library/Developer/CommandLineTools/usr/bin/install_name_tool";
-  return existsSync(clt) ? clt : "install_name_tool";
-}
-
-function runInstallName(args, path) {
-  const result = spawnSync(installNameToolBin(), [...args, path], { encoding: "utf8" });
-  if (result.status !== 0) {
-    const err = `${result.stderr || ""} ${result.stdout || ""}`;
-    if (/no LC_RPATH|would duplicate|file not in an archive|does not fill the __LINKEDIT segment/i.test(err)) {
-      return false;
-    }
-    throw new Error(`install_name_tool ${args.join(" ")} ${path}: ${err}`);
+  const usesRpath = machOLoadDeps(path).some((dep) => dep.startsWith("@rpath/"));
+  const hasLoader = machORpaths(path).some((rpath) => rpath === "@loader_path" || rpath === "@loader_path/");
+  if (usesRpath && !hasLoader) {
+    throw new Error(`@rpath without LC_RPATH @loader_path in ${path}`);
   }
-  return true;
+}
+
+const MH_MAGIC_64 = 0xfeedfacf;
+const LC_REQ_DYLD = 0x80000000 >>> 0;
+const LC_SEGMENT_64 = 0x19;
+const LC_LOAD_DYLIB = 0xc;
+const LC_ID_DYLIB = 0xd;
+const LC_LOAD_WEAK_DYLIB = (0x18 | LC_REQ_DYLD) >>> 0;
+const LC_RPATH = (0x1c | LC_REQ_DYLD) >>> 0;
+const LC_REEXPORT_DYLIB = (0x1f | LC_REQ_DYLD) >>> 0;
+const MACHO_STRING_COMMANDS = new Set([
+  LC_LOAD_DYLIB,
+  LC_ID_DYLIB,
+  LC_LOAD_WEAK_DYLIB,
+  LC_RPATH,
+  LC_REEXPORT_DYLIB,
+]);
+
+function align8(n) {
+  return (n + 7) & ~7;
+}
+
+function isFatMachO(buf) {
+  if (buf.length < 4) return false;
+  const be = buf.readUInt32BE(0);
+  return be === 0xcafebabe || be === 0xcafebabf;
+}
+
+function listMachOCommands(buf) {
+  if (buf.length < 32) throw new Error("truncated Mach-O");
+  if (buf.readUInt32LE(0) !== MH_MAGIC_64) {
+    if (isFatMachO(buf)) throw new Error("fat Mach-O is not a published Poppler layout");
+    throw new Error(`unsupported Mach-O magic ${buf.readUInt32LE(0).toString(16)}`);
+  }
+  const ncmds = buf.readUInt32LE(16);
+  const sizeofcmds = buf.readUInt32LE(20);
+  let off = 32;
+  const cmds = [];
+  for (let i = 0; i < ncmds; i += 1) {
+    if (off + 8 > buf.length) throw new Error("truncated Mach-O load command");
+    const cmd = buf.readUInt32LE(off);
+    const cmdsize = buf.readUInt32LE(off + 4);
+    if (cmdsize < 8 || off + cmdsize > 32 + sizeofcmds) throw new Error("invalid Mach-O cmdsize");
+    cmds.push({ cmd, cmdsize, off });
+    off += cmdsize;
+  }
+  return cmds;
+}
+
+function firstMachOSectionOffset(buf) {
+  let first = Number.POSITIVE_INFINITY;
+  for (const c of listMachOCommands(buf)) {
+    if (c.cmd !== LC_SEGMENT_64) continue;
+    const nsects = buf.readUInt32LE(c.off + 64);
+    let sectOff = c.off + 72;
+    for (let i = 0; i < nsects; i += 1) {
+      const offset = buf.readUInt32LE(sectOff + 48);
+      if (offset > 0 && offset < first) first = offset;
+      sectOff += 80;
+    }
+  }
+  return first === Number.POSITIVE_INFINITY ? null : first;
+}
+
+function readCString(buf, start, end) {
+  let z = start;
+  while (z < end && buf[z] !== 0) z += 1;
+  return buf.toString("utf8", start, z);
+}
+
+function desiredMachOString(cmd, name) {
+  if (cmd === LC_RPATH) {
+    if (name === "@loader_path/../lib/" || name === "@loader_path/../lib") return "@loader_path";
+    return undefined;
+  }
+  if (cmd === LC_ID_DYLIB) return undefined;
+  if (cmd !== LC_LOAD_DYLIB && cmd !== LC_LOAD_WEAK_DYLIB && cmd !== LC_REEXPORT_DYLIB) return undefined;
+  const base = dylibBasename(name);
+  const system = POPPLER_UPSTREAM.darwinSystemRewrites[base];
+  if (system) return name === system ? undefined : system;
+  const nested = name.match(/^@loader_path\/\.\.\/lib\/([^/]+)$/);
+  if (nested) return `@loader_path/${nested[1]}`;
+  return undefined;
+}
+
+function setMachOString(buf, cmdOff, cmdsize, strOff, next) {
+  const needed = Buffer.byteLength(next) + 1;
+  const field = cmdsize - strOff;
+  if (needed <= field) {
+    const out = Buffer.from(buf);
+    out.fill(0, cmdOff + strOff, cmdOff + cmdsize);
+    out.write(next, cmdOff + strOff);
+    return out;
+  }
+  const newCmdsize = align8(strOff + needed);
+  const delta = newCmdsize - cmdsize;
+  if (delta <= 0 || newCmdsize % 8 !== 0) throw new Error(`invalid grown Mach-O cmdsize for ${next}`);
+  const sizeofcmds = buf.readUInt32LE(20);
+  const headerEnd = 32 + sizeofcmds;
+  const firstSect = firstMachOSectionOffset(buf);
+  if (firstSect == null || headerEnd + delta > firstSect) {
+    throw new Error(`no Mach-O header slack to grow load command to ${next}`);
+  }
+  const out = Buffer.from(buf);
+  const tail = Buffer.from(buf.subarray(cmdOff + cmdsize, headerEnd));
+  tail.copy(out, cmdOff + newCmdsize);
+  out.writeUInt32LE(newCmdsize, cmdOff + 4);
+  out.writeUInt32LE(sizeofcmds + delta, 20);
+  out.fill(0, cmdOff + strOff, cmdOff + newCmdsize);
+  out.write(next, cmdOff + strOff);
+  return out;
+}
+
+export function rewriteThinMachO(buf) {
+  let work = Buffer.from(buf);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const c of listMachOCommands(work)) {
+      if (!MACHO_STRING_COMMANDS.has(c.cmd) || c.cmdsize < 12) continue;
+      const strOff = work.readUInt32LE(c.off + 8);
+      if (strOff < 8 || strOff >= c.cmdsize) continue;
+      const name = readCString(work, c.off + strOff, c.off + c.cmdsize);
+      const next = desiredMachOString(c.cmd, name);
+      if (!next || next === name) continue;
+      work = setMachOString(work, c.off, c.cmdsize, strOff, next);
+      changed = true;
+      break;
+    }
+  }
+  return work;
 }
 
 export function paddedPopplerDatadir(slotLength) {
@@ -535,44 +654,19 @@ function copyMode644(src, dest) {
   chmodSync(dest, 0o644);
 }
 
-export function rewriteMacBinary(path, isDylib) {
+export function rewriteMacBinary(path, _isDylib) {
   spawnSync("codesign", ["--remove-signature", path], { encoding: "utf8" });
-  const self = path.split(sep).pop();
-  const deps = machOLoadDeps(path);
-  const loadDeps = isDylib ? deps.slice(1) : deps;
-  for (const dep of loadDeps) {
-    const base = dylibBasename(dep);
-    if (base === self) continue;
-    const system = POPPLER_UPSTREAM.darwinSystemRewrites[base];
-    if (system) {
-      if (dep !== system) runInstallName(["-change", dep, system], path);
-      continue;
-    }
-    if (dep.startsWith("/usr/lib") || dep.startsWith("/System/")) continue;
-    if (dep.startsWith("@loader_path/") && dep === `@loader_path/${base}`) continue;
-    if (base && (dep.startsWith("@rpath/") || dep.startsWith("@loader_path/"))) {
-      const changed = runInstallName(["-change", dep, `@loader_path/${base}`], path);
-      if (!changed) throw new Error(`could not flatten ${dep} in ${path}`);
-    }
-  }
-  if (isDylib) runInstallName(["-id", `@loader_path/${self}`], path);
-  const rpaths = machORpaths(path);
-  for (const rpath of rpaths) {
-    if (rpath === "@loader_path/../lib/" || rpath === "@loader_path/../lib") {
-      runInstallName(["-delete_rpath", rpath], path);
-    }
-  }
-  const remainingRpath = (isDylib ? machOLoadDeps(path).slice(1) : machOLoadDeps(path)).some((dep) =>
-    dep.startsWith("@rpath/"),
-  );
-  const after = machORpaths(path);
-  if (remainingRpath && !after.includes("@loader_path")) {
-    const added = runInstallName(["-add_rpath", "@loader_path"], path);
-    if (!added) throw new Error(`could not add @loader_path rpath to ${path}`);
-  }
+  const rewritten = rewriteThinMachO(readFileSync(path));
+  writeFileSync(path, rewritten);
+  chmodSync(path, 0o755);
   // Leave Mach-Os unsigned. Ad-hoc codesign is not reproducible and is not the
   // Developer ID seal. Parent package-mac / notarization re-signs the tree.
   spawnSync("codesign", ["--remove-signature", path], { encoding: "utf8" });
+  const usesRpath = machOLoadDeps(path).some((dep) => dep.startsWith("@rpath/"));
+  const hasLoader = machORpaths(path).some((rpath) => rpath === "@loader_path" || rpath === "@loader_path/");
+  if (usesRpath && !hasLoader) {
+    throw new Error(`relocatable Poppler Mach-O ${path} still has @rpath without LC_RPATH @loader_path`);
+  }
 }
 
 function copyLicenses(dest) {
@@ -957,11 +1051,15 @@ not linked into Electron or DSH.
 - Homebrew bottles and poppler-windows zip archives are not pins
 - \`.conda\` pkg tarballs are decoded with Node's \`zstdDecompressSync\` (no Homebrew zstd)
 
-macOS published layout flattens \`pdftoppm\` and load-time dylibs next to each other,
-rewrites rpath to \`@loader_path\`, maps libc++/libz/libcurl/libsqlite3 to \`/usr/lib\`,
-and patches the compiled-in \`POPPLER_DATADIR\` slot to \`share/poppler\` slash-padded
-to the original 269-byte memcpy length (no interior NUL). Spawn must use
-\`cwd = dirname(pdftoppm)\` and \`FONTCONFIG_PATH = <poppler>/fonts\`.
+macOS published layout flattens \`pdftoppm\` and load-time dylibs next to each other.
+Bundled dylibs keep conda-forge \`@rpath\` install names. Penglai rewrites Mach-O
+load commands in place: shrink \`@loader_path/../lib\` rpath to \`@loader_path\`,
+and map libc++/libz/libcurl/libsqlite3 to \`/usr/lib\` using existing command
+padding or header slack before the first section. It does not call
+\`install_name_tool\`, grow \`__LINKEDIT\`, or lengthen a load-command string past
+that slack. It then patches the compiled-in \`POPPLER_DATADIR\` slot to
+\`share/poppler\` slash-padded to the original 269-byte memcpy length (no interior
+NUL). Spawn must use \`cwd = dirname(pdftoppm)\` and \`FONTCONFIG_PATH = <poppler>/fonts\`.
 
 Windows published layout is a PE-walked DLL closure next to \`pdftoppm.exe\`, with
 poppler-data at \`share/poppler\` inside the helper dir (copy source). conda-forge

@@ -13,6 +13,7 @@ import {
   canonicalTreeListing,
   classifyWindowsDll,
   downloadHttps,
+  extractCondaPkg,
   isTransientPopplerDownloadStatus,
   listZipEntriesFromBuffer,
   paddedPopplerDatadir,
@@ -22,6 +23,7 @@ import {
   patchPopplerDatadir,
   publishedTreeDigest,
   rewriteMacBinary,
+  rewriteThinMachO,
   readZip64Sizes,
   readZipFile,
   rejectedShipName,
@@ -256,7 +258,7 @@ test("published-tree digest is a hash of the sorted path/sha256/bytes listing", 
   assert.equal(digest, again);
 });
 
-test("rewriteMacBinary is idempotent on an already flattened dylib and does not change the ID via -change", (t) => {
+test("rewriteMacBinary is idempotent and does not grow a dylib ID to @loader_path", (t) => {
   const src = join(ROOT, "third_party/poppler/darwin-aarch64/libdeflate.0.dylib");
   if (process.platform !== "darwin" || !existsSync(src)) {
     t.skip("flattened darwin dylib not assembled");
@@ -267,10 +269,76 @@ test("rewriteMacBinary is idempotent on an already flattened dylib and does not 
     const copy = join(work, "libdeflate.0.dylib");
     cpSync(src, copy);
     rewriteMacBinary(copy, true);
+    const first = readFileSync(copy);
+    rewriteMacBinary(copy, true);
+    assert.equal(readFileSync(copy).equals(first), true);
     assertDarwinOtoolClean(copy);
     const otool = spawnSync("otool", ["-L", copy], { encoding: "utf8" });
-    assert.match(otool.stdout, /@loader_path\/libdeflate\.0\.dylib/);
-    assert.doesNotMatch(otool.stdout.split("\n").slice(2).join("\n"), /@rpath\//);
+    assert.match(otool.stdout.split("\n")[1] || "", /libdeflate\.0\.dylib/);
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+});
+
+test("rewriteMacBinary relocates raw conda Mach-Os without install_name_tool growth", (t) => {
+  const fontconfigPkg = join(ROOT, "third_party/poppler/cache/fontconfig-2.18.3-h81aa574_1.conda");
+  const popplerPkg = join(ROOT, "third_party/poppler/cache/poppler-26.09.0-hb6e6627_0.conda");
+  if (process.platform !== "darwin" || !existsSync(fontconfigPkg) || !existsSync(popplerPkg)) {
+    t.skip("raw conda cache missing for darwin-aarch64 fontconfig/poppler");
+    return;
+  }
+  const work = mkdtempSync(join(tmpdir(), "penglai-raw-macho-"));
+  try {
+    const fontRoot = extractCondaPkg(fontconfigPkg, join(work, "fontconfig"));
+    const popplerRoot = extractCondaPkg(popplerPkg, join(work, "poppler"));
+    const fontconfig = join(fontRoot, "lib/libfontconfig.1.dylib");
+    const pdftoppm = join(popplerRoot, "bin/pdftoppm");
+    const libpoppler = join(popplerRoot, "lib/libpoppler.164.dylib");
+    const fontCopy = join(work, "libfontconfig.1.dylib");
+    const pdfCopy = join(work, "pdftoppm");
+    const popCopy = join(work, "libpoppler.164.dylib");
+    cpSync(fontconfig, fontCopy);
+    cpSync(pdftoppm, pdfCopy);
+    cpSync(libpoppler, popCopy);
+    for (const bin of [fontCopy, pdfCopy, popCopy]) {
+      spawnSync("codesign", ["--remove-signature", bin], { encoding: "utf8" });
+    }
+
+    const beforeFont = spawnSync("otool", ["-L", fontCopy], { encoding: "utf8" }).stdout;
+    assert.match(beforeFont, /@rpath\/libfreetype\.6\.dylib/);
+    const beforePdf = spawnSync("otool", ["-l", pdfCopy], { encoding: "utf8" }).stdout;
+    assert.match(beforePdf, /@loader_path\/\.\.\/lib/);
+    const beforePop = spawnSync("otool", ["-L", popCopy], { encoding: "utf8" }).stdout;
+    assert.match(beforePop, /@rpath\/libcurl\.4\.dylib/);
+    assert.match(beforePop, /@rpath\/libz\.1\.dylib/);
+
+    const fontBytes = readFileSync(fontCopy);
+    const popBytes = readFileSync(popCopy);
+    rewriteMacBinary(fontCopy, true);
+    rewriteMacBinary(pdfCopy, false);
+    rewriteMacBinary(popCopy, true);
+    assert.equal(readFileSync(fontCopy).length, fontBytes.length);
+    assertDarwinOtoolClean(fontCopy);
+    assertDarwinOtoolClean(pdfCopy);
+    assertDarwinOtoolClean(popCopy);
+
+    const fontAfter = spawnSync("otool", ["-L", fontCopy], { encoding: "utf8" }).stdout;
+    assert.match(fontAfter, /@rpath\/libfreetype\.6\.dylib/);
+    assert.doesNotMatch(fontAfter, /@loader_path\/libfreetype\.6\.dylib/);
+    const pdfAfter = spawnSync("otool", ["-l", pdfCopy], { encoding: "utf8" }).stdout;
+    assert.doesNotMatch(pdfAfter, /@loader_path\/\.\.\/lib/);
+    assert.match(pdfAfter, /path @loader_path/);
+    const pdfDeps = spawnSync("otool", ["-L", pdfCopy], { encoding: "utf8" }).stdout;
+    assert.match(pdfDeps, /\/usr\/lib\/libc\+\+\.1\.dylib/);
+    assert.match(pdfDeps, /@rpath\/libpoppler\.164\.dylib/);
+    const popAfter = spawnSync("otool", ["-L", popCopy], { encoding: "utf8" }).stdout;
+    assert.match(popAfter, /\/usr\/lib\/libcurl\.4\.dylib/);
+    assert.match(popAfter, /\/usr\/lib\/libz\.1\.dylib/);
+    assert.match(popAfter, /@rpath\/libfontconfig\.1\.dylib/);
+    assert.equal(readFileSync(popCopy).length, popBytes.length);
+
+    const again = rewriteThinMachO(readFileSync(fontCopy));
+    assert.equal(again.equals(readFileSync(fontCopy)), true);
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
