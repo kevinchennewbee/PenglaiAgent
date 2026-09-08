@@ -3,7 +3,9 @@ import { dirname, join } from "node:path";
 
 /** Local Node prefix with headers. Avoids a live nodejs.org fetch during node-gyp. */
 export function nodeGypPrefix(execPath = process.execPath) {
-  const prefix = dirname(dirname(execPath));
-  if (existsSync(join(prefix, "include", "node", "node.h"))) return prefix;
+  const candidates = [dirname(execPath), dirname(dirname(execPath))];
+  for (const prefix of candidates) {
+    if (existsSync(join(prefix, "include", "node", "node.h"))) return prefix;
+  }
   return "";
 }

@@ -17,6 +17,11 @@ test("node-gyp uses a local Node prefix instead of downloading headers", () => {
     const fakeNode = join(root, "bin", "node");
     writeFileSync(fakeNode, "");
     assert.equal(nodeGypPrefix(fakeNode), root);
+    const winRoot = join(root, "win");
+    mkdirSync(join(winRoot, "include", "node"), { recursive: true });
+    writeFileSync(join(winRoot, "include", "node", "node.h"), "/* win */\n");
+    writeFileSync(join(winRoot, "node.exe"), "");
+    assert.equal(nodeGypPrefix(join(winRoot, "node.exe")), winRoot);
     assert.equal(nodeGypPrefix(join(root, "nope", "bin", "node")), "");
     const rebuild = readFileSync(join(repo, "scripts/rebuild-fs-ext.mjs"), "utf8");
     assert.match(rebuild, /nodeGypPrefix/);
