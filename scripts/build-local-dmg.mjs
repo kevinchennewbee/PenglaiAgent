@@ -22,6 +22,7 @@ import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
 import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
+import { hdiutilConvertArgs, hdiutilCreateArgs } from "./lib/hdiutil-image.mjs";
 
 const releasePins = readReleaseIdentityPins();
 
@@ -189,17 +190,12 @@ try {
     stdio: "inherit",
   });
   createDmg(
-    [
-      "create",
-      "-volname",
-      "Penglai",
-      "-srcfolder",
-      staging,
-      "-format",
-      "UDRW",
-      "-ov",
-      rwImage,
-    ],
+    hdiutilCreateArgs({
+      volumeName: "Penglai",
+      sourceFolder: staging,
+      format: "UDRW",
+      output: rwImage,
+    }),
     rwImage,
   );
   if (existsSync(volume)) {
@@ -215,16 +211,12 @@ try {
     spawnSync("hdiutil", ["detach", volume, "-force"], { stdio: "inherit" });
   }
   createDmg(
-    [
-      "convert",
-      rwImage,
-      "-format",
-      "UDZO",
-      "-imagekey",
-      "zlib-level=9",
-      "-ov",
-      dmgPath,
-    ],
+    hdiutilConvertArgs({
+      image: rwImage,
+      output: dmgPath,
+      format: "UDZO",
+      imageKey: "zlib-level=9",
+    }),
     dmgPath,
   );
   run("hdiutil", ["verify", dmgPath]);
