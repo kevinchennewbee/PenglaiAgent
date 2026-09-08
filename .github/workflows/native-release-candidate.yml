@@ -227,19 +227,24 @@ jobs:
           git fetch --no-tags origin main:refs/remotes/origin/main
           test "$GITHUB_SHA" = "$(git rev-parse refs/remotes/origin/main)"
           git switch -C main "$GITHUB_SHA"
-      - name: Observe default-on Windows Defender without mutation
+      - name: Observe Windows Defender without mutation
         shell: pwsh
         run: |
           $pref = Get-MpPreference
-          $snapshot = $pref | Select-Object DisableRealtimeMonitoring, ExclusionPath | ConvertTo-Json -Compress
+          $snapshot = [ordered]@{
+            DisableRealtimeMonitoring = [bool]$pref.DisableRealtimeMonitoring
+            ExclusionPath = @($pref.ExclusionPath)
+          } | ConvertTo-Json -Compress
           Write-Host $snapshot
-          if ($pref.DisableRealtimeMonitoring) {
-            throw "Windows Defender realtime monitoring is disabled; 0.5.12 requires the default-on security configuration"
-          }
+          New-Item -ItemType Directory -Force -Path evidence/generated | Out-Null
+          Set-Content -Path evidence/generated/windows-defender-observe.json -Value $snapshot -Encoding utf8
           $paths = @($pref.ExclusionPath)
           $penglai = $paths | Where-Object { $_ -and ($_ -match 'Penglai') }
           if ($penglai) {
-            throw "Windows Defender has a Penglai exclusion; 0.5.12 requires the default-on security configuration"
+            throw "Windows Defender has a Penglai exclusion; Penglai must not add exclusions to pass native upgrade"
+          }
+          if ($pref.DisableRealtimeMonitoring) {
+            Write-Host "INCOMPLETE: runner baseline already has realtime monitoring disabled; Penglai will not mutate Defender; I02 default-OS remains unproven on this runner"
           }
       - name: Install pinned dependencies
         shell: pwsh

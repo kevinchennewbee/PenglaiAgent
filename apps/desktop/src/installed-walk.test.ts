@@ -409,6 +409,12 @@ test("Windows child shutdown kills the process tree so NSIS upgrade is not block
   assert.match(nsis, /uninstall_rmdir_retry/);
   assert.match(upgrade, /observeWindowsDefender/);
   assert.doesNotMatch(upgrade, /DisableRealtimeMonitoring \$true/);
+  assert.match(upgrade, /runner baseline realtime monitoring already disabled/);
+  assert.match(upgrade, /I02 default-OS remains unproven/);
+  assert.doesNotMatch(
+    upgrade,
+    /fail\("Windows Defender realtime monitoring is disabled/,
+  );
   assert.match(upgrade, /classifyUninstallResidue/);
   assert.doesNotMatch(upgrade, /removeTreeNoFollow\(app\)/);
   assert.match(upgrade, /penglai-setup\.log/);

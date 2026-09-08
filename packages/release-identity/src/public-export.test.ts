@@ -169,6 +169,14 @@ test("R50-PREP-003 manifest fields include path mode size hash license", () => {
   });
 });
 
+test("every required public doc is export-allowed", () => {
+  for (const path of REQUIRED_PUBLIC_DOCS) {
+    assert.equal(pathAllowed(path), true, path);
+  }
+  assert.equal(pathAllowed("docs/PUBLICATION_MANIFEST_0.5.11.md"), true);
+  assert.equal(pathAllowed("docs/0.5.12/pdf-page-preview.png"), false);
+});
+
 test("R50-PREP-005 required public docs are enumerated", () => {
   assert.throws(() => assertRequiredPublicDocs(["LICENSE"]), /missing/);
   assert.doesNotThrow(() =>
