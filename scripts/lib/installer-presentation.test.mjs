@@ -20,6 +20,7 @@ function bmpInfo(bytes) {
     width: bytes.readInt32LE(18),
     height: bytes.readInt32LE(22),
     bits: bytes.readUInt16LE(28),
+    compression: bytes.readUInt32LE(30),
   };
 }
 
@@ -37,14 +38,20 @@ test("macOS DMG background is the ink-sea bilingual drag card", () => {
   assert.match(dmg, /set position of item "Applications"/);
   assert.match(dmg, /"UDRW"/);
   assert.match(dmg, /"UDZO"/);
+  assert.match(dmg, /mounted DMG missing branded background/);
   assert.doesNotMatch(dmg, /\/IM Penglai\.exe/);
 });
 
 test("Windows NSIS welcome and header bitmaps are 24-bit branded pages", () => {
   const welcome = bmpInfo(readFileSync(join(root, "packaging/nsis-welcome.bmp")));
   const header = bmpInfo(readFileSync(join(root, "packaging/nsis-header.bmp")));
-  assert.deepEqual(welcome, { width: 164, height: 314, bits: 24 });
-  assert.deepEqual(header, { width: 150, height: 57, bits: 24 });
+  assert.deepEqual(welcome, { width: 164, height: 314, bits: 24, compression: 0 });
+  assert.deepEqual(header, { width: 150, height: 57, bits: 24, compression: 0 });
+  const welcomeHtml = readFileSync(join(root, "packaging/installer-art/nsis-welcome.html"), "utf8");
+  const headerHtml = readFileSync(join(root, "packaging/installer-art/nsis-header.html"), "utf8");
+  assert.match(welcomeHtml, />蓬莱</);
+  assert.match(welcomeHtml, />Penglai</);
+  assert.match(headerHtml, />蓬莱</);
   const nsi = readFileSync(join(root, "scripts/nsis/Penglai.nsi"), "utf8");
   const packager = readFileSync(join(root, "scripts/package-windows-nsis.mjs"), "utf8");
   assert.match(nsi, /MUI_WELCOMEFINISHPAGE_BITMAP/);
