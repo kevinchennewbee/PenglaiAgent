@@ -342,6 +342,8 @@ if (target === "win32-x86_64") {
       status: uninstall.status,
       timedOut: uninstall.error?.code === "ETIMEDOUT",
       error: uninstall.error?.code,
+      stdout: sanitizeEvidenceText(String(uninstall.stdout ?? ""), 1_000),
+      stderr: sanitizeEvidenceText(String(uninstall.stderr ?? ""), 1_000),
     });
   }
   // `_?=` keeps Uninstall.exe in INSTDIR so spawnSync observes the real

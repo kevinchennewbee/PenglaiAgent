@@ -52,12 +52,16 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
 
 ; Stop only processes whose ExecutablePath is under this INSTDIR. Image-name
 ; taskkill would kill a second Penglai instance with a different install root.
-; ExecWait accepts 1-2 tokens. Nested NSIS single quotes around $INSTDIR split
-; the command ("got 4"). Build one command in a backtick string, then ExecWait
-; the variable so silent uninstall cannot Abort on System::Call.
+; ExecWait accepts 1-2 tokens. Write a temp script and ExecWait -File so INSTDIR
+; is not nested in the same NSIS quote class as the command line.
 !macro PenglaiStopScoped
-  StrCpy $8 `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command "$$root = [IO.Path]::GetFullPath('$INSTDIR').TrimEnd([char]92); $$prefix = $$root + [char]92; Get-CimInstance Win32_Process | ForEach-Object { if ($$_.ExecutablePath -and ($$_.ExecutablePath.Equals($$root, [StringComparison]::OrdinalIgnoreCase) -or $$_.ExecutablePath.StartsWith($$prefix, [StringComparison]::OrdinalIgnoreCase))) { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue } }"`
-  ExecWait $8 $R4
+  FileOpen $8 "$TEMP\penglai-stop-scoped.ps1" w
+  FileWrite $8 "$$root = [IO.Path]::GetFullPath('$INSTDIR').TrimEnd([char]92)$\r$\n"
+  FileWrite $8 "$$prefix = $$root + [char]92$\r$\n"
+  FileWrite $8 "Get-CimInstance Win32_Process | ForEach-Object { if ($$_.ExecutablePath -and ($$_.ExecutablePath.Equals($$root, [StringComparison]::OrdinalIgnoreCase) -or $$_.ExecutablePath.StartsWith($$prefix, [StringComparison]::OrdinalIgnoreCase))) { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue } }$\r$\n"
+  FileClose $8
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "$TEMP\penglai-stop-scoped.ps1"' $R4
+  Delete "$TEMP\penglai-stop-scoped.ps1"
 !macroend
 
 !define MUI_ABORTWARNING
