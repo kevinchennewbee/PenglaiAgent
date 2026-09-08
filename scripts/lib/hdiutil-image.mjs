@@ -4,9 +4,33 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 
 export function hdiutilBusyRetryable(diagnostic) {
-  return /resource busy|resource temporarily unavailable|couldn't eject/i.test(
+  return /resource busy|resource temporarily unavailable|couldn't eject|资源暂时不可用|无法推出/i.test(
     String(diagnostic ?? ""),
   );
+}
+
+export function disksAttachedToImage(infoText, imagePath) {
+  const image = String(imagePath ?? "");
+  if (!image) return [];
+  const disks = [];
+  const seen = new Set();
+  for (const block of String(infoText ?? "").split(/^=+$/mu)) {
+    if (!block.includes(image)) continue;
+    for (const line of block.split(/\n/u)) {
+      const match = /^(\/dev\/disk\d+)(?:\s|$)/u.exec(line.trim());
+      if (!match || seen.has(match[1])) continue;
+      seen.add(match[1]);
+      disks.push(match[1]);
+    }
+  }
+  return disks;
+}
+
+function hdiutilInfoText() {
+  const result = spawnSync("hdiutil", ["info"], { encoding: "utf8" });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  return `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
 }
 
 export function detachDmgUntilReleased({ mount, image, attempts = 8, waitMs = 1_000 } = {}) {
@@ -14,15 +38,26 @@ export function detachDmgUntilReleased({ mount, image, attempts = 8, waitMs = 1_
     throw new Error("hdiutil detach requires a mount or image");
   }
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    if (mount) {
-      spawnSync("hdiutil", ["detach", mount, "-force"], { encoding: "utf8" });
+    const info = hdiutilInfoText();
+    const disks = image ? disksAttachedToImage(info, image) : [];
+    const targets = [];
+    if (mount) targets.push(mount);
+    for (const disk of disks) {
+      if (!targets.includes(disk)) targets.push(disk);
     }
-    if (image) {
-      spawnSync("hdiutil", ["detach", image, "-force"], { encoding: "utf8" });
+    for (const target of targets) {
+      if (target.startsWith("/dev/") && !existsSync(target)) continue;
+      const detached = spawnSync("hdiutil", ["detach", target, "-force"], { encoding: "utf8" });
+      if (detached.stdout) process.stdout.write(detached.stdout);
+      if (detached.stderr) process.stderr.write(detached.stderr);
     }
-    if (!mount || !existsSync(mount)) return;
+    const stillMounted = Boolean(mount && existsSync(mount));
+    const stillAttached = image ? disksAttachedToImage(hdiutilInfoText(), image).length > 0 : false;
+    if (!stillMounted && !stillAttached) return;
     if (attempt === attempts) {
-      throw new Error(`hdiutil detach did not release ${mount}`);
+      throw new Error(
+        `hdiutil detach did not release ${[mount, image].filter(Boolean).join(" ")}`,
+      );
     }
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, attempt * waitMs);
   }
