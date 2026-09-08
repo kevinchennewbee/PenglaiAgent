@@ -114,6 +114,8 @@ export const PUBLIC_EXPORT_DENY = [
   "packages/release-identity/src/leftover-gates.test.ts",
   "packages/release-identity/src/remaining-gates.test.ts",
   "docs/0.5.12/pdf-page-preview.png",
+  "docs/0.5.12/REVIEW_PRODUCTION.md",
+  "docs/0.5.12/REVIEW_SESSION_API.md",
 ] as const;
 
 export const REQUIRED_PUBLIC_DOCS = [

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -175,6 +176,20 @@ test("every required public doc is export-allowed", () => {
   }
   assert.equal(pathAllowed("docs/PUBLICATION_MANIFEST_0.5.11.md"), true);
   assert.equal(pathAllowed("docs/0.5.12/pdf-page-preview.png"), false);
+  assert.equal(pathAllowed("docs/0.5.12/REVIEW_PRODUCTION.md"), false);
+  assert.equal(pathAllowed("docs/0.5.12/REVIEW_SESSION_API.md"), false);
+});
+
+test("allowed tracked non-test text files pass the export scan", () => {
+  const names = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" })
+    .split("\0")
+    .filter(Boolean);
+  for (const rel of names) {
+    if (!pathAllowed(rel)) continue;
+    if (/\.(png|jpg|jpeg|webp|gif|ico|icns|wasm|ttf|woff2?|tgz|zip|node)$/i.test(rel)) continue;
+    if (/\.test\.(ts|mjs|js)$/.test(rel)) continue;
+    scanExportText(rel, readFileSync(join(root, rel), "utf8"));
+  }
 });
 
 test("R50-PREP-005 required public docs are enumerated", () => {
