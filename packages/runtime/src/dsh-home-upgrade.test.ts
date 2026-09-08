@@ -680,7 +680,23 @@ const OFFICIAL_RC1_ASSISTANT = "restored-from-rc1";
 function officialRc1Provenance() {
   return JSON.parse(
     readFileSync(join(OFFICIAL_RC1_V0_DIR, "provenance.json"), "utf8"),
-  ) as { sha256: string; writer: { session: string; formatVersion: number } };
+  ) as {
+    sha256: string;
+    bytes: number;
+    writer: { session: string; formatVersion: number };
+  };
+}
+
+function officialRc1FixtureLog(): Buffer {
+  return readFileSync(
+    join(
+      OFFICIAL_RC1_V0_DIR,
+      "sessions",
+      "--privacy-safe-workspace--",
+      OFFICIAL_RC1_SESSION_ID,
+      "session.jsonl",
+    ),
+  );
 }
 
 function officialRc1V0Home(): string {
@@ -780,6 +796,24 @@ async function restoreOfficialRc1(
   }
 }
 
+test("U02 official rc.1 v0 JSONL checkout bytes match provenance and stay LF", () => {
+  const provenance = officialRc1Provenance();
+  const fixture = officialRc1FixtureLog();
+  assert.equal(fixture.includes(0x0d), false);
+  assert.equal(fixture.byteLength, provenance.bytes);
+  assert.equal(
+    createHash("sha256").update(fixture).digest("hex"),
+    provenance.sha256,
+  );
+  const crlf = Buffer.from(
+    [...fixture].flatMap((byte) => (byte === 0x0a ? [0x0d, 0x0a] : [byte])),
+  );
+  assert.notEqual(
+    createHash("sha256").update(crlf).digest("hex"),
+    provenance.sha256,
+  );
+});
+
 test("U02 official rc.1 v0 JSONL migrates through Home and restores with 0.1.3-alpha.2", async () => {
   const provenance = officialRc1Provenance();
   assert.equal(provenance.writer.session, "0.1.2-rc.1");
@@ -795,6 +829,7 @@ test("U02 official rc.1 v0 JSONL migrates through Home and restores with 0.1.3-a
     createHash("sha256").update(original).digest("hex"),
     provenance.sha256,
   );
+  assert.deepEqual(original, officialRc1FixtureLog());
   assert.match(original.toString("utf8"), /"version":0/);
   assert.equal(original.includes("isSeeded"), false);
 

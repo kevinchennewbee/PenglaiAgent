@@ -31,6 +31,12 @@ test("fixed DSH closure manifest keeps release-identity bytes on Windows", () =>
   );
 });
 
+test("digest-bound runtime testdata and JSONL stay LF on Windows checkout", () => {
+  const attributes = readFileSync(`${ROOT}/.gitattributes`, "utf8");
+  assert.match(attributes, /^packages\/runtime\/testdata\/\*\* text eol=lf$/m);
+  assert.match(attributes, /^\*\*\/\*\.jsonl text eol=lf$/m);
+});
+
 test("same-version DSH tarballs reseal lock identities without resolving unrelated packages", () => {
   const row = {
     name: "@deepseek-ai/dsh-example",
