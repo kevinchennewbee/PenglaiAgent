@@ -22,7 +22,12 @@ import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
 import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
-import { hdiutilConvertArgs, hdiutilCreateArgs } from "./lib/hdiutil-image.mjs";
+import {
+  detachDmgUntilReleased,
+  hdiutilBusyRetryable,
+  hdiutilConvertArgs,
+  hdiutilCreateArgs,
+} from "./lib/hdiutil-image.mjs";
 
 const releasePins = readReleaseIdentityPins();
 
@@ -50,7 +55,7 @@ function createDmg(args, dmgPath) {
     if (result.status === 0) return;
 
     const diagnostic = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
-    const retryable = diagnostic.includes("Resource busy");
+    const retryable = hdiutilBusyRetryable(diagnostic);
     if (!retryable || attempt === attempts) {
       const detail =
         result.error?.message ?? `exit ${result.status ?? "unknown"}`;
@@ -60,7 +65,7 @@ function createDmg(args, dmgPath) {
     rmSync(dmgPath, { force: true });
     const delayMs = attempt * 2_000;
     process.stderr.write(
-      `hdiutil ${args[0]} reported Resource busy; retrying ${attempt + 1}/${attempts} after ${delayMs}ms\n`,
+      `hdiutil ${args[0]} reported a busy image; retrying ${attempt + 1}/${attempts} after ${delayMs}ms\n`,
     );
     waitSync(delayMs);
   }
@@ -199,7 +204,7 @@ try {
     rwImage,
   );
   if (existsSync(volume)) {
-    spawnSync("hdiutil", ["detach", volume, "-force"], { stdio: "inherit" });
+    detachDmgUntilReleased({ mount: volume, image: rwImage });
   }
   run("hdiutil", ["attach", rwImage, "-readwrite", "-noverify", "-nobrowse"]);
   try {
@@ -208,7 +213,7 @@ try {
     }
     layoutDmgWindow(volume);
   } finally {
-    spawnSync("hdiutil", ["detach", volume, "-force"], { stdio: "inherit" });
+    detachDmgUntilReleased({ mount: volume, image: rwImage });
   }
   createDmg(
     hdiutilConvertArgs({

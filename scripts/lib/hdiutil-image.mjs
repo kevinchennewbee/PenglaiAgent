@@ -1,5 +1,33 @@
 /** argv builders for hdiutil create/convert. Convert must use -o and one image. */
 
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+
+export function hdiutilBusyRetryable(diagnostic) {
+  return /resource busy|resource temporarily unavailable|couldn't eject/i.test(
+    String(diagnostic ?? ""),
+  );
+}
+
+export function detachDmgUntilReleased({ mount, image, attempts = 8, waitMs = 1_000 } = {}) {
+  if (!mount && !image) {
+    throw new Error("hdiutil detach requires a mount or image");
+  }
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    if (mount) {
+      spawnSync("hdiutil", ["detach", mount, "-force"], { encoding: "utf8" });
+    }
+    if (image) {
+      spawnSync("hdiutil", ["detach", image, "-force"], { encoding: "utf8" });
+    }
+    if (!mount || !existsSync(mount)) return;
+    if (attempt === attempts) {
+      throw new Error(`hdiutil detach did not release ${mount}`);
+    }
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, attempt * waitMs);
+  }
+}
+
 const CREATE_VALUE_FLAGS = new Set(["-volname", "-srcfolder", "-format", "-fs", "-size"]);
 const CREATE_BARE_FLAGS = new Set(["-ov", "-plist", "-verbose", "-debug", "-quiet"]);
 

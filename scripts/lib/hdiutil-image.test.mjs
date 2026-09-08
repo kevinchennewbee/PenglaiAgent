@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
   assertHdiutilConvertArgs,
+  hdiutilBusyRetryable,
   hdiutilConvertArgs,
   hdiutilCreateArgs,
 } from "./hdiutil-image.mjs";
@@ -61,6 +62,18 @@ test("hdiutil convert requires -o and exactly one input image", () => {
     () => hdiutilConvertArgs({ image, output: image }),
     /input image and output must differ/,
   );
+});
+
+test("convert retries when the UDRW is still attached", () => {
+  assert.equal(
+    hdiutilBusyRetryable("hdiutil: convert failed - Resource temporarily unavailable"),
+    true,
+  );
+  assert.equal(hdiutilBusyRetryable('hdiutil: couldn\'t eject "disk5" - Resource busy'), true);
+  assert.equal(hdiutilBusyRetryable("only a single input file can be specified"), false);
+  const dmg = readFileSync(join(root, "scripts/build-local-dmg.mjs"), "utf8");
+  assert.match(dmg, /detachDmgUntilReleased/);
+  assert.match(dmg, /hdiutilBusyRetryable/);
 });
 
 test("build-local-dmg uses the convert builder instead of a second positional path", () => {
