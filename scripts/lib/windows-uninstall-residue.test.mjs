@@ -39,6 +39,7 @@ test("upgrade-uninstall evidence must not delete the whole INSTDIR to manufactur
   assert.doesNotMatch(upgrade, /removeTreeNoFollow\(app\)/);
   assert.match(helper, /classifyUninstallResidue/);
   const cleanup = helper.slice(helper.indexOf("export function cleanupRegisteredWindowsInstallerFixture"));
-  assert.match(cleanup, /payloadRemoved/);
-  assert.doesNotMatch(cleanup.slice(0, cleanup.indexOf("export function installFromExactDmg")), /removeTreeNoFollow\(installDir\)/);
+  assert.match(cleanup, /windowsFixtureUninstallFollowUp/);
+  assert.match(cleanup, /removeTreeNoFollow\(installDir\)/);
+  assert.match(upgrade, /uninstallLeftoverNames/);
 });

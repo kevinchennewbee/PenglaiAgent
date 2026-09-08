@@ -14,7 +14,9 @@ import {
   removeTreeNoFollow,
   waitForBoundedChild,
   windowsFixtureRemovalObserved,
+  windowsFixtureUninstallFollowUp,
 } from "./installed-app.mjs";
+import { classifyUninstallResidue } from "./windows-uninstall-residue.mjs";
 
 function sample() {
   return {
@@ -136,6 +138,24 @@ test("Windows fixture cleanup is limited to dedicated release-test roots", () =>
     isControlledWindowsInstallerFixture("C:\\temp\\unrelated-fixture\\Penglai", root, "C:\\temp"),
     false,
   );
+});
+
+test("controlled custom-dir fixtures keep payload until harness cleanup", () => {
+  const defaultTree = classifyUninstallResidue(["Uninstall.exe"]);
+  assert.deepEqual(windowsFixtureUninstallFollowUp(defaultTree), {
+    action: "uninstaller-residual-only",
+    leftover: ["Uninstall.exe"],
+  });
+  const custom = classifyUninstallResidue(["Penglai.exe", "resources/app.asar", "Uninstall.exe"]);
+  const followUp = windowsFixtureUninstallFollowUp(custom);
+  assert.equal(followUp.action, "harness-remove-controlled-custom-dir");
+  assert.ok(followUp.leftover.includes("Penglai.exe"));
+  assert.ok(followUp.leftover.includes("resources/app.asar"));
+  const helper = readFileSync(new URL("./installed-app.mjs", import.meta.url), "utf8");
+  const cleanup = helper.slice(helper.indexOf("export function cleanupRegisteredWindowsInstallerFixture"));
+  assert.match(cleanup, /windowsFixtureUninstallFollowUp/);
+  assert.match(cleanup, /removeTreeNoFollow\(installDir\)/);
+  assert.match(cleanup, /isControlledWindowsInstallerFixture/);
 });
 
 test("Windows fixture cleanup waits for both registry and install directory removal", () => {
