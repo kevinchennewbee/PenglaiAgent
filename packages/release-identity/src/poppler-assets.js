@@ -48,7 +48,7 @@ export const POPPLER_UPSTREAM = Object.freeze({
   darwinDlopenLibs: Object.freeze(["libfreebl3.dylib", "libnssckbi.dylib", "libnssdbm3.dylib"]),
   patches: Object.freeze([
     "conda-forge windows-data.patch (upstream, not Penglai)",
-    "macOS Mach-O load-command rewrite without install_name_tool or __LINKEDIT growth (Penglai, documented): keep bundled @rpath names, shrink ../lib rpath to @loader_path, map libc++/libz/libcurl/libsqlite3 to /usr/lib via command padding or header slack",
+    "macOS Mach-O unsigned relocatable rewrite without codesign or install_name_tool (Penglai, documented): delete LC_CODE_SIGNATURE, keep bundled @rpath names, shrink ../lib rpath to @loader_path, map libc++/libz/libcurl/libsqlite3 to /usr/lib via command padding or header slack",
     "macOS POPPLER_DATADIR C-string → share/poppler (Penglai, documented)",
   ]),
   spawn: Object.freeze({
@@ -71,7 +71,7 @@ export const POPPLER_ASSETS = Object.freeze([
     archiveSha256: "0d2e5190ab4657da34560810bf326f4c5a22766152fecca603b5a06d1eba30b1",
     archiveBytes: 1_631_287,
     binaryFilename: "pdftoppm",
-    publishedTreeSha256: "af3a3f4bdc82f1608695f30a7d262ad64807b66b138ce5e02206fbd9c9461f5d",
+    publishedTreeSha256: "7247f57887efdb11b855720a3fd08f545b0b6b7ada0a2f9fd4820bbe76f8376b",
     depends: Object.freeze([
       conda(OSX_ARM64, "libharfbuzz-14.4.0-hcda0f7c_1.conda", "a13bee65e7bcbc14b228351d3d5ba00d0c17c5840c471ab67a28b8ca930456d3", 973_351),
       conda(OSX_ARM64, "fontconfig-2.18.3-h81aa574_1.conda", "004570d35fb0eff73ce3ae49b209a47622d0c2e580dd0dc4c61d59626b386a09", 265_659),
@@ -104,7 +104,7 @@ export const POPPLER_ASSETS = Object.freeze([
     archiveSha256: "7d0f2b3de7c9d2176e6356c10b478f9d539a79368b8741e43467a6e99e4dee68",
     archiveBytes: 1_709_896,
     binaryFilename: "pdftoppm",
-    publishedTreeSha256: "9a88034569482ef2c8c35bb469ef58d08542224bf1742575e7398ee7b4e2e58c",
+    publishedTreeSha256: "9be2eeb24236b27b4ec14632e6f353f57551c984248d1d4010dbdae83108e862",
     depends: Object.freeze([
       conda(OSX_64, "libharfbuzz-14.4.0-h2974713_1.conda", "a4e18affbd1725cd55928cec10685eff419ebcc80ec1feac3d08875d192d0b44", 1_101_693),
       conda(OSX_64, "fontconfig-2.18.3-h7f3b9c9_1.conda", "4637141fa4f3a0f9b58afe4bda831adcb6964495600e97e7e2ed9763cd4f7eda", 264_035),

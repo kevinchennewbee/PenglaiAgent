@@ -24,6 +24,7 @@ import {
   publishedTreeDigest,
   rewriteMacBinary,
   rewriteThinMachO,
+  stripThinMachOSignature,
   readZip64Sizes,
   readZipFile,
   rejectedShipName,
@@ -300,9 +301,12 @@ test("rewriteMacBinary relocates raw conda Mach-Os without install_name_tool gro
     cpSync(fontconfig, fontCopy);
     cpSync(pdftoppm, pdfCopy);
     cpSync(libpoppler, popCopy);
-    for (const bin of [fontCopy, pdfCopy, popCopy]) {
-      spawnSync("codesign", ["--remove-signature", bin], { encoding: "utf8" });
-    }
+    const signedFont = readFileSync(fontCopy);
+    const strippedFont = stripThinMachOSignature(signedFont);
+    assert.notEqual(strippedFont.length, signedFont.length);
+    assert.equal(stripThinMachOSignature(strippedFont).equals(strippedFont), true);
+    const rewrittenFont = rewriteThinMachO(strippedFont);
+    assert.equal(rewriteThinMachO(rewrittenFont).equals(rewrittenFont), true);
 
     const beforeFont = spawnSync("otool", ["-L", fontCopy], { encoding: "utf8" }).stdout;
     assert.match(beforeFont, /@rpath\/libfreetype\.6\.dylib/);
@@ -312,12 +316,11 @@ test("rewriteMacBinary relocates raw conda Mach-Os without install_name_tool gro
     assert.match(beforePop, /@rpath\/libcurl\.4\.dylib/);
     assert.match(beforePop, /@rpath\/libz\.1\.dylib/);
 
-    const fontBytes = readFileSync(fontCopy);
-    const popBytes = readFileSync(popCopy);
     rewriteMacBinary(fontCopy, true);
+    assert.equal(readFileSync(fontCopy).equals(rewrittenFont), true);
     rewriteMacBinary(pdfCopy, false);
     rewriteMacBinary(popCopy, true);
-    assert.equal(readFileSync(fontCopy).length, fontBytes.length);
+    assert.equal(readFileSync(fontCopy).length, rewrittenFont.length);
     assertDarwinOtoolClean(fontCopy);
     assertDarwinOtoolClean(pdfCopy);
     assertDarwinOtoolClean(popCopy);
@@ -335,7 +338,7 @@ test("rewriteMacBinary relocates raw conda Mach-Os without install_name_tool gro
     assert.match(popAfter, /\/usr\/lib\/libcurl\.4\.dylib/);
     assert.match(popAfter, /\/usr\/lib\/libz\.1\.dylib/);
     assert.match(popAfter, /@rpath\/libfontconfig\.1\.dylib/);
-    assert.equal(readFileSync(popCopy).length, popBytes.length);
+    assert.equal(readFileSync(popCopy).length, stripThinMachOSignature(readFileSync(libpoppler)).length);
 
     const again = rewriteThinMachO(readFileSync(fontCopy));
     assert.equal(again.equals(readFileSync(fontCopy)), true);

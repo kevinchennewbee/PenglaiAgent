@@ -446,6 +446,7 @@ const LC_ID_DYLIB = 0xd;
 const LC_LOAD_WEAK_DYLIB = (0x18 | LC_REQ_DYLD) >>> 0;
 const LC_RPATH = (0x1c | LC_REQ_DYLD) >>> 0;
 const LC_REEXPORT_DYLIB = (0x1f | LC_REQ_DYLD) >>> 0;
+const LC_CODE_SIGNATURE = 0x1d;
 const MACHO_STRING_COMMANDS = new Set([
   LC_LOAD_DYLIB,
   LC_ID_DYLIB,
@@ -569,6 +570,40 @@ export function rewriteThinMachO(buf) {
   return work;
 }
 
+export function stripThinMachOSignature(buf) {
+  const cmds = listMachOCommands(buf);
+  const sig = cmds.find((c) => c.cmd === LC_CODE_SIGNATURE);
+  if (!sig) return Buffer.from(buf);
+  if (sig.cmdsize < 16) throw new Error("invalid LC_CODE_SIGNATURE");
+  const dataoff = buf.readUInt32LE(sig.off + 8);
+  const datasize = buf.readUInt32LE(sig.off + 12);
+  if (dataoff < 32 || dataoff + datasize !== buf.length) {
+    throw new Error("code signature is not the Mach-O file tail");
+  }
+  const ncmds = buf.readUInt32LE(16);
+  const sizeofcmds = buf.readUInt32LE(20);
+  const headerEnd = 32 + sizeofcmds;
+  const out = Buffer.alloc(dataoff);
+  buf.copy(out, 0, 0, dataoff);
+  const tail = Buffer.from(buf.subarray(sig.off + sig.cmdsize, headerEnd));
+  tail.copy(out, sig.off);
+  const newSizeof = sizeofcmds - sig.cmdsize;
+  out.fill(0, sig.off + tail.length, headerEnd);
+  out.writeUInt32LE(ncmds - 1, 16);
+  out.writeUInt32LE(newSizeof, 20);
+  for (const c of listMachOCommands(out)) {
+    if (c.cmd !== LC_SEGMENT_64) continue;
+    const name = readCString(out, c.off + 8, c.off + 24);
+    if (name !== "__LINKEDIT") continue;
+    const fileoff = Number(out.readBigUInt64LE(c.off + 40));
+    const filesize = Number(out.readBigUInt64LE(c.off + 48));
+    if (fileoff + filesize === buf.length) {
+      out.writeBigUInt64LE(BigInt(dataoff - fileoff), c.off + 48);
+    }
+  }
+  return out;
+}
+
 export function paddedPopplerDatadir(slotLength) {
   const needle = Buffer.from("share/poppler");
   if (slotLength < needle.length) throw new Error("POPPLER_DATADIR slot shorter than share/poppler");
@@ -655,13 +690,11 @@ function copyMode644(src, dest) {
 }
 
 export function rewriteMacBinary(path, _isDylib) {
-  spawnSync("codesign", ["--remove-signature", path], { encoding: "utf8" });
-  const rewritten = rewriteThinMachO(readFileSync(path));
+  // Xcode 16.4 and 26.6 `codesign --remove-signature` emit different bytes, so
+  // published tree hashes must unsign by deleting LC_CODE_SIGNATURE in-process.
+  const rewritten = rewriteThinMachO(stripThinMachOSignature(readFileSync(path)));
   writeFileSync(path, rewritten);
   chmodSync(path, 0o755);
-  // Leave Mach-Os unsigned. Ad-hoc codesign is not reproducible and is not the
-  // Developer ID seal. Parent package-mac / notarization re-signs the tree.
-  spawnSync("codesign", ["--remove-signature", path], { encoding: "utf8" });
   const usesRpath = machOLoadDeps(path).some((dep) => dep.startsWith("@rpath/"));
   const hasLoader = machORpaths(path).some((rpath) => rpath === "@loader_path" || rpath === "@loader_path/");
   if (usesRpath && !hasLoader) {
@@ -997,7 +1030,6 @@ function assembleDarwin(asset, pkgRoots, dataRoot, dest) {
   const patched = patchPopplerDatadir(readFileSync(join(tmpDest, libpoppler)));
   writeFileSync(join(tmpDest, libpoppler), patched);
   chmodSync(join(tmpDest, libpoppler), 0o755);
-  spawnSync("codesign", ["--remove-signature", join(tmpDest, libpoppler)], { encoding: "utf8" });
   copyLicenses(tmpDest);
   copyPopplerData(dataRoot, join(tmpDest, "share", "poppler"));
   copyFontconfig(pkgRoots, tmpDest);
@@ -1052,14 +1084,16 @@ not linked into Electron or DSH.
 - \`.conda\` pkg tarballs are decoded with Node's \`zstdDecompressSync\` (no Homebrew zstd)
 
 macOS published layout flattens \`pdftoppm\` and load-time dylibs next to each other.
-Bundled dylibs keep conda-forge \`@rpath\` install names. Penglai rewrites Mach-O
-load commands in place: shrink \`@loader_path/../lib\` rpath to \`@loader_path\`,
-and map libc++/libz/libcurl/libsqlite3 to \`/usr/lib\` using existing command
-padding or header slack before the first section. It does not call
-\`install_name_tool\`, grow \`__LINKEDIT\`, or lengthen a load-command string past
-that slack. It then patches the compiled-in \`POPPLER_DATADIR\` slot to
-\`share/poppler\` slash-padded to the original 269-byte memcpy length (no interior
-NUL). Spawn must use \`cwd = dirname(pdftoppm)\` and \`FONTCONFIG_PATH = <poppler>/fonts\`.
+Bundled dylibs keep conda-forge \`@rpath\` install names. Penglai strips
+\`LC_CODE_SIGNATURE\` in-process (Xcode 16.4 and 26.6 \`codesign --remove-signature\`
+are not byte-identical), then rewrites Mach-O load commands in place: shrink
+\`@loader_path/../lib\` rpath to \`@loader_path\`, and map libc++/libz/libcurl/libsqlite3
+to \`/usr/lib\` using existing command padding or header slack before the first
+section. It does not call \`install_name_tool\` or \`codesign\`, grow \`__LINKEDIT\`,
+or lengthen a load-command string past that slack. It then patches the compiled-in
+\`POPPLER_DATADIR\` slot to \`share/poppler\` slash-padded to the original 269-byte
+memcpy length (no interior NUL). Spawn must use \`cwd = dirname(pdftoppm)\` and
+\`FONTCONFIG_PATH = <poppler>/fonts\`.
 
 Windows published layout is a PE-walked DLL closure next to \`pdftoppm.exe\`, with
 poppler-data at \`share/poppler\` inside the helper dir (copy source). conda-forge

@@ -15,14 +15,16 @@ not linked into Electron or DSH.
 - `.conda` pkg tarballs are decoded with Node's `zstdDecompressSync` (no Homebrew zstd)
 
 macOS published layout flattens `pdftoppm` and load-time dylibs next to each other.
-Bundled dylibs keep conda-forge `@rpath` install names. Penglai rewrites Mach-O
-load commands in place: shrink `@loader_path/../lib` rpath to `@loader_path`,
-and map libc++/libz/libcurl/libsqlite3 to `/usr/lib` using existing command
-padding or header slack before the first section. It does not call
-`install_name_tool`, grow `__LINKEDIT`, or lengthen a load-command string past
-that slack. It then patches the compiled-in `POPPLER_DATADIR` slot to
-`share/poppler` slash-padded to the original 269-byte memcpy length (no interior
-NUL). Spawn must use `cwd = dirname(pdftoppm)` and `FONTCONFIG_PATH = <poppler>/fonts`.
+Bundled dylibs keep conda-forge `@rpath` install names. Penglai strips
+`LC_CODE_SIGNATURE` in-process (Xcode 16.4 and 26.6 `codesign --remove-signature`
+are not byte-identical), then rewrites Mach-O load commands in place: shrink
+`@loader_path/../lib` rpath to `@loader_path`, and map libc++/libz/libcurl/libsqlite3
+to `/usr/lib` using existing command padding or header slack before the first
+section. It does not call `install_name_tool` or `codesign`, grow `__LINKEDIT`,
+or lengthen a load-command string past that slack. It then patches the compiled-in
+`POPPLER_DATADIR` slot to `share/poppler` slash-padded to the original 269-byte
+memcpy length (no interior NUL). Spawn must use `cwd = dirname(pdftoppm)` and
+`FONTCONFIG_PATH = <poppler>/fonts`.
 
 Windows published layout is a PE-walked DLL closure next to `pdftoppm.exe`, with
 poppler-data at `share/poppler` inside the helper dir (copy source). conda-forge
