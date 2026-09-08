@@ -433,8 +433,13 @@ export function assertDarwinOtoolClean(path) {
   if (/@loader_path\/\.\.\/lib/.test(text)) throw new Error(`stale @loader_path/../lib in ${path}`);
 }
 
+function installNameToolBin() {
+  const clt = "/Library/Developer/CommandLineTools/usr/bin/install_name_tool";
+  return existsSync(clt) ? clt : "install_name_tool";
+}
+
 function runInstallName(args, path) {
-  const result = spawnSync("install_name_tool", [...args, path], { encoding: "utf8" });
+  const result = spawnSync(installNameToolBin(), [...args, path], { encoding: "utf8" });
   if (result.status !== 0) {
     const err = `${result.stderr || ""} ${result.stdout || ""}`;
     if (/no LC_RPATH|would duplicate|file not in an archive|does not fill the __LINKEDIT segment/i.test(err)) {
