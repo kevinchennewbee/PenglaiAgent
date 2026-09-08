@@ -557,7 +557,9 @@ export function rewriteMacBinary(path, isDylib) {
       runInstallName(["-delete_rpath", rpath], path);
     }
   }
-  const remainingRpath = machOLoadDeps(path).some((dep) => dep.startsWith("@rpath/"));
+  const remainingRpath = (isDylib ? machOLoadDeps(path).slice(1) : machOLoadDeps(path)).some((dep) =>
+    dep.startsWith("@rpath/"),
+  );
   const after = machORpaths(path);
   if (remainingRpath && !after.includes("@loader_path")) {
     const added = runInstallName(["-add_rpath", "@loader_path"], path);
