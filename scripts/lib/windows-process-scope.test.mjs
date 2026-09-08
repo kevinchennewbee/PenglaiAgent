@@ -66,6 +66,8 @@ test("NSIS and upgrade verifier must not kill every Penglai.exe by image name", 
   assert.match(nsis, /StartsWith/);
   assert.match(nsis, /penglai-stop-scoped\.ps1/);
   assert.match(nsis, /GetFullPath\('\$INSTDIR'\)/);
+  assert.match(nsis, /ParentProcessId/);
+  assert.match(nsis, /\$\$PID/);
   assert.doesNotMatch(nsis, /GetFullPath\(''\$INSTDIR''\)/);
   assert.doesNotMatch(upgrade, /DisableRealtimeMonitoring \$true/);
   assert.doesNotMatch(upgrade, /Add-MpPreference -ExclusionPath/);
