@@ -80,10 +80,13 @@ tell application "Finder"
     set current view of container window to icon view
     set toolbar visible of container window to false
     set statusbar visible of container window to false
+    set pathbar visible of container window to false
+    set sidebar width of container window to 0
     set bounds of container window to {120, 120, 780, 520}
     set theViewOptions to the icon view options of container window
     set arrangement of theViewOptions to not arranged
     set icon size of theViewOptions to 96
+    set text size of theViewOptions to 12
     set background picture of theViewOptions to file ".background:background.png"
     set position of item "Penglai.app" to {160, 210}
     set position of item "Applications" to {500, 210}
