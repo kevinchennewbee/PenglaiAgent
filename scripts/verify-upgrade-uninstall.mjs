@@ -168,16 +168,25 @@ function observeWindowsDefender() {
     .map((row) => String(row ?? ""))
     .filter(Boolean);
   const penglaiExclusion = exclusions.find((row) => /penglai/i.test(row));
-  lastWindowsDefender = { ...lastWindowsDefender, monitoringOff, exclusions: exclusions.slice(0, 20), penglaiExclusion: penglaiExclusion ?? "" };
-  if (monitoringOff) {
-    fail("Windows Defender realtime monitoring is disabled; 0.5.12 requires a default-on security configuration", {
+  lastWindowsDefender = {
+    ...lastWindowsDefender,
+    monitoringOff,
+    exclusions: exclusions.slice(0, 20),
+    penglaiExclusion: penglaiExclusion ?? "",
+    defaultOs: "UNPROVEN",
+  };
+  if (penglaiExclusion) {
+    fail("Windows Defender has a Penglai exclusion; Penglai must not add exclusions to pass native upgrade", {
       defender: lastWindowsDefender,
     });
   }
-  if (penglaiExclusion) {
-    fail("Windows Defender has a Penglai exclusion; 0.5.12 requires a default-on security configuration", {
-      defender: lastWindowsDefender,
-    });
+  if (monitoringOff) {
+    lastWindowsDefender = {
+      ...lastWindowsDefender,
+      defaultOs: "INCOMPLETE",
+      reason:
+        "runner baseline realtime monitoring already disabled; Penglai did not mutate Defender; I02 default-OS remains unproven",
+    };
   }
   return lastWindowsDefender;
 }
