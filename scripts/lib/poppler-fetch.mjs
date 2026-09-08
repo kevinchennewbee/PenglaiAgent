@@ -437,7 +437,9 @@ function runInstallName(args, path) {
   const result = spawnSync("install_name_tool", [...args, path], { encoding: "utf8" });
   if (result.status !== 0) {
     const err = `${result.stderr || ""} ${result.stdout || ""}`;
-    if (/no LC_RPATH|would duplicate|file not in an archive/i.test(err)) return false;
+    if (/no LC_RPATH|would duplicate|file not in an archive|does not fill the __LINKEDIT segment/i.test(err)) {
+      return false;
+    }
     throw new Error(`install_name_tool ${args.join(" ")} ${path}: ${err}`);
   }
   return true;
@@ -531,14 +533,6 @@ function copyMode644(src, dest) {
 export function rewriteMacBinary(path, isDylib) {
   spawnSync("codesign", ["--remove-signature", path], { encoding: "utf8" });
   const deps = machOLoadDeps(path);
-  const rpaths = machORpaths(path);
-  for (const rpath of rpaths) {
-    if (rpath === "@loader_path/../lib/" || rpath === "@loader_path/../lib") {
-      runInstallName(["-delete_rpath", rpath], path);
-    }
-  }
-  const after = machORpaths(path);
-  if (!after.includes("@loader_path")) runInstallName(["-add_rpath", "@loader_path"], path);
   for (const dep of deps) {
     const base = dylibBasename(dep);
     const system = POPPLER_UPSTREAM.darwinSystemRewrites[base];
@@ -549,10 +543,23 @@ export function rewriteMacBinary(path, isDylib) {
     if (dep.startsWith("/usr/lib") || dep.startsWith("/System/")) continue;
     if (dep.startsWith("@loader_path/") && dep === `@loader_path/${base}`) continue;
     if (base && (dep.startsWith("@rpath/") || dep.startsWith("@loader_path/"))) {
-      runInstallName(["-change", dep, `@loader_path/${base}`], path);
+      const changed = runInstallName(["-change", dep, `@loader_path/${base}`], path);
+      if (!changed) throw new Error(`could not flatten ${dep} in ${path}`);
     }
   }
   if (isDylib) runInstallName(["-id", `@loader_path/${path.split(sep).pop()}`], path);
+  const rpaths = machORpaths(path);
+  for (const rpath of rpaths) {
+    if (rpath === "@loader_path/../lib/" || rpath === "@loader_path/../lib") {
+      runInstallName(["-delete_rpath", rpath], path);
+    }
+  }
+  const remainingRpath = machOLoadDeps(path).some((dep) => dep.startsWith("@rpath/"));
+  const after = machORpaths(path);
+  if (remainingRpath && !after.includes("@loader_path")) {
+    const added = runInstallName(["-add_rpath", "@loader_path"], path);
+    if (!added) throw new Error(`could not add @loader_path rpath to ${path}`);
+  }
   // Leave Mach-Os unsigned. Ad-hoc codesign is not reproducible and is not the
   // Developer ID seal. Parent package-mac / notarization re-signs the tree.
   spawnSync("codesign", ["--remove-signature", path], { encoding: "utf8" });
