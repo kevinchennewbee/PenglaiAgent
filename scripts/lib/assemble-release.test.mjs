@@ -5,6 +5,13 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, wr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import {
+  PRODUCT_VERSION,
+  UPDATER_SEQUENCE,
+  macosAarch64DmgName,
+  macosX64DmgName,
+  windowsSetupName,
+} from "./product.mjs";
 
 const ROOT = process.cwd();
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -16,9 +23,9 @@ test("assemble-release refuses a signing key that does not match the embedded up
     mkdirSync(staging);
     const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
     const names = [
-      "Penglai_0.5.12_macos_aarch64.dmg",
-      "Penglai_0.5.12_macos_x64.dmg",
-      "Penglai_0.5.12_windows_x64_setup.exe",
+      macosAarch64DmgName(),
+      macosX64DmgName(),
+      windowsSetupName(),
     ];
     const nativeEvidence = join(temp, "native-evidence");
     mkdirSync(nativeEvidence);
@@ -51,22 +58,22 @@ test("assemble-release refuses a signing key that does not match the embedded up
       sbom,
       `${JSON.stringify({
         bomFormat: "CycloneDX",
-        release: "0.5.11",
+        release: PRODUCT_VERSION,
         sourceSha,
         target: "release-set",
         lockfileSha256: sha256(readFileSync(join(ROOT, "pnpm-lock.yaml"))),
         componentCount: 1,
-        components: [{ type: "application", name: "fixture", version: "0.5.11" }],
+        components: [{ type: "application", name: "fixture", version: PRODUCT_VERSION }],
       })}\n`,
     );
     writeFileSync(
       notices,
-      `Penglai 0.5.11 Third-Party Notices\nSource SHA: ${sourceSha}\nAudited target: release-set\nlicenses/sharp/\n`,
+      `Penglai ${PRODUCT_VERSION} Third-Party Notices\nSource SHA: ${sourceSha}\nAudited target: release-set\nlicenses/sharp/\n`,
     );
     const releaseJson = join(temp, "release.json");
     writeFileSync(
       releaseJson,
-      JSON.stringify({ id: 77, tag_name: "v0.5.11", target_commitish: sourceSha, draft: true, prerelease: false, immutable: false, assets }),
+      JSON.stringify({ id: 77, tag_name: `v${PRODUCT_VERSION}`, target_commitish: sourceSha, draft: true, prerelease: false, immutable: false, assets }),
     );
     const keyFile = join(temp, "private.pem");
     writeFileSync(
@@ -108,8 +115,8 @@ test("assemble-release refuses a signing key that does not match the embedded up
     assert.match(result.stderr, /ed25519 signature mismatch/);
     assert.equal(statSync(join(staging, "update-manifest-v1.json.sig")).size, 64);
     const update = JSON.parse(readFileSync(join(staging, "update-manifest-v1.json"), "utf8"));
-    assert.equal(update.sequence, 7);
-    assert.equal(update.version, "0.5.11");
+    assert.equal(update.sequence, UPDATER_SEQUENCE);
+    assert.equal(update.version, PRODUCT_VERSION);
     assert.equal(update.releaseManifestSha256, sha256(readFileSync(join(staging, "release-manifest.json"))));
     assert.notEqual(update.releaseManifestSha256, sha256(readFileSync(join(staging, "update-manifest-v1.json"))));
     assert.equal(readdirSync(staging).includes("SHA256SUMS"), false);

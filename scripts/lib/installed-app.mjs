@@ -83,14 +83,18 @@ export function leftoversByCommand(needle) {
         "-Command",
         "Get-CimInstance Win32_Process | ForEach-Object { '{0} {1} {2} {3} {4}' -f $_.ProcessId, $_.ParentProcessId, $_.Name, $_.ExecutablePath, $_.CommandLine }",
       ],
-      { encoding: "utf8" },
+      { encoding: "utf8", timeout: 5_000, windowsHide: true },
     );
     return String(r.stdout ?? "")
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.includes(needle));
   }
-  const r = spawnSync("/bin/ps", ["-axo", "pid=,ppid=,command="], { encoding: "utf8" });
+  const r = spawnSync("/bin/ps", ["-axo", "pid=,ppid=,command="], {
+    encoding: "utf8",
+    timeout: 3_000,
+    killSignal: "SIGKILL",
+  });
   return String(r.stdout ?? "")
     .split("\n")
     .map((line) => line.trim())

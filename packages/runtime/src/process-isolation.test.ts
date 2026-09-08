@@ -5,8 +5,17 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { once } from "node:events";
-import { reapDshOrphans } from "./process.js";
+import { readProcessPgid, readProcessStartMs, reapDshOrphans } from "./process.js";
 import type { RuntimeLayout, UserLayout } from "./index.js";
+
+test("darwin process identity queries return for a live pid without blocking", { skip: process.platform !== "darwin" }, () => {
+  const started = Date.now();
+  const startMs = readProcessStartMs(process.pid);
+  const pgid = readProcessPgid(process.pid);
+  assert.ok(startMs > 0);
+  assert.ok(pgid > 0);
+  assert.ok(Date.now() - started < 1_000, "process identity queries must stay bounded");
+});
 
 test("orphan cleanup preserves another data root using the same executable and entry", { skip: process.platform !== "darwin" }, async () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-process-scope-"));

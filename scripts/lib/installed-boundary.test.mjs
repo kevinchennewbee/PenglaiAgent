@@ -6,6 +6,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { observeFreshInstalledBoot } from "./installed-readiness.mjs";
 import { credentialFreeInstalledChecks, credentialFreeInstalledPass } from "./installed-boundary.mjs";
+import { PRODUCT_VERSION } from "./product.mjs";
 import {
   isControlledWindowsInstallerFixture,
   removeTreeNoFollow,
@@ -22,7 +23,7 @@ function sample() {
       resume: { attempted: true, ok: true },
     },
     first: {
-      identity: { ok: true, version: "0.5.11" },
+      identity: { ok: true, version: PRODUCT_VERSION },
       nativeBoot: { ok: true, authenticationBoundary: true },
       processTree: { ownedAbsolute: true, dshPid: 42 },
       inventory: { ok: true, im: false },
@@ -66,12 +67,12 @@ test("credential-free installed checks fail a missing or legacy version instead 
 test("currentVersion accepts installed facts.version on a live-sample identity object", () => {
   const input = sample();
   delete input.first.identity.version;
-  input.first.identity = { ok: true, verdict: "PASS", reasons: [], reason: "", version: "0.5.11" };
+  input.first.identity = { ok: true, verdict: "PASS", reasons: [], reason: "", version: PRODUCT_VERSION };
   assert.equal(credentialFreeInstalledChecks(input).currentVersion, "PASS");
   assert.equal(credentialFreeInstalledPass(input), true);
   const viaRec = sample();
   delete viaRec.first.identity.version;
-  viaRec.rec.version = "0.5.11";
+  viaRec.rec.version = PRODUCT_VERSION;
   assert.equal(credentialFreeInstalledChecks(viaRec).currentVersion, "PASS");
 });
 
