@@ -59,8 +59,8 @@ test("Windows NSIS welcome and header bitmaps are 24-bit branded pages", () => {
   assert.match(nsi, /MUI_WELCOMEFINISHPAGE_BITMAP/);
   assert.match(nsi, /MUI_HEADERIMAGE_BITMAP/);
   assert.match(nsi, /PenglaiStopScoped/);
-  assert.match(nsi, /PENGLAI_INSTALL_ROOT/);
-  assert.match(nsi, /\$\$env:PENGLAI_INSTALL_ROOT/);
+  assert.match(nsi, /ExecWait \$8 \$R4/);
+  assert.match(nsi, /GetFullPath\('\$INSTDIR'\)/);
   assert.doesNotMatch(nsi, /GetFullPath\(''\$INSTDIR''\)/);
   assert.doesNotMatch(nsi, /\/IM Penglai\.exe/);
   assert.match(packager, /PENGLAI_WELCOME_BMP=/);

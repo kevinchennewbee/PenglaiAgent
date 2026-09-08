@@ -168,10 +168,10 @@ export function assertWindowsUpgradeStaging(script: string): void {
   if (scopedStop < 0 || retryLabel < 0 || retryLabel > liveRename) {
     throw new Error("Windows upgrade must stop scoped install-root processes and retry renaming the live app directory");
   }
-  if (!script.includes("PENGLAI_INSTALL_ROOT") || !script.includes("$$env:PENGLAI_INSTALL_ROOT")) {
-    throw new Error("Windows upgrade must pass INSTDIR through PENGLAI_INSTALL_ROOT instead of nested NSIS quotes");
+  if (!script.includes("ExecWait $8 $R4") || !script.includes("StrCpy $8 `")) {
+    throw new Error("Windows upgrade must ExecWait a single prebuilt command variable instead of nested NSIS quotes");
   }
-  if (/GetFullPath\(''\$INSTDIR''\)/.test(script) || /GetFullPath\('\$INSTDIR'\)/.test(script)) {
+  if (/GetFullPath\(''\$INSTDIR''\)/.test(script)) {
     throw new Error("Windows upgrade must not embed $INSTDIR in nested NSIS quotes");
   }
   if (!script.includes("ExecutablePath") || !script.includes("StartsWith")) {
