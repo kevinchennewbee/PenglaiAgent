@@ -43,7 +43,7 @@ function waitSync(milliseconds) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 }
 
-function createDmg(args, dmgPath) {
+function createDmg(args, dmgPath, { onRetry } = {}) {
   const attempts = 3;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const result = spawnSync("hdiutil", args, {
@@ -62,6 +62,7 @@ function createDmg(args, dmgPath) {
       throw new Error(`hdiutil ${args[0]} failed: ${detail}`);
     }
 
+    onRetry?.();
     rmSync(dmgPath, { force: true });
     const delayMs = attempt * 2_000;
     process.stderr.write(
@@ -223,6 +224,7 @@ try {
       imageKey: "zlib-level=9",
     }),
     dmgPath,
+    { onRetry: () => detachDmgUntilReleased({ mount: volume, image: rwImage }) },
   );
   run("hdiutil", ["verify", dmgPath]);
 } finally {

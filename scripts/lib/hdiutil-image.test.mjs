@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
   assertHdiutilConvertArgs,
+  detachDmgUntilReleased,
+  disksAttachedToImage,
   hdiutilBusyRetryable,
   hdiutilConvertArgs,
   hdiutilCreateArgs,
@@ -70,10 +72,25 @@ test("convert retries when the UDRW is still attached", () => {
     true,
   );
   assert.equal(hdiutilBusyRetryable('hdiutil: couldn\'t eject "disk5" - Resource busy'), true);
+  assert.equal(hdiutilBusyRetryable("hdiutil: convert failed - 资源暂时不可用"), true);
   assert.equal(hdiutilBusyRetryable("only a single input file can be specified"), false);
+  const info = [
+    "image-path      : /tmp/penglai-rw.dmg",
+    "/dev/disk5           GUID_partition_scheme",
+    "/dev/disk5s1         Apple_APFS",
+    "/dev/disk6           EF57347C-0000-11AA-AA11-0030654",
+    "/dev/disk6s1         41504653-0000-11AA-AA11-0030654 /Volumes/Penglai",
+  ].join("\n");
+  assert.deepEqual(disksAttachedToImage(info, "/tmp/penglai-rw.dmg"), [
+    "/dev/disk5",
+    "/dev/disk6",
+  ]);
+  assert.deepEqual(disksAttachedToImage(info, "/tmp/other.dmg"), []);
   const dmg = readFileSync(join(root, "scripts/build-local-dmg.mjs"), "utf8");
   assert.match(dmg, /detachDmgUntilReleased/);
   assert.match(dmg, /hdiutilBusyRetryable/);
+  assert.match(dmg, /onRetry/);
+  assert.doesNotMatch(dmg, /detach", image, "-force"/);
 });
 
 test("build-local-dmg uses the convert builder instead of a second positional path", () => {
@@ -113,6 +130,12 @@ test("hdiutil convert -o is the native class that failed without -o", {
       { encoding: "utf8" },
     );
     assert.equal(created.status, 0, created.stderr);
+    const attached = spawnSync("hdiutil", ["attach", rw, "-readwrite", "-noverify", "-nobrowse"], {
+      encoding: "utf8",
+    });
+    assert.equal(attached.status, 0, attached.stderr);
+    detachDmgUntilReleased({ image: rw });
+    assert.equal(disksAttachedToImage(spawnSync("hdiutil", ["info"], { encoding: "utf8" }).stdout, rw).length, 0);
     const broken = [
       "convert",
       rw,
