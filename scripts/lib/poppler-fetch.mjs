@@ -532,9 +532,12 @@ function copyMode644(src, dest) {
 
 export function rewriteMacBinary(path, isDylib) {
   spawnSync("codesign", ["--remove-signature", path], { encoding: "utf8" });
+  const self = path.split(sep).pop();
   const deps = machOLoadDeps(path);
-  for (const dep of deps) {
+  const loadDeps = isDylib ? deps.slice(1) : deps;
+  for (const dep of loadDeps) {
     const base = dylibBasename(dep);
+    if (base === self) continue;
     const system = POPPLER_UPSTREAM.darwinSystemRewrites[base];
     if (system) {
       if (dep !== system) runInstallName(["-change", dep, system], path);
@@ -547,7 +550,7 @@ export function rewriteMacBinary(path, isDylib) {
       if (!changed) throw new Error(`could not flatten ${dep} in ${path}`);
     }
   }
-  if (isDylib) runInstallName(["-id", `@loader_path/${path.split(sep).pop()}`], path);
+  if (isDylib) runInstallName(["-id", `@loader_path/${self}`], path);
   const rpaths = machORpaths(path);
   for (const rpath of rpaths) {
     if (rpath === "@loader_path/../lib/" || rpath === "@loader_path/../lib") {

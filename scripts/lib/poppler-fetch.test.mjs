@@ -21,6 +21,7 @@ import {
   patchFontconfigXml,
   patchPopplerDatadir,
   publishedTreeDigest,
+  rewriteMacBinary,
   readZip64Sizes,
   readZipFile,
   rejectedShipName,
@@ -253,6 +254,26 @@ test("published-tree digest is a hash of the sorted path/sha256/bytes listing", 
   assert.equal(digest.length, 64);
   const again = publishedTreeDigest(dir);
   assert.equal(digest, again);
+});
+
+test("rewriteMacBinary is idempotent on an already flattened dylib and does not change the ID via -change", (t) => {
+  const src = join(ROOT, "third_party/poppler/darwin-aarch64/libdeflate.0.dylib");
+  if (process.platform !== "darwin" || !existsSync(src)) {
+    t.skip("flattened darwin dylib not assembled");
+    return;
+  }
+  const work = mkdtempSync(join(tmpdir(), "penglai-rewrite-mac-"));
+  try {
+    const copy = join(work, "libdeflate.0.dylib");
+    cpSync(src, copy);
+    rewriteMacBinary(copy, true);
+    assertDarwinOtoolClean(copy);
+    const otool = spawnSync("otool", ["-L", copy], { encoding: "utf8" });
+    assert.match(otool.stdout, /@loader_path\/libdeflate\.0\.dylib/);
+    assert.doesNotMatch(otool.stdout.split("\n").slice(2).join("\n"), /@rpath\//);
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
 });
 
 test("assembled darwin-aarch64 tree is a conda 26.09.0 helper, not a Homebrew gpgme dump", (t) => {
