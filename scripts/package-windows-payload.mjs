@@ -17,6 +17,11 @@ import { finish } from "./lib/exit-contract.mjs";
 import { stagingForTarget } from "./lib/closure-credential.mjs";
 import { writeRequiredFuses } from "./lib/electron-fuses.mjs";
 import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
+import {
+  copyPopplerTree,
+  copyWindowsPopplerDatadirSibling,
+  copyWindowsVcRuntimes,
+} from "./lib/package-poppler.mjs";
 
 const releasePins = readReleaseIdentityPins();
 
@@ -213,7 +218,10 @@ if (!existsSync(join(popplerSrc, "pdftoppm.exe"))) {
     });
   }
 }
-cpSync(popplerSrc, join(payload, "poppler"), { recursive: true });
+const popplerDest = join(payload, "poppler");
+copyPopplerTree(popplerSrc, popplerDest, "win32-x86_64");
+copyWindowsPopplerDatadirSibling(popplerDest, payload);
+copyWindowsVcRuntimes(payload, popplerDest);
 
 const resources = join(payload, "resources");
 mkdirSync(resources, { recursive: true });

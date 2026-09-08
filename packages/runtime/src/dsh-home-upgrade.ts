@@ -28,6 +28,8 @@ type SourceVersion =
   | typeof DSH_HOME_PREVIOUS_VERSION;
 type HomeVersion = SourceVersion | typeof DSH_HOME_TARGET_VERSION;
 export const DSH_HOME_UPGRADE_ID = "dsh-home-to-0.1.3-alpha.2";
+/** Official rc.1 v0 logs are plaintext `session.jsonl`. Home copy keeps those bytes. */
+export const DSH_HOME_JSONL_COMPRESSION = "none";
 
 const MANIFEST_NAME = ".penglai-dsh-home.json";
 const MAX_MANIFEST_BYTES = 4 * 1024 * 1024;
@@ -778,11 +780,15 @@ export function rollbackDshHomeUpgrade(input: {
       );
     }
     const rolledBackAt = (input.now ?? new Date()).toISOString();
-    const active: ActiveDshHomeManifest = journal.previousActiveManifest ?? {
+    const previous = journal.previousActiveManifest;
+    const active: ActiveDshHomeManifest = {
       schema: 1,
-      activeVersion: journal.fromVersion,
-      homeRelative: journal.sourceRelative,
-      activatedAt: rolledBackAt,
+      activeVersion: previous?.activeVersion ?? journal.fromVersion,
+      homeRelative: previous?.homeRelative ?? journal.sourceRelative,
+      activatedAt: previous?.activatedAt ?? rolledBackAt,
+      ...(previous?.operationId ? { operationId: previous.operationId } : {}),
+      ...(previous?.targetDigest ? { targetDigest: previous.targetDigest } : {}),
+      ...(previous?.activationKind ? { activationKind: previous.activationKind } : {}),
       rollbackReason: input.reason.trim(),
     };
     const next: DshHomeUpgradeJournal = {

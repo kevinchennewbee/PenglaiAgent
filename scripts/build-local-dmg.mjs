@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Community-verified macOS DMG for Penglai 0.5.11.
+ * Community-verified macOS DMG for Penglai.
  * Follows PenglaiAgent v0.4.1: complete ad-hoc app seal, codesign strict
  * verification, ordinary UDZO DMG, hdiutil verify. Not Developer ID, not notarized.
  */

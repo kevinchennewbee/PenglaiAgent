@@ -93,8 +93,11 @@ Write, export, return, and undo approval binds the exact job, source/result
 digest, destination, Workspace, Session, and revision. Approval completes only
 after the mutation or delivery succeeds.
 
-Official DSH 0.1.3-alpha.2 conversation Turns support text and images, not generic file
-blocks. Penglai therefore does not claim ordinary composer DOCX/XLSX/PPTX/PDF
+Official DSH 0.1.3-alpha.2 conversation Turns support text, images, and generic
+file parts. A file part is a same-Session `uploadFile` receipt, not raw bytes;
+the model later sees handle text (name, size, harness-owned saved path), not a
+native multimodal file. Penglai has not wired Artifact refs through that official
+receipt path, so it does not claim ordinary composer DOCX/XLSX/PPTX/PDF
 attachments. Official images continue through the official image store. Files
 received through live IM or selected through Office use the scoped artifact
 service without DOM injection or a second conversation engine.
@@ -214,9 +217,11 @@ official Agent 沿用当前供应商和模型，输出由 Host 封闭校验。�
 symlink/device/directory、加密/宏、可执行文件、嵌套压缩和 scope 都由 Host 校验。
 
 写入、导出、回传、撤销确认会绑定 job、摘要、目标、Workspace、Session 和 revision，
-只有真实动作成功后才完成。official DSH 0.1.2-rc.1 会话 Turn 只支持文字和图片，因此 0.5.10
-不宣称输入框能直接发普通 DOCX/XLSX/PPTX/PDF。official 图片不变；IM 收到的文件或
-蓬莱办公选择的 Workspace 文件走 artifact service，不做 DOM hack 或第二会话引擎。
+只有真实动作成功后才完成。official DSH 0.1.3-alpha.2 会话 Turn 支持文字、图片和
+generic file（同 Session 的 `uploadFile` receipt；模型侧是 handle text，不是原生多模态文件）。
+Penglai 尚未把 Artifact 接到这条官方 receipt 路径，因此不宣称输入框能直接发普通
+DOCX/XLSX/PPTX/PDF。official 图片不变；IM 收到的文件或蓬莱办公选择的 Workspace 文件走
+artifact service，不做 DOM hack 或第二会话引擎。
 
 ### 5. IM 与语音
 

@@ -18,6 +18,7 @@ import {
   wizardResumeReady,
   wizardStepDeadEnd,
 } from "./installed-walk.js";
+import { PINNED_DSH } from "../../../packages/release-identity/src/pins.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -252,7 +253,9 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.match(workflow, /inputs\.mode == 'catalog'/);
   assert.match(
     workflow,
-    /npm-cohort:[\s\S]*?steps:[\s\S]*?fetch-depth: 0[\s\S]*?Check out immutable official DSH rc\.1 source/,
+    new RegExp(
+      `npm-cohort:[\\s\\S]*?steps:[\\s\\S]*?fetch-depth: 0[\\s\\S]*?Check out immutable official DSH ${PINNED_DSH.replaceAll(".", "\\.")} source`,
+    ),
   );
   const macosWorkflow = workflow.slice(workflow.indexOf("\n  macos:"), workflow.indexOf("\n  windows:"));
   const windowsWorkflow = workflow.slice(workflow.indexOf("\n  windows:"), workflow.indexOf("\n  aggregate:"));

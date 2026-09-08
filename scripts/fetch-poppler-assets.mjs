@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Fetch and assemble the pinned conda-forge Poppler pdftoppm helper. */
+/** Mnemon-style CLI alias for scripts/fetch-poppler.mjs. */
 
 import { main } from "./lib/poppler-fetch.mjs";
 

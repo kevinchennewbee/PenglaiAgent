@@ -1061,15 +1061,35 @@ export async function freePort(): Promise<number> {
 export function waitPort(port: number, timeoutMs: number): Promise<void> {
   const start = Date.now();
   return new Promise((resolveWait, reject) => {
+    let settled = false;
+    const sockets = new Set<ReturnType<typeof createConnection>>();
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      for (const sock of sockets) sock.destroy();
+      if (error) reject(error);
+      else resolveWait();
+    };
+    const timer = setTimeout(() => finish(new Error("timeout")), timeoutMs);
     const tryOnce = () => {
+      if (settled) return;
       const sock = createConnection({ host: "127.0.0.1", port });
+      sockets.add(sock);
+      sock.setTimeout(Math.max(1, timeoutMs - (Date.now() - start)));
       sock.once("connect", () => {
         sock.end();
-        resolveWait();
+        finish();
+      });
+      sock.once("timeout", () => {
+        sock.destroy();
+        finish(new Error("timeout"));
       });
       sock.once("error", () => {
         sock.destroy();
-        if (Date.now() - start > timeoutMs) reject(new Error("timeout"));
+        sockets.delete(sock);
+        if (settled) return;
+        if (Date.now() - start > timeoutMs) finish(new Error("timeout"));
         else setTimeout(tryOnce, 50);
       });
     };
@@ -1554,6 +1574,7 @@ export class EmbeddedDshSupervisor {
       ...(env.PENGLAI_PLUGINS_DIR ? { PENGLAI_PLUGINS_DIR: env.PENGLAI_PLUGINS_DIR } : {}),
       ...(env.PENGLAI_APP_ROOT ? { PENGLAI_APP_ROOT: env.PENGLAI_APP_ROOT } : {}),
       ...(env.PENGLAI_MNEMON_BINARY ? { PENGLAI_MNEMON_BINARY: env.PENGLAI_MNEMON_BINARY } : {}),
+      ...(env.PENGLAI_PDFTOPPM ? { PENGLAI_PDFTOPPM: env.PENGLAI_PDFTOPPM } : {}),
     };
     migrateUserSchema(user);
     killStaleSupervisor(this.layout, user);
@@ -1593,6 +1614,7 @@ export class EmbeddedDshSupervisor {
       ...(env.PENGLAI_MNEMON_BINARY
         ? { PENGLAI_MNEMON_BINARY: env.PENGLAI_MNEMON_BINARY }
         : {}),
+      ...(env.PENGLAI_PDFTOPPM ? { PENGLAI_PDFTOPPM: env.PENGLAI_PDFTOPPM } : {}),
     };
     const dshArgs = dshWebArgs(this.port);
     if (process.platform === "win32") {

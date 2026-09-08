@@ -8,7 +8,9 @@ import { observeFreshInstalledBoot } from "./installed-readiness.mjs";
 import { credentialFreeInstalledChecks, credentialFreeInstalledPass } from "./installed-boundary.mjs";
 import { PRODUCT_VERSION } from "./product.mjs";
 import {
+  assertProcessInspectorOk,
   isControlledWindowsInstallerFixture,
+  leftoversByCommand,
   removeTreeNoFollow,
   waitForBoundedChild,
   windowsFixtureRemovalObserved,
@@ -82,6 +84,19 @@ test("credential-free evidence never claims a nonce or first Turn", () => {
   assert.equal(Object.hasOwn(checks, "officialFirstTurn"), false);
 });
 
+test("process leftover inspectors fail closed instead of returning an empty tree", () => {
+  assert.throws(() => leftoversByCommand(""), /requires a process needle/);
+  assert.throws(
+    () => assertProcessInspectorOk({ error: Object.assign(new Error("timed out"), { code: "ETIMEDOUT" }) }, "ps"),
+    /failed: ETIMEDOUT/,
+  );
+  assert.throws(() => assertProcessInspectorOk({ status: 1, stderr: "denied" }, "ps"), /exited 1/);
+  assert.throws(() => assertProcessInspectorOk({ status: 0, signal: "SIGKILL", stdout: "" }, "ps"), /killed by SIGKILL/);
+  assert.equal(assertProcessInspectorOk({ status: 0, stdout: "1 1 /bin/ps\n" }, "ps"), "1 1 /bin/ps\n");
+  const self = leftoversByCommand(process.execPath);
+  assert.ok(self.length > 0);
+});
+
 test("bounded child wait times out and terminates the release subprocess", async () => {
   const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
   const result = await waitForBoundedChild(child, 100);
@@ -95,7 +110,7 @@ test("Windows fixture cleanup is limited to dedicated release-test roots", () =>
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent\\.tmp-installed-e2e-app", root), true);
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent\\.tmp\\u3-welcome-app", root), true);
   assert.equal(
-    isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent\\dist\\Penglai-v0.5.11-win32-x64\\Penglai", root),
+    isControlledWindowsInstallerFixture(`D:\\work\\PenglaiAgent\\dist\\Penglai-v${PRODUCT_VERSION}-win32-x64\\Penglai`, root),
     true,
   );
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent", root), false);

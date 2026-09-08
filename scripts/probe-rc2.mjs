@@ -49,7 +49,7 @@ const rec = {
   },
   feishu: {
     sdk: larkOk,
-    commit: "f54b49f3566c52b54c598194b7ed3015e3e24224",
+    commit: "af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513",
     event: "im.message.receive_v1",
     mode: "long_connection",
     deviceFlowIsBaseAuth: false,

@@ -15,6 +15,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
+import { PRODUCT_VERSION } from "./product.mjs";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { createWriteStream } from "node:fs";
@@ -125,7 +126,7 @@ export async function downloadHttps(
     try {
       response = await fetchImpl(current, {
         redirect: "manual",
-        headers: { "User-Agent": "Penglai/0.5.11 mnemon-fetch" },
+        headers: { "User-Agent": `Penglai/${PRODUCT_VERSION} mnemon-fetch` },
       });
     } catch (error) {
       if (attempt >= maxAttempts) throw error;

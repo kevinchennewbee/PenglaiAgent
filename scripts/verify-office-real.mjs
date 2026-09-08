@@ -1,11 +1,14 @@
-import { existsSync, mkdtempSync, writeFileSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ROOT } from "./lib/repo.mjs";
 import { EXIT_BY_VERDICT } from "./lib/exit-contract.mjs";
 import { beginEvidenceRun, finishEvidenceRun, recordCommand, recordArtifact, HOST_TARGET } from "./lib/evidence-dir.mjs";
+import { popplerAssetForHost } from "../packages/release-identity/src/poppler-assets.js";
+import { prepareRunnablePopplerHelper } from "./lib/package-poppler.mjs";
 import { createDocument, edit, inspect } from "../packages/office/src/service.ts";
+import { pdfRendererSpawnEnv } from "../packages/office/src/pdf-preview.ts";
 
 const run = beginEvidenceRun({ command: "verify:office-real", target: HOST_TARGET });
 function locate(name) {
@@ -17,9 +20,20 @@ const pdftotext = locate("pdftotext");
 const pdfinfo = locate("pdfinfo");
 const pdftoppm = locate("pdftoppm");
 const python = locate(process.platform === "win32" ? "python.exe" : "python3");
+const popplerAsset = popplerAssetForHost();
+const bundledPdftoppm = popplerAsset
+  ? join(ROOT, "third_party", "poppler", popplerAsset.target, popplerAsset.binaryFilename)
+  : "";
+const bundledRenderer = bundledPdftoppm && existsSync(bundledPdftoppm) ? bundledPdftoppm : "";
 for (const [name, found] of Object.entries({ unzip, pdftotext, pdfinfo, pdftoppm, python })) {
   recordCommand(run, { argv: ["locate", name], exitCode: found.status, stdout: found.stdout, stderr: found.stderr });
 }
+recordCommand(run, {
+  argv: ["locate", "bundled-pdftoppm", bundledPdftoppm || "(no host poppler pin)"],
+  exitCode: bundledRenderer ? 0 : 1,
+  stdout: bundledRenderer,
+  stderr: bundledRenderer ? "" : "pinned conda pdftoppm not assembled for this host",
+});
 
 const pkg = JSON.parse(readFileSync(join(ROOT, "packages/office/package.json"), "utf8"));
 if (/univerjs-pro|dsh-univer-office/.test(JSON.stringify(pkg))) {
@@ -95,6 +109,7 @@ for (const check of ooxmlChecks) {
 
 let poppler = "NOT_RUN";
 let pdfTextVerifier = "NOT_RUN";
+let pdfRasterSource = "none";
 if (pdfinfo.status === 0) {
   const infoBin = pdfinfo.stdout.trim();
   const info = spawnSync(infoBin, [paths.pdf], { encoding: "utf8" });
@@ -143,19 +158,53 @@ if (pdfinfo.status === 0) {
     console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason, dir: run.dir }));
     process.exit(EXIT_BY_VERDICT.INCOMPLETE);
   }
-  if (pdftoppm.status === 0) {
-    const renderBin = pdftoppm.stdout.trim();
-    const renderBase = join(dir, "pdf-render");
-    const render = spawnSync(renderBin, ["-f", "1", "-singlefile", "-png", "-r", "100", paths.pdf, renderBase], { encoding: "utf8" });
-    recordCommand(run, { argv: [renderBin, "render-page-1", paths.pdf], exitCode: render.status, stdout: render.stdout, stderr: render.stderr });
-    if (render.status !== 0 || !existsSync(`${renderBase}.png`)) {
-      const manifest = finishEvidenceRun(run, "FAIL", "pdftoppm did not render office PDF");
-      console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
-      process.exit(EXIT_BY_VERDICT.FAIL);
+  const pathRenderer = pdftoppm.status === 0 ? pdftoppm.stdout.trim().split(/\r?\n/)[0] : "";
+  let renderBin = "";
+  let renderCwd;
+  let renderEnv = {};
+  let rasterWork;
+  let rasterSource = "none";
+  if (bundledRenderer) {
+    rasterWork = mkdtempSync(join(tmpdir(), "penglai-office-real-poppler-"));
+    const runnable = prepareRunnablePopplerHelper(dirname(bundledRenderer), rasterWork);
+    renderBin = runnable.bin;
+    renderCwd = runnable.cwd;
+    renderEnv = runnable.env;
+    rasterSource = "bundled-conda-pdftoppm";
+  } else if (pathRenderer) {
+    renderBin = pathRenderer;
+    renderCwd = dirname(pathRenderer);
+    rasterSource = "host-path-pdftoppm";
+  }
+  try {
+    if (renderBin) {
+      const renderBase = join(dir, "pdf-render");
+      const render = spawnSync(renderBin, ["-f", "1", "-singlefile", "-png", "-r", "72", paths.pdf, renderBase], {
+        encoding: "utf8",
+        cwd: renderCwd,
+        env: {
+          ...pdfRendererSpawnEnv(renderCwd),
+          ...renderEnv,
+        },
+      });
+      recordCommand(run, {
+        argv: [renderBin, "render-page-1", paths.pdf, `rasterSource=${rasterSource}`],
+        exitCode: render.status,
+        stdout: render.stdout,
+        stderr: render.stderr,
+      });
+      if (render.status !== 0 || !existsSync(`${renderBase}.png`)) {
+        const manifest = finishEvidenceRun(run, "FAIL", "pdftoppm did not render office PDF", { rasterSource });
+        console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
+        process.exit(EXIT_BY_VERDICT.FAIL);
+      }
+      recordArtifact(run, `${renderBase}.png`, "image/png");
     }
-    recordArtifact(run, `${renderBase}.png`, "image/png");
+  } finally {
+    if (rasterWork) rmSync(rasterWork, { recursive: true, force: true });
   }
   poppler = "PASS";
+  pdfRasterSource = rasterSource;
 } else {
   const manifest = finishEvidenceRun(run, "INCOMPLETE", "Poppler pdfinfo missing; cannot independently verify PDF");
   console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason, dir: run.dir }));
@@ -165,6 +214,8 @@ if (pdfinfo.status === 0) {
 const manifest = finishEvidenceRun(run, "PASS", "system ZIP/OOXML and Poppler checks accepted office artifacts", {
   poppler,
   pdfTextVerifier,
+  pdfRasterSource,
+  packagedRaster: pdfRasterSource === "bundled-conda-pdftoppm",
   ooxmlVerifier: "system-unzip",
   fixtureOrigin: "penglai-office-engine",
 });

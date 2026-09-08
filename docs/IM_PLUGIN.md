@@ -167,7 +167,7 @@ NOT_CONFIGURED
 
 ### SDK
 
-- dependency pin：`@larksuiteoapi/node-sdk@1.73.0`。
+- dependency pin：`@larksuiteoapi/node-sdk@1.73.3`。
 - `Lark.Client({ appId, appSecret })` 做 API/send。
 - `Lark.EventDispatcher.register({ "im.message.receive_v1": handler })`。
 - `Lark.WSClient({ appId, appSecret }).start({ eventDispatcher })`（按 pinned SDK exact API 实证）。

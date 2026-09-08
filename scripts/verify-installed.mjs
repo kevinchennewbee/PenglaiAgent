@@ -147,7 +147,7 @@ const path = existsSync(join(evidenceDir, evidenceName("installed-e2e", target))
     ? join(evidenceDir, "installed-e2e.json")
     : join(evidenceDir, evidenceName("installed-e2e", target));
 if (!existsSync(path)) {
-  finish("INCOMPLETE", { command: "verify:installed", reason: `no 0.5.11 installed evidence for ${target}`, target });
+  finish("INCOMPLETE", { command: "verify:installed", reason: `no ${identity.PRODUCT_VERSION} installed evidence for ${target}`, target });
 }
 const rec = JSON.parse(readFileSync(path, "utf8"));
 const blob = JSON.stringify(rec);

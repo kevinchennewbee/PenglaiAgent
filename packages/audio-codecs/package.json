@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@penglai/contracts": "workspace:*",
-    "libopus-wasm": "0.2.0",
+    "libopus-wasm": "0.3.0",
     "silk-wasm": "3.7.1"
   }
 }

@@ -27,7 +27,7 @@ Downloads: until immutable `v0.5.12` readback, cards keep the published
 | Surface | Files | Bar |
 | --- | --- | --- |
 | README | `README.md` | GitHub Markdown; bilingual; download cards; FAQ; limits |
-| Site | `website/index.html`, `website/en/index.html`, `website/styles/main.css`, `website/scripts/site.js` | Desktop 1280 and mobile 390; motion; keyboard |
+| Site | `website/index.html` (English origin), `website/zh/index.html`, `website/en/index.html` (compat), `website/styles/main.css`, `website/scripts/site.js` | Desktop 1280 and mobile 390; motion; keyboard |
 | Wizard | `apps/desktop/static/wizard/*`, splash | Back/retry/error remain real |
 | DMG | packaging + `scripts/build-local-dmg.mjs` / `package-mac.mjs` | Drag to Applications, bilingual |
 | NSIS | `scripts/nsis/Penglai.nsi` + bitmaps | Must keep scoped stop, `/PURGE`, verified restore |

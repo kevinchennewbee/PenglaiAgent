@@ -105,8 +105,8 @@
 ### D-017 — 飞书固定 official SDK
 
 - 状态：ACCEPTED
-- 决定：固定 `@larksuiteoapi/node-sdk@1.73.0` 和官方 repo commit `f54b49f3566c52b54c598194b7ed3015e3e24224`；接收使用 `WSClient`/`EventDispatcher`，发送使用 `Client`。
-- 后果：事件先在 3 秒内持久入队，再异步调用 DSH；不引入 `openclaw-lark` runtime。
+- 决定：固定 `@larksuiteoapi/node-sdk@1.73.3` 和官方 repo commit `af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513`；接收使用 `WSClient`/`EventDispatcher`，发送使用 `Client`。0.5.12 从 1.73.0/`f54b49f` 升级：同一 1.73 线；1.73.3 把损坏的入站 WS 帧记错误日志，不再静默丢弃或变成未处理拒绝。npm `gitHead` 在 1.73.x 上是过期字段，不得当 pin。
+- 后果：事件先在 3 秒内持久入队，再异步调用 DSH；不引入 `openclaw-lark` runtime。Malformed WS 帧由 SDK 记录后保持连接；Penglai 仍用 `autoReconnect` 与 `close({ force: true })`。
 
 ### D-018 — `/新建` 与所有 Turn 都使用 official DSH
 
@@ -279,7 +279,7 @@
 ### D-046 — IM音频转换使用随包固定WASM闭包
 
 - 状态：ACCEPTED
-- 决定：微信入站使用`silk-wasm@3.7.1`；飞书双向使用`libopus-wasm@0.2.0`与Penglai受限Ogg容器实现。两者作为`@penglai/im`运行依赖随包携带、锁定integrity/license/runtime hash。
+- 决定：微信入站使用`silk-wasm@3.7.1`；飞书双向使用`libopus-wasm@0.3.0`与Penglai受限Ogg容器实现。两者作为`@penglai/im`运行依赖随包携带、锁定integrity/license/runtime hash。
 - 后果：安装包不依赖ffmpeg、Homebrew、PATH、Python、PowerShell、postinstall或首次联网；codec magic/checksum/时长/采样率/声道/大小与取消均fail closed。
 
 ### D-047 — 前置 pre-DSH 向导取代 DSH Web 内引导遮罩
@@ -351,8 +351,8 @@
 ### D-058 — 0.5.6 自动 Workspace 记忆、统一 Owner Broker 与 Artifact Service
 
 - 状态：ACCEPTED（Owner 2026-08-24 要求真实使用反馈必须落实到生产动作，而不是只修设置页）
-- 决定：fresh Memory 默认“智能整理 Workspace”。curator 必须是同一 official DSH 环境中的 no-tools Agent，Host 负责封闭格式、secret/敏感/注入风险校验；只允许自动保存 exact Workspace 的安全项目事实，personal/global/SOP 仍需 Owner。Office、Memory、IM、Plugin Center 和持久 Artifact 统一消费 Main Owner Broker，receipt 绑定 action/object/scope/digest/destination/revision，真实动作成功后才 complete。Office/IM 文档与音频使用 `artifact:<uuid>`；official DSH rc.2 没有 generic file Turn 时不做 DOM hack 或第二会话引擎。
-- 后果：记忆无需用户说“记住”才能产生当前项目记忆，但不能跨 Workspace 或自动变成个人记忆。renderer boolean/UUID 不是授权。相同字节跨 Workspace 仍是不同 binding。会话输入框只诚实声明 official text/image 能力；D-041 的 IM text+voice 限制被本决议取代，微信/飞书私聊图片走 official image store、文件走 Artifact Service，群聊/视频仍拒绝。
+- 决定：fresh Memory 默认“智能整理 Workspace”。curator 必须是同一 official DSH 环境中的 no-tools Agent，Host 负责封闭格式、secret/敏感/注入风险校验；只允许自动保存 exact Workspace 的安全项目事实，personal/global/SOP 仍需 Owner。Office、Memory、IM、Plugin Center 和持久 Artifact 统一消费 Main Owner Broker，receipt 绑定 action/object/scope/digest/destination/revision，真实动作成功后才 complete。Office/IM 文档与音频使用 `artifact:<uuid>`。official DSH `0.1.3-alpha.2` 已有 generic file Turn（`uploadFile` receipt + `PromptContentPart` `type: 'file'`）；仍禁止 DOM overlay、第二会话引擎、图片伪装或隐形 prompt。Penglai `bindComposerTurn` 尚未接到这条官方 receipt 路径，产品不得提前宣称会话输入框支持 DOCX/XLSX/PPTX/PDF。
+- 后果：记忆无需用户说“记住”才能产生当前项目记忆，但不能跨 Workspace 或自动变成个人记忆。renderer boolean/UUID 不是授权。相同字节跨 Workspace 仍是不同 binding。会话输入框当前诚实声明 official text/image，外加“官方 file receipt 已存在、Penglai 未接线”。微信/飞书私聊图片走 official image store、文件走 Artifact Service，群聊/视频仍拒绝。
 
 ### D-059 — 0.5.6 IM 可用性与公开发布授权
 

@@ -50,6 +50,8 @@ test("bundled Mnemon uses its actual Apache-2.0 license", () => {
   assert.equal(manifest.licenseSha256, MNEMON_UPSTREAM.licenseSha256);
   assert.equal(sbomSource.includes("Noto Sans SC variable font"), true);
   assert.equal(sbomSource.includes("Mnemon"), true);
+  assert.equal(sbomSource.includes("Poppler pdftoppm"), true);
+  assert.equal(noticesSource.includes("Poppler pdftoppm"), true);
   assert.equal(noticesSource.includes("Penglai Office"), true);
   assert.equal(noticesSource.includes("Penglai Memory"), true);
 });

@@ -3,14 +3,27 @@ import test from "node:test";
 import {
   classifyLicense,
   collectLockIntegrities,
+  declaredLicenseFromMetadata,
   integrityForPackage,
   normalizeRepository,
 } from "./license-inventory.mjs";
+
+test("declared license accepts a single deprecated licenses[].type", () => {
+  assert.equal(declaredLicenseFromMetadata({ license: "MIT" }), "MIT");
+  assert.equal(declaredLicenseFromMetadata({ licenses: [{ type: "MIT" }] }), "MIT");
+  assert.equal(declaredLicenseFromMetadata({ licenses: ["MIT"] }), "MIT");
+  assert.equal(
+    declaredLicenseFromMetadata({ licenses: [{ type: "MIT" }, { type: "ISC" }] }),
+    "NOASSERTION",
+  );
+  assert.equal(declaredLicenseFromMetadata({}), "NOASSERTION");
+});
 
 test("license policy rejects unknown and copyleft production dependencies", () => {
   assert.throws(() => classifyLicense("mystery", "Unknown"), /unknown license/);
   assert.throws(() => classifyLicense("libsignal", "GPL-3.0"), /unapproved copyleft/);
   assert.equal(classifyLicense("jszip", "(MIT OR GPL-3.0-or-later)").effectiveLicense, "MIT");
+  assert.equal(classifyLicense("fast-sha256", "Unlicense").effectiveLicense, "Unlicense");
   assert.equal(
     classifyLicense("@img/sharp-libvips-darwin-arm64", "LGPL-3.0-or-later", "1.3.2").disposition,
     "excluded-from-release",
@@ -43,5 +56,6 @@ test("lock integrity parser is LF/CRLF invariant and handles scoped peer keys", 
   assert.deepEqual(rows, collectLockIntegrities(lf.replaceAll("\n", "\r\n")));
   assert.equal(integrityForPackage(rows, "@scope/pkg", "1.2.3"), "sha512-scope");
   assert.equal(integrityForPackage(rows, "plain", "4.5.6"), "sha512-plain");
+  assert.equal(integrityForPackage(rows, "plain", "v4.5.6"), "sha512-plain");
   assert.equal(normalizeRepository("git+https://github.com/acme/pkg.git"), "https://github.com/acme/pkg");
 });

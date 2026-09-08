@@ -155,8 +155,8 @@ assertWebsitePublication({
   changedPaths,
   files: {
     readme: readFileSync(join(ROOT, "README.md"), "utf8"),
-    chinese: readFileSync(join(ROOT, "website/index.html"), "utf8"),
-    english: readFileSync(join(ROOT, "website/en/index.html"), "utf8"),
+    chinese: readFileSync(join(ROOT, "website/zh/index.html"), "utf8"),
+    english: readFileSync(join(ROOT, "website/index.html"), "utf8"),
   },
 });
 

@@ -8,7 +8,7 @@ import { inspectPdf } from "./adapters/pdf.js";
 
 export const PDF_PREVIEW_LIMITS = Object.freeze({
   maxPages: 8,
-  timeoutMs: 8_000,
+  timeoutMs: 20_000,
   maxInputBytes: 8 * 1024 * 1024,
   maxRasterBytes: 1_500_000,
   maxTotalRasterBytes: 6 * 1024 * 1024,
@@ -156,13 +156,73 @@ export function publicPdfPreview(preview: PdfPreview) {
   };
 }
 
+export function pdfRendererBinaryName(platform: NodeJS.Platform = process.platform): string {
+  return platform === "win32" ? "pdftoppm.exe" : "pdftoppm";
+}
+
 export function bundledPdfRendererPath(execPath = process.execPath): string {
-  return join(execPath, "..", "poppler", process.platform === "win32" ? "pdftoppm.exe" : "pdftoppm");
+  return join(execPath, "..", "poppler", pdfRendererBinaryName());
+}
+
+export function pdfRendererCandidates(
+  execPath = process.execPath,
+  options: { platform?: NodeJS.Platform; appRoot?: string; explicit?: string } = {},
+): string[] {
+  const platform = options.platform ?? process.platform;
+  const binary = pdfRendererBinaryName(platform);
+  const execDir = dirname(execPath);
+  const appRoot = options.appRoot ?? process.env.PENGLAI_APP_ROOT ?? "";
+  const explicit = options.explicit ?? process.env.PENGLAI_PDFTOPPM ?? "";
+  const candidates = [
+    ...(explicit ? [explicit] : []),
+    join(execDir, "poppler", binary),
+    join(execDir, binary),
+  ];
+  if (appRoot) {
+    candidates.push(join(appRoot, "poppler", binary));
+    candidates.push(join(appRoot, "..", "poppler", binary));
+    if (platform === "darwin") candidates.push(join(appRoot, "..", "MacOS", "poppler", binary));
+  }
+  return candidates;
 }
 
 export function locatePdfRenderer(execPath = process.execPath): string {
-  const bundled = bundledPdfRendererPath(execPath);
-  return existsSync(bundled) ? bundled : "";
+  return pdfRendererCandidates(execPath).find((path) => existsSync(path)) ?? "";
+}
+
+export function pdfRendererSpawnEnvForPlatform(
+  platform: NodeJS.Platform,
+  binDir: string,
+  sourceEnv: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const fonts = join(binDir, "fonts");
+  const env: NodeJS.ProcessEnv = {};
+  if (platform === "win32") {
+    const systemRoot = sourceEnv.SystemRoot || sourceEnv.WINDIR || "C:\\Windows";
+    env.PATH = `${join(systemRoot, "System32")};${systemRoot}`;
+    env.SystemRoot = systemRoot;
+    env.WINDIR = systemRoot;
+    env.ComSpec = sourceEnv.ComSpec || join(systemRoot, "System32", "cmd.exe");
+    env.PATHEXT = sourceEnv.PATHEXT || ".COM;.EXE;.BAT;.CMD";
+    env.USERPROFILE = sourceEnv.USERPROFILE;
+    env.TEMP = sourceEnv.TEMP;
+    env.TMP = sourceEnv.TMP;
+  } else {
+    env.HOME = sourceEnv.HOME;
+    env.PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
+    env.TMPDIR = sourceEnv.TMPDIR;
+    env.TEMP = sourceEnv.TEMP;
+    env.TMP = sourceEnv.TMP;
+    env.USERPROFILE = sourceEnv.USERPROFILE;
+    if (sourceEnv.LANG) env.LANG = sourceEnv.LANG;
+    if (sourceEnv.LC_ALL) env.LC_ALL = sourceEnv.LC_ALL;
+  }
+  if (existsSync(fonts)) env.FONTCONFIG_PATH = fonts;
+  return env;
+}
+
+export function pdfRendererSpawnEnv(binDir: string): NodeJS.ProcessEnv {
+  return pdfRendererSpawnEnvForPlatform(process.platform, binDir);
 }
 
 function renderPdfRasters(
@@ -185,19 +245,11 @@ function renderPdfRasters(
     const input = join(dir, "in.pdf");
     writeFileSync(input, bytes);
     const binDir = dirname(bin);
-    const fonts = join(binDir, "fonts");
     const rendered = spawnSync(bin, ["-png", "-r", String(PDF_PREVIEW_LIMITS.dpi), "-f", "1", "-l", String(maxPages), input, prefix], {
       encoding: "utf8",
       cwd: binDir,
       timeout: PDF_PREVIEW_LIMITS.timeoutMs,
-      env: {
-        HOME: process.env.HOME,
-        TMPDIR: process.env.TMPDIR,
-        TEMP: process.env.TEMP,
-        TMP: process.env.TMP,
-        USERPROFILE: process.env.USERPROFILE,
-        ...(existsSync(fonts) ? { FONTCONFIG_PATH: fonts } : {}),
-      },
+      env: pdfRendererSpawnEnv(binDir),
     });
     if (rendered.error && "code" in rendered.error && rendered.error.code === "ETIMEDOUT") {
       return { engine: "pdftoppm", status: "timeout", reason: "PDF raster timed out", pages: [] };

@@ -7,12 +7,27 @@ not linked into Electron or DSH.
 - Upstream: https://poppler.freedesktop.org/
 - Version: 26.09.0
 - License: GPL-2.0-only OR GPL-3.0-only (`COPYING` + `COPYING3` next to the binary)
-- Source tarball SHA-256: `8059eadb6805340768f138c465b57f8164c92b4a0773c37ef031ea6c0d987b2e`
-- poppler-data 0.4.12 SHA-256: `c835b640a40ce357e1b83666aabd95edffa24ddddd49b8daff63adb851cdab74`
+- Source tarball: `8059eadb6805340768f138c465b57f8164c92b4a0773c37ef031ea6c0d987b2e`
+- poppler-data 0.4.12: `c835b640a40ce357e1b83666aabd95edffa24ddddd49b8daff63adb851cdab74`
 - conda-forge feedstock commit: `13d784d77510e73d6066a75a79cd8e6040a6a261`
-- Pins: conda-forge osx-arm64, osx-64, and win-64 `poppler-26.09.0` (see `packages/release-identity/src/poppler-assets.js`)
-- Homebrew bottles and the poppler-windows zip are not pins
+- Targets: conda-forge osx-arm64, osx-64, and win-64 poppler 26.09.0
+- Homebrew bottles and poppler-windows zip archives are not pins
+- `.conda` pkg tarballs are decoded with Node's `zstdDecompressSync` (no Homebrew zstd)
+
+macOS published layout flattens `pdftoppm` and load-time dylibs next to each other,
+rewrites rpath to `@loader_path`, maps libc++/libz/libcurl/libsqlite3 to `/usr/lib`,
+and patches the compiled-in `POPPLER_DATADIR` slot to `share/poppler` slash-padded
+to the original 269-byte memcpy length (no interior NUL). Spawn must use
+`cwd = dirname(pdftoppm)` and `FONTCONFIG_PATH = <poppler>/fonts`.
+
+Windows published layout is a PE-walked DLL closure next to `pdftoppm.exe`, with
+poppler-data at `share/poppler` inside the helper dir (copy source). conda-forge
+`windows-data.patch` extra-strips one directory, so the running helper looks for
+`<payload>/share/poppler`. package-windows must copy that tree to the payload
+sibling and must copy Electron's `VCRUNTIME140*.dll` / `MSVCP140.dll` next to
+the helper. Darwin published Mach-Os are left unsigned so tree hashes are
+reproducible; package-mac/notarization re-signs.
 
 Packaged runtime looks next to `Penglai` / `Penglai.exe` at `poppler/pdftoppm[.exe]`.
-It never uses system PATH. Fetch writes per-target `manifest.json` after extract.
-A host `pdftoppm` next to this tree is not three-target native evidence.
+It never uses system PATH. Published tree hashes are recorded after extract in each
+target `manifest.json`.

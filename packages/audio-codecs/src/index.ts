@@ -14,7 +14,7 @@ import {
 } from "silk-wasm";
 
 export const PINNED_SILK_WASM = "3.7.1";
-export const PINNED_LIBOPUS_WASM = "0.2.0";
+export const PINNED_LIBOPUS_WASM = "0.3.0";
 export const PINNED_LIBOPUS = "1.6.1";
 export const WEIXIN_SILK_SAMPLE_RATE = 24_000;
 export const FEISHU_OPUS_SAMPLE_RATE = 16_000;

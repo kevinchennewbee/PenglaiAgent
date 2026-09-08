@@ -1,5 +1,6 @@
 export const PINNED_LARK_SDK = "1.73.3";
-export const PINNED_LARK_COMMIT = "f54b49f3566c52b54c598194b7ed3015e3e24224";
+/** GitHub commit that bumped package.json to 1.73.3. npm gitHead on 1.73.x is stale. */
+export const PINNED_LARK_COMMIT = "af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513";
 export const FEISHU_RECEIVE_EVENT = "im.message.receive_v1";
 export const FEISHU_MIN_SCOPES = ["im:message.p2p_msg:readonly", "im:message:send_as_bot"] as const;
 export const FEISHU_MESSAGE_RESOURCE_API =

@@ -22,6 +22,8 @@ function liveOffice(userData: string) {
   return createOfficeService({ userData, owner });
 }
 
+const SCOPE = { workspaceId: "ws-a", sessionId: "sess-1" } as const;
+
 test("R55-OFFICE-001 DOCX inspect", async () => {
   const created = await createDocument("docx", "hello docx");
   assert.equal((await inspect(created.bytes)).format, "docx");
@@ -40,8 +42,8 @@ test("R55-OFFICE-003 DOCX partial edit", async () => {
 
 test("R55-OFFICE-004 DOCX verify", async () => {
   const svc = createOfficeService();
-  const created = await svc.create("docx", "verify-docx");
-  const report = await svc.verify(created.id);
+  const created = await svc.create("docx", "verify-docx", SCOPE);
+  const report = await svc.verify(created.id, SCOPE);
   assert.equal(report.ok, true);
 });
 
@@ -64,8 +66,8 @@ test("R55-OFFICE-007 XLSX partial edit", async () => {
 
 test("R55-OFFICE-008 XLSX verify", async () => {
   const svc = createOfficeService();
-  const created = await svc.create("xlsx", "verify-xlsx");
-  const report = await svc.verify(created.id);
+  const created = await svc.create("xlsx", "verify-xlsx", SCOPE);
+  const report = await svc.verify(created.id, SCOPE);
   assert.equal(report.ok, true);
 });
 
@@ -87,8 +89,8 @@ test("R55-OFFICE-011 PPTX partial edit", async () => {
 
 test("R55-OFFICE-012 PPTX verify", async () => {
   const svc = createOfficeService();
-  const created = await svc.create("pptx", "verify-pptx");
-  const report = await svc.verify(created.id);
+  const created = await svc.create("pptx", "verify-pptx", SCOPE);
+  const report = await svc.verify(created.id, SCOPE);
   assert.equal(report.ok, true);
 });
 
@@ -110,8 +112,8 @@ test("R55-OFFICE-015 PDF watermark embeds CJK with OFL font", async () => {
 
 test("R55-OFFICE-016 PDF verify", async () => {
   const svc = createOfficeService();
-  const created = await svc.create("pdf", "verify-pdf");
-  const report = await svc.verify(created.id);
+  const created = await svc.create("pdf", "verify-pdf", SCOPE);
+  const report = await svc.verify(created.id, SCOPE);
   assert.equal(report.ok, true);
 });
 
@@ -129,13 +131,13 @@ test("R55-OFFICE-018 workspace isolation", async () => {
 test("R55-OFFICE-019 TOCTOU reject", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-office-toctou-"));
   const svc = liveOffice(join(dir, "user-data"));
-  const created = await svc.create("docx", "toctou");
+  const created = await svc.create("docx", "toctou", SCOPE);
   const first = digestOf(created.bytes);
-  const edited = await svc.edit(created.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "changed" });
+  const edited = await svc.edit(created.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "changed" }, SCOPE);
   assert.notEqual(digestOf(edited.bytes), first);
-  const receipt = await svc.approve(edited.id);
-  assert.throws(() => svc.commit(edited.id, "owner-1"), /broker receipt/);
-  assert.ok(svc.commit(edited.id, receipt).length > 0);
+  const receipt = await svc.approve(edited.id, "commit", "", SCOPE);
+  assert.throws(() => svc.commit(edited.id, "owner-1", SCOPE), /broker receipt/);
+  assert.ok(svc.commit(edited.id, receipt, SCOPE).length > 0);
 });
 
 test("R55-OFFICE-020 malicious documents fail closed", async () => {
@@ -154,13 +156,13 @@ test("R55-OFFICE-021 templates and OFL fonts only", () => {
 test("R55-OFFICE-022 preview then Main broker owner approval", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-office-hmac-"));
   const svc = liveOffice(join(dir, "user-data"));
-  const created = await svc.create("docx", "preview-me");
-  const preview = await svc.preview(created.id);
+  const created = await svc.create("docx", "preview-me", SCOPE);
+  const preview = await svc.preview(created.id, SCOPE);
   assert.equal(preview[0]?.kind, "inventory");
   assert.throws(() => svc.commit(created.id), /receipt/);
-  assert.throws(() => svc.commit(created.id, "owner-1"), /broker receipt/);
-  const receipt = await svc.approve(created.id);
-  const bytes = svc.commit(created.id, receipt);
+  assert.throws(() => svc.commit(created.id, "owner-1", SCOPE), /broker receipt/);
+  const receipt = await svc.approve(created.id, "commit", "", SCOPE);
+  const bytes = svc.commit(created.id, receipt, SCOPE);
   assert.ok(bytes.length > 0);
 });
 
@@ -168,29 +170,29 @@ test("R55-OFFICE-023 atomic commit/undo", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-office-tx-"));
   const svc = liveOffice(join(dir, "user-data"));
   const dest = join(dir, "note.docx");
-  const created = await svc.create("docx", "original-docx");
+  const created = await svc.create("docx", "original-docx", SCOPE);
   writeFileSync(dest, created.bytes);
-  const edited = await svc.edit(created.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "revised-docx" });
-  const receipt = await svc.approve(edited.id, "commit-to-path", dest);
-  const wrongAction = await svc.approve(edited.id, "commit");
-  assert.throws(() => svc.commitToPath(edited.id, wrongAction, dest, dir), /intent mismatch|broker/);
-  svc.commitToPath(edited.id, receipt, dest, dir);
+  const edited = await svc.edit(created.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "revised-docx" }, SCOPE);
+  const receipt = await svc.approve(edited.id, "commit-to-path", dest, SCOPE);
+  const wrongAction = await svc.approve(edited.id, "commit", "", SCOPE);
+  assert.throws(() => svc.commitToPath(edited.id, wrongAction, dest, dir, SCOPE), /intent mismatch|broker/);
+  svc.commitToPath(edited.id, receipt, dest, dir, SCOPE);
   assert.match(readFileSync(dest).toString("utf8") === "" ? "x" : (await inspect(readFileSync(dest))).text, /revised-docx/);
-  const undoReceipt = await svc.approve(edited.id, "undo");
-  svc.undo(edited.id, undoReceipt);
+  const undoReceipt = await svc.approve(edited.id, "undo", "", SCOPE);
+  svc.undo(edited.id, undoReceipt, SCOPE);
   assert.match((await inspect(readFileSync(dest))).text, /original-docx/);
-  const disposable = await svc.create("docx", "discard-me");
-  const discardReceipt = await svc.approve(disposable.id, "discard");
-  await svc.discard(disposable.id, discardReceipt);
-  await assert.rejects(() => svc.preview(disposable.id), /not found/);
+  const disposable = await svc.create("docx", "discard-me", SCOPE);
+  const discardReceipt = await svc.approve(disposable.id, "discard", "", SCOPE);
+  await svc.discard(disposable.id, discardReceipt, SCOPE);
+  await assert.rejects(() => svc.preview(disposable.id, SCOPE), /not found/);
 });
 
 test("R55-OFFICE-024 IM file return path", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-office-export-"));
   const svc = liveOffice(join(dir, "user-data"));
-  const created = await svc.create("docx", "im-return");
-  const receipt = await svc.approve(created.id, "export", "docx");
-  const exported = await svc.export(created.id, "docx", receipt);
+  const created = await svc.create("docx", "im-return", SCOPE);
+  const receipt = await svc.approve(created.id, "export", "docx", SCOPE);
+  const exported = await svc.export(created.id, "docx", receipt, SCOPE);
   assert.match(exported.filename, /\.docx$/);
   assert.equal(exported.digest, createHash("sha256").update(exported.bytes).digest("hex"));
 });

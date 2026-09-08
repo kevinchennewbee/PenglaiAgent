@@ -375,8 +375,8 @@ importers:
         specifier: workspace:*
         version: link:../contracts
       libopus-wasm:
-        specifier: 0.2.0
-        version: 0.2.0
+        specifier: 0.3.0
+        version: 0.3.0
       silk-wasm:
         specifier: 3.7.1
         version: 3.7.1
@@ -405,8 +405,8 @@ importers:
         specifier: workspace:*
         version: link:../contracts
       dingtalk-stream:
-        specifier: 2.1.4
-        version: 2.1.4
+        specifier: 2.1.5
+        version: 2.1.5
       qrcode:
         specifier: 1.5.4
         version: 1.5.4
@@ -4311,8 +4311,8 @@ packages:
   dijkstrajs@1.0.3:
     resolution: {integrity: sha512-qiSlmBq9+BCdCA/L46dw8Uy93mloxsPSbwnm5yrKn2vMPiy8KyAskTF6zuV/j5BMsmOGZDPs7KjU+mjb670kfA==}
 
-  dingtalk-stream@2.1.4:
-    resolution: {integrity: sha512-rgQbXLGWfASuB9onFcqXTnRSj4ZotimhBOnzrB4kS19AaU9lshXiuofs1GAYcKh5uzPWCAuEs3tMtiadTQWP4A==}
+  dingtalk-stream@2.1.5:
+    resolution: {integrity: sha512-6H3tSc/mE6hMj4RBB5ntkI4ycC498RobmtMxfLS8eBTRPjBZlhUdDYEHA0asOoTLSzC2PHqupr4D4HVoaU7bRQ==}
 
   docx@9.7.1:
     resolution: {integrity: sha512-ilXFf9Moz47ABjFpDiA5s1w9lpb4EFSp7+5iiJSbfyYDM+bpZdAgLlSr7fW4aXhVe/E+F6QCv0EvRVFEd5CsWg==}
@@ -4763,9 +4763,9 @@ packages:
       typescript:
         optional: true
 
-  libopus-wasm@0.2.0:
-    resolution: {integrity: sha512-x/2Gu1/C6L3IICY09zyfp984AWiOYjn53u4WfdY3yh+3KTzMN8Xkm77q3lenWMVIk5SnSzjGEkQT+VQMFHLBHQ==}
-    engines: {node: '>=20'}
+  libopus-wasm@0.3.0:
+    resolution: {integrity: sha512-2+woONr9rwcSj6HMQDC+cEdCb/WRBDwqHXEc42hhFLRB/jEumgl90ku09Blk6zb0Wd3Sewvk6KJEGhBg3IjApQ==}
+    engines: {node: '>=22'}
 
   lie@3.3.0:
     resolution: {integrity: sha512-UaiMJzeWRlEujzAuw5LokY1L5ecNQYZKfmyZ9L7wDHb/p5etKaxXhohBcrw0EYby+G/NA52vRSN4N39dxHAIwQ==}
@@ -9647,7 +9647,7 @@ snapshots:
 
   dijkstrajs@1.0.3: {}
 
-  dingtalk-stream@2.1.4:
+  dingtalk-stream@2.1.5:
     dependencies:
       axios: 1.20.0(debug@4.4.3)
       debug: 4.4.3
@@ -10219,7 +10219,7 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.2
 
-  libopus-wasm@0.2.0: {}
+  libopus-wasm@0.3.0: {}
 
   lie@3.3.0:
     dependencies:

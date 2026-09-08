@@ -7,6 +7,8 @@ import { ArtifactService } from "@penglai/artifacts";
 import { OwnerApprovalBroker } from "@penglai/runtime";
 import { apply, createOfficeService } from "./index.js";
 
+const SCOPE = { workspaceId: "ws-a", sessionId: "sess-1" } as const;
+
 test("office production apply wires broker and artifacts and refuses HMAC self-receipts", async () => {
   const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
     dependencies: Record<string, string>;
@@ -36,8 +38,8 @@ test("office production apply wires broker and artifacts and refuses HMAC self-r
       workspaceRegistry: { list: () => [{ id: "ws-a", path: root, sessionIds: ["sess-1"] }] },
       tools: { register() { return undefined; } },
     });
-    const created = await svc.create("docx", "broker-required");
-    assert.throws(() => svc.commit(created.id, "owner-1"), /broker receipt|broker is not configured/);
+    const created = await svc.create("docx", "broker-required", SCOPE);
+    assert.throws(() => svc.commit(created.id, "owner-1", SCOPE), /broker receipt|broker is not configured/);
     assert.equal(provided.length >= 1, true);
   } finally {
     if (previous === undefined) delete process.env.PENGLAI_USER_DATA;
@@ -50,18 +52,18 @@ test("office commit consumes a Main broker receipt once and deny has no write", 
   const userData = join(root, "user-data");
   const denied = new OwnerApprovalBroker(userData, { dialog: async () => "denied" });
   const closed = createOfficeService({ userData, owner: denied });
-  const created = await closed.create("docx", "must-not-write");
-  await closed.preview(created.id);
-  await assert.rejects(() => closed.approve(created.id, "commit"), /denied/);
-  assert.throws(() => closed.commit(created.id, "aaaa.bbbb"), /broker receipt/);
+  const created = await closed.create("docx", "must-not-write", SCOPE);
+  await closed.preview(created.id, SCOPE);
+  await assert.rejects(() => closed.approve(created.id, "commit", "", SCOPE), /denied/);
+  assert.throws(() => closed.commit(created.id, "aaaa.bbbb", SCOPE), /broker receipt/);
 
   const owner = new OwnerApprovalBroker(userData, { dialog: async () => "approved" });
   const svc = createOfficeService({ userData, owner });
-  const job = await svc.create("docx", "broker-write");
-  await svc.preview(job.id);
-  const receipt = await svc.approve(job.id, "commit");
-  assert.ok(svc.commit(job.id, receipt).length > 0);
-  assert.throws(() => svc.commit(job.id, receipt), /REPLAY|STATE|broker/);
+  const job = await svc.create("docx", "broker-write", SCOPE);
+  await svc.preview(job.id, SCOPE);
+  const receipt = await svc.approve(job.id, "commit", "", SCOPE);
+  assert.ok(svc.commit(job.id, receipt, SCOPE).length > 0);
+  assert.throws(() => svc.commit(job.id, receipt, SCOPE), /REPLAY|STATE|broker/);
 });
 
 test("office workspace intake stores an ArtifactRef and refuses cross-workspace reads", async () => {

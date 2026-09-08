@@ -102,6 +102,7 @@ export class DshSupervisor {
     if (process.env.PENGLAI_PLUGINS_DIR) extra.PENGLAI_PLUGINS_DIR = process.env.PENGLAI_PLUGINS_DIR;
     if (process.env.PENGLAI_APP_ROOT) extra.PENGLAI_APP_ROOT = process.env.PENGLAI_APP_ROOT;
     if (process.env.PENGLAI_MNEMON_BINARY) extra.PENGLAI_MNEMON_BINARY = process.env.PENGLAI_MNEMON_BINARY;
+    if (process.env.PENGLAI_PDFTOPPM) extra.PENGLAI_PDFTOPPM = process.env.PENGLAI_PDFTOPPM;
     return this.inner.start(user, extra);
   }
 

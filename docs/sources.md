@@ -54,8 +54,8 @@ Penglai 只复用/对照协议行为与许可归属，不引入 OpenClaw runtime
 ## 3. 飞书/Lark
 
 - official Node SDK：[larksuite/node-sdk](https://github.com/larksuite/node-sdk)
-- 核对 commit：`f54b49f3566c52b54c598194b7ed3015e3e24224`。
-- npm：`@larksuiteoapi/node-sdk@1.73.0`，MIT。
+- 核对 commit：`af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513`（1.73.3: WS inbound frame errors are logged instead of dropped; fragment metadata fails closed. npm `gitHead` on the 1.73.x line is stale and is not this pin）。
+- npm：`@larksuiteoapi/node-sdk@1.73.3`，MIT。
 - official app type：[应用类型介绍](https://open.feishu.cn/document/home/app-types-introduction/overview)
 - official bot setup：[使用长连接构建机器人](https://open.feishu.cn/document/develop-an-echo-bot/faq?lang=zh-CN)
 
@@ -95,7 +95,7 @@ Forge是Electron官方教程推荐的统一打包方向，但具体DMG/Windows m
 - CPU graph runtime：`onnxruntime-node@1.23.2`，integrity `sha512-OBTsG0W8ddBVOeVVVychpVBS87A9YV5sa2hJ6lc025T97Le+J4v++PwSC4XFs1C62SWyNdof0Mh4KvnZgtt4aw==`。这是 npm 最后一个同时携带 macOS arm64、macOS x64 与 Windows x64 N-API v6 二进制的冻结版本；三端插件打包门禁会逐一验证目标文件格式。
 - tokenizer runtime：`sentencepiece-js@1.1.0`，integrity `sha512-HN6teKCRO9tz37zbaNI3i+vMZ/JRWDt6kmZ7OVpzQv1jZHyYNmf5tE7CFpIYN86+y9TLB0cuscMdA3OHhT/MhQ==`。
 - Weixin SILK runtime：[`silk-wasm@3.7.1`](https://github.com/idranme/silk-wasm)，MIT，integrity `sha512-mXPwLRtZxrYV3TZx41jMAeKc80wvmyrcXIcs8HctFxK15Ahz2OJQENYhNgEPeCEOdI6Mbx1NxQsqxzwc3DKerw==`，独立 WASM 随 IM plugin 闭包。
-- Feishu Opus runtime：[`libopus-wasm@0.2.0`](https://github.com/openclaw/libopus-wasm/tree/55fe0b6faf9043518b7e1a7ea32e74659ecfbae7)，MIT，commit `55fe0b6faf9043518b7e1a7ea32e74659ecfbae7`，integrity `sha512-x/2Gu1/C6L3IICY09zyfp984AWiOYjn53u4WfdY3yh+3KTzMN8Xkm77q3lenWMVIk5SnSzjGEkQT+VQMFHLBHQ==`，libopus 1.6.1 WASM 内嵌且无安装脚本。
+- Feishu Opus runtime：[`libopus-wasm@0.3.0`](https://github.com/openclaw/libopus-wasm/tree/bd37b907c636705d59cc2b836e6912e317a65a47)，MIT，commit `bd37b907c636705d59cc2b836e6912e317a65a47`，integrity `sha512-2+woONr9rwcSj6HMQDC+cEdCb/WRBDwqHXEc42hhFLRB/jEumgl90ku09Blk6zb0Wd3Sewvk6KJEGhBg3IjApQ==`，libopus 1.6.1 WASM 内嵌且无安装脚本。0.3.0 keeps the public `createEncoder`/`createDecoder` API and rejects WASM packet-buffer wrap.
 - 权重仅在用户明确操作后按需下载；runtime/target-native binary/NOTICE 随安装包，禁止 postinstall 或首次启动联网补二进制。
 
 ## 5. PenglaiAgent 0.4.1 发行参考

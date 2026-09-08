@@ -92,6 +92,7 @@ function validInput(): WebsitePublicationInput {
       "packages/release-identity/src/website-publication.ts",
       "scripts/readback-website.mjs",
       "website/index.html",
+      "website/zh/index.html",
       "website/en/index.html",
       "website/styles/main.css",
     ],
@@ -138,6 +139,7 @@ test("website publication permits only the post-readback narrative delta", () =>
     `docs/PUBLICATION_MANIFEST_${PRODUCT_VERSION}.md`,
     `docs/RELEASE_NOTES_${PRODUCT_VERSION}.md`,
     "website/index.html",
+    "website/zh/index.html",
     "website/en/index.html",
   ];
   assert.doesNotThrow(() =>
@@ -147,9 +149,9 @@ test("website publication permits only the post-readback narrative delta", () =>
     () => assertPublicationOnlyChanges([...required, "apps/desktop/src/index.ts"]),
     /non-publication changes/,
   );
-  assert.throws(() => assertPublicationOnlyChanges(["website/index.html", "website/en/index.html"]), /README\.md/);
+  assert.throws(() => assertPublicationOnlyChanges(["website/index.html", "website/zh/index.html", "website/en/index.html"]), /README\.md/);
   assert.throws(
-    () => assertPublicationOnlyChanges(["README.md", "website/index.html", "website/en/index.html", `docs/RELEASE_NOTES_${PRODUCT_VERSION}.md`]),
+    () => assertPublicationOnlyChanges(["README.md", "website/index.html", "website/zh/index.html", "website/en/index.html", `docs/RELEASE_NOTES_${PRODUCT_VERSION}.md`]),
     new RegExp(`PUBLICATION_MANIFEST_${PRODUCT_VERSION.replaceAll(".", "\\.")}`),
   );
   assert.throws(

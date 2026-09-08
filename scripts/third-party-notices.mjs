@@ -7,6 +7,7 @@ import {
   MOSS_TTS_REVISION,
 } from "../packages/moss-tts/src/models.ts";
 import { MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
+import { POPPLER_ASSETS, POPPLER_UPSTREAM } from "../packages/release-identity/src/poppler-assets.js";
 
 const rootPackage = JSON.parse(readFileSync("package.json", "utf8"));
 const release = JSON.parse(readFileSync("release-contract.json", "utf8"));
@@ -66,7 +67,7 @@ Messaging protocol and SDK references
   iLink HTTP/JSON subset and does not vendor the OpenClaw plugin runtime:
   https://github.com/Tencent/openclaw-weixin
 - Lark Node SDK ${dependency(feishu, "@larksuiteoapi/node-sdk")} - MIT; commit
-  f54b49f3566c52b54c598194b7ed3015e3e24224:
+  af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513:
   https://github.com/larksuite/node-sdk
 Penglai Office
 --------------
@@ -80,11 +81,18 @@ Penglai Office
   https://github.com/liustack/pptfast
   Penglai bundles a deterministic Node runtime generated from that exact
   package, plus the license text for every npm package included in the bundle.
-  Image probing is deliberately unavailable in 0.5.11: PPTX creation is text
+  Image probing is deliberately unavailable in ${rootPackage.version}: PPTX creation is text
   only, so vulnerable optional image-size and Sharp paths are not shipped.
 - pdf-lib ${dependency(office, "pdf-lib")} and @pdf-lib/fontkit
   ${dependency(office, "@pdf-lib/fontkit")} - MIT:
   https://github.com/Hopding/pdf-lib
+- Poppler pdftoppm ${POPPLER_UPSTREAM.version} - ${POPPLER_UPSTREAM.license};
+  mere aggregation of a spawned helper, not linked into Electron or DSH.
+  Source ${POPPLER_UPSTREAM.sourceUrl} SHA-256 ${POPPLER_UPSTREAM.sourceSha256}.
+  conda-forge feedstock ${POPPLER_UPSTREAM.feedstockCommit}. Three target
+  trees: ${POPPLER_ASSETS.map((asset) => asset.target).join(", ")}.
+  poppler-data ${POPPLER_UPSTREAM.popplerData.version} is BSD-3-Clause AND
+  (${POPPLER_UPSTREAM.license}). COPYING files travel in third_party/poppler.
 - Noto Sans SC variable font - OFL-1.1; commit ${font.upstreamCommit}; bundled
   unmodified SHA-256 ${font.bundledSha256}. The font, OFL text, and attribution
   notice are inside the Office plugin:
@@ -101,7 +109,7 @@ Penglai Memory
 Local speech recognition
 ------------------------
 
-- sherpa-onnx 1.13.5 - Apache-2.0:
+- sherpa-onnx 1.13.7 - Apache-2.0:
   https://github.com/k2-fsa/sherpa-onnx
 - SenseVoiceSmall int8 weights - FunASR Model Open Source License Agreement
   1.1; revision ${SENSEVOICE_REVISION}. Attribution: SenseVoiceSmall by
@@ -131,14 +139,14 @@ Audio codecs
 ------------
 
 - silk-wasm 3.7.1 - MIT: https://github.com/idranme/silk-wasm
-- libopus-wasm 0.2.0 - MIT; upstream commit
-  55fe0b6faf9043518b7e1a7ea32e74659ecfbae7. Upstream libopus notices remain
+- libopus-wasm 0.3.0 - MIT; upstream commit
+  bd37b907c636705d59cc2b836e6912e317a65a47. Upstream libopus notices remain
   inside the Mobile Messaging plugin: https://github.com/openclaw/libopus-wasm
 
 Plugin Center transition
 ------------------------
 
-Penglai Office and Penglai Memory are first-party bundled plugins in 0.5.11.
+Penglai Office and Penglai Memory are first-party bundled plugins in ${rootPackage.version}.
 The former remote @penglai/office-reader package is not part of this desktop
 Release. Historical immutable catalog Releases remain available for audit;
 catalog 000006 revokes that obsolete exact artifact after 0.5.5 is public.

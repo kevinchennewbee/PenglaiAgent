@@ -253,7 +253,7 @@ export class ArtifactService {
   }
 
   bindComposerTurn(): never {
-    throw new PenglaiError("DSH_CONTRACT_DRIFT", "DSH_NO_GENERIC_FILE_TURN_API");
+    throw new PenglaiError("DSH_CONTRACT_DRIFT", "PENGLAI_COMPOSER_FILE_RECEIPT_UNWIRED");
   }
 
   deleteWorkspace(workspaceId: string): { removed: number; casRemoved: number } {

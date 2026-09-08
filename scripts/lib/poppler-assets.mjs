@@ -1,6 +1,7 @@
 export {
   POPPLER_ASSETS,
   POPPLER_UPSTREAM,
+  popplerAllCondaPackages,
   popplerAssetForHost,
   popplerAssetForTarget,
   popplerDirName,

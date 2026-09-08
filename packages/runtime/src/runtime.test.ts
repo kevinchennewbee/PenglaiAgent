@@ -45,6 +45,7 @@ import {
   profilePluginEnabled,
   runtimePluginTarget,
   verifyRuntimeManifest,
+  waitPort,
   windowsOwnedProcessEnvironment,
 } from "./index.js";
 import { writeTestTarGz } from "../../../scripts/lib/test-tar-fixture.mjs";
@@ -665,6 +666,7 @@ test("fresh catalog and profile keep every optional Penglai plugin disabled", ()
     true,
   );
   const patch = readFileSync(new URL("../../../profile-seed/web/cordis.patch.yml", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  assert.match(patch, /id: session-persistence-jsonl[\s\S]*compression: none/);
   for (const entry of optional) {
     const short = entry.id.replace("@penglai/", "penglai-");
     assert.match(
@@ -846,12 +848,25 @@ test("Center preboot heals the last-good promotion crash window", () => {
   assert.equal(existsSync(join(txDir, "last-good")), true);
 });
 
+test("waitPort has a wall-clock timeout and resolves when a local port accepts", async () => {
+  const started = Date.now();
+  await assert.rejects(() => waitPort(1, 250), /timeout/);
+  assert.ok(Date.now() - started < 2_000);
+  const server = createServer();
+  await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
+  const addr = server.address();
+  assert.ok(addr && typeof addr !== "string");
+  await waitPort(addr.port, 1_000);
+  await new Promise((resolveClose) => server.close(resolveClose));
+});
+
 test("owned DSH spawn pins cwd to DSH_HOME so repo .env cannot be a secret layer", () => {
   const src = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
   assert.match(src, /cwd:\s*user\.dshHome/);
   assert.match(src, /DSH_HOME:\s*user\.dshHome/);
   assert.match(src, /PENGLAI_APP_ROOT:\s*env\.PENGLAI_APP_ROOT/);
   assert.match(src, /PENGLAI_MNEMON_BINARY:\s*env\.PENGLAI_MNEMON_BINARY/);
+  assert.match(src, /PENGLAI_PDFTOPPM:\s*env\.PENGLAI_PDFTOPPM/);
   assert.match(src, /DSH_TELEMETRY_DISABLED:\s*"1"/);
   assert.doesNotMatch(src, /DSH_TELEMETRY_MODE/);
   assert.doesNotMatch(src, /DSH_TELEMETRY_OTLP_URL/);

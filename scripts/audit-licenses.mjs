@@ -5,10 +5,12 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { buildDshLocalDependencyMap } from "./lib/dsh-local-dependency-map.mjs";
 import { MNEMON_ASSETS, MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
+import { POPPLER_ASSETS, POPPLER_UPSTREAM } from "../packages/release-identity/src/poppler-assets.js";
 import { resolvePackageMetadata } from "./lib/package-metadata.mjs";
 import {
   classifyLicense,
   collectLockIntegrities,
+  declaredLicenseFromMetadata,
   integrityForPackage,
   normalizeRepository,
 } from "./lib/license-inventory.mjs";
@@ -31,7 +33,9 @@ const MOSS_CODEC_REVISION = "ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae";
 const MOSS_RUNTIME_COMMIT = "c3b2333b88e0f062ca49d403540a169609354d93";
 const MOSS_UPSTREAM_LICENSE_SHA256 = "1dc6904a1959e039b44569c6a726a611f75287051284de1b6cc0dc7712b14d11";
 const SILK_INTEGRITY = "sha512-mXPwLRtZxrYV3TZx41jMAeKc80wvmyrcXIcs8HctFxK15Ahz2OJQENYhNgEPeCEOdI6Mbx1NxQsqxzwc3DKerw==";
-const LIBOPUS_INTEGRITY = "sha512-x/2Gu1/C6L3IICY09zyfp984AWiOYjn53u4WfdY3yh+3KTzMN8Xkm77q3lenWMVIk5SnSzjGEkQT+VQMFHLBHQ==";
+const LIBOPUS_INTEGRITY = "sha512-2+woONr9rwcSj6HMQDC+cEdCb/WRBDwqHXEc42hhFLRB/jEumgl90ku09Blk6zb0Wd3Sewvk6KJEGhBg3IjApQ==";
+const DINGTALK_STREAM_INTEGRITY =
+  "sha512-6H3tSc/mE6hMj4RBB5ntkI4ycC498RobmtMxfLS8eBTRPjBZlhUdDYEHA0asOoTLSzC2PHqupr4D4HVoaU7bRQ==";
 const NOTO_CJK_SHA256 = "d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964";
 const NOTO_OFL_SHA256 = "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2";
 const SHARP_LEGAL_FILES = Object.freeze([
@@ -71,7 +75,7 @@ const licenses = [
     name: "@larksuiteoapi/node-sdk",
     license: "MIT",
     pin: "1.73.3",
-    commit: "f54b49f3566c52b54c598194b7ed3015e3e24224",
+    commit: "af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513",
     bundledInInstaller: true,
   },
   { name: "docx", license: "MIT", pin: "9.7.1", bundledInInstaller: true },
@@ -102,9 +106,30 @@ const licenses = [
     })),
   },
   {
+    name: "Poppler pdftoppm",
+    license: POPPLER_UPSTREAM.license,
+    pin: POPPLER_UPSTREAM.version,
+    sourceSha256: POPPLER_UPSTREAM.sourceSha256,
+    feedstockCommit: POPPLER_UPSTREAM.feedstockCommit,
+    bundledInInstaller: true,
+    mereAggregation: true,
+    assets: POPPLER_ASSETS.map((asset) => ({
+      target: asset.target,
+      archiveSha256: asset.archiveSha256,
+      publishedTreeSha256: asset.publishedTreeSha256,
+    })),
+  },
+  {
+    name: "poppler-data",
+    license: "BSD-3-Clause AND (GPL-2.0-only OR GPL-3.0-only)",
+    pin: POPPLER_UPSTREAM.popplerData.version,
+    sha256: POPPLER_UPSTREAM.popplerData.sha256,
+    bundledInInstaller: true,
+  },
+  {
     name: "sherpa-onnx",
     license: "Apache-2.0",
-    pin: "1.13.5",
+    pin: "1.13.7",
     integrity: SHERPA_INTEGRITY,
     licenseSha256: SHERPA_LICENSE_SHA256,
   },
@@ -145,13 +170,13 @@ const licenses = [
   {
     name: "libopus-wasm",
     license: "MIT",
-    pin: "0.2.0",
-    commit: "55fe0b6faf9043518b7e1a7ea32e74659ecfbae7",
+    pin: "0.3.0",
+    commit: "bd37b907c636705d59cc2b836e6912e317a65a47",
     integrity: LIBOPUS_INTEGRITY,
     licenseSha256: "6ae2daf92d73e912aef033d56ce374df997ae0ad1d88ca9ef76f0c11123aae27",
     noticesSha256: "e1aa9531a6cd740a76f54a06903d76dbec8b218307030c8444f2570932fafec8",
-    upstreamModuleSha256: "7f254556d782ac20a304068d4ecf7a1b9e6e94df5694f550e6d14c217d7e2028",
-    packedModuleSha256: "ded4c50a60e4848919d093890563b623404bb9a1bf9e039845603f1ecb282fa5",
+    upstreamModuleSha256: "0041fc800ccd26f56b27eaeb1834c8c6854e5167d48cd628a4f98ec5b590c6f1",
+    packedModuleSha256: "91dd47a607353f40919d2a54d3cbc0f35c59f8d79ada2d361d2c9339e049e0b7",
     transform: "same-length removal of upstream absolute build paths from debug strings",
     bundledInInstaller: true,
   },
@@ -204,7 +229,7 @@ for (const item of licenses) {
 const sherpaPkg = JSON.parse(
   readFileSync(asrReq.resolve("sherpa-onnx/package.json"), "utf8"),
 );
-if (sherpaPkg.version !== "1.13.5" || sherpaPkg.license !== "Apache-2.0") {
+if (sherpaPkg.version !== "1.13.7" || sherpaPkg.license !== "Apache-2.0") {
   console.error("unexpected sherpa-onnx version/license", sherpaPkg.version, sherpaPkg.license);
   process.exit(1);
 }
@@ -236,7 +261,7 @@ if (silkInfo.pkg.version !== "3.7.1" || silkInfo.pkg.license !== "MIT") {
   console.error("unexpected silk-wasm version/license", silkInfo.pkg.version, silkInfo.pkg.license);
   process.exit(1);
 }
-if (opusInfo.pkg.version !== "0.2.0" || opusInfo.pkg.license !== "MIT") {
+if (opusInfo.pkg.version !== "0.3.0" || opusInfo.pkg.license !== "MIT") {
   console.error("unexpected libopus-wasm version/license", opusInfo.pkg.version, opusInfo.pkg.license);
   process.exit(1);
 }
@@ -268,9 +293,11 @@ if (
   mnemonManifest.license !== MNEMON_UPSTREAM.license ||
   mnemonManifest.licenseSha256 !== MNEMON_UPSTREAM.licenseSha256 ||
   mnemonManifest.commit !== MNEMON_UPSTREAM.commit ||
-  MNEMON_ASSETS.length !== 3
+  MNEMON_ASSETS.length !== 3 ||
+  POPPLER_UPSTREAM.license !== "GPL-2.0-only OR GPL-3.0-only" ||
+  POPPLER_ASSETS.length !== 3
 ) {
-  console.error("Office font or Mnemon license provenance drift");
+  console.error("Office font, Mnemon, or Poppler license provenance drift");
   process.exit(1);
 }
 const lock = readFileSync("pnpm-lock.yaml", "utf8");
@@ -282,7 +309,8 @@ for (const [name, version, integrity] of [
   ["onnxruntime-node", "1.23.2", ONNX_RUNTIME_INTEGRITY],
   ["sentencepiece-js", "1.1.0", SENTENCEPIECE_INTEGRITY],
   ["silk-wasm", "3.7.1", SILK_INTEGRITY],
-  ["libopus-wasm", "0.2.0", LIBOPUS_INTEGRITY],
+  ["libopus-wasm", "0.3.0", LIBOPUS_INTEGRITY],
+  ["dingtalk-stream", "2.1.5", DINGTALK_STREAM_INTEGRITY],
 ]) {
   if (!lock.includes(`${name}@${version}:`) || !lock.includes(`integrity: ${integrity}`)) {
     console.error(`${name} lock integrity missing`);
@@ -325,6 +353,11 @@ for (const [path, expected] of [
   ["packages/office/fonts/NotoSansSC-VF.ttf", NOTO_CJK_SHA256],
   ["packages/office/fonts/OFL.txt", NOTO_OFL_SHA256],
   ["packages/moss-tts/third_party/sentencepiece-js-Apache-2.0.txt", MNEMON_UPSTREAM.licenseSha256],
+  ["third_party/poppler/COPYING", POPPLER_UPSTREAM.licenseFiles.COPYING],
+  ["third_party/poppler/COPYING3", POPPLER_UPSTREAM.licenseFiles.COPYING3],
+  ["third_party/poppler/poppler-data/COPYING", POPPLER_UPSTREAM.popplerData.licenseFiles.COPYING],
+  ["third_party/poppler/poppler-data/COPYING.adobe", POPPLER_UPSTREAM.popplerData.licenseFiles["COPYING.adobe"]],
+  ["third_party/poppler/poppler-data/COPYING.gpl2", POPPLER_UPSTREAM.popplerData.licenseFiles["COPYING.gpl2"]],
 ]) {
   const actual = pinnedFileHash(path);
   if (actual.exact !== expected && actual.canonicalText !== expected) {
@@ -376,7 +409,7 @@ function installedLicenseInventory({ production }) {
     if (isWorkspace) continue;
     const name = String(metadata.name ?? next.dependency);
     const version = String(metadata.version ?? "");
-    const declaredLicense = typeof metadata.license === "string" ? metadata.license : "NOASSERTION";
+    const declaredLicense = declaredLicenseFromMetadata(metadata);
     const sourceRow = sourceRows.get(`${name}@${version}`);
     const integrity = sourceRow ? `sha256-${sourceRow.sha256}` : integrityForPackage(lockRows, name, version);
     const decision = production
@@ -478,6 +511,13 @@ const result = {
       license: "MIT",
       integrity: "sha256-ae4a9727627f55d5a90bff929caf27dc092153c80b8b79fca9cf18a3fa4125f7",
       use: "selective implementation reference only; @penglai/im remains the sole IM runtime",
+    },
+    {
+      component: `poppler-pdftoppm@${POPPLER_UPSTREAM.version}`,
+      source: POPPLER_UPSTREAM.sourceUrl,
+      license: POPPLER_UPSTREAM.license,
+      integrity: `sha256-${POPPLER_UPSTREAM.sourceSha256}`,
+      use: "spawned sibling helper; mere aggregation; not linked into Electron or DSH",
     },
   ],
   declaredArtifacts: licenses,

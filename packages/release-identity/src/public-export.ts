@@ -60,6 +60,8 @@ export const PUBLIC_EXPORT_ALLOW = [
   "docs/0.5.8",
   "docs/0.5.9",
   "docs/0.5.10",
+  "docs/0.5.11",
+  "docs/0.5.12",
   "docs/ACCEPTANCE.md",
   "docs/RELEASE_RUNBOOK.md",
   "docs/decisions.md",
@@ -106,6 +108,7 @@ export const PUBLIC_EXPORT_DENY = [
   "packages/release-identity/src/freeze.test.ts",
   "packages/release-identity/src/leftover-gates.test.ts",
   "packages/release-identity/src/remaining-gates.test.ts",
+  "docs/0.5.12/pdf-page-preview.png",
 ] as const;
 
 export const REQUIRED_PUBLIC_DOCS = [
@@ -153,8 +156,11 @@ export const REQUIRED_PUBLIC_DOCS = [
   "docs/0.5.10/DSH_ALPHA_PACKAGED_BYTES.json",
   "docs/0.5.10/UPGRADE_SOURCES.json",
   "docs/0.5.11/ACCEPTANCE_DELTA.md",
+  "docs/0.5.11/UPGRADE_SOURCES.json",
   "docs/PUBLICATION_MANIFEST_0.5.11.md",
+  "docs/0.5.12/ACCEPTANCE_DELTA.md",
   "docs/0.5.12/DSH_NPM_COHORT.json",
+  "docs/0.5.12/UPGRADE_SOURCES.json",
 ] as const;
 
 export interface ExportFile {

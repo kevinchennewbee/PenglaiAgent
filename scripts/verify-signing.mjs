@@ -7,6 +7,7 @@ import {
   PACKAGED_TARGETS,
 } from "./lib/packaged-candidate.mjs";
 import { ROOT } from "./lib/repo.mjs";
+import { PRODUCT_VERSION } from "./lib/product.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import {
@@ -114,7 +115,7 @@ if (expectedTarget === "win32-x86_64") {
     });
   }
   const summary = [
-    "Penglai 0.5.11 community-verified Windows unsigned contract",
+    `Penglai ${PRODUCT_VERSION} community-verified Windows unsigned contract`,
     `app=${app}`,
     `installer=${installer}`,
     `sourceSha=${packaged.release.sourceSha}`,
@@ -161,7 +162,7 @@ if (!adhoc) {
   process.exit(1);
 }
 
-const summary = ["Penglai 0.5.11 community-verified ad-hoc contract", `app=${app}`, `sourceSha=${packaged.release.sourceSha}`, `target=${expectedTarget}`, "codesign --verify --deep --strict --verbose=2: PASS", "signatureKind=adhoc", "developerIdSigned=false", "notarized=false", "authenticode=false", display.text.trim()].join("\n");
+const summary = [`Penglai ${PRODUCT_VERSION} community-verified ad-hoc contract`, `app=${app}`, `sourceSha=${packaged.release.sourceSha}`, `target=${expectedTarget}`, "codesign --verify --deep --strict --verbose=2: PASS", "signatureKind=adhoc", "developerIdSigned=false", "notarized=false", "authenticode=false", display.text.trim()].join("\n");
 mkdirSync(join(ROOT, "dist"), { recursive: true });
 writeFileSync(join(ROOT, "dist/codesign-verification.txt"), `${summary}\n`);
 finish("PASS", {

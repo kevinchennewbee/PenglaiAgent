@@ -3,9 +3,10 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./repo.mjs";
+import { PRODUCT_VERSION } from "./product.mjs";
 import { expectedUpgradeSourceVersions, upgradeUninstallEvidenceMatches } from "./native-upgrade-set.mjs";
 
-const sources = JSON.parse(readFileSync(join(ROOT, "docs/0.5.11/UPGRADE_SOURCES.json"), "utf8"));
+const sources = JSON.parse(readFileSync(join(ROOT, "docs", PRODUCT_VERSION, "UPGRADE_SOURCES.json"), "utf8"));
 
 function passingPath(version, sourceSha, installerSha256) {
   return {
@@ -21,7 +22,10 @@ function passingPath(version, sourceSha, installerSha256) {
 
 test("native upgrade set follows every pinned previous version, not a hardcoded pair", () => {
   const expected = expectedUpgradeSourceVersions(sources);
-  assert.deepEqual(expected, ["0.5.10", "0.5.8", "0.5.9"]);
+  assert.ok(expected.includes("0.5.8"));
+  assert.ok(expected.includes("0.5.11"));
+  assert.equal(expected.length, sources.sources.length);
+  assert.deepEqual(expected, [...expected].sort());
   const sourceSha = "a".repeat(40);
   const installerSha256 = "b".repeat(64);
   const twoPaths = {
@@ -35,12 +39,12 @@ test("native upgrade set follows every pinned previous version, not a hardcoded 
     upgradeUninstallEvidenceMatches(twoPaths, { sourceSha, installerSha256, expectedVersions: expected }),
     false,
   );
-  const threePaths = {
-    previousVersions: ["0.5.8", "0.5.9", "0.5.10"],
+  const allPaths = {
+    previousVersions: expected,
     upgradePaths: expected.map((version) => passingPath(version, sourceSha, installerSha256)),
   };
   assert.equal(
-    upgradeUninstallEvidenceMatches(threePaths, { sourceSha, installerSha256, expectedVersions: expected }),
+    upgradeUninstallEvidenceMatches(allPaths, { sourceSha, installerSha256, expectedVersions: expected }),
     true,
   );
 });

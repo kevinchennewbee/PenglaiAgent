@@ -263,7 +263,7 @@ test("R56-FILE-013 workspace or session drift cannot read the handle", () => {
   artifacts.close();
 });
 
-test("R56-FILE-016 composer Turn binding stays blocked on rc.2", () => {
+test("R56-FILE-016 composer Turn binding stays unwired until official receipts", () => {
   const { artifacts } = service();
   artifacts.ingestBytes(Buffer.from("%PDF-1.4\n%%EOF\n"), {
     name: "page.pdf",
@@ -272,7 +272,11 @@ test("R56-FILE-016 composer Turn binding stays blocked on rc.2", () => {
     turnId: "turn-1",
   });
   assert.throws(() => artifacts.bindComposerTurn(), (error: unknown) => {
-    return error instanceof PenglaiError && error.errorClass === "DSH_CONTRACT_DRIFT";
+    return (
+      error instanceof PenglaiError &&
+      error.errorClass === "DSH_CONTRACT_DRIFT" &&
+      error.message === "PENGLAI_COMPOSER_FILE_RECEIPT_UNWIRED"
+    );
   });
   artifacts.close();
 });

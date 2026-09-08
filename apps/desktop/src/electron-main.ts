@@ -612,6 +612,13 @@ async function main(): Promise<void> {
     const mnemonName = process.platform === "win32" ? "mnemon.exe" : "mnemon";
     const mnemonPath = join(layout.appRoot, "mnemon", mnemonName);
     if (existsSync(mnemonPath)) process.env.PENGLAI_MNEMON_BINARY = mnemonPath;
+    const popplerName = process.platform === "win32" ? "pdftoppm.exe" : "pdftoppm";
+    const popplerPath = [
+      join(layout.appRoot, "poppler", popplerName),
+      join(layout.appRoot, "..", "poppler", popplerName),
+      join(layout.appRoot, "..", "MacOS", "poppler", popplerName),
+    ].find((path) => existsSync(path));
+    if (popplerPath) process.env.PENGLAI_PDFTOPPM = popplerPath;
     activatePrivateProfile(layout, user);
     const report = doctor(layout, user);
     const releaseContract = loadUpdaterReleaseContract(resources);

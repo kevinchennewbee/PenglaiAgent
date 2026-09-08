@@ -32,6 +32,7 @@ import {
 import { nsisScopedStopContract } from "./lib/windows-process-scope.mjs";
 
 import { ROOT } from "./lib/repo.mjs";
+import { PRODUCT_VERSION } from "./lib/product.mjs";
 import { observeFreshInstalledBoot } from "./lib/installed-readiness.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
 import { sanitizeEvidenceText } from "./lib/evidence-json.mjs";
@@ -44,7 +45,7 @@ import {
 
 const versionIndex = process.argv.indexOf("--previous-version");
 const previousVersion = versionIndex < 0 ? undefined : process.argv[versionIndex + 1];
-const upgradeSources = JSON.parse(readFileSync(join(ROOT, "docs/0.5.11/UPGRADE_SOURCES.json"), "utf8"));
+const upgradeSources = JSON.parse(readFileSync(join(ROOT, "docs", PRODUCT_VERSION, "UPGRADE_SOURCES.json"), "utf8"));
 const sourcePin = upgradeSources.sources.find((row) => row.version === previousVersion);
 
 function fail(reason, details = {}) {

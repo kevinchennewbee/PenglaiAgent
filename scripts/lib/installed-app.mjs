@@ -17,7 +17,7 @@ import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { ROOT } from "./repo.mjs";
 import { installerForTarget } from "./release-targets.mjs";
-import { macosAarch64DmgName } from "./product.mjs";
+import { macosAarch64DmgName, PRODUCT_VERSION } from "./product.mjs";
 import { selectProcessesForInstance, selectProcessesUnderInstallRoot } from "./windows-process-scope.mjs";
 import {
   classifyUninstallResidue,
@@ -27,6 +27,20 @@ import {
 
 export const ARM64_INSTALLER = macosAarch64DmgName();
 export const ARM64_DMG = join(ROOT, "dist", ARM64_INSTALLER);
+
+export function assertProcessInspectorOk(result, label) {
+  if (result?.error) {
+    const code = result.error.code ? `${result.error.code}: ` : "";
+    throw new Error(`${label} failed: ${code}${result.error.message}`);
+  }
+  if (result?.signal) {
+    throw new Error(`${label} killed by ${result.signal}`);
+  }
+  if (result?.status !== 0) {
+    throw new Error(`${label} exited ${result.status ?? "null"}`);
+  }
+  return String(result.stdout ?? "");
+}
 
 export function collectWindowsProcesses() {
   if (process.platform !== "win32") return [];
@@ -39,7 +53,7 @@ export function collectWindowsProcesses() {
     ],
     { encoding: "utf8", windowsHide: true, timeout: 30_000 },
   );
-  return String(r.stdout ?? "")
+  return assertProcessInspectorOk(r, "leftoversByCommand powershell")
     .split(/\r?\n/u)
     .map((line) => {
       const [pid, parentPid, name, executablePath, ...command] = line.split("\t");
@@ -75,9 +89,12 @@ export async function reapWindowsInstallTree(appDir, timeoutMs = 30_000, dataRoo
 }
 
 export function leftoversByCommand(needle) {
+  if (typeof needle !== "string" || needle.length === 0) {
+    throw new Error("leftoversByCommand requires a process needle");
+  }
   if (process.platform === "win32") {
     const r = spawnSync(
-      "powershell",
+      "powershell.exe",
       [
         "-NoProfile",
         "-Command",
@@ -85,7 +102,7 @@ export function leftoversByCommand(needle) {
       ],
       { encoding: "utf8", timeout: 5_000, windowsHide: true },
     );
-    return String(r.stdout ?? "")
+    return assertProcessInspectorOk(r, "leftoversByCommand powershell")
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.includes(needle));
@@ -95,7 +112,7 @@ export function leftoversByCommand(needle) {
     timeout: 3_000,
     killSignal: "SIGKILL",
   });
-  return String(r.stdout ?? "")
+  return assertProcessInspectorOk(r, "leftoversByCommand ps")
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.includes(needle));
@@ -182,7 +199,7 @@ export function isControlledWindowsInstallerFixture(installDir, root = ROOT, tem
   if (rel && rel !== ".." && !rel.startsWith("..\\") && !win32Path.isAbsolute(rel)) {
     const segments = rel.split("\\");
     if (segments[0] === ".tmp" || segments[0].startsWith(".tmp-")) return true;
-    if (rel.toLowerCase() === "dist\\penglai-v0.5.11-win32-x64\\penglai") return true;
+    if (rel.toLowerCase() === `dist\\penglai-v${PRODUCT_VERSION}-win32-x64\\penglai`) return true;
   }
   const temporary = win32Path.resolve(String(temporaryRoot ?? ""));
   const temporaryRel = win32Path.relative(temporary, candidate);
@@ -408,7 +425,7 @@ export function readInstalledAppIdentity(app, target) {
 export function assertInstalledPenglaiIdentity(app, target) {
   const facts = readInstalledAppIdentity(app, target);
   if (facts.executable !== "Penglai") return { ok: false, reason: `executable ${facts.executable || "<empty>"}` };
-  if (facts.shortVersion !== "0.5.11" || facts.version !== "0.5.11") {
+  if (facts.shortVersion !== PRODUCT_VERSION || facts.version !== PRODUCT_VERSION) {
     return { ok: false, reason: `version ${facts.shortVersion}/${facts.version}` };
   }
   if (facts.bundleId !== "com.penglai.dsh") return { ok: false, reason: `bundle ${facts.bundleId || "<empty>"}` };

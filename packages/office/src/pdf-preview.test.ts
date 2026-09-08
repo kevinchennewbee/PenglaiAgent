@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,11 +9,14 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { createPdf, inspectPdf } from "./adapters/pdf.js";
 import {
   artifactDigest,
-  bundledPdfRendererPath,
   locatePdfRenderer,
+  pdfRendererCandidates,
+  pdfRendererSpawnEnv,
+  pdfRendererSpawnEnvForPlatform,
   previewPdfPages,
   publicPdfPreview,
 } from "./pdf-preview.js";
+import { prepareRunnablePopplerHelper } from "../../../scripts/lib/package-poppler.mjs";
 
 test("PDF inspect stays linear on BT-repeat noise inside a real created document", async () => {
   const bytes = await createPdf(`BT-noise ${"BTa".repeat(8_000)} visible-marker`);
@@ -67,6 +70,70 @@ test("PDF page text is never treated as a page image", async () => {
   }
 });
 
+test("PDF raster spawn keeps a system PATH and does not inherit dyld overrides", () => {
+  const env = pdfRendererSpawnEnv("/tmp");
+  assert.equal(env.PATH, "/usr/bin:/bin:/usr/sbin:/sbin");
+  assert.equal(env.DYLD_LIBRARY_PATH, undefined);
+  assert.equal(env.LD_LIBRARY_PATH, undefined);
+});
+
+test("PDF raster spawn on Windows uses SystemRoot, not a Unix PATH", () => {
+  const env = pdfRendererSpawnEnvForPlatform("win32", "C:\\Penglai\\poppler", {
+    SystemRoot: "C:\\Windows",
+    USERPROFILE: "C:\\Users\\owner",
+    TEMP: "C:\\Users\\owner\\AppData\\Local\\Temp",
+    TMP: "C:\\Users\\owner\\AppData\\Local\\Temp",
+  });
+  assert.match(String(env.PATH), /System32/);
+  assert.equal(env.SystemRoot, "C:\\Windows");
+  assert.equal(env.WINDIR, "C:\\Windows");
+  assert.doesNotMatch(String(env.PATH), /\/usr\/bin/);
+  assert.equal(env.DYLD_LIBRARY_PATH, undefined);
+});
+
+test("packaged pdftoppm is found from DSH Node execPath via app root, not only next to Node", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-pdf-layout-"));
+  try {
+    const macResources = join(root, "Penglai.app", "Contents", "Resources");
+    const macHelper = join(root, "Penglai.app", "Contents", "MacOS", "poppler", "pdftoppm");
+    const macNode = join(macResources, "runtime", "node", "bin", "node");
+    mkdirSync(dirname(macHelper), { recursive: true });
+    mkdirSync(dirname(macNode), { recursive: true });
+    writeFileSync(macHelper, "helper");
+    writeFileSync(macNode, "node");
+    const macHits = pdfRendererCandidates(macNode, { platform: "darwin", appRoot: macResources });
+    assert.equal(macHits.some((path) => path === macHelper), true);
+    assert.equal(locatePdfRenderer(macNode), "");
+    const previousApp = process.env.PENGLAI_APP_ROOT;
+    const previousExplicit = process.env.PENGLAI_PDFTOPPM;
+    process.env.PENGLAI_APP_ROOT = macResources;
+    delete process.env.PENGLAI_PDFTOPPM;
+    try {
+      assert.equal(locatePdfRenderer(macNode), macHelper);
+    } finally {
+      if (previousApp === undefined) delete process.env.PENGLAI_APP_ROOT;
+      else process.env.PENGLAI_APP_ROOT = previousApp;
+      if (previousExplicit === undefined) delete process.env.PENGLAI_PDFTOPPM;
+      else process.env.PENGLAI_PDFTOPPM = previousExplicit;
+    }
+
+    const winPayload = join(root, "payload");
+    const winHelper = join(winPayload, "poppler", "pdftoppm.exe");
+    const winNode = join(winPayload, "resources", "runtime", "node", "node.exe");
+    mkdirSync(dirname(winHelper), { recursive: true });
+    mkdirSync(dirname(winNode), { recursive: true });
+    writeFileSync(winHelper, "helper");
+    writeFileSync(winNode, "node");
+    const winHits = pdfRendererCandidates(winNode, {
+      platform: "win32",
+      appRoot: join(winPayload, "resources"),
+    });
+    assert.equal(winHits.some((path) => path === winHelper), true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("bundled pdftoppm next to execPath renders digest-bound PNG page images", async (t) => {
   const targetDir =
     process.platform === "win32"
@@ -94,10 +161,13 @@ test("bundled pdftoppm next to execPath renders digest-bound PNG page images", a
     const execPath = join(root, process.platform === "win32" ? "Penglai.exe" : "Penglai");
     writeFileSync(execPath, "fake-exec");
     chmodSync(execPath, 0o755);
-    mkdirSync(join(root, "poppler"));
-    const bundled = bundledPdfRendererPath(execPath);
-    symlinkSync(host, bundled);
-    assert.equal(locatePdfRenderer(execPath), bundled);
+    const runnable = prepareRunnablePopplerHelper(popplerRoot, root);
+    const previousApp = process.env.PENGLAI_APP_ROOT;
+    const previousExplicit = process.env.PENGLAI_PDFTOPPM;
+    delete process.env.PENGLAI_APP_ROOT;
+    delete process.env.PENGLAI_PDFTOPPM;
+    try {
+    assert.equal(locatePdfRenderer(execPath), runnable.bin);
     const pdf = await PDFDocument.create();
     const pageDoc = pdf.addPage([612, 792]);
     const font = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -115,6 +185,12 @@ test("bundled pdftoppm next to execPath renders digest-bound PNG page images", a
     assert.equal(page.raster.bytes[1], 0x50);
     const published = publicPdfPreview(preview);
     assert.equal(published.pagePreviews[0].raster.png, true);
+    } finally {
+      if (previousApp === undefined) delete process.env.PENGLAI_APP_ROOT;
+      else process.env.PENGLAI_APP_ROOT = previousApp;
+      if (previousExplicit === undefined) delete process.env.PENGLAI_PDFTOPPM;
+      else process.env.PENGLAI_PDFTOPPM = previousExplicit;
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

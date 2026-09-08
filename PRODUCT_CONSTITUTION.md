@@ -52,7 +52,7 @@
   禁止把 ARM Electron 改名成 Intel 包；禁止把 Windows 预检或交叉编译写成 native PASS。
 - 0.5.0 已发布的 Apple Silicon 客户端只能手动覆盖安装到 0.5.1；0.5.1 之后同平台才走 PUDP。不得声称 0.5.0 可一键升级。Intel/Windows 在 0.5.0 没有客户端，视为全新安装。
 - PPDP 是 0.5.1 产品能力，不是未来 TODO：签名目录、受限 GitHub 资产下载、默认禁用、主进程 Owner capability、DSH loader/profile 事务、inventory 回读。
-- 本地语音与第一方插件合同：`@penglai/asr`、`@penglai/moss-tts` 必须进入真实 DSH loader/Center，并服务 DSH Web 与 live 微信/飞书的受支持能力。会话 Read 朗读原文，不冒充翻译。`@penglai/office` 与 `@penglai/memory` 是 required-builtin；`@penglai/im`、`@penglai/asr`、`@penglai/moss-tts`、`@penglai/companion` 随包且默认关闭。旧 `@penglai/context` 只用于迁移。Goal/Todo/Skills/MCP/Web/图片 Attachments/Schedule/TokenMeter 使用 official DSH；rc.2 没有 generic file Turn API 时不得用 DOM hack 或第二会话引擎补齐。
+- 本地语音与第一方插件合同：`@penglai/asr`、`@penglai/moss-tts` 必须进入真实 DSH loader/Center，并服务 DSH Web 与 live 微信/飞书的受支持能力。会话 Read 朗读原文，不冒充翻译。`@penglai/office` 与 `@penglai/memory` 是 required-builtin；`@penglai/im`、`@penglai/asr`、`@penglai/moss-tts`、`@penglai/companion` 随包且默认关闭。旧 `@penglai/context` 只用于迁移。Goal/Todo/Skills/MCP/Web/图片 Attachments/Schedule/TokenMeter 使用 official DSH。alpha.2 已有 official generic file Turn（uploadFile receipt）；仍不得用 DOM hack 或第二会话引擎补齐，也不得在 Penglai 未接线前宣称会话输入框支持普通文档。
 - fresh 安装完成引导后必须先得到可独立使用的 official DSH core，并且 Office 与 Memory 已在 official inventory 中 `active`。IM、ASR、MOSS-TTS、Companion 默认未加载。
 - 0.4.1 到 0.5.0 是明确的架构代际切换：不提供自动升级，不导入旧会话、凭据或配置，不删除旧数据。0.5.0 使用隔离的数据根 `Penglai/0.5`。0.5.1 必须提供 rc.8 → rc.1 的显式、可回滚数据迁移。
 - community trust tier 不变：macOS ad-hoc / not notarized；Windows 无 Authenticode/SmartScreen 声誉。安装包及更新/插件清单仍须有 SHA-256、SBOM/notices，并诚实提示系统信誉警告。Penglai 自己的 Ed25519 更新/插件签名必须使用。

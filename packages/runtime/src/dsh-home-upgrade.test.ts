@@ -23,6 +23,7 @@ import {
   DSH_HOME_SOURCE_VERSION,
   DSH_HOME_ALPHA2_VERSION,
   DSH_HOME_PREVIOUS_VERSION,
+  DSH_HOME_JSONL_COMPRESSION,
   DSH_HOME_TARGET_VERSION,
   activateDshHomeBootPlan,
   activateDshHomeUpgrade,
@@ -72,7 +73,10 @@ test("0.5.11 rc.1 active generation upgrades to 0.1.3-alpha.2 and restores its e
   assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_TARGET_VERSION);
   writeFileSync(join(plan.dshHome, "new-generation-only"), "0.1.3-alpha.2 state");
   rollbackDshHomeUpgrade({ userRoot: root, operationId: plan.operationId!, reason: "restore previous version" });
-  assert.deepEqual(JSON.parse(readFileSync(pointer, "utf8")), previous);
+  assert.deepEqual(JSON.parse(readFileSync(pointer, "utf8")), {
+    ...previous,
+    rollbackReason: "restore previous version",
+  });
   assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_PREVIOUS_VERSION);
   assert.equal(existsSync(join(previousHome, "new-generation-only")), false);
   assert.equal(readFileSync(join(root, "dsh-home", "settings.yaml"), "utf8"), "locale:\n  preference: zh\n");
@@ -356,6 +360,7 @@ test("P059-DATA-006 rollback atomically selects the untouched 0.5.8 alpha.1 home
   });
 
   assert.equal(active.activeVersion, DSH_HOME_SOURCE_VERSION);
+  assert.equal(active.rollbackReason, "alpha health regression");
   assert.equal(
     resolveDshHomeForVersion(root, DSH_HOME_SOURCE_VERSION),
     paths.sourceHome,
@@ -747,7 +752,7 @@ async function restoreOfficialRc1(
   const sessionFiber = await ctx.plugin(SessionStore);
   const persistenceFiber = await ctx.plugin(JsonlSessionPersistence, {
     root: persistRoot,
-    compression: "none",
+    compression: DSH_HOME_JSONL_COMPRESSION,
     writeBatchMaxDelayMs: 1,
   });
   try {
@@ -855,6 +860,7 @@ test("U02 official rc.1 v0 JSONL migrates through Home and restores with 0.1.3-a
     readActiveDshHome(root)?.activeVersion,
     DSH_HOME_PREVIOUS_VERSION,
   );
+  assert.equal(readActiveDshHome(root)?.rollbackReason, "restore previous version");
   assert.deepEqual(readFileSync(join(previousHome, OFFICIAL_RC1_LOG_REL)), original);
   assert.deepEqual(readdirSync(sourceSessionDir).sort(), ["session.jsonl"]);
 
@@ -862,6 +868,11 @@ test("U02 official rc.1 v0 JSONL migrates through Home and restores with 0.1.3-a
   assert.equal(rolled.userText, OFFICIAL_RC1_USER);
   assert.equal(rolled.assistantText, OFFICIAL_RC1_ASSISTANT);
 
+  assert.throws(
+    () => prepareDshHomeForBoot({ userRoot: root, reserveBytes: 0 }),
+    /cannot start after a Home rollback/,
+  );
+  rmSync(plan.dshHome, { recursive: true, force: true });
   assert.throws(
     () => prepareDshHomeForBoot({ userRoot: root, reserveBytes: 0 }),
     /cannot start after a Home rollback/,
@@ -899,10 +910,9 @@ test("U02 truncated migrated rc.1 log fails restore; rejection leaves original r
     () => restoreOfficialRc1(join(paths.targetHome, "sessions"), "read"),
     (error: unknown) => {
       assert.ok(error instanceof Error);
-      assert.match(
-        error.message,
-        /JSON|corrupt|header|scan|invalid|unexpected|end of|truncated/i,
-      );
+      assert.equal(error.name, "SessionPersistenceCorruptionError");
+      assert.match(error.message, /stored log is corrupt/);
+      assert.match(error.message, /empty or header-less session log/);
       return true;
     },
   );

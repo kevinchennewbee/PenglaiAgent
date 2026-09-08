@@ -15,6 +15,7 @@ import {
 } from "./lib/closure-credential.mjs";
 import { ROOT } from "./lib/repo.mjs";
 import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
+import { adHocSignDarwinPoppler, copyPopplerTree } from "./lib/package-poppler.mjs";
 
 const releasePins = readReleaseIdentityPins();
 
@@ -156,7 +157,9 @@ if (!existsSync(join(popplerSrc, "pdftoppm"))) {
     process.exit(1);
   }
 }
-cpSync(popplerSrc, join(contents, "MacOS", "poppler"), { recursive: true });
+const popplerDest = join(contents, "MacOS", "poppler");
+copyPopplerTree(popplerSrc, popplerDest, targetSpec.runtimeTarget);
+adHocSignDarwinPoppler(popplerDest);
 const fwRes = join(
   contents,
   "Frameworks/Electron Framework.framework/Versions/A/Resources",

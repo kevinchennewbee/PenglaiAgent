@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { RELEASE } from "@penglai/contracts";
 import { UNSIGNED_NOTICE, createDesktopRuntime } from "./main.js";
 import { loadWindowUrl } from "./navigation-retry.js";
 import { assertIpcName } from "./preload.js";
@@ -10,6 +11,7 @@ import { EMPTY_INVENTORY_PROOF, type RuntimeLayout, type SupervisorRecoverySnaps
 test("community release notice keeps platform trust limits without candidate wording", () => {
   assert.match(UNSIGNED_NOTICE, /ad-hoc|unsigned|not notarized/i);
   assert.match(UNSIGNED_NOTICE, /community release/i);
+  assert.match(UNSIGNED_NOTICE, new RegExp(`Penglai ${RELEASE.replaceAll(".", "\\.")} community release`));
   assert.doesNotMatch(UNSIGNED_NOTICE, /candidate|not a public release/i);
 });
 
@@ -160,6 +162,8 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /pathToFileURL\(recoveryPage\)/);
   assert.match(main, /navigationDecision\(next, allowedOrigin, recoveryUrl, \{ wizardComplete/);
   assert.match(main, /isOwnedRuntimePath\(layout\.appRoot, layout\.nodeBin\)/);
+  assert.match(main, /PENGLAI_PDFTOPPM/);
+  assert.match(main, /MacOS", "poppler"/);
   assert.match(main, /show:\s*false/);
   assert.match(main, /opacity:\s*platform === "win32" \? 0 : 1/);
   assert.match(main, /backgroundColor:\s*"#f8f4ee"/);
