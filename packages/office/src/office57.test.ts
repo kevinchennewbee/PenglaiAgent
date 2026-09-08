@@ -92,20 +92,22 @@ test("0.5.7 accepted Office edits become immutable Artifacts with parent and ope
   const root = mkdtempSync(join(tmpdir(), "penglai-office57-artifacts-"));
   const artifacts = new ArtifactService(root);
   const svc = createOfficeService({ artifacts });
-  const original = await svc.create("docx", "原始内容");
+  const original = await svc.create("docx", "原始内容", { workspaceId: "ws-1", sessionId: "sess-1" });
   const parent = artifacts.ingestBytes(original.bytes, {
     name: "original.docx", source: "office", scope: "workspace", workspaceId: "ws-1", sessionId: "sess-1",
   });
-  const edited = await svc.edit(original.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "修改内容" });
+  const edited = await svc.edit(original.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "修改内容" }, {
+    workspaceId: "ws-1",
+    sessionId: "sess-1",
+    parentArtifactId: parent.id,
+  });
   const record = svc.job(edited.id);
-  record.workspaceId = "ws-1";
-  record.sessionId = "sess-1";
-  record.parentArtifactId = parent.id;
-  const accepted = svc.accept(edited.id);
+  assert.equal(record.parentArtifactId, parent.id);
+  const accepted = svc.accept(edited.id, { workspaceId: "ws-1", sessionId: "sess-1" });
   assert.equal(accepted.parentArtifactId, parent.id);
   assert.match(accepted.operationDigest ?? "", /^sha256:[0-9a-f]{64}$/);
   assert.match(artifacts.readControlled(accepted.id, { workspaceId: "ws-1", sessionId: "sess-1" }).bytes.toString("binary"), /^PK/);
-  assert.equal(svc.accept(edited.id).id, accepted.id);
+  assert.equal(svc.accept(edited.id, { workspaceId: "ws-1", sessionId: "sess-1" }).id, accepted.id);
   artifacts.close();
 });
 

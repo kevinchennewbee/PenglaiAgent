@@ -1,48 +1,52 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.5.11";
+export const PRODUCT_VERSION = "0.5.12";
 export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
 export const IDENTITY_PHASE_UNFROZEN = "UNFROZEN";
 export const SIGNATURE_KIND = "adhoc";
 export const MINIMUM_MACOS = "13.0";
-export const PINNED_NODE = "22.22.2";
-export const PINNED_NODE_VERSION_PREFIX = "v22.22.2";
+export const PINNED_NODE = "22.23.2";
+export const PINNED_NODE_VERSION_PREFIX = "v22.23.2";
 export const PINNED_PNPM = "11.7.0";
 export const PINNED_TYPESCRIPT = "5.9.2";
-export const PINNED_ELECTRON = "43.4.0";
+export const PINNED_ELECTRON = "43.6.0";
 export const PINNED_ELECTRON_DARWIN_ARM64_SHA256 =
-  "827f9f182566f46846377575b51c547b9926b111637313a373b6f717462aebac";
+  "5183a2b15d013517386edd9f1ea8e3402755f6c3ea17893f92acb20052f3a2e7";
 export const PINNED_ELECTRON_DARWIN_X64_SHA256 =
-  "7ab39ec1b0bcf5463f2dc0040142fbc1c30cd7bc3f99086066f588c717b11e24";
+  "27f0ba89978e6a8a2fea212f8be8b114a60f5747df41f42f424b8b0131477ec4";
 export const PINNED_ELECTRON_WIN32_X64_SHA256 =
-  "ef0709cfa719739acce73de6f9b684304baf38c6454376638a70d34a7cecffe0";
+  "4140545d6ed47b59c35900f266dea6c02f4a5496069ece7f6e7bc825e0d959c2";
 export const PINNED_NODE_DARWIN_ARM64_SHA256 =
-  "db4b275b83736df67533529a18cc55de2549a8329ace6c7bcc68f8d22d3c9000";
+  "61130f394c1630d211dd50aecc4353d379480f36d3ac913cd85dbba1aed585c6";
 export const PINNED_NODE_DARWIN_X64_SHA256 =
-  "12a6abb9c2902cf48a21120da13f87fde1ed1b71a13330712949e8db818708ba";
+  "58e99022c2ff89395576cc7fd4d98cea24bb68081475d5f88b801ee8729fb026";
 export const PINNED_NODE_WIN32_X64_SHA256 =
-  "7c93e9d92bf68c07182b471aa187e35ee6cd08ef0f24ab060dfff605fcc1c57c";
+  "1177b4137ba5adaa56354ae40f1080c7450e8ae09cecb47da459d1c52ac99f97";
 /** Exact official npm pre-release cohort reconciled to the fixed upstream tag. */
-export const PINNED_DSH = "0.1.2-rc.1";
-export const PINNED_DSH_COMMIT = "a66e4702047846cdaa10c66c9d3df3951f5ea70d";
-export const PINNED_DSH_TAG = "dsh-v0.1.2-rc.1";
+export const PINNED_DSH = "0.1.3-alpha.2";
+export const PINNED_DSH_COMMIT = "82a5fd61a7cf5c293cec4bdff68f455398d685e9";
+export const PINNED_DSH_TAG = "dsh-v0.1.3-alpha.2";
 export const PINNED_DSH_REPOSITORY = "https://github.com/deepseek-ai/DeepSeek-Harness.git";
 export const PINNED_DSH_NPM_INTEGRITY =
-  "sha512-RPq48TzxvwpdT9/7W1tbhZDBMmeK+bxDrX9cqQC27Wx/LqtgJF8PSa3b3xriU8oxtvhwYmk21w2cej3uMQrnVA==";
-export const PINNED_DSH_NPM_SHASUM = "fef213043313affc36ca2226d2637ad483b5e3f6";
+  "sha512-rmf4xgzU9+abvaQ//slyBBhADtPu8fv+SZjxmh4GJwJMZipVa7hNU5m23HgVcB3LNmuGltuQ7jyypuhJ5yU69A==";
+export const PINNED_DSH_NPM_SHASUM = "4f421920af35f1f9526eb0af2279bec36c304d3e";
 export const PINNED_DSH_TARBALL_SHA256 =
-  "ca370668053ad6d0ac325e919ef5f65de53de00b7bad78008e6fb422dfce3530";
+  "6bced5e2da1000509e6d6a2b12242d4aac6ebdda8f12b7fe142a11c474409551";
 export const PINNED_DSH_CLOSURE_MANIFEST_SHA256 =
-  "31a52e8bc520b185c71849f3b084d65f9f7c888358ae33d4ea2d5eb4aba9f198";
-export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 254;
-export const PINNED_LARK_SDK = "1.73.0";
-export const PINNED_LARK_COMMIT = "f54b49f3566c52b54c598194b7ed3015e3e24224";
+  "1d7380dadb281cdc17ad3df302b2298985c282e813b42d2694626842182000be";
+export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 263;
+export const PINNED_LARK_SDK = "1.73.3";
+export const PINNED_LARK_COMMIT = "af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513";
+export const PINNED_DINGTALK_STREAM = "2.1.5";
+export const PINNED_DINGTALK_STREAM_COMMIT = "c979c664099a3bd175ab2f810753db0fc9e3a515";
+export const PINNED_DINGTALK_STREAM_INTEGRITY =
+  "sha512-6H3tSc/mE6hMj4RBB5ntkI4ycC498RobmtMxfLS8eBTRPjBZlhUdDYEHA0asOoTLSzC2PHqupr4D4HVoaU7bRQ==";
 export const PINNED_WEIXIN_REF = "2.4.6";
 export const PINNED_WEIXIN_COMMIT = "cef0bfc390393f716903e16d50408118047f87e0";
-export const PINNED_SHERPA_ONNX = "1.13.5";
+export const PINNED_SHERPA_ONNX = "1.13.7";
 export const PINNED_SHERPA_ONNX_INTEGRITY =
-  "sha512-kq3HgrXdbYCgK44U0gd2Cpnahf7qa59caPnROI7dy1+nKou8KdAsV9yUsCScZqTewvRyR/khUS97X26KE4JRMw==";
+  "sha512-t6fsJmLWG5N51L950kr0u3sqP/bppOoLed0DWAXwJ/l1ziRPTwkvNy28aXb2720g9p8NbYoLLOS/GOf+vJTeZg==";
 export const PINNED_ONNXRUNTIME_NODE = "1.23.2";
 export const PINNED_ONNXRUNTIME_NODE_INTEGRITY =
   "sha512-OBTsG0W8ddBVOeVVVychpVBS87A9YV5sa2hJ6lc025T97Le+J4v++PwSC4XFs1C62SWyNdof0Mh4KvnZgtt4aw==";
@@ -52,10 +56,10 @@ export const PINNED_SENTENCEPIECE_JS_INTEGRITY =
 export const PINNED_SILK_WASM = "3.7.1";
 export const PINNED_SILK_WASM_INTEGRITY =
   "sha512-mXPwLRtZxrYV3TZx41jMAeKc80wvmyrcXIcs8HctFxK15Ahz2OJQENYhNgEPeCEOdI6Mbx1NxQsqxzwc3DKerw==";
-export const PINNED_LIBOPUS_WASM = "0.2.0";
-export const PINNED_LIBOPUS_WASM_COMMIT = "55fe0b6faf9043518b7e1a7ea32e74659ecfbae7";
+export const PINNED_LIBOPUS_WASM = "0.3.0";
+export const PINNED_LIBOPUS_WASM_COMMIT = "bd37b907c636705d59cc2b836e6912e317a65a47";
 export const PINNED_LIBOPUS_WASM_INTEGRITY =
-  "sha512-x/2Gu1/C6L3IICY09zyfp984AWiOYjn53u4WfdY3yh+3KTzMN8Xkm77q3lenWMVIk5SnSzjGEkQT+VQMFHLBHQ==";
+  "sha512-2+woONr9rwcSj6HMQDC+cEdCb/WRBDwqHXEc42hhFLRB/jEumgl90ku09Blk6zb0Wd3Sewvk6KJEGhBg3IjApQ==";
 export const PINNED_MOSS_TTS_COMMIT = "cc7bdf19c7639c0870dab22045a33b442760f6be";
 export const PINNED_MOSS_RUNTIME_COMMIT = "c3b2333b88e0f062ca49d403540a169609354d93";
 export const PINNED_MOSS_RUNTIME_SHA256 =
@@ -66,8 +70,8 @@ export const PINNED_MOSS_MODEL_BUNDLE_REVISION = "cd877ae87fed8f9d26c237c5038242
 export const PINNED_SHERPA_UPSTREAM_COMMIT = "3e409338959097c6518998c9b72757db257f5f6f";
 export const PINNED_DSH_MNEMON = "0.2.15";
 export const PINNED_DSH_MNEMON_COMMIT = "7def5b2bddd4ecb746f09b0c8dee8032e72c690d";
-export const PINNED_MNEMON = "0.2.4";
-export const PINNED_MNEMON_COMMIT = "67ed1a2f80de902fd041eeaf3b90e7e3d2480d5b";
+export const PINNED_MNEMON = "0.2.8";
+export const PINNED_MNEMON_COMMIT = "da9b7da0e3e7f10c84d5f8e9a42e24453c8159bb";
 export {
   MNEMON_ASSETS as PINNED_MNEMON_ASSETS,
   MNEMON_UPSTREAM,
@@ -104,14 +108,14 @@ export const REQUIRED_HARD_FAMILIES = [
 export const GITHUB_ACTIONS_STATUS = "AVAILABLE";
 export const CANDIDATE_SOURCE_SHA_NONE = "NONE";
 export const UPDATER_CHANNEL = "desktop-v0.5";
-/** Monotonic after the last complete public manifest (0.5.10, sequence 6). */
-export const UPDATER_SEQUENCE = 7;
+/** Monotonic after the last complete public manifest (0.5.11, sequence 7). */
+export const UPDATER_SEQUENCE = 8;
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.5.11",
-  release: "v0.5.11",
-  channel: "stable-v0.5.11",
+  tag: "v0.5.12",
+  release: "v0.5.12",
+  channel: "stable-v0.5.12",
 });
 
 export const RELEASE_TARGETS = [
@@ -119,19 +123,19 @@ export const RELEASE_TARGETS = [
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.5.11_macos_aarch64.dmg",
+    installer: "Penglai_0.5.12_macos_aarch64.dmg",
   },
   {
     key: "darwin-x86_64",
     platform: "darwin",
     arch: "x64",
-    installer: "Penglai_0.5.11_macos_x64.dmg",
+    installer: "Penglai_0.5.12_macos_x64.dmg",
   },
   {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
-    installer: "Penglai_0.5.11_windows_x64_setup.exe",
+    installer: "Penglai_0.5.12_windows_x64_setup.exe",
   },
 ] as const;
 

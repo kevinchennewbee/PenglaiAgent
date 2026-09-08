@@ -105,8 +105,8 @@
 ### D-017 — 飞书固定 official SDK
 
 - 状态：ACCEPTED
-- 决定：固定 `@larksuiteoapi/node-sdk@1.73.0` 和官方 repo commit `f54b49f3566c52b54c598194b7ed3015e3e24224`；接收使用 `WSClient`/`EventDispatcher`，发送使用 `Client`。
-- 后果：事件先在 3 秒内持久入队，再异步调用 DSH；不引入 `openclaw-lark` runtime。
+- 决定：固定 `@larksuiteoapi/node-sdk@1.73.3` 和官方 repo commit `af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513`；接收使用 `WSClient`/`EventDispatcher`，发送使用 `Client`。0.5.12 从 1.73.0/`f54b49f` 升级：同一 1.73 线；1.73.3 把损坏的入站 WS 帧记错误日志，不再静默丢弃或变成未处理拒绝。npm `gitHead` 在 1.73.x 上是过期字段，不得当 pin。
+- 后果：事件先在 3 秒内持久入队，再异步调用 DSH；不引入 `openclaw-lark` runtime。Malformed WS 帧由 SDK 记录后保持连接；Penglai 仍用 `autoReconnect` 与 `close({ force: true })`。
 
 ### D-018 — `/新建` 与所有 Turn 都使用 official DSH
 
@@ -279,7 +279,7 @@
 ### D-046 — IM音频转换使用随包固定WASM闭包
 
 - 状态：ACCEPTED
-- 决定：微信入站使用`silk-wasm@3.7.1`；飞书双向使用`libopus-wasm@0.2.0`与Penglai受限Ogg容器实现。两者作为`@penglai/im`运行依赖随包携带、锁定integrity/license/runtime hash。
+- 决定：微信入站使用`silk-wasm@3.7.1`；飞书双向使用`libopus-wasm@0.3.0`与Penglai受限Ogg容器实现。两者作为`@penglai/im`运行依赖随包携带、锁定integrity/license/runtime hash。
 - 后果：安装包不依赖ffmpeg、Homebrew、PATH、Python、PowerShell、postinstall或首次联网；codec magic/checksum/时长/采样率/声道/大小与取消均fail closed。
 
 ### D-047 — 前置 pre-DSH 向导取代 DSH Web 内引导遮罩
@@ -351,8 +351,8 @@
 ### D-058 — 0.5.6 自动 Workspace 记忆、统一 Owner Broker 与 Artifact Service
 
 - 状态：ACCEPTED（Owner 2026-08-24 要求真实使用反馈必须落实到生产动作，而不是只修设置页）
-- 决定：fresh Memory 默认“智能整理 Workspace”。curator 必须是同一 official DSH 环境中的 no-tools Agent，Host 负责封闭格式、secret/敏感/注入风险校验；只允许自动保存 exact Workspace 的安全项目事实，personal/global/SOP 仍需 Owner。Office、Memory、IM、Plugin Center 和持久 Artifact 统一消费 Main Owner Broker，receipt 绑定 action/object/scope/digest/destination/revision，真实动作成功后才 complete。Office/IM 文档与音频使用 `artifact:<uuid>`；official DSH rc.2 没有 generic file Turn 时不做 DOM hack 或第二会话引擎。
-- 后果：记忆无需用户说“记住”才能产生当前项目记忆，但不能跨 Workspace 或自动变成个人记忆。renderer boolean/UUID 不是授权。相同字节跨 Workspace 仍是不同 binding。会话输入框只诚实声明 official text/image 能力；D-041 的 IM text+voice 限制被本决议取代，微信/飞书私聊图片走 official image store、文件走 Artifact Service，群聊/视频仍拒绝。
+- 决定：fresh Memory 默认“智能整理 Workspace”。curator 必须是同一 official DSH 环境中的 no-tools Agent，Host 负责封闭格式、secret/敏感/注入风险校验；只允许自动保存 exact Workspace 的安全项目事实，personal/global/SOP 仍需 Owner。Office、Memory、IM、Plugin Center 和持久 Artifact 统一消费 Main Owner Broker，receipt 绑定 action/object/scope/digest/destination/revision，真实动作成功后才 complete。Office/IM 文档与音频使用 `artifact:<uuid>`。official DSH `0.1.3-alpha.2` 已有 generic file Turn（`uploadFile` receipt + `PromptContentPart` `type: 'file'`）；仍禁止 DOM overlay、第二会话引擎、图片伪装或隐形 prompt。Penglai `bindComposerTurn` 尚未接到这条官方 receipt 路径，产品不得提前宣称会话输入框支持 DOCX/XLSX/PPTX/PDF。
+- 后果：记忆无需用户说“记住”才能产生当前项目记忆，但不能跨 Workspace 或自动变成个人记忆。renderer boolean/UUID 不是授权。相同字节跨 Workspace 仍是不同 binding。会话输入框当前诚实声明 official text/image，外加“官方 file receipt 已存在、Penglai 未接线”。微信/飞书私聊图片走 official image store、文件走 Artifact Service，群聊/视频仍拒绝。
 
 ### D-059 — 0.5.6 IM 可用性与公开发布授权
 
@@ -418,6 +418,39 @@
 - 后果：机器可读冻结记录为 `docs/0.5.11/COHORT_FREEZE.json`，必须与
   `packages/release-identity/src/pins.ts` 和 `release-contract.json` 一致。0.5.10
   的 tag、附件和公开下载不得改写。README/官网 0.5.11 下载声明只能在公网字节回读后更新。
+
+### D-068 — 0.5.12 全流程授权：优先完整 alpha.2 cohort，并修复 0.5.11 核查缺陷
+
+- 日期：2026-09-08。
+- 决定：Owner 授权 **Penglai 0.5.12** 完整开发、上游升级适配、缺陷修复、正常
+  测试、推送与 PR 合并、三端原生构建、精确十项附件不可变发布及 README/
+  既有 gh-pages/pages.dev 官网更新与公开回读。Codex 只做产品经理统筹。
+- 上游：优先消费官方 DSH `0.1.3-alpha.2` **完整后继** npm cohort（包数以实际
+  依赖图与 registry integrity 为准，不得假定 254，不得混代、源码路径、Git
+  依赖或本地重打包）。若可证明阻断，必须写明处置，不能只重复 0.5.11 的
+  “npm 没有包”。Node 22.23.2、Electron 43.6.0/44.2.0、Mnemon 0.2.8、飞书
+  1.73.3、sherpa-onnx 1.13.7、onnxruntime-node 1.29.0 及其他生产依赖按
+  兼容性/安全收益评估后升级或保留，并留下证据。
+- 必须修复并取证：Windows 卸载效果在测试清理前证明；不得关闭 Defender
+  或加排除来通过原生升级；NSIS 升级/回滚有完整校验且禁止混合代际安装树；
+  进程停止绑定目标安装/数据根；三端可用且用户可见的摘要绑定 PDF 页预览；
+  0.5.11 开发树文档以历史快照+终裁整理，0.5.12 账本自洽。
+- 已发布 **v0.5.10** 与 **v0.5.11** tag/附件不可变。两小时 installed soak
+  排除；`test:soak` 保留。真实账号缺凭据记 `LIVE_NOT_RUN`，不升为新发布阻断。
+- 后果：执行账本为 `docs/0.5.12/`。Owner `AGENTS.md` 与
+  `docs/0.5.7/RELEASE_RUNBOOK.md` 暂存修改不进入本任务提交。
+
+### D-069 — 0.5.12 省略新增 PDF 页预览与捆绑 Poppler
+
+- 日期：2026-09-08。
+- 决定：Owner：「Pdf为什么卡那么久？没有必要的一个东西，不能跳过吗」。
+  Codex PM 接受：本版省略新增 PDF 页预览，撤回其新依赖与对应验收，保留
+  既有 PDF/Office 能力，继续其余 0.5.12 发布。记录为
+  **DEFERRED_BY_OWNER / OUT_OF_SCOPE**，不是 PASS。
+- 范围：撤回捆绑 Poppler `pdftoppm` 供应链、打包、工作流、测试与 SBOM/
+  NOTICE 声明。不引入替代渲染器。保留 0.5.11 已有的 PDF 检查、摘要绑定
+  文本预览，以及主机 PATH 上可选 `pdftoppm`（非三端打包证据）。
+- 后果：I05 打包页光栅不再是 0.5.12 发布阻断。不得把该延期项标成 PASS。
 
 ## Superseded
 

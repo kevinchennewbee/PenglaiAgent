@@ -1,9 +1,11 @@
+import { macosAarch64DmgName, macosX64DmgName, windowsSetupName } from "./product.mjs";
+
 export const RELEASE_TARGETS = Object.freeze(["darwin-aarch64", "darwin-x86_64", "win32-x86_64"]);
 
 export const TARGET_INSTALLERS = Object.freeze({
-  "darwin-aarch64": "Penglai_0.5.11_macos_aarch64.dmg",
-  "darwin-x86_64": "Penglai_0.5.11_macos_x64.dmg",
-  "win32-x86_64": "Penglai_0.5.11_windows_x64_setup.exe",
+  "darwin-aarch64": macosAarch64DmgName(),
+  "darwin-x86_64": macosX64DmgName(),
+  "win32-x86_64": windowsSetupName(),
 });
 
 export function assertReleaseTarget(target) {

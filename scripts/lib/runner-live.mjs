@@ -55,7 +55,11 @@ export function readProcessIdentity(pid) {
       return null;
     }
   }
-  const r = spawnSync("/bin/ps", ["-p", String(n), "-o", "pid=,lstart=,command="], { encoding: "utf8" });
+  const r = spawnSync("/bin/ps", ["-p", String(n), "-o", "pid=,lstart=,command="], {
+    encoding: "utf8",
+    timeout: 3_000,
+    killSignal: "SIGKILL",
+  });
   if (r.status !== 0) return null;
   return parseProcessIdentityLine(r.stdout);
 }

@@ -1,6 +1,11 @@
 /** Official DSH opener from `@deepseek-ai/dsh-system-prompt` when `includeHarnessIdentity` is true. */
 export const HARNESS_IDENTITY_NAME = "harness:identity";
-export const PERSONA_SECTION_NAME = "deployment:persona";
+export const PERSONA_SECTION_NAME = "deployment:persona-prefix";
+export const PERSONA_SECTION_NAMES = [
+  "deployment:persona",
+  "deployment:persona-prefix",
+  "deployment:persona-suffix",
+] as const;
 export const PENGLAI_IDENTITY_NAME = "penglai:identity";
 
 /**
@@ -77,7 +82,8 @@ export function applyPenglaiProductIdentity(assembly: unknown, context?: unknown
     if (!isRecord(section)) return section;
     const next = { ...section } as unknown as PromptSectionLike;
     if (
-      (next.name === PERSONA_SECTION_NAME || next.name === PENGLAI_IDENTITY_NAME) &&
+      (PERSONA_SECTION_NAMES.includes(next.name as (typeof PERSONA_SECTION_NAMES)[number]) ||
+        next.name === PENGLAI_IDENTITY_NAME) &&
       typeof next.text === "string"
     ) {
       next.text = neutralizeUnresolvedPersonaPlaceholders(next.text, variables);

@@ -68,7 +68,7 @@ if (
 const opus = packageRoot("libopus-wasm", audioReq, join(process.cwd(), "packages/audio-codecs"));
 const opusGenerated = join(opus.root, "dist/generated/libopus.generated.mjs");
 if (
-  opus.metadata.version !== "0.2.0" || opus.metadata.license !== "MIT" ||
+  opus.metadata.version !== "0.3.0" || opus.metadata.license !== "MIT" ||
   opus.metadata.scripts?.postinstall || !existsSync(opusGenerated) ||
   !readFileSync(opusGenerated).includes(Buffer.from([0x00, 0x61, 0x73, 0x6d]))
 ) {

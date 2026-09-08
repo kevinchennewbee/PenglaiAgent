@@ -75,12 +75,24 @@ export interface OfficeJobScope {
   sessionId?: string;
 }
 
+export function scopedJobFields(scope?: {
+  workspaceId?: string | undefined;
+  sessionId?: string | undefined;
+}): OfficeJobScope {
+  return {
+    ...(scope?.workspaceId ? { workspaceId: scope.workspaceId } : {}),
+    ...(scope?.sessionId ? { sessionId: scope.sessionId } : {}),
+  };
+}
+
 function assertJobScope(job: { workspaceId?: string; sessionId?: string }, scope?: OfficeJobScope): void {
-  if (!scope) return;
-  if (scope.workspaceId !== undefined && job.workspaceId !== scope.workspaceId) {
+  if (!scope?.workspaceId || !scope.sessionId) {
     throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
   }
-  if (scope.sessionId !== undefined && job.sessionId !== scope.sessionId) {
+  if (!job.workspaceId || !job.sessionId) {
+    throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
+  }
+  if (job.workspaceId !== scope.workspaceId || job.sessionId !== scope.sessionId) {
     throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
   }
 }
@@ -153,7 +165,7 @@ export async function inspect(bytes: Buffer): Promise<DocumentInventory> {
   return inspectRaw(bytes);
 }
 
-export async function createDocument(format: OfficeFormat, text: string): Promise<OfficeJob> {
+export async function createDocument(format: OfficeFormat, text: string, scope?: OfficeJobScope): Promise<OfficeJob> {
   requireSafe(text);
   const bytes =
     format === "docx"
@@ -164,11 +176,18 @@ export async function createDocument(format: OfficeFormat, text: string): Promis
           ? await createPptx(text)
           : await createPdf(text);
   const seen = await inspectRaw(bytes);
-  const job = createJob({ format, bytes, text: seen.text, parts: seen.parts, warnings: seen.warnings });
+  const job = createJob({
+    format,
+    bytes,
+    text: seen.text,
+    parts: seen.parts,
+    warnings: seen.warnings,
+    ...scopedJobFields(scope),
+  });
   return toPublic(job);
 }
 
-export async function createStructuredDocument(input: unknown): Promise<OfficeJob> {
+export async function createStructuredDocument(input: unknown, scope?: OfficeJobScope): Promise<OfficeJob> {
   const spec = parseOfficeCreateSpec(input);
   requireSafe(JSON.stringify(spec));
   const bytes = spec.format === "docx"
@@ -179,10 +198,21 @@ export async function createStructuredDocument(input: unknown): Promise<OfficeJo
         ? await createPptxFromSpec(spec)
         : await createPdfFromSpec(spec);
   const seen = await inspectRaw(bytes);
-  return toPublic(createJob({ format: spec.format, bytes, text: seen.text, parts: seen.parts, warnings: seen.warnings }));
+  return toPublic(createJob({
+    format: spec.format,
+    bytes,
+    text: seen.text,
+    parts: seen.parts,
+    warnings: seen.warnings,
+    ...scopedJobFields(scope),
+  }));
 }
 
-export async function edit(bytes: Buffer, op: OfficeOperation): Promise<OfficeJob> {
+export async function edit(
+  bytes: Buffer,
+  op: OfficeOperation,
+  scope?: OfficeJobScope & { attachmentHandle?: string; routeId?: string; parentArtifactId?: string },
+): Promise<OfficeJob> {
   const text = "text" in op ? String(op.text) : "value" in op ? String(op.value) : "";
   if (text) requireSafe(text);
   assertAuthorizedBytes(bytes);
@@ -197,6 +227,10 @@ export async function edit(bytes: Buffer, op: OfficeOperation): Promise<OfficeJo
     parts: seen.parts,
     warnings: seen.warnings,
     ops: [op],
+    ...scopedJobFields(scope),
+    ...(scope?.attachmentHandle ? { attachmentHandle: scope.attachmentHandle } : {}),
+    ...(scope?.routeId ? { routeId: scope.routeId } : {}),
+    ...(scope?.parentArtifactId ? { parentArtifactId: scope.parentArtifactId } : {}),
   });
   job.sourceBytes = Buffer.from(bytes);
   job.sourceDigest = digestBytes(bytes);
@@ -344,11 +378,9 @@ export function createOfficeService(opts?: {
       }
       return toPublic(job);
     },
-    async createFromTemplate(id: string, workspaceId?: string) {
+    async createFromTemplate(id: string, workspaceId?: string, sessionId?: string) {
       const template = templateById(id);
-      const created = await createStructuredDocument(template.spec);
-      if (workspaceId) getJob(created.id).workspaceId = workspaceId;
-      return created;
+      return createStructuredDocument(template.spec, scopedJobFields({ workspaceId, sessionId }));
     },
     edit,
     async preview(jobId: string, scope?: OfficeJobScope) {
@@ -422,11 +454,11 @@ export function createOfficeService(opts?: {
       setJobState(jobId, "VERIFIED");
       return { ok: true, format: job.format, digest: job.digest };
     },
-    commit(job: OfficeJob | string, receipt?: string) {
+    commit(job: OfficeJob | string, receipt?: string, scope?: OfficeJobScope) {
       if (typeof job !== "string") return Buffer.from(job.bytes);
       if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office commit requires owner receipt");
       const record = getJob(job);
-      assertJobScope(record);
+      assertJobScope(record, scope);
       const finish = consumeReceipt(record, "commit", receipt);
       assertPreviewMatchesResult(record);
       record.stagedBytes = Buffer.from(record.bytes);

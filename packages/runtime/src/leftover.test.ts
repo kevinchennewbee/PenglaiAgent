@@ -76,7 +76,7 @@ test("R50-REL-006/007 a11y contract covers live region, QR alt, contrast, and zo
 
 test("R50-UPD-008/009/010 verified installer and crash replay", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-update-handoff-"));
-  const path = join(root, "Penglai_0.5.11_macos_aarch64.dmg");
+  const path = join(root, "Penglai_0.5.12_macos_aarch64.dmg");
   const payload = Buffer.from("signed-installer");
   writeFileSync(path, payload);
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
@@ -103,7 +103,7 @@ test("verified installer handoff refuses a symlink even when target bytes are si
   if (process.platform === "win32") return;
   const root = mkdtempSync(join(tmpdir(), "penglai-update-handoff-link-"));
   const outside = join(root, "signed-outside.dmg");
-  const linked = join(root, "Penglai_0.5.11_macos_aarch64.dmg");
+  const linked = join(root, "Penglai_0.5.12_macos_aarch64.dmg");
   const payload = Buffer.from("signed-installer");
   writeFileSync(outside, payload);
   symlinkSync(outside, linked);
@@ -168,7 +168,7 @@ test("R50-UPD: download verifies size/hash/signature and crash mid-download retu
   const sig = sign(null, payload, privateKey);
   const dest = mkdtempSync(join(tmpdir(), "penglai-upd-dl-"));
   const out = await downloadVerifiedPayload({
-    url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.11/Penglai_0.5.11_macos_aarch64.dmg",
+    url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.12/Penglai_0.5.12_macos_aarch64.dmg",
     destDir: dest,
     expectedSha256: sha,
     expectedSize: payload.length,
@@ -182,7 +182,7 @@ test("R50-UPD: download verifies size/hash/signature and crash mid-download retu
   assert.throws(() => drainOwnedServices({ dshRunning: true, asrBusy: false, ttsBusy: false, indexerBusy: false, companionArmed: false }), /busy/);
 });
 
-test("R50-DIST: packaged identity is Penglai 0.5.11 and Windows NSIS stays current-user", async () => {
+test("R50-DIST: packaged identity is Penglai 0.5.12 and Windows NSIS stays current-user", async () => {
   const {
     assertPenglaiAppIdentity,
     assertWindowsNsisContract,
@@ -190,11 +190,12 @@ test("R50-DIST: packaged identity is Penglai 0.5.11 and Windows NSIS stays curre
     rewriteElectronPlist,
     WINDOWS_NSIS_CONTRACT,
     assertWindowsNsisScript,
+    PRODUCT_VERSION,
   } = await import("./packaging.js");
   const rewritten = rewriteElectronPlist(`
     <key>CFBundleExecutable</key><string>Electron</string>
-    <key>CFBundleShortVersionString</key><string>43.4.0</string>
-    <key>CFBundleVersion</key><string>43.4.0</string>
+    <key>CFBundleShortVersionString</key><string>43.6.0</string>
+    <key>CFBundleVersion</key><string>43.6.0</string>
     <key>CFBundleIdentifier</key><string>com.github.Electron</string>
     <key>CFBundleName</key><string>Electron</string>
     <key>CFBundleDisplayName</key><string>Electron</string>
@@ -210,7 +211,7 @@ test("R50-DIST: packaged identity is Penglai 0.5.11 and Windows NSIS stays curre
   const facts = parseInfoPlistIdentity(rewritten);
   assertPenglaiAppIdentity(facts);
   assert.equal(facts.executable, "Penglai");
-  assert.equal(facts.shortVersion, "0.5.11");
+  assert.equal(facts.shortVersion, PRODUCT_VERSION);
   assert.match(rewritten, /penglai\.icns/);
   assert.match(rewritten, /<string>13\.0<\/string>/);
   assert.match(rewritten, /NSMicrophoneUsageDescription/);
@@ -234,13 +235,17 @@ test("Windows upgrade refuses the old live-tree delete-then-copy pattern", async
   assertWindowsUpgradeStaging(live);
   assertWindowsNsisScript(live);
   assert.match(live, /upgrade_rename_live/);
-  assert.match(live, /taskkill\.exe/);
-  assert.match(live, /\/IM Penglai\.exe/);
+  assert.match(live, /PenglaiStopScoped/);
+  assert.match(live, /ExecutablePath/);
+  assert.doesNotMatch(live, /\/IM Penglai\.exe/);
   assert.match(live, /penglai-setup\.log/);
   assert.match(live, /upgrade_rename_fallback/);
   assert.match(live, /upgrade_pending_fallback/);
   assert.match(live, /pending-copy-fallback/);
   assert.match(live, /robocopy\.exe/);
+  assert.match(live, /\/PURGE/);
+  assert.match(live, /upgrade_backup_failed/);
+  assert.match(live, /upgrade_restore_failed/);
   assert.match(live, /upgrade_abort_keep_live/);
   assert.match(live, /uninstall_rmdir_retry/);
   assert.match(live, /RMDir \/r "\$INSTDIR\.pending"/);
@@ -252,11 +257,27 @@ test("Windows upgrade refuses the old live-tree delete-then-copy pattern", async
     previous install was left in place
     upgrade_activate_failed:
     $INSTDIR.previous
+    upgrade_rename_live:
+    Sleep 1000
     ClearErrors
     Rename "$INSTDIR" "$INSTDIR.previous"
     IfErrors upgrade_activate_failed
+    penglai-setup.log
+    upgrade_rename_fallback
+    upgrade_pending_fallback
+    pending-copy-fallback
+    robocopy.exe
+    upgrade_abort_keep_live
+    uninstall_rmdir_retry
+    RMDir /r "$INSTDIR.pending"
+    upgrade_backup_failed
+    IfFileExists "$INSTDIR.previous\\Penglai.exe"
+    $\{GetSize\}
+    /PURGE
+    upgrade_restore_failed
+    IfFileExists "$INSTDIR\\Penglai.exe" 0 upgrade_restore_failed
   `;
-  assert.throws(() => assertWindowsUpgradeStaging(noRetry), /stop Penglai\.exe and retry/);
+  assert.throws(() => assertWindowsUpgradeStaging(noRetry), /stop scoped install-root processes and retry/);
   const oldLiveDeleteThenCopy = `
 RequestExecutionLevel user
 Section "Penglai"

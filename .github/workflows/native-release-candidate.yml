@@ -1,4 +1,4 @@
-name: Native 0.5.11 release candidate
+name: Native 0.5.12 release candidate
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: native-0.5.11-${{ inputs.mode }}-${{ github.ref }}
+  group: native-0.5.12-${{ inputs.mode }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -29,22 +29,23 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - name: Check out immutable official DSH rc.1 source
+      - name: Check out immutable official DSH 0.1.3-alpha.2 source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: deepseek-ai/DeepSeek-Harness
-          ref: a66e4702047846cdaa10c66c9d3df3951f5ea70d
+          ref: 82a5fd61a7cf5c293cec4bdff68f455398d685e9
           path: upstream-dsh
           fetch-depth: 1
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22.22.2
+          node-version: 22.23.2
       - name: Install pinned dependencies
         run: |
           corepack enable
           corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
-      - name: Verify the immutable rc.1 registry cohort
+          pnpm rebuild:fs-ext
+      - name: Verify the immutable 0.1.3-alpha.2 registry cohort
         env:
           PENGLAI_DSH_UPSTREAM: ${{ github.workspace }}/upstream-dsh
         run: |
@@ -63,12 +64,13 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22.22.2
+          node-version: 22.23.2
       - name: Install pinned dependencies
         run: |
           corepack enable
           corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
+          pnpm rebuild:fs-ext
       - name: Build source dependencies for the distribution verifier
         run: pnpm build
       - name: Verify immutable catalog, disabled install, and offline recovery
@@ -87,13 +89,13 @@ jobs:
           - runner: macos-15
             target: darwin-aarch64
             package: package:dmg:arm
-            installer: Penglai_0.5.11_macos_aarch64.dmg
-            previous: Penglai_0.5.8_macos_aarch64.dmg
+            installer: Penglai_0.5.12_macos_aarch64.dmg
+            previous: Penglai_0.5.11_macos_aarch64.dmg
           - runner: macos-15-intel
             target: darwin-x86_64
             package: package:dmg:intel
-            installer: Penglai_0.5.11_macos_x64.dmg
-            previous: Penglai_0.5.8_macos_x64.dmg
+            installer: Penglai_0.5.12_macos_x64.dmg
+            previous: Penglai_0.5.11_macos_x64.dmg
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 300
     steps:
@@ -102,7 +104,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22.22.2
+          node-version: 22.23.2
       - name: Prepare clean main
         run: |
           test "$GITHUB_REF" = "refs/heads/main"
@@ -114,6 +116,7 @@ jobs:
           corepack enable
           corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
+          pnpm rebuild:fs-ext
       - name: Verify clean public export
         run: pnpm prepare:public-export -- --clean-room
       - name: Build source from the clean checkout
@@ -168,12 +171,12 @@ jobs:
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
         run: pnpm verify:installed
-      - name: Download verified immutable 0.5.8 and 0.5.9 upgrade sources
+      - name: Download verified immutable published upgrade sources
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           node scripts/fetch-upgrade-sources.mjs --target "${{ matrix.target }}"
-      - name: Prove both native upgrade paths and default uninstall
+      - name: Prove pinned native upgrade paths and default uninstall
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
           PENGLAI_LIFECYCLE_ALLOW_NATIVE: "1"
@@ -181,7 +184,7 @@ jobs:
       - name: Upload installer and target evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.11-${{ matrix.target }}
+          name: penglai-0.5.12-${{ matrix.target }}
           if-no-files-found: error
           retention-days: 14
           path: |
@@ -216,7 +219,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22.22.2
+          node-version: 22.23.2
       - name: Prepare clean main
         shell: bash
         run: |
@@ -224,12 +227,27 @@ jobs:
           git fetch --no-tags origin main:refs/remotes/origin/main
           test "$GITHUB_SHA" = "$(git rev-parse refs/remotes/origin/main)"
           git switch -C main "$GITHUB_SHA"
+      - name: Observe default-on Windows Defender without mutation
+        shell: pwsh
+        run: |
+          $pref = Get-MpPreference
+          $snapshot = $pref | Select-Object DisableRealtimeMonitoring, ExclusionPath | ConvertTo-Json -Compress
+          Write-Host $snapshot
+          if ($pref.DisableRealtimeMonitoring) {
+            throw "Windows Defender realtime monitoring is disabled; 0.5.12 requires the default-on security configuration"
+          }
+          $paths = @($pref.ExclusionPath)
+          $penglai = $paths | Where-Object { $_ -and ($_ -match 'Penglai') }
+          if ($penglai) {
+            throw "Windows Defender has a Penglai exclusion; 0.5.12 requires the default-on security configuration"
+          }
       - name: Install pinned dependencies
         shell: pwsh
         run: |
           corepack enable
           corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
+          pnpm rebuild:fs-ext
       - name: Verify clean public export
         run: pnpm prepare:public-export -- --clean-room
       - name: Build source from the clean checkout
@@ -306,7 +324,7 @@ jobs:
         shell: pwsh
         run: >-
           ./scripts/windows-installer-ui-proof.ps1
-          -Installer ./dist/Penglai_0.5.11_windows_x64_setup.exe
+          -Installer ./dist/Penglai_0.5.12_windows_x64_setup.exe
           -OutDir ./evidence/generated
       - name: Full installed product and onboarding suite
         shell: pwsh
@@ -331,13 +349,13 @@ jobs:
         env:
           PENGLAI_TARGET: win32-x86_64
         run: pnpm verify:installed
-      - name: Download verified immutable 0.5.8 and 0.5.9 upgrade sources
+      - name: Download verified immutable published upgrade sources
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           node scripts/fetch-upgrade-sources.mjs --target win32-x86_64
-      - name: Prove both native upgrade paths and default uninstall
+      - name: Prove pinned native upgrade paths and default uninstall
         shell: pwsh
         env:
           PENGLAI_TARGET: win32-x86_64
@@ -346,11 +364,11 @@ jobs:
       - name: Upload installer and target evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.11-win32-x86_64
+          name: penglai-0.5.12-win32-x86_64
           if-no-files-found: error
           retention-days: 14
           path: |
-            dist/Penglai_0.5.11_windows_x64_setup.exe
+            dist/Penglai_0.5.12_windows_x64_setup.exe
             evidence/generated/local-installer-win32-x86_64.json
             evidence/generated/verify-closure-win32-x86_64.json
             evidence/generated/verify-artifact-win32-x86_64.json
@@ -383,7 +401,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22.22.2
+          node-version: 22.23.2
       - name: Require exact origin main
         run: |
           test "$GITHUB_REF" = "refs/heads/main"
@@ -395,18 +413,19 @@ jobs:
           corepack enable
           corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
+          pnpm rebuild:fs-ext
           pnpm build
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.5.11-darwin-aarch64
+          name: penglai-0.5.12-darwin-aarch64
           path: .native/darwin-aarch64
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.5.11-darwin-x86_64
+          name: penglai-0.5.12-darwin-x86_64
           path: .native/darwin-x86_64
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.5.11-win32-x86_64
+          name: penglai-0.5.12-win32-x86_64
           path: .native/win32-x86_64
       - name: Collect only target-bound evidence
         shell: bash
@@ -431,7 +450,7 @@ jobs:
       - name: Upload consolidated native evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.11-native-evidence-set
+          name: penglai-0.5.12-native-evidence-set
           if-no-files-found: error
           retention-days: 14
           path: |

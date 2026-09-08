@@ -1,4 +1,4 @@
-# Penglai 0.5.11 architecture
+# Penglai 0.5.12 architecture
 
 ## English
 
@@ -122,16 +122,16 @@ after a real official DSH reply and a successful switch to official DSH Web.
 
 ### 5. Profile composition
 
-The complete official npm cohort contains 254 verified packages pinned to
-`dsh-v0.1.2-rc.1` at `a66e4702047846cdaa10c66c9d3df3951f5ea70d`.
+The complete official npm cohort contains 263 verified packages pinned to
+`dsh-v0.1.3-alpha.2` at `82a5fd61a7cf5c293cec4bdff68f455398d685e9`.
 Official DSH bytes are unmodified; Penglai composes official client slots.
 Session recovery consumers use `snapshotEvents()` and fail on missing capability.
-Both previous Home generations are copied into rc.1 before a health-verified
+Previous Home generations are copied into `0.1.3-alpha.2` before a health-verified
 activation; rollback restores the previous pointer and preserves its data.
 
 Fresh profile invariants:
 
-- official DSH `0.1.2-rc.1` is pinned with exact npm integrity and source tag;
+- official DSH `0.1.3-alpha.2` is pinned with exact npm integrity and source tag;
 - Plugin Center, Office, and Memory are installed and active;
 - IM, ASR, MOSS-TTS, and Companion are present in the installer but disabled;
 - the reference fixture and budget control are internal/hidden; and
@@ -178,7 +178,7 @@ return, and undo use the Owner broker. Destination becomes immutable after the
 first commit. Backup identity includes operation, revision, and source digest.
 The approval is completed after the output mutation or IM return, never before.
 
-Official DSH 0.1.2-rc.1 has text/image prompt parts only. Generic composer files are
+Official DSH 0.1.3-alpha.2 has text/image prompt parts only. Generic composer files are
 therefore an explicit upstream boundary. Penglai uses official image storage for
 images and the Artifact Service for Office/IM consumers without adding a second
 Turn representation.

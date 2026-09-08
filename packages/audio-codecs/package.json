@@ -1,6 +1,6 @@
 {
   "name": "@penglai/audio-codecs",
-  "version": "0.5.11",
+  "version": "0.5.12",
   "private": true,
   "type": "module",
   "exports": {
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@penglai/contracts": "workspace:*",
-    "libopus-wasm": "0.2.0",
+    "libopus-wasm": "0.3.0",
     "silk-wasm": "3.7.1"
   }
 }

@@ -7,9 +7,9 @@
     <title>蓬莱正在启动</title>
     <style>
       :root {
-        font-family: Inter, "Segoe UI", "Microsoft YaHei UI", sans-serif;
-        color: #241d17;
-        background: #f7f2eb;
+        font-family: "Avenir Next", "Segoe UI", "PingFang SC", "Microsoft YaHei UI", sans-serif;
+        color: #2c333a;
+        background: #f6f1e8;
       }
       * { box-sizing: border-box; }
       body {
@@ -18,17 +18,17 @@
         display: grid;
         place-items: center;
         background:
-          radial-gradient(circle at 50% 35%, rgba(213, 157, 91, 0.2), transparent 36%),
-          linear-gradient(145deg, #fbf8f3, #f1e9df);
+          radial-gradient(ellipse at 50% 28%, rgba(196, 92, 38, 0.14), transparent 34%),
+          linear-gradient(165deg, #f6f1e8, #efe8db);
       }
       main {
         width: min(440px, calc(100vw - 48px));
         padding: 46px 42px 40px;
         text-align: center;
-        border: 1px solid rgba(104, 75, 48, 0.12);
-        border-radius: 28px;
-        background: rgba(255, 255, 255, 0.76);
-        box-shadow: 0 24px 70px rgba(70, 48, 31, 0.12);
+        border: 1px solid rgba(201, 163, 106, 0.45);
+        border-top: 2px solid #c9a36a;
+        background: rgba(255, 249, 240, 0.88);
+        box-shadow: 0 24px 70px rgba(11, 28, 44, 0.12);
       }
       .mark {
         width: 68px;
@@ -36,45 +36,60 @@
         margin: 0 auto 20px;
         display: grid;
         place-items: center;
-        border-radius: 22px;
-        color: #fffaf4;
-        background: linear-gradient(145deg, #c77b36, #8d4f22);
-        box-shadow: 0 12px 28px rgba(142, 80, 34, 0.28);
-        font: 700 29px/1 Georgia, "Microsoft YaHei UI", serif;
+        border-radius: 6px;
+        color: #f6f1e8;
+        background: #c45c26;
+        border: 1px solid #c9a36a;
+        font: 700 29px/1 Georgia, "Songti SC", "Microsoft YaHei UI", serif;
       }
-      h1 { margin: 0; font-size: 30px; letter-spacing: 0.08em; }
+      h1 {
+        margin: 0;
+        font-family: Georgia, "Songti SC", serif;
+        font-size: 30px;
+        letter-spacing: 0.12em;
+        font-weight: 600;
+      }
       .lead { margin: 16px 0 5px; font-size: 17px; font-weight: 600; }
-      .lead-en { margin: 0; color: #776a5d; font-size: 13px; }
+      .lead-en { margin: 0; color: #3e474f; font-size: 13px; }
       .progress {
-        height: 6px;
+        height: 3px;
         margin: 30px 0 18px;
         overflow: hidden;
-        border-radius: 999px;
-        background: rgba(131, 91, 55, 0.13);
+        background: rgba(11, 28, 44, 0.12);
       }
       .progress::after {
         content: "";
         display: block;
         width: 42%;
         height: 100%;
-        border-radius: inherit;
-        background: linear-gradient(90deg, #d99a5e, #9d5b2e);
-        animation: loading 1.35s ease-in-out infinite alternate;
+        background: linear-gradient(90deg, #c45c26, #c9a36a);
+        animation: loading 1.6s ease-in-out infinite alternate;
       }
-      .note { margin: 0; color: #85766a; font-size: 13px; }
+      .note { margin: 0; color: #3e474f; font-size: 13px; }
       @keyframes loading {
         from { transform: translateX(-12%); }
         to { transform: translateX(150%); }
       }
       @media (prefers-color-scheme: dark) {
-        :root { color: #f7eee5; background: #18130f; }
-        body { background: radial-gradient(circle at 50% 35%, #3a281c, #17120f 52%); }
-        main { background: rgba(39, 30, 24, 0.9); border-color: rgba(255, 255, 255, 0.08); }
-        .lead-en, .note { color: #bbaa9c; }
-        .progress { background: rgba(255, 255, 255, 0.1); }
+        :root { color: #f6f1e8; background: #0b1c2c; }
+        body {
+          background:
+            radial-gradient(ellipse at 50% 30%, rgba(196, 92, 38, 0.22), transparent 40%),
+            #0b1c2c;
+        }
+        main {
+          background: rgba(18, 36, 51, 0.92);
+          border-color: rgba(201, 163, 106, 0.35);
+        }
+        .lead-en, .note { color: #c9c2b6; }
+        .progress { background: rgba(246, 241, 232, 0.12); }
       }
       @media (prefers-reduced-motion: reduce) {
-        .progress::after { animation-duration: 3s; }
+        .progress::after {
+          animation: none;
+          width: 42%;
+          transform: none;
+        }
       }
     </style>
   </head>

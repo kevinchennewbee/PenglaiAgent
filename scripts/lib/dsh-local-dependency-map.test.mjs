@@ -8,6 +8,7 @@ import {
   resealDshLocalDependencyLock,
 } from "./dsh-local-dependency-map.mjs";
 import { ROOT } from "./repo.mjs";
+import { PINNED_DSH } from "./product.mjs";
 
 test("fixed DSH source closure produces an exhaustive no-registry dependency map", () => {
   const map = buildDshLocalDependencyMap(ROOT);
@@ -49,9 +50,9 @@ test("same-version DSH tarballs reseal lock identities without resolving unrelat
   assert.match(resealed, /unrelated: js-yaml@4\.3\.1/);
 });
 
-test("0.5.10 retires the active source resolver without deleting 0.5.8 history", () => {
+test("current lock keeps the official npm DSH pin and does not revive the 0.5.8 source resolver", () => {
   assert.equal(existsSync(`${ROOT}/.pnpmfile.mjs`), false);
   const lock = readFileSync(`${ROOT}/pnpm-lock.yaml`, "utf8");
   assert.doesNotMatch(lock, /penglai-dsh-source|0\.1\.2-alpha\.1/);
-  assert.match(lock, /@deepseek-ai\/dsh@0\.1\.2-rc\.1/);
+  assert.match(lock, new RegExp(`@deepseek-ai/dsh@${PINNED_DSH.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
 });

@@ -51,6 +51,7 @@ export async function inspectPdf(bytes: Buffer): Promise<{
   parts: string[];
   pages: number;
   pageTexts: string[];
+  pageSizes: Array<{ width: number; height: number }>;
   encrypted?: boolean;
   scanned?: boolean;
 }> {
@@ -64,6 +65,10 @@ export async function inspectPdf(bytes: Buffer): Promise<{
   }
   const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
   const pages = pdf.getPageCount();
+  const pageSizes = pdf.getPages().map((page) => {
+    const size = page.getSize();
+    return { width: size.width, height: size.height };
+  });
   const pageTexts = extractPdfPageTexts(bytes.toString("latin1"), pages);
   const body = pageTexts.join("\n").replace(/\s+/g, " ").trim();
   const scanned = pages > 0 && !body && !encrypted;
@@ -79,6 +84,7 @@ export async function inspectPdf(bytes: Buffer): Promise<{
     ],
     pages,
     pageTexts,
+    pageSizes,
     ...(encrypted ? { encrypted: true } : {}),
     ...(scanned ? { scanned: true } : {}),
   };

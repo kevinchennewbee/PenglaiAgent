@@ -1,9 +1,9 @@
 import { join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
-import type { OfficeFormat, OfficeJob, OfficeService } from "./service.js";
+import { scopedJobFields, type OfficeFormat, type OfficeJob, type OfficeService } from "./service.js";
 import { parseOfficeOperation } from "./operations.js";
 import { safeWorkspaceFilename } from "./transaction.js";
-import { previewPdfPages } from "./pdf-preview.js";
+import { isPngRaster, previewPdfPages, publicPdfPreview } from "./pdf-preview.js";
 import { previewOfficeStructure } from "./structural-preview.js";
 
 interface CordisTools {
@@ -19,6 +19,37 @@ function jsonOutput(description: string) {
   };
 }
 
+function previewOutputParts(value: unknown): Array<Record<string, unknown>> {
+  const parts: Array<Record<string, unknown>> = [
+    { type: "text", text: `office preview\n${JSON.stringify(value)}` },
+  ];
+  const bag = value && typeof value === "object" ? (value as Record<string, unknown>).pdfPreview : undefined;
+  const pdf = bag && typeof bag === "object" ? (bag as Record<string, unknown>) : undefined;
+  const status = typeof pdf?.rasterStatus === "string" ? pdf.rasterStatus : "";
+  const reason = typeof pdf?.rasterReason === "string" ? pdf.rasterReason : "";
+  if (status && status !== "rendered") {
+    parts.push({
+      type: "text",
+      text: `PDF page images: ${status}${reason ? ` (${reason})` : ""}. Extracted text is not a page image.`,
+    });
+  }
+  const pages = Array.isArray(pdf?.pagePreviews) ? pdf.pagePreviews : [];
+  for (const page of pages) {
+    if (!page || typeof page !== "object") continue;
+    const raster = (page as { raster?: { mediaType?: string; dataBase64?: string; png?: boolean } }).raster;
+    const raw = raster?.dataBase64 ? Buffer.from(raster.dataBase64, "base64") : undefined;
+    if (raster?.png && raster.mediaType === "image/png" && isPngRaster(raw)) {
+      parts.push({
+        type: "image",
+        mediaType: "image/png",
+        data: raster.dataBase64,
+        name: "pdf-page-preview.png",
+      });
+    }
+  }
+  return parts;
+}
+
 function boundWorkspace(ctx: CordisTools, exec: unknown): { id: string; path: string; sessionId: string } {
   const bag = exec && typeof exec === "object" ? (exec as Record<string, unknown>) : {};
   const agent = bag.agent && typeof bag.agent === "object" ? (bag.agent as { id?: unknown }) : undefined;
@@ -28,7 +59,7 @@ function boundWorkspace(ctx: CordisTools, exec: unknown): { id: string; path: st
     throw new PenglaiError("SECURITY_POLICY", "model-supplied workspace paths are not office authorities");
   }
   const workspaces = ctx.workspaceRegistry?.list() ?? [];
-  const hit = workspaces.find((row) => row.sessionIds?.includes(agentId) || row.id === agentId);
+  const hit = workspaces.find((row) => row.sessionIds?.includes(agentId));
   if (!hit?.path) throw new PenglaiError("UNAUTHORIZED", "agent is not bound to an official Workspace path");
   return { id: hit.id, path: hit.path, sessionId: agentId };
 }
@@ -129,22 +160,15 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     async execute(args: unknown, exec?: unknown) {
       const input = args as { format?: string; text?: string; template_id?: string; spec?: unknown };
       const ws = boundWorkspace(ctx, exec);
+      const scope = { workspaceId: ws.id, sessionId: ws.sessionId };
       if (input.template_id) {
-        const created = await svc.createFromTemplate(input.template_id, ws.id);
-        svc.job(created.id).sessionId = ws.sessionId;
-        return publicJob(created);
+        return publicJob(await svc.createFromTemplate(input.template_id, ws.id, ws.sessionId));
       }
       if (input.spec) {
-        const created = await svc.createStructured(input.spec);
-        svc.job(created.id).workspaceId = ws.id;
-        svc.job(created.id).sessionId = ws.sessionId;
-        return publicJob(created);
+        return publicJob(await svc.createStructured(input.spec, scope));
       }
       if (!input.format || !input.text) throw new PenglaiError("INVALID_INPUT", "office create requires format and text or template_id");
-      const created = await svc.create(asFormat(input.format), input.text);
-      svc.job(created.id).workspaceId = ws.id;
-      svc.job(created.id).sessionId = ws.sessionId;
-      return publicJob(created);
+      return publicJob(await svc.create(asFormat(input.format), input.text, scope));
     },
   });
   ctx.tools.register({
@@ -164,27 +188,28 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     async execute(args: unknown, exec?: unknown) {
       const input = args as { job_id?: string; handle?: string; operation?: unknown };
       const ws = boundWorkspace(ctx, exec);
+      const scope = { workspaceId: ws.id, sessionId: ws.sessionId };
       const op = parseOfficeOperation(input.operation);
       if (input.handle) {
         const attached = await svc.inspectAttached(input.handle, ws.sessionId);
         const attachedRecord = svc.job(attached.id);
-        const edited = await svc.edit(attached.bytes, op);
-        const editedRecord = svc.job(edited.id);
-        editedRecord.workspaceId = ws.id;
-        editedRecord.sessionId = ws.sessionId;
-        if (attachedRecord.attachmentHandle) editedRecord.attachmentHandle = attachedRecord.attachmentHandle;
-        if (attachedRecord.routeId) editedRecord.routeId = attachedRecord.routeId;
-        if (attachedRecord.artifactId) editedRecord.parentArtifactId = attachedRecord.artifactId;
-        return publicJob(edited);
+        return publicJob(await svc.edit(attached.bytes, op, {
+          ...scope,
+          ...(attachedRecord.attachmentHandle ? { attachmentHandle: attachedRecord.attachmentHandle } : {}),
+          ...(attachedRecord.routeId ? { routeId: attachedRecord.routeId } : {}),
+          ...(attachedRecord.artifactId ? { parentArtifactId: attachedRecord.artifactId } : {}),
+        }));
       }
       if (!input.job_id) throw new PenglaiError("INVALID_INPUT", "office plan requires job_id or handle");
       const source = boundJob(ctx, svc, exec, input.job_id);
-      const edited = await svc.edit(source.bytes, op);
-      svc.job(edited.id).workspaceId = ws.id;
-      svc.job(edited.id).sessionId = ws.sessionId;
-      if (source.artifactId) svc.job(edited.id).parentArtifactId = source.artifactId;
-      else if (source.resultArtifactId) svc.job(edited.id).parentArtifactId = source.resultArtifactId;
-      return publicJob(edited);
+      return publicJob(await svc.edit(source.bytes, op, {
+        ...scope,
+        ...(source.artifactId
+          ? { parentArtifactId: source.artifactId }
+          : source.resultArtifactId
+            ? { parentArtifactId: source.resultArtifactId }
+            : {}),
+      }));
     },
   });
   ctx.tools.register({
@@ -196,20 +221,23 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
       required: ["job_id"],
       properties: { job_id: { type: "string", minLength: 8, maxLength: 80 } },
     },
-    output: jsonOutput("office preview"),
+    output: {
+      schema: { type: "object", additionalProperties: true },
+      render: (_args: unknown, value: unknown) => previewOutputParts(value),
+    },
     async execute(args: unknown, exec?: unknown) {
       const jobId = String((args as { job_id?: string }).job_id);
-      boundJob(ctx, svc, exec, jobId);
-      const [preview, diff] = await Promise.all([svc.preview(jobId), svc.diff(jobId)]);
-      const job = svc.job(jobId);
+      const job = boundJob(ctx, svc, exec, jobId);
+      const scope = scopedJobFields(job);
+      const [preview, diff] = await Promise.all([svc.preview(jobId, scope), svc.diff(jobId, scope)]);
       const structural = await previewOfficeStructure(
         job.bytes,
         job.digest.replace(/^sha256:/, ""),
         job.sourcePath,
       );
       if (job.format === "pdf") {
-        const pdfPreview = await previewPdfPages(job.bytes, job.digest.replace(/^sha256:/, ""));
-        return { preview, diff, structural, pdfPreview: { digest: pdfPreview.digest, pages: pdfPreview.pages, scanned: pdfPreview.scanned, encrypted: pdfPreview.encrypted, pageTexts: pdfPreview.pagePreviews.map((page) => page.text) } };
+        const pdfPreview = publicPdfPreview(await previewPdfPages(job.bytes, job.digest.replace(/^sha256:/, "")));
+        return { preview, diff, structural, pdfPreview };
       }
       return { preview, diff, structural };
     },
@@ -226,8 +254,8 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     output: jsonOutput("office accept"),
     execute(args: unknown, exec?: unknown) {
       const jobId = String((args as { job_id?: string }).job_id);
-      boundJob(ctx, svc, exec, jobId);
-      return svc.accept(jobId);
+      const job = boundJob(ctx, svc, exec, jobId);
+      return svc.accept(jobId, scopedJobFields(job));
     },
   });
   ctx.tools.register({
@@ -262,8 +290,8 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     output: jsonOutput("office discard"),
     execute(args: unknown, exec?: unknown) {
       const jobId = String((args as { job_id?: string }).job_id);
-      boundJob(ctx, svc, exec, jobId);
-      return Promise.resolve(svc.cancel(jobId)).then(() => ({ discarded: true as const }));
+      const job = boundJob(ctx, svc, exec, jobId);
+      return Promise.resolve(svc.cancel(jobId, scopedJobFields(job))).then(() => ({ discarded: true as const }));
     },
   });
   ctx.tools.register({
@@ -291,11 +319,11 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
       }
       const dest = join(ws.path, filename);
       if (!job.receipt) {
-        await svc.approve(jobId, "commit-to-path", dest);
+        await svc.approve(jobId, "commit-to-path", dest, { workspaceId: ws.id, sessionId: ws.sessionId });
       }
       const receipt = svc.job(jobId).receipt;
       if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office commit requires owner receipt");
-      const committed = svc.commitToPath(jobId, receipt, dest, ws.path);
+      const committed = svc.commitToPath(jobId, receipt, dest, ws.path, { workspaceId: ws.id, sessionId: ws.sessionId });
       return { dest: committed.dest, digest: committed.digest, backup: committed.backup ? "retained" : undefined };
     },
   });
@@ -311,11 +339,13 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     output: jsonOutput("office undo"),
     async execute(args: unknown, exec?: unknown) {
       const jobId = String((args as { job_id?: string }).job_id);
-      boundJob(ctx, svc, exec, jobId);
-      if (!svc.job(jobId).receipt) await svc.approve(jobId, "undo");
+      const job = boundJob(ctx, svc, exec, jobId);
+      if (!svc.job(jobId).receipt) {
+        await svc.approve(jobId, "undo", "", scopedJobFields(job));
+      }
       const receipt = svc.job(jobId).receipt;
       if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office undo requires owner receipt");
-      return { bytes: svc.undo(jobId, receipt).length, undone: true };
+      return { bytes: svc.undo(jobId, receipt, scopedJobFields(job)).length, undone: true };
     },
   });
   ctx.tools.register({
@@ -330,11 +360,13 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     output: jsonOutput("office return"),
     async execute(args: unknown, exec?: unknown) {
       const jobId = String((args as { job_id?: string }).job_id);
-      boundJob(ctx, svc, exec, jobId);
-      if (!svc.job(jobId).receipt) await svc.approve(jobId, "return-to-channel");
+      const job = boundJob(ctx, svc, exec, jobId);
+      if (!svc.job(jobId).receipt) {
+        await svc.approve(jobId, "return-to-channel", "", scopedJobFields(job));
+      }
       const receipt = svc.job(jobId).receipt;
       if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office return requires owner receipt");
-      return svc.returnToChannel(jobId, receipt);
+      return svc.returnToChannel(jobId, receipt, scopedJobFields(job));
     },
   });
 }

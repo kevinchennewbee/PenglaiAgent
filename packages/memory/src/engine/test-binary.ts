@@ -8,7 +8,7 @@ const { join } = require("node:path");
 const { randomUUID } = require("node:crypto");
 const args = process.argv.slice(2);
 if (args.includes("--version") && !args.some((a) => ["remember","search","recall","forget","viz","status"].includes(a))) {
-  process.stdout.write("mnemon version 0.2.4\\n");
+  process.stdout.write("mnemon version 0.2.8\\n");
   process.exit(0);
 }
 function take(flag) {
@@ -32,7 +32,7 @@ function load() {
 }
 function save(db) { writeFileSync(storePath(), JSON.stringify(db)); }
 if (command === "--version" || command === undefined && args.includes("--version")) {
-  process.stdout.write("mnemon version 0.2.4\\n");
+  process.stdout.write("mnemon version 0.2.8\\n");
   process.exit(0);
 }
 if (command === "version") { process.stderr.write("unknown command\\n"); process.exit(2); }

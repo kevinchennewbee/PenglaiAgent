@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { RELEASE } from "@penglai/contracts";
 import { UNSIGNED_NOTICE, createDesktopRuntime } from "./main.js";
 import { loadWindowUrl } from "./navigation-retry.js";
 import { assertIpcName } from "./preload.js";
@@ -10,6 +11,7 @@ import { EMPTY_INVENTORY_PROOF, type RuntimeLayout, type SupervisorRecoverySnaps
 test("community release notice keeps platform trust limits without candidate wording", () => {
   assert.match(UNSIGNED_NOTICE, /ad-hoc|unsigned|not notarized/i);
   assert.match(UNSIGNED_NOTICE, /community release/i);
+  assert.match(UNSIGNED_NOTICE, new RegExp(`Penglai ${RELEASE.replaceAll(".", "\\.")} community release`));
   assert.doesNotMatch(UNSIGNED_NOTICE, /candidate|not a public release/i);
 });
 

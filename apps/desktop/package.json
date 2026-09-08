@@ -1,6 +1,6 @@
 {
   "name": "@penglai/desktop",
-  "version": "0.5.11",
+  "version": "0.5.12",
   "private": true,
   "type": "module",
   "main": "dist/electron-main.js",
@@ -11,7 +11,7 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/dsh": "0.1.2-rc.1",
+    "@deepseek-ai/dsh": "0.1.3-alpha.2",
     "@penglai/channel-weixin": "workspace:*",
     "@penglai/contracts": "workspace:*",
     "@penglai/dsh-bridge": "workspace:*",
@@ -20,7 +20,7 @@
     "@penglai/runtime": "workspace:*",
     "@penglai/persistence": "workspace:*",
     "@penglai/routing-core": "workspace:*",
-    "electron": "43.4.0"
+    "electron": "43.6.0"
   },
   "devDependencies": {}
 }

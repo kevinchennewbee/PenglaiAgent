@@ -6,6 +6,16 @@ import { writeFileAtomic } from "./permissions.js";
 import { invokeWindowsHost, windowsNativeHostStatus, type WindowsHostReport } from "./windows-host.js";
 
 export const USER_SCHEMA = 3;
+/** Bound `/bin/ps` and `lsof` so a wedged inspector cannot hang the supervisor. */
+export const PROCESS_QUERY_TIMEOUT_MS = 3_000;
+
+function psQuery(args: string[]): string {
+  return execFileSync("/bin/ps", args, {
+    encoding: "utf8",
+    timeout: PROCESS_QUERY_TIMEOUT_MS,
+    killSignal: "SIGKILL",
+  });
+}
 
 export interface ProcessIdentity {
   pid: number;
@@ -51,7 +61,7 @@ export function readProcessStartMs(
     }
   }
   try {
-    const raw = execFileSync("/bin/ps", ["-p", String(pid), "-o", "lstart="], { encoding: "utf8" }).trim();
+    const raw = psQuery(["-p", String(pid), "-o", "lstart="]).trim();
     const ms = Date.parse(raw);
     return Number.isFinite(ms) ? ms : 0;
   } catch {
@@ -62,7 +72,7 @@ export function readProcessStartMs(
 export function readProcessPgid(pid: number, platform: NodeJS.Platform = process.platform): number {
   if (platform === "win32") return pid;
   try {
-    const raw = execFileSync("/bin/ps", ["-p", String(pid), "-o", "pgid="], { encoding: "utf8" }).trim();
+    const raw = psQuery(["-p", String(pid), "-o", "pgid="]).trim();
     const n = Number(raw);
     return Number.isInteger(n) && n > 0 ? n : pid;
   } catch {
@@ -95,7 +105,7 @@ export function processStillMatches(id: ProcessIdentity): boolean {
   const start = readProcessStartMs(id.pid, "darwin");
   if (!start || start !== id.startMs) return false;
   try {
-    const cmd = execFileSync("/bin/ps", ["-p", String(id.pid), "-o", "command="], { encoding: "utf8" });
+    const cmd = psQuery(["-p", String(id.pid), "-o", "command="]);
     return cmd.includes(id.executable) && cmd.includes(id.dshEntry);
   } catch {
     return false;
@@ -122,7 +132,7 @@ export function listDshCandidates(layout: RuntimeLayout, platform: NodeJS.Platfo
   }
   let out = "";
   try {
-    out = execFileSync("/bin/ps", ["-axo", "pid=,ppid=,pgid=,command="], { encoding: "utf8" });
+    out = psQuery(["-axo", "pid=,ppid=,pgid=,command="]);
   } catch {
     return [];
   }
@@ -175,7 +185,12 @@ export function reapDshOrphans(layout: RuntimeLayout, keep?: ProcessIdentity, us
   for (const row of listDshCandidates(layout, "darwin")) {
     if (keep && row.pid === keep.pid) continue;
     try {
-      const cwd = execFileSync("/usr/sbin/lsof", ["-a", "-p", String(row.pid), "-d", "cwd", "-Fn"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
+      const cwd = execFileSync("/usr/sbin/lsof", ["-a", "-p", String(row.pid), "-d", "cwd", "-Fn"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        timeout: PROCESS_QUERY_TIMEOUT_MS,
+        killSignal: "SIGKILL",
+      })
         .split("\n").find((line) => line.startsWith("n"))?.slice(1);
       if (!cwd || realpathSync(cwd) !== expectedCwd) continue;
       process.kill(row.pid, "SIGKILL");

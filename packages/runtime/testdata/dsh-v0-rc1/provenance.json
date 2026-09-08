@@ -1,0 +1,44 @@
+{
+  "writer": {
+    "session": "0.1.2-rc.1",
+    "persistence": "0.1.2-rc.1",
+    "jsonl": "0.1.2-rc.1",
+    "formatVersion": 0,
+    "packChunks": true,
+    "compression": "none"
+  },
+  "id": "penglai-u02-rc1-v0",
+  "cwd": "/privacy-safe-workspace",
+  "relativeLog": "--privacy-safe-workspace--/penglai-u02-rc1-v0/session.jsonl",
+  "sha256": "7dc9ca08b4e4165774617b5398c4cf36cbcd1317bdc9c55201f8351a5438bbf1",
+  "bytes": 1627,
+  "physicalRows": [
+    "session",
+    "turn/start",
+    "user/message",
+    "step/start",
+    "assistant/chunk",
+    "assistant/chunk",
+    "assistant/chunk",
+    "assistant/chunk",
+    "assistant/message",
+    "step/end",
+    "turn/end"
+  ],
+  "logicalEventTypes": [
+    "turn/start",
+    "user/message",
+    "step/start",
+    "assistant/chunk",
+    "assistant/chunk",
+    "assistant/chunk",
+    "assistant/chunk",
+    "assistant/message",
+    "step/end",
+    "turn/end"
+  ],
+  "userText": "privacy-safe v0 replay from official 0.1.2-rc.1",
+  "assistantText": "restored-from-rc1",
+  "generatedBy": "official @deepseek-ai/dsh-session-persistence-jsonl@0.1.2-rc.1 create/append/flush",
+  "note": "Physical v0 JSONL produced by the released rc.1 writer with complete chunk provenance. Not a Penglai string fixture."
+}

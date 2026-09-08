@@ -159,10 +159,10 @@ const sbom = {
   specVersion: "1.5",
   version: 1,
   metadata: {
-    component: { type: "application", name: "Penglai", version: "0.5.11" },
-    tools: [{ name: "penglai-sbom", version: "0.5.11" }],
+    component: { type: "application", name: "Penglai", version: "0.5.12" },
+    tools: [{ name: "penglai-sbom", version: "0.5.12" }],
   },
-  release: "0.5.11",
+  release: "0.5.12",
   sourceSha:
     licenseEvidence.sourceSha ||
     execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),

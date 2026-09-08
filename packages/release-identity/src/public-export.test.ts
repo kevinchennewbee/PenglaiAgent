@@ -13,9 +13,10 @@ import {
   futurePublicAssetIdentityGate,
   pathAllowed,
   publicExportTreeSha256,
+  REQUIRED_PUBLIC_DOCS,
   scanExportText,
 } from "./public-export.js";
-import { PUBLICATION_TARGET } from "./pins.js";
+import { PRODUCT_VERSION, PUBLICATION_TARGET } from "./pins.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -69,6 +70,8 @@ test("R50-PREP-001 allowlist is deterministic and denies private trees", () => {
   );
   assert.equal(pathAllowed("evidence/generated/x.json"), false);
   assert.equal(pathAllowed("dist/Penglai_0.5.0_macos_aarch64.dmg"), false);
+  assert.equal(pathAllowed("docs/0.5.12/UPGRADE_SOURCES.json"), true);
+  assert.equal(pathAllowed("docs/0.5.12/pdf-page-preview.png"), false);
   const a = publicExportTreeSha256([
     { path: "LICENSE", mode: "0644", size: 1, sha256: "aa", license: "MIT" },
     { path: "README.md", mode: "0644", size: 2, sha256: "bb", license: "MIT" },
@@ -213,8 +216,16 @@ test("R50-PREP-005 required public docs are enumerated", () => {
       "docs/0.5.10/DSH_NPM_COHORT.json",
       "docs/0.5.10/DSH_ALPHA_PACKAGED_BYTES.json",
       "docs/0.5.10/UPGRADE_SOURCES.json",
+      "docs/0.5.11/ACCEPTANCE_DELTA.md",
+      "docs/0.5.11/UPGRADE_SOURCES.json",
+      "docs/PUBLICATION_MANIFEST_0.5.11.md",
+      "docs/0.5.12/ACCEPTANCE_DELTA.md",
+      "docs/0.5.12/DSH_NPM_COHORT.json",
+      "docs/0.5.12/UPGRADE_SOURCES.json",
     ]),
   );
+  assert.equal(REQUIRED_PUBLIC_DOCS.includes(`docs/${PRODUCT_VERSION}/UPGRADE_SOURCES.json`), true);
+  assert.equal(REQUIRED_PUBLIC_DOCS.includes(`docs/${PRODUCT_VERSION}/ACCEPTANCE_DELTA.md`), true);
   recordAssertion({
     acceptanceId: "R50-PREP-005",
     runnerId: "docs",

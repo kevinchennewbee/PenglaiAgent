@@ -24,7 +24,7 @@ if (desktop.dependencies["@deepseek-ai/dsh"] !== PINNED_DSH) {
   console.error("desktop DSH pin drift");
   process.exit(1);
 }
-const cohortBytes = readFileSync(join(ROOT, "docs/0.5.10/DSH_NPM_COHORT.json"));
+const cohortBytes = readFileSync(join(ROOT, "docs/0.5.12/DSH_NPM_COHORT.json"));
 const cohort = JSON.parse(cohortBytes.toString("utf8"));
 if (
   cohort.version !== PINNED_DSH ||
@@ -32,7 +32,7 @@ if (
   cohort.rootTarballSha256 !== PINNED_DSH_TARBALL_SHA256 ||
   createHash("sha256").update(cohortBytes).digest("hex") !== PINNED_DSH_CLOSURE_MANIFEST_SHA256
 ) {
-  console.error("0.5.10 DSH npm cohort is missing the current source or registry identity");
+  console.error("0.5.12 DSH npm cohort is missing the current source or registry identity");
   process.exit(1);
 }
 const historicalAdr = readFileSync(join(ROOT, "docs/adr/0033-dsh-011-rc1-three-targets.md"), "utf8");
@@ -60,18 +60,22 @@ if (probe.status !== 0) {
 }
 if (probe.stdout) process.stdout.write(probe.stdout);
 const lockText = lock;
-if (!lockText.includes("@larksuiteoapi/node-sdk@1.73.0")) {
+if (!lockText.includes("@larksuiteoapi/node-sdk@1.73.3")) {
   console.error("lock missing pinned Lark SDK");
   process.exit(1);
 }
-if (!lockText.includes("silk-wasm@3.7.1") || !lockText.includes("libopus-wasm@0.2.0")) {
+if (!lockText.includes("dingtalk-stream@2.1.5")) {
+  console.error("lock missing pinned DingTalk stream SDK");
+  process.exit(1);
+}
+if (!lockText.includes("silk-wasm@3.7.1") || !lockText.includes("libopus-wasm@0.3.0")) {
   console.error("lock missing pinned IM audio codecs");
   process.exit(1);
 }
 const codecPackage = readJson("packages/audio-codecs/package.json");
 if (
   codecPackage.dependencies?.["silk-wasm"] !== "3.7.1" ||
-  codecPackage.dependencies?.["libopus-wasm"] !== "0.2.0"
+  codecPackage.dependencies?.["libopus-wasm"] !== "0.3.0"
 ) {
   console.error("audio codec package pin drift");
   process.exit(1);
@@ -79,8 +83,8 @@ if (
 const voiceCompatibility = readFileSync(join(ROOT, "docs/compatibility/VOICE_R3.md"), "utf8");
 for (const pin of [
   "silk-wasm@3.7.1",
-  "libopus-wasm@0.2.0",
-  "55fe0b6faf9043518b7e1a7ea32e74659ecfbae7",
+  "libopus-wasm@0.3.0",
+  "bd37b907c636705d59cc2b836e6912e317a65a47",
 ]) {
   if (!voiceCompatibility.includes(pin)) {
     console.error("voice compatibility document missing codec pin", pin);
@@ -148,4 +152,4 @@ if (!ensure.includes("--target") || ensure.includes("this script has no --arch")
   console.error("ensure-electron is still host-only");
   process.exit(1);
 }
-console.log("verify:contracts ok", PINNED_DSH, "lark 1.73.0", "audio codecs 3.7.1/0.2.0", `release-contract ${PRODUCT_VERSION}`);
+console.log("verify:contracts ok", PINNED_DSH, "lark 1.73.3", "audio codecs 3.7.1/0.3.0", `release-contract ${PRODUCT_VERSION}`);

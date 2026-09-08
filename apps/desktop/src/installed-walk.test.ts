@@ -18,6 +18,7 @@ import {
   wizardResumeReady,
   wizardStepDeadEnd,
 } from "./installed-walk.js";
+import { PINNED_DSH } from "../../../packages/release-identity/src/pins.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -252,7 +253,9 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.match(workflow, /inputs\.mode == 'catalog'/);
   assert.match(
     workflow,
-    /npm-cohort:[\s\S]*?steps:[\s\S]*?fetch-depth: 0[\s\S]*?Check out immutable official DSH rc\.1 source/,
+    new RegExp(
+      `npm-cohort:[\\s\\S]*?steps:[\\s\\S]*?fetch-depth: 0[\\s\\S]*?Check out immutable official DSH ${PINNED_DSH.replaceAll(".", "\\.")} source`,
+    ),
   );
   const macosWorkflow = workflow.slice(workflow.indexOf("\n  macos:"), workflow.indexOf("\n  windows:"));
   const windowsWorkflow = workflow.slice(workflow.indexOf("\n  windows:"), workflow.indexOf("\n  aggregate:"));
@@ -383,28 +386,33 @@ test("Windows child shutdown kills the process tree so NSIS upgrade is not block
   const posixKill = helper.indexOf('child.kill("SIGKILL")', stop);
   assert.ok(stop >= 0 && taskkill > stop, "stopChild must tree-kill Windows descendants");
   assert.ok(posixKill > taskkill, "POSIX SIGKILL remains the non-Windows fallback");
-  assert.match(upgrade, /leftoversByCommand/);
+  assert.match(upgrade, /leftoversByCommand|windows-process-scope/);
   assert.match(upgrade, /reapWindowsInstallTree/);
-  assert.match(upgrade, /taskkill\.exe/);
-  assert.match(upgrade, /\/IM", "Penglai\.exe"/);
+  assert.match(upgrade, /windows-uninstall-residue/);
+  assert.doesNotMatch(upgrade, /\/IM", "Penglai\.exe"/);
   assert.match(upgrade, /timeout:\s*20 \* 60_000/);
   assert.match(helper, /export async function reapWindowsInstallTree/);
-  assert.match(helper, /Penglai Helper/);
+  assert.match(helper, /windows-process-scope/);
   assert.match(upgrade, /`_\?=\$\{app\}`/);
   const nsis = readFileSync(join(root, "scripts/nsis/Penglai.nsi"), "utf8");
   assert.match(nsis, /\/SD IDOK/);
   assert.match(nsis, /upgrade_rename_live/);
-  assert.match(nsis, /taskkill\.exe/);
+  assert.match(nsis, /PenglaiStopScoped/);
+  assert.match(nsis, /ExecutablePath/);
+  assert.doesNotMatch(nsis, /\/IM Penglai\.exe/);
   assert.match(nsis, /penglai-setup\.log/);
   assert.match(nsis, /upgrade_rename_fallback/);
   assert.match(nsis, /upgrade_pending_fallback/);
   assert.match(nsis, /robocopy\.exe/);
+  assert.match(nsis, /\/PURGE/);
   assert.match(nsis, /upgrade_abort_keep_live/);
   assert.match(nsis, /uninstall_rmdir_retry/);
-  assert.match(upgrade, /relaxWindowsInstallLocks/);
-  assert.match(upgrade, /removeTreeNoFollow\(app\)/);
+  assert.match(upgrade, /observeWindowsDefender/);
+  assert.doesNotMatch(upgrade, /DisableRealtimeMonitoring \$true/);
+  assert.match(upgrade, /classifyUninstallResidue/);
+  assert.doesNotMatch(upgrade, /removeTreeNoFollow\(app\)/);
   assert.match(upgrade, /penglai-setup\.log/);
-  assert.match(helper, /ExecutablePath/);
+  assert.match(helper, /ExecutablePath|selectProcessesUnderInstallRoot/);
   for (const line of nsis.split(/\r?\n/)) {
     if (line.includes("MessageBox")) assert.match(line, /\/SD IDOK/);
   }

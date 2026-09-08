@@ -294,11 +294,11 @@ function writeDeterministicTgz(stage, tgz) {
   }
 }
 
-const PINNED_LARK_SDK = "1.73.0";
+const PINNED_LARK_SDK = "1.73.3";
 const LARK_SDK = "@larksuiteoapi/node-sdk";
 const PINNED_QRCODE = "1.5.4";
 const QRCODE = "qrcode";
-const PINNED_SHERPA_ONNX = "1.13.5";
+const PINNED_SHERPA_ONNX = "1.13.7";
 const SHERPA_ONNX = "sherpa-onnx";
 const PINNED_ONNX_RUNTIME_NODE = "1.23.2";
 const ONNX_RUNTIME_NODE = "onnxruntime-node";
@@ -306,7 +306,7 @@ const PINNED_SENTENCEPIECE_JS = "1.1.0";
 const SENTENCEPIECE_JS = "sentencepiece-js";
 const PINNED_SILK_WASM = "3.7.1";
 const SILK_WASM = "silk-wasm";
-const PINNED_LIBOPUS_WASM = "0.2.0";
+const PINNED_LIBOPUS_WASM = "0.3.0";
 const LIBOPUS_WASM = "libopus-wasm";
 const PINNED_PPTFAST = "0.20.0";
 const PPTFAST = "@liustack/pptfast";
@@ -462,7 +462,7 @@ async function vendorPptfast(stage) {
         namespace: "penglai-office-disabled-image",
       }));
       context.onLoad({ filter: /.*/, namespace: "penglai-office-disabled-image" }, () => ({
-        contents: `export default function disabledImageDependency() { throw new Error("Penglai Office 0.5.11 accepts text-only PPTX creation"); }\nexport const imageSize = disabledImageDependency;`,
+        contents: `export default function disabledImageDependency() { throw new Error("Penglai Office ${PRODUCT_VERSION} accepts text-only PPTX creation"); }\nexport const imageSize = disabledImageDependency;`,
         loader: "js",
       }));
     },
@@ -638,9 +638,9 @@ async function vendorAudioCodecs(stage) {
   );
   const macosHomePrefix = Buffer.from(["", "Users", ""].join("/"));
   const alreadyScrubbedHash =
-    "ded4c50a60e4848919d093890563b623404bb9a1bf9e039845603f1ecb282fa5";
+    "91dd47a607353f40919d2a54d3cbc0f35c59f8d79ada2d361d2c9339e049e0b7";
   const upstreamHash =
-    "7f254556d782ac20a304068d4ecf7a1b9e6e94df5694f550e6d14c217d7e2028";
+    "0041fc800ccd26f56b27eaeb1834c8c6854e5167d48cd628a4f98ec5b590c6f1";
   const currentHash = sha256(opusGenerated);
   const work = Buffer.from(opusBytes);
   if (currentHash === upstreamHash) {
@@ -1221,7 +1221,7 @@ for (const p of packs) {
         filename: "packed-office-smoke.pptx",
         theme: { id: "consulting" },
         slides: [
-          { type: "cover", heading: "Penglai Office", subheading: "0.5.11" },
+          { type: "cover", heading: "Penglai Office", subheading: "0.5.12" },
           { type: "ending", heading: "Packed runtime" },
         ],
       }),

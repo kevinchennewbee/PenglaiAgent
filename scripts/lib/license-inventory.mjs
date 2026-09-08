@@ -9,6 +9,7 @@ const PERMISSIVE_LICENSES = new Set([
   "ISC",
   "MIT",
   "Python-2.0",
+  "Unlicense",
 ]);
 
 export function normalizeRepository(value, homepage = "") {
@@ -20,6 +21,23 @@ export function normalizeRepository(value, homepage = "") {
     .replace(/^git@github\.com:/, "https://github.com/")
     .replace(/^git\+ssh:\/\/git@github\.com\//, "https://github.com/")
     .replace(/\.git$/, "");
+}
+
+/** Read SPDX from `license` or a single deprecated `licenses[].type`. */
+export function declaredLicenseFromMetadata(metadata) {
+  if (typeof metadata?.license === "string" && metadata.license.trim()) {
+    return metadata.license.trim();
+  }
+  const licenses = metadata?.licenses;
+  if (!Array.isArray(licenses) || licenses.length === 0) return "NOASSERTION";
+  const types = [
+    ...new Set(
+      licenses
+        .map((row) => (typeof row === "string" ? row : String(row?.type ?? "")).trim())
+        .filter(Boolean),
+    ),
+  ];
+  return types.length === 1 ? types[0] : "NOASSERTION";
 }
 
 export function classifyLicense(name, declaredLicense, version = "") {
@@ -87,6 +105,10 @@ export function integrityForPackage(lockRows, name, version) {
     (row) => row.packageId === base || row.packageId.startsWith(`${base}(`),
   );
   const values = [...new Set(matches.map((row) => row.integrity))];
-  if (values.length !== 1) return undefined;
-  return values[0];
+  if (values.length === 1) return values[0];
+  // Some npm packages put a leading "v" in package.json.version while the
+  // lockfile key uses the registry version without it (dingtalk-stream 2.1.5).
+  const raw = String(version ?? "");
+  if (/^v\d/.test(raw)) return integrityForPackage(lockRows, name, raw.slice(1));
+  return undefined;
 }

@@ -40,8 +40,8 @@ test("R50-DIST-007 arch guard rejects mixed Electron/Node", () => {
     () => assertArchConsistent({ target: "darwin-aarch64", nodeArch: "x64", electronArch: "arm64" }),
     /node arch/,
   );
-  assert.throws(() => assertInputMatchesTarget("node-v22.22.2-darwin-arm64.tar.gz", "darwin-x86_64"), /not x64/);
-  assert.throws(() => assertInputMatchesTarget("electron-v43.4.0-win32-x64.zip", "darwin-aarch64"), /not a darwin/);
+  assert.throws(() => assertInputMatchesTarget("node-v22.23.2-darwin-arm64.tar.gz", "darwin-x86_64"), /not x64/);
+  assert.throws(() => assertInputMatchesTarget("electron-v43.6.0-win32-x64.zip", "darwin-aarch64"), /not a darwin/);
   assert.doesNotThrow(() =>
     assertArchConsistent({ target: "darwin-aarch64", nodeArch: "arm64", electronArch: "arm64", processArch: "arm64" }),
   );

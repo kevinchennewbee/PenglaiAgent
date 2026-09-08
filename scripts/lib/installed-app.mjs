@@ -17,51 +17,102 @@ import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { ROOT } from "./repo.mjs";
 import { installerForTarget } from "./release-targets.mjs";
+import { macosAarch64DmgName, PRODUCT_VERSION } from "./product.mjs";
+import { selectProcessesForInstance, selectProcessesUnderInstallRoot } from "./windows-process-scope.mjs";
+import {
+  classifyUninstallResidue,
+  listInstallTreeFiles,
+  removeUninstallerResidualOnly,
+} from "./windows-uninstall-residue.mjs";
 
-export const ARM64_DMG = join(ROOT, "dist/Penglai_0.5.11_macos_aarch64.dmg");
-export const ARM64_INSTALLER = "Penglai_0.5.11_macos_aarch64.dmg";
+export const ARM64_INSTALLER = macosAarch64DmgName();
+export const ARM64_DMG = join(ROOT, "dist", ARM64_INSTALLER);
 
-export async function reapWindowsInstallTree(appDir, timeoutMs = 30_000) {
+export function assertProcessInspectorOk(result, label) {
+  if (result?.error) {
+    const code = result.error.code ? `${result.error.code}: ` : "";
+    throw new Error(`${label} failed: ${code}${result.error.message}`);
+  }
+  if (result?.signal) {
+    throw new Error(`${label} killed by ${result.signal}`);
+  }
+  if (result?.status !== 0) {
+    throw new Error(`${label} exited ${result.status ?? "null"}`);
+  }
+  return String(result.stdout ?? "");
+}
+
+export function collectWindowsProcesses() {
+  if (process.platform !== "win32") return [];
+  const r = spawnSync(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-Command",
+      "Get-CimInstance Win32_Process | ForEach-Object { '{0}`t{1}`t{2}`t{3}`t{4}' -f $_.ProcessId, $_.ParentProcessId, $_.Name, $_.ExecutablePath, $_.CommandLine }",
+    ],
+    { encoding: "utf8", windowsHide: true, timeout: 30_000 },
+  );
+  return assertProcessInspectorOk(r, "leftoversByCommand powershell")
+    .split(/\r?\n/u)
+    .map((line) => {
+      const [pid, parentPid, name, executablePath, ...command] = line.split("\t");
+      return {
+        pid: Number(pid),
+        parentPid: Number(parentPid),
+        name: name ?? "",
+        executablePath: executablePath ?? "",
+        commandLine: command.join("\t"),
+      };
+    })
+    .filter((row) => Number.isSafeInteger(row.pid) && row.pid > 0);
+}
+
+export function leftoversUnderInstallRoot(appDir, dataRoot) {
+  return selectProcessesForInstance(collectWindowsProcesses(), { installRoot: appDir, dataRoot });
+}
+
+export async function reapWindowsInstallTree(appDir, timeoutMs = 30_000, dataRoot) {
   if (process.platform !== "win32") return { ok: true, leftover: [] };
-  const needles = [resolve(appDir), "Penglai.exe", "Penglai Helper"];
   const deadline = Date.now() + timeoutMs;
-  const collect = () => [...new Set(needles.flatMap((needle) => leftoversByCommand(needle)))];
-  let leftover = collect();
+  let leftover = leftoversUnderInstallRoot(appDir, dataRoot);
   while (Date.now() < deadline) {
-    leftover = collect();
+    leftover = leftoversUnderInstallRoot(appDir, dataRoot);
     if (leftover.length === 0) return { ok: true, leftover: [] };
-    spawnSync("taskkill.exe", ["/IM", "Penglai.exe", "/T", "/F"], { windowsHide: true, timeout: 15_000 });
-    spawnSync("taskkill.exe", ["/IM", "Penglai Helper.exe", "/T", "/F"], { windowsHide: true, timeout: 15_000 });
-    for (const line of leftover) {
-      const pid = Number(String(line).split(/\s+/)[0]);
-      if (Number.isSafeInteger(pid) && pid > 0) {
-        spawnSync("taskkill.exe", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, timeout: 15_000 });
-      }
+    for (const row of leftover) {
+      spawnSync("taskkill.exe", ["/PID", String(row.pid), "/T", "/F"], { windowsHide: true, timeout: 15_000 });
     }
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
   }
-  leftover = collect();
+  leftover = leftoversUnderInstallRoot(appDir, dataRoot);
   return { ok: leftover.length === 0, leftover };
 }
 
 export function leftoversByCommand(needle) {
+  if (typeof needle !== "string" || needle.length === 0) {
+    throw new Error("leftoversByCommand requires a process needle");
+  }
   if (process.platform === "win32") {
     const r = spawnSync(
-      "powershell",
+      "powershell.exe",
       [
         "-NoProfile",
         "-Command",
         "Get-CimInstance Win32_Process | ForEach-Object { '{0} {1} {2} {3} {4}' -f $_.ProcessId, $_.ParentProcessId, $_.Name, $_.ExecutablePath, $_.CommandLine }",
       ],
-      { encoding: "utf8" },
+      { encoding: "utf8", timeout: 5_000, windowsHide: true },
     );
-    return String(r.stdout ?? "")
+    return assertProcessInspectorOk(r, "leftoversByCommand powershell")
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.includes(needle));
   }
-  const r = spawnSync("/bin/ps", ["-axo", "pid=,ppid=,command="], { encoding: "utf8" });
-  return String(r.stdout ?? "")
+  const r = spawnSync("/bin/ps", ["-axo", "pid=,ppid=,command="], {
+    encoding: "utf8",
+    timeout: 3_000,
+    killSignal: "SIGKILL",
+  });
+  return assertProcessInspectorOk(r, "leftoversByCommand ps")
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.includes(needle));
@@ -148,7 +199,7 @@ export function isControlledWindowsInstallerFixture(installDir, root = ROOT, tem
   if (rel && rel !== ".." && !rel.startsWith("..\\") && !win32Path.isAbsolute(rel)) {
     const segments = rel.split("\\");
     if (segments[0] === ".tmp" || segments[0].startsWith(".tmp-")) return true;
-    if (rel.toLowerCase() === "dist\\penglai-v0.5.11-win32-x64\\penglai") return true;
+    if (rel.toLowerCase() === `dist\\penglai-v${PRODUCT_VERSION}-win32-x64\\penglai`) return true;
   }
   const temporary = win32Path.resolve(String(temporaryRoot ?? ""));
   const temporaryRel = win32Path.relative(temporary, candidate);
@@ -204,7 +255,16 @@ export function cleanupRegisteredWindowsInstallerFixture() {
       reason: "registered Penglai fixture uninstall left product registry state",
     };
   }
-  removeTreeNoFollow(installDir);
+  const residue = classifyUninstallResidue(listInstallTreeFiles(installDir));
+  if (!residue.payloadRemoved) {
+    return {
+      ok: false,
+      cleaned: false,
+      reason: "registered Penglai fixture uninstaller left app payload",
+      leftover: residue.payload.slice(0, 40),
+    };
+  }
+  removeUninstallerResidualOnly(installDir, residue);
   const fullyRemoved = windowsFixtureRemovalObserved({
     installDirExists: existsSync(installDir),
     registeredInstallDir: queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir"),
@@ -365,7 +425,7 @@ export function readInstalledAppIdentity(app, target) {
 export function assertInstalledPenglaiIdentity(app, target) {
   const facts = readInstalledAppIdentity(app, target);
   if (facts.executable !== "Penglai") return { ok: false, reason: `executable ${facts.executable || "<empty>"}` };
-  if (facts.shortVersion !== "0.5.11" || facts.version !== "0.5.11") {
+  if (facts.shortVersion !== PRODUCT_VERSION || facts.version !== PRODUCT_VERSION) {
     return { ok: false, reason: `version ${facts.shortVersion}/${facts.version}` };
   }
   if (facts.bundleId !== "com.penglai.dsh") return { ok: false, reason: `bundle ${facts.bundleId || "<empty>"}` };

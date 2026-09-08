@@ -72,8 +72,9 @@ test("fuse policy disables RunAsNode and inspect and forbids dryRun green", () =
 });
 
 test("website keeps the full bilingual visual site during publication preparation", () => {
-  const zh = readFileSync(join(root, "website/index.html"), "utf8");
-  const en = readFileSync(join(root, "website/en/index.html"), "utf8");
+  const zh = readFileSync(join(root, "website/zh/index.html"), "utf8");
+  const en = readFileSync(join(root, "website/index.html"), "utf8");
+  const enCompat = readFileSync(join(root, "website/en/index.html"), "utf8");
   const css = readFileSync(join(root, "website/styles/main.css"), "utf8");
   const requiredAssets = [
     "website/favicon.svg",
@@ -90,10 +91,12 @@ test("website keeps the full bilingual visual site during publication preparatio
     assert.equal(existsSync(path), true, `${rel} missing`);
     assert.ok(statSync(path).size > 100, `${rel} is unexpectedly small`);
   }
-  for (const html of [zh, en]) {
+  assert.match(en, /<html lang="en">/);
+  assert.match(zh, /<html lang="zh-CN">/);
+  assert.match(enCompat, /<html lang="en">/);
+  for (const html of [zh, en, enCompat]) {
     assert.match(html, /shots\/banner-v1\.png/);
     assert.match(html, /shots\/0\.5\.5\/plugin-center\.png/);
-
   }
   assert.match(css, /\.hero-art/);
   assert.match(css, /\.gallery/);
@@ -126,7 +129,7 @@ test("published README, website and security match the current observed manifest
   const manifest = readFileSync(publicationManifestPath, "utf8");
   const notes = readFileSync(join(root, `docs/RELEASE_NOTES_${PRODUCT_VERSION}.md`), "utf8");
   const readme = readFileSync(join(root, "README.md"), "utf8");
-  const pages = ["website/index.html", "website/en/index.html"].map((path) => readFileSync(join(root, path), "utf8"));
+  const pages = ["website/index.html", "website/zh/index.html", "website/en/index.html"].map((path) => readFileSync(join(root, path), "utf8"));
   const contract = JSON.parse(readFileSync(join(root, "release-contract.json"), "utf8"));
   assert.ok(manifest.includes("PUBLIC_READBACK_PASS"));
   assert.ok(notes.includes(PINNED_DSH));

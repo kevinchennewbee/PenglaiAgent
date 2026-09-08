@@ -143,6 +143,19 @@ export function createProductionBudgetService(ctx: CordisContextLike, ledger: Bu
       }
       return;
     }
+    if (event?.type === "assistant/attempt" && typeof step === "number") {
+      const stream = Array.isArray(data?.stream) ? data.stream : [];
+      for (const record of stream) {
+        const row = asRecord(record);
+        const chunk = row?.type === "chunk" ? asRecord(row.chunk) : row?.type === "usage" ? row : undefined;
+        if (chunk?.type !== "usage") continue;
+        const tokens = usageTokens(chunk.usage);
+        if (tokens !== undefined) {
+          ledger.settle(`${sessionId}:${turn}:${step}`, { tokens, priceTrusted: false }, now(), "official-token-meter:attempt");
+        }
+      }
+      return;
+    }
     if (event?.type === "assistant/message" && typeof step === "number") {
       const tokens = usageTokens(data?.usage);
       const message = asRecord(data?.message);

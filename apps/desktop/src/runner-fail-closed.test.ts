@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -12,6 +12,7 @@ import {
   liveFromHealthRecord,
   parseProcessIdentityLine,
   proxyAuthBoundaryHealthy,
+  readProcessIdentity,
 } from "../../../scripts/lib/runner-live.mjs";
 import { gitState } from "../../../scripts/lib/repo.mjs";
 
@@ -42,6 +43,24 @@ function runRunner(script: string, fault: string) {
   });
   return { ...result, elapsedMs: Date.now() - started };
 }
+
+test("readProcessIdentity returns a live node child within a bounded inspect", () => {
+  const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+    stdio: ["ignore", "ignore", "ignore"],
+    env: { ...process.env, PENGLAI_RUNNER_CERT_TARGET: "1" },
+  });
+  try {
+    assert.ok(child.pid && child.pid > 0);
+    const started = Date.now();
+    const identity = readProcessIdentity(child.pid);
+    assert.ok(identity, "cert fixture target must be visible to /bin/ps");
+    assert.equal(identity.pid, child.pid);
+    assert.match(identity.command, /setInterval/);
+    assert.ok(Date.now() - started < 1_000, "process identity inspect must stay bounded");
+  } finally {
+    child.kill("SIGTERM");
+  }
+});
 
 test("shipped evaluateLiveSample fails closed on injected faults and ignores stale green health", () => {
   const identity = parseProcessIdentityLine("1234 Sun Aug 16 22:05:15 2026 node scripts/soak-installed.mjs");

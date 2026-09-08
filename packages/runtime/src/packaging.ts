@@ -163,13 +163,16 @@ export function assertWindowsUpgradeStaging(script: string): void {
   if (clearErrors < 0) {
     throw new Error("Windows upgrade must fail closed when renaming the live app directory");
   }
-  const taskkill = script.indexOf("taskkill.exe");
+  const scopedStop = script.indexOf("PenglaiStopScoped");
   const retryLabel = script.indexOf("upgrade_rename_live");
-  if (taskkill < 0 || retryLabel < 0 || taskkill > liveRename || retryLabel > liveRename) {
-    throw new Error("Windows upgrade must stop Penglai.exe and retry renaming the live app directory");
+  if (scopedStop < 0 || retryLabel < 0 || retryLabel > liveRename) {
+    throw new Error("Windows upgrade must stop scoped install-root processes and retry renaming the live app directory");
   }
-  if (!script.includes("/IM Penglai.exe")) {
-    throw new Error("Windows upgrade must stop Penglai.exe before swapping the live app directory");
+  if (!script.includes("ExecutablePath") || !script.includes("StartsWith")) {
+    throw new Error("Windows upgrade must stop processes whose ExecutablePath is under INSTDIR");
+  }
+  if (/\/IM\s+Penglai\.exe/i.test(script) || /\/IM\s+"Penglai Helper\.exe"/i.test(script)) {
+    throw new Error("Windows upgrade must not taskkill every Penglai.exe by image name");
   }
   if (script.indexOf("Sleep ") < 0) {
     throw new Error("Windows upgrade must wait between live-directory rename retries");
@@ -204,6 +207,18 @@ export function assertWindowsUpgradeStaging(script: string): void {
   }
   if (script.indexOf("uninstall_rmdir_retry") < 0 || script.indexOf('RMDir /r "$INSTDIR.pending"') < 0) {
     throw new Error("Windows uninstall must retry removing INSTDIR and drop upgrade staging directories");
+  }
+  if (!/upgrade_backup_failed/.test(script) || !/IfFileExists "\$INSTDIR\.previous\\Penglai\.exe"/.test(script)) {
+    throw new Error("Windows upgrade backup must verify INSTDIR.previous\\Penglai.exe");
+  }
+  if (!/\$\{GetSize\}/.test(script)) {
+    throw new Error("Windows upgrade backup must compare live and previous tree sizes");
+  }
+  if (!/\/PURGE/.test(script)) {
+    throw new Error("Windows upgrade copy fallback must purge files not in the staged payload");
+  }
+  if (!/upgrade_restore_failed/.test(script) || !/IfFileExists "\$INSTDIR\\Penglai\.exe" 0 upgrade_restore_failed/.test(script)) {
+    throw new Error("Windows upgrade rollback must verify live Penglai.exe and must not claim an unverified restore");
   }
 }
 

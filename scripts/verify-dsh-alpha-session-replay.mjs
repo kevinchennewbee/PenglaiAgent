@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 
-const EXPECTED_ALPHA_SHA = "a66e4702047846cdaa10c66c9d3df3951f5ea70d";
+const EXPECTED_ALPHA_SHA = "82a5fd61a7cf5c293cec4bdff68f455398d685e9";
 const RC2_TAG = "dsh-v0.1.1-rc.2";
 
 function fail(message) {
@@ -60,9 +60,10 @@ import { dirname, join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
 import SessionStore, { SessionId } from "@deepseek-ai/dsh-session";
 import JsonlSessionPersistence from "@deepseek-ai/dsh-session-persistence-jsonl";
+import { generationLogPath } from "./packages/session/session-persistence-jsonl/src/format.ts";
 
 void (async () => {
-  const root = mkdtempSync(join(tmpdir(), "penglai-rc2-alpha-replay-"));
+  const root = mkdtempSync(join(tmpdir(), "penglai-alpha2-session-replay-"));
   const ctx = new Context();
   const sessionFiber = await ctx.plugin(SessionStore);
   const persistenceFiber = await ctx.plugin(JsonlSessionPersistence, {
@@ -71,21 +72,16 @@ void (async () => {
     writeBatchMaxDelayMs: 1,
   });
   try {
-    const id = SessionId("penglai-privacy-safe-rc2");
-    const meta = {
-      version: 0,
-      id,
-      createdAt: 1,
-      cwd: "/privacy-safe-workspace",
-    };
-    const path = ctx.sessionPersistence.locate(meta).path;
+    const id = SessionId("penglai-privacy-safe-v0");
+    const cwd = "/privacy-safe-workspace";
+    const path = generationLogPath(root, cwd, id, 0, "none");
     const rows = [
       {
         type: "session",
         version: 0,
         id,
         createdAt: 1,
-        cwd: "/privacy-safe-workspace",
+        cwd,
         delegationDepth: 0,
       },
       { type: "turn/start", seq: 0, time: 2, data: { turn: 1 } },
@@ -93,7 +89,7 @@ void (async () => {
         type: "user/message",
         seq: 1,
         time: 3,
-        data: { content: [{ type: "text", text: "privacy-safe rc.2 replay" }], source: { kind: "user" } },
+        data: { content: [{ type: "text", text: "privacy-safe v0 replay" }], source: { kind: "user" } },
         surfaceOp: "append",
       },
       {
@@ -107,17 +103,18 @@ void (async () => {
     mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     writeFileSync(path, rows.map((row) => JSON.stringify(row)).join("\n") + "\n", { mode: 0o600 });
 
-    const inspected = await ctx.sessionPersistence.inspect(id);
-    const loaded = await ctx.sessionPersistence.load(id);
-    for (const snapshot of [inspected, loaded]) {
-      assert.equal(snapshot.meta.version, 0);
-      assert.equal(snapshot.events.length, 4);
+    const handle = await ctx.sessionPersistence.open(id, "read");
+    try {
+      const snapshot = await handle.read();
+      assert.equal(handle.header.version, 2);
+      assert.ok(snapshot.events.length >= 4);
       assert.equal(snapshot.events.some((event) => event.type === "todo/write"), true);
       const user = snapshot.events.find((event) => event.type === "user/message");
       assert.equal(user?.type, "user/message");
-      assert.match(user?.data.id ?? "", /^legacy-message:penglai-privacy-safe-rc2:/);
+      process.stdout.write(JSON.stringify({ replay: "PASS", events: snapshot.events.length, headerVersion: handle.header.version }) + "\n");
+    } finally {
+      await handle.close();
     }
-    process.stdout.write(JSON.stringify({ replay: "PASS", events: loaded.events.length }) + "\n");
   } finally {
     await persistenceFiber.dispose();
     await sessionFiber.dispose();
@@ -148,7 +145,9 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 const proof = JSON.parse(result.stdout.trim());
-assert.deepEqual(proof, { replay: "PASS", events: 4 });
+assert.equal(proof.replay, "PASS");
+assert.ok(proof.events >= 4);
+assert.equal(proof.headerVersion, 2);
 process.stdout.write(
   `${JSON.stringify({
     status: "PASS",

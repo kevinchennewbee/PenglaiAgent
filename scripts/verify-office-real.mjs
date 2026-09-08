@@ -144,10 +144,17 @@ if (pdfinfo.status === 0) {
     process.exit(EXIT_BY_VERDICT.INCOMPLETE);
   }
   if (pdftoppm.status === 0) {
-    const renderBin = pdftoppm.stdout.trim();
+    const renderBin = pdftoppm.stdout.trim().split(/\r?\n/)[0];
     const renderBase = join(dir, "pdf-render");
-    const render = spawnSync(renderBin, ["-f", "1", "-singlefile", "-png", "-r", "100", paths.pdf, renderBase], { encoding: "utf8" });
-    recordCommand(run, { argv: [renderBin, "render-page-1", paths.pdf], exitCode: render.status, stdout: render.stdout, stderr: render.stderr });
+    const render = spawnSync(renderBin, ["-f", "1", "-singlefile", "-png", "-r", "36", paths.pdf, renderBase], {
+      encoding: "utf8",
+    });
+    recordCommand(run, {
+      argv: [renderBin, paths.pdf, `${renderBase}.png`],
+      exitCode: render.status,
+      stdout: render.stdout,
+      stderr: render.stderr,
+    });
     if (render.status !== 0 || !existsSync(`${renderBase}.png`)) {
       const manifest = finishEvidenceRun(run, "FAIL", "pdftoppm did not render office PDF");
       console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));

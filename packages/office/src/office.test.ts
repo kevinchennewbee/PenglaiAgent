@@ -87,7 +87,8 @@ test("office partial-edit keeps unmodified document parts", async () => {
 
 test("office remote inspect/create/edit drive the shipped service", async () => {
   const api = createOfficeRemoteApi(createOfficeService());
-  const created = await api.create({ format: "docx", text: "hello docx" });
+  await assert.rejects(() => api.create({ format: "docx", text: "hello docx" } as never), /not bound to this Workspace and Session/);
+  const created = await api.create({ format: "docx", text: "hello docx", sessionId: "sess-1", workspaceId: "ws-1" });
   const seen = await api.inspect({ bytesBase64: created.bytesBase64 });
   assert.match(seen.text, /hello docx/);
   const extra = writeZip([
@@ -97,6 +98,8 @@ test("office remote inspect/create/edit drive the shipped service", async () => 
   const patched = await api.edit({
     bytesBase64: extra.toString("base64"),
     format: "docx",
+    sessionId: "sess-1",
+    workspaceId: "ws-1",
     operation: { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "世界" },
   });
   assert.match(patched.text, /世界/);
@@ -107,6 +110,22 @@ test("office remote inspect/create/edit drive the shipped service", async () => 
     "<w:hdr>KEEP</w:hdr>",
   );
   await assert.rejects(() => api.preview({ jobId: created.id }), /not bound to this Workspace and Session/);
+  await assert.rejects(
+    () => api.preview({ jobId: created.id, sessionId: "sess-foreign", workspaceId: "ws-foreign" }),
+    /not bound to this Workspace and Session/,
+  );
+});
+
+test("office remote preview requires matching Workspace and Session", async () => {
+  const svc = createOfficeService();
+  const api = createOfficeRemoteApi(svc);
+  const created = await api.create({ format: "docx", text: "scoped remote", sessionId: "sess-1", workspaceId: "ws-1" });
+  const previewed = await api.preview({ jobId: created.id, sessionId: "sess-1", workspaceId: "ws-1" });
+  assert.ok(previewed);
+  await assert.rejects(
+    () => api.preview({ jobId: created.id, sessionId: "sess-2", workspaceId: "ws-1" }),
+    /not bound to this Workspace and Session/,
+  );
 });
 
 test("office settings client presents ordinary-language capabilities and structured templates", async () => {
@@ -120,6 +139,9 @@ test("office settings client presents ordinary-language capabilities and structu
   assert.match(source, /data-penglai-office-templates/);
   assert.match(source, /data-penglai-office-example/);
   assert.match(source, /data-penglai-office-safety/);
+  assert.match(source, /data-penglai-office-pdf-preview/);
+  assert.match(source, /data-penglai-office-pdf-pages/);
+  assert.match(source, /data:image\/png;base64/);
   assert.match(source, /先给我预览，不要直接保存/);
   assert.doesNotMatch(source, /data-penglai-office-replacement|cell: "B1"|slideIndex: 0/);
 });

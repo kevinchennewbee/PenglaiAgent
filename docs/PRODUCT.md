@@ -1,4 +1,4 @@
-# Penglai 0.5.11 product contract
+# Penglai 0.5.12 product contract
 
 ## English
 
@@ -11,18 +11,20 @@ first run, process supervision, local data boundaries, assisted updates,
 uninstall, and a reviewed set of DSH plugins. It does not ship a second agent,
 provider gateway, session store, or chat page.
 
-Version 0.5.11 targets Apple Silicon, Intel Mac, and Windows x64 with official DSH
-`0.1.2-rc.1`. A fresh user brings a provider credential, selects an official
+Version 0.5.12 targets Apple Silicon, Intel Mac, and Windows x64 with official DSH
+`0.1.3-alpha.2`. A fresh user brings a provider credential, selects an official
 model and Workspace, receives a real first DSH reply, and then uses the official
-DSH Web interface. Published 0.5.10 remains immutable.
+DSH Web interface. Published 0.5.10 and 0.5.11 remain immutable. Public README
+and website download tables stay on published v0.5.11 until immutable v0.5.12
+bytes are read back.
 
 ### 2. Supported platforms
 
 | Device | Exact installer |
 | --- | --- |
-| Apple Silicon, macOS 13+ | `Penglai_0.5.11_macos_aarch64.dmg` |
-| Intel Mac, macOS 13+ | `Penglai_0.5.11_macos_x64.dmg` |
-| Windows 10+ x64 | `Penglai_0.5.11_windows_x64_setup.exe` |
+| Apple Silicon, macOS 13+ | `Penglai_0.5.12_macos_aarch64.dmg` |
+| Intel Mac, macOS 13+ | `Penglai_0.5.12_macos_x64.dmg` |
+| Windows 10+ x64 | `Penglai_0.5.12_windows_x64_setup.exe` |
 
 The app contains its target Electron, Node, DSH closure, profile seed, bundled
 plugins, licenses, and integrity metadata. It never falls back to a system Node,
@@ -91,8 +93,11 @@ Write, export, return, and undo approval binds the exact job, source/result
 digest, destination, Workspace, Session, and revision. Approval completes only
 after the mutation or delivery succeeds.
 
-Official DSH 0.1.2-rc.1 conversation Turns support text and images, not generic file
-blocks. Penglai therefore does not claim ordinary composer DOCX/XLSX/PPTX/PDF
+Official DSH 0.1.3-alpha.2 conversation Turns support text, images, and generic
+file parts. A file part is a same-Session `uploadFile` receipt, not raw bytes;
+the model later sees handle text (name, size, harness-owned saved path), not a
+native multimodal file. Penglai has not wired Artifact refs through that official
+receipt path, so it does not claim ordinary composer DOCX/XLSX/PPTX/PDF
 attachments. Official images continue through the official image store. Files
 received through live IM or selected through Office use the scoped artifact
 service without DOM injection or a second conversation engine.
@@ -180,9 +185,9 @@ Agent、模型、工具、审批、Workspace、Session、Turn 和会话 UI。蓬
 首次引导、进程监管、本地数据边界、辅助升级、卸载和经过审核的 DSH 插件，不另造
 Agent、模型网关、Session 存储或聊天页。
 
-0.5.10 固定 DSH `0.1.2-rc.1`，支持 Apple 芯片、Intel Mac 和 Windows x64。
+0.5.12 固定 DSH `0.1.3-alpha.2`，支持 Apple 芯片、Intel Mac 和 Windows x64。
 用户自备模型密钥，选择 official 模型和 Workspace，收到第一条真实 DSH 回复后进入
-official DSH Web。
+official DSH Web。已发布的 0.5.10 与 0.5.11 保持不可变。
 
 ### 2. 全新安装
 
@@ -212,9 +217,11 @@ official Agent 沿用当前供应商和模型，输出由 Host 封闭校验。�
 symlink/device/directory、加密/宏、可执行文件、嵌套压缩和 scope 都由 Host 校验。
 
 写入、导出、回传、撤销确认会绑定 job、摘要、目标、Workspace、Session 和 revision，
-只有真实动作成功后才完成。official DSH 0.1.2-rc.1 会话 Turn 只支持文字和图片，因此 0.5.10
-不宣称输入框能直接发普通 DOCX/XLSX/PPTX/PDF。official 图片不变；IM 收到的文件或
-蓬莱办公选择的 Workspace 文件走 artifact service，不做 DOM hack 或第二会话引擎。
+只有真实动作成功后才完成。official DSH 0.1.3-alpha.2 会话 Turn 支持文字、图片和
+generic file（同 Session 的 `uploadFile` receipt；模型侧是 handle text，不是原生多模态文件）。
+Penglai 尚未把 Artifact 接到这条官方 receipt 路径，因此不宣称输入框能直接发普通
+DOCX/XLSX/PPTX/PDF。official 图片不变；IM 收到的文件或蓬莱办公选择的 Workspace 文件走
+artifact service，不做 DOM hack 或第二会话引擎。
 
 ### 5. IM 与语音
 

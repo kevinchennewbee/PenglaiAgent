@@ -45,6 +45,7 @@ import {
   profilePluginEnabled,
   runtimePluginTarget,
   verifyRuntimeManifest,
+  waitPort,
   windowsOwnedProcessEnvironment,
 } from "./index.js";
 import { writeTestTarGz } from "../../../scripts/lib/test-tar-fixture.mjs";
@@ -438,10 +439,10 @@ test("embedded supervisor restarts a live process whose official HTTP route hang
     'const plugins = join(root, "plugins");',
     'mkdirSync(plugins, { recursive: true });',
     'const inventory = { entries: [',
-    '  { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.2-rc.1" },',
-    '  { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active", version: "0.5.11" },',
-    '  { moduleName: "@penglai/office", enabled: true, fiberPhase: "active", version: "0.5.11" },',
-    '  { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active", version: "0.5.11" }',
+    '  { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.3-alpha.2" },',
+    '  { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active", version: "0.5.12" },',
+    '  { moduleName: "@penglai/office", enabled: true, fiberPhase: "active", version: "0.5.12" },',
+    '  { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active", version: "0.5.12" }',
     '] };',
     'inventory.launchNonce = process.env.PENGLAI_DSH_LAUNCH_NONCE;',
     'inventory.dshPid = process.pid;',
@@ -665,6 +666,7 @@ test("fresh catalog and profile keep every optional Penglai plugin disabled", ()
     true,
   );
   const patch = readFileSync(new URL("../../../profile-seed/web/cordis.patch.yml", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  assert.match(patch, /id: session-persistence-jsonl[\s\S]*compression: none/);
   for (const entry of optional) {
     const short = entry.id.replace("@penglai/", "penglai-");
     assert.match(
@@ -844,6 +846,18 @@ test("Center preboot heals the last-good promotion crash window", () => {
   recoverProfile(user);
   assert.match(readFileSync(join(user.profileWeb, "cordis.patch.yml"), "utf8"), /healed: true/);
   assert.equal(existsSync(join(txDir, "last-good")), true);
+});
+
+test("waitPort has a wall-clock timeout and resolves when a local port accepts", async () => {
+  const started = Date.now();
+  await assert.rejects(() => waitPort(1, 250), /timeout/);
+  assert.ok(Date.now() - started < 2_000);
+  const server = createServer();
+  await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
+  const addr = server.address();
+  assert.ok(addr && typeof addr !== "string");
+  await waitPort(addr.port, 1_000);
+  await new Promise((resolveClose) => server.close(resolveClose));
 });
 
 test("owned DSH spawn pins cwd to DSH_HOME so repo .env cannot be a secret layer", () => {

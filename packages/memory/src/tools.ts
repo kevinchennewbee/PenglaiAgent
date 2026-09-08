@@ -28,7 +28,7 @@ function boundToolContext(ctx: CordisTools, exec: unknown): {
   const agentId = typeof agent?.id === "string" && agent.id ? agent.id : undefined;
   if (!agentId) throw new PenglaiError("UNAUTHORIZED", "memory tools require ToolRunContext exec.agent.id");
   const workspaces = ctx.workspaceRegistry?.list() ?? [];
-  const hit = workspaces.find((row) => row.sessionIds?.includes(agentId) || row.id === agentId);
+  const hit = workspaces.find((row) => row.sessionIds?.includes(agentId));
   if (!hit) throw new PenglaiError("UNAUTHORIZED", "agent is not bound to an official Workspace");
   const turn = typeof bag.turn === "number" && Number.isSafeInteger(bag.turn) && bag.turn >= 0 ? bag.turn : undefined;
   if (turn === undefined) throw new PenglaiError("UNAUTHORIZED", "memory tools require ToolRunContext exec.turn");

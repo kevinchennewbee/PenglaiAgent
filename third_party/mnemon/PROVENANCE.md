@@ -1,8 +1,8 @@
-# Mnemon 0.2.4 provenance
+# Mnemon 0.2.8 provenance
 
 Penglai Memory embeds one platform-specific binary from
-[`mnemon-dev/mnemon`](https://github.com/mnemon-dev/mnemon) release `v0.2.4`,
-source commit `67ed1a2f80de902fd041eeaf3b90e7e3d2480d5b`.
+[`mnemon-dev/mnemon`](https://github.com/mnemon-dev/mnemon) release `v0.2.8`,
+source commit `da9b7da0e3e7f10c84d5f8e9a42e24453c8159bb`.
 
 Mnemon is licensed under Apache-2.0, not MIT. The upstream `LICENSE` at that
 commit has SHA-256

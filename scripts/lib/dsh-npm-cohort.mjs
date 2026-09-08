@@ -3,13 +3,13 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 
 export const DSH_UPSTREAM = Object.freeze({
-  version: "0.1.2-rc.1",
-  tag: "dsh-v0.1.2-rc.1",
-  commit: "a66e4702047846cdaa10c66c9d3df3951f5ea70d",
-  packageCount: 242,
-  rootIntegrity: "sha512-RPq48TzxvwpdT9/7W1tbhZDBMmeK+bxDrX9cqQC27Wx/LqtgJF8PSa3b3xriU8oxtvhwYmk21w2cej3uMQrnVA==",
-  rootShasum: "fef213043313affc36ca2226d2637ad483b5e3f6",
-  rootTarballSha256: "ca370668053ad6d0ac325e919ef5f65de53de00b7bad78008e6fb422dfce3530",
+  version: "0.1.3-alpha.2",
+  tag: "dsh-v0.1.3-alpha.2",
+  commit: "82a5fd61a7cf5c293cec4bdff68f455398d685e9",
+  packageCount: 251,
+  rootIntegrity: "sha512-rmf4xgzU9+abvaQ//slyBBhADtPu8fv+SZjxmh4GJwJMZipVa7hNU5m23HgVcB3LNmuGltuQ7jyypuhJ5yU69A==",
+  rootShasum: "4f421920af35f1f9526eb0af2279bec36c304d3e",
+  rootTarballSha256: "6bced5e2da1000509e6d6a2b12242d4aac6ebdda8f12b7fe142a11c474409551",
   welcomeNotice: Object.freeze({
     settingsNamespace: "ui-onboarding",
     ackField: "welcomeNoticeVersion",
@@ -262,8 +262,9 @@ export function validateCohortSnapshot(snapshot) {
   invariant(snapshot.version === DSH_UPSTREAM.version, `unexpected DSH version: ${snapshot.version}`);
   invariant(snapshot.rootTarballSha256 === DSH_UPSTREAM.rootTarballSha256, "@deepseek-ai/dsh tarball SHA-256 mismatch");
   invariant(JSON.stringify(snapshot.upstreamFacts?.welcomeNotice) === JSON.stringify(DSH_UPSTREAM.welcomeNotice), "DSH welcome notice identity mismatch");
-  invariant(snapshot.distTags?.next === DSH_UPSTREAM.version, "snapshot npm next tag must select the fixed rc.1 cohort");
-  invariant(snapshot.distTags?.latest === "0.1.1-rc.2", "npm latest must remain 0.1.1-rc.2 in snapshot");
+  invariant(snapshot.distTags?.alpha === DSH_UPSTREAM.version, "snapshot npm alpha tag must select the fixed 0.1.3-alpha.2 cohort");
+  invariant(snapshot.distTags?.next === "0.1.2-rc.1", "npm next remains 0.1.2-rc.1 while Penglai consumes alpha.2");
+  invariant(snapshot.distTags?.latest === "0.1.2-rc.1", "npm latest remains 0.1.2-rc.1 while Penglai consumes alpha.2");
   const entries = Array.isArray(snapshot.packages) ? snapshot.packages : [];
   invariant(new Set(entries.map((entry) => entry.name)).size === entries.length, "duplicate package in DSH npm cohort");
   const dsh = entries.filter((entry) => entry.category === "dsh");

@@ -40,6 +40,22 @@ test("Penglai identity prepends when harness identity is omitted", () => {
   assert.equal(next.sections[1]?.name, "deployment:persona");
 });
 
+test("alpha.2 primary assembly replaces harness identity and keeps persona prefix/suffix", () => {
+  const next = applyPenglaiProductIdentity({
+    sections: [
+      { name: HARNESS_IDENTITY_NAME, text: "You are an AI agent powered by DeepSeek Harness." },
+      { name: "deployment:persona-prefix", text: "prefix {{missing}}" },
+      { name: "deployment:persona-suffix", text: "suffix {{missing}}" },
+    ],
+  }) as { sections: Array<{ name: string; text?: string }> };
+  assert.equal(next.sections[0]?.name, HARNESS_IDENTITY_NAME);
+  assert.equal(next.sections[0]?.text, PENGLAI_PRODUCT_IDENTITY);
+  assert.equal(next.sections[1]?.name, "deployment:persona-prefix");
+  assert.equal(next.sections[2]?.name, "deployment:persona-suffix");
+  assert.doesNotMatch(next.sections[1]?.text ?? "", /\{\{/);
+  assert.doesNotMatch(next.sections[2]?.text ?? "", /\{\{/);
+});
+
 test("Penglai identity does not invent a complete prompt or drop tools", () => {
   const next = applyPenglaiProductIdentity({
     sections: [{ name: HARNESS_IDENTITY_NAME, text: "You are an AI agent powered by DeepSeek Harness.", complete: true }],
@@ -99,4 +115,16 @@ test("Penglai identity fills official persona model/cwd or drops unresolved plac
   }) as { sections: Array<{ name?: string; text?: string }> };
   const persona = stripped.sections.find((section) => section.name === "deployment:persona");
   assert.doesNotMatch(persona?.text ?? "", /\{\{/);
+});
+
+test("Penglai identity neutralizes alpha.2 persona prefix and suffix placeholders", () => {
+  const next = applyPenglaiProductIdentity({
+    sections: [
+      { name: "deployment:persona-prefix", text: "prefix {{missing}}" },
+      { name: "deployment:persona-suffix", text: "suffix {{missing}}" },
+    ],
+    variables: {},
+  }) as { sections: Array<{ name?: string; text?: string }> };
+  assert.doesNotMatch(next.sections[0]?.text ?? "", /\{\{/);
+  assert.doesNotMatch(next.sections[1]?.text ?? "", /\{\{/);
 });

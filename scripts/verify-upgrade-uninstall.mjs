@@ -20,12 +20,19 @@ import {
   leftoversByCommand,
   readInstalledAppIdentity,
   reapWindowsInstallTree,
-  removeTreeNoFollow,
   resourcesInside,
   sha256File,
   stopChild,
 } from "./lib/installed-app.mjs";
+import {
+  classifyUninstallResidue,
+  listInstallTreeFiles,
+  removeUninstallerResidualOnly,
+} from "./lib/windows-uninstall-residue.mjs";
+import { nsisScopedStopContract } from "./lib/windows-process-scope.mjs";
+
 import { ROOT } from "./lib/repo.mjs";
+import { PRODUCT_VERSION } from "./lib/product.mjs";
 import { observeFreshInstalledBoot } from "./lib/installed-readiness.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
 import { sanitizeEvidenceText } from "./lib/evidence-json.mjs";
@@ -38,7 +45,7 @@ import {
 
 const versionIndex = process.argv.indexOf("--previous-version");
 const previousVersion = versionIndex < 0 ? undefined : process.argv[versionIndex + 1];
-const upgradeSources = JSON.parse(readFileSync(join(ROOT, "docs/0.5.11/UPGRADE_SOURCES.json"), "utf8"));
+const upgradeSources = JSON.parse(readFileSync(join(ROOT, "docs", PRODUCT_VERSION, "UPGRADE_SOURCES.json"), "utf8"));
 const sourcePin = upgradeSources.sources.find((row) => row.version === previousVersion);
 
 function fail(reason, details = {}) {
@@ -81,34 +88,20 @@ async function boot(app, userData, label) {
     userData, () => launchPackaged(executable, resources, userData),
   );
   const [code, signal] = await stopChild(launched.child);
-  const leftoverNeedles = [executable, join(resources, "runtime/dsh/lib/bin.js"), app].filter(Boolean);
-  const leftoverDeadline = Date.now() + 30_000;
-  while (Date.now() < leftoverDeadline) {
-    const leftover = leftoverNeedles.flatMap((needle) => leftoversByCommand(needle));
-    if (leftover.length === 0) break;
-    if (process.platform === "win32") {
-      spawnSync("taskkill.exe", ["/IM", "Penglai.exe", "/T", "/F"], {
-        windowsHide: true,
-        timeout: 15_000,
-      });
-      for (const line of leftover) {
-        const pid = Number(String(line).split(/\s+/)[0]);
-        if (Number.isSafeInteger(pid) && pid > 0) {
-          spawnSync("taskkill.exe", ["/PID", String(pid), "/T", "/F"], {
-            windowsHide: true,
-            timeout: 15_000,
-          });
-        }
-      }
-    }
-    await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
-  }
   if (process.platform === "win32") {
     const reaped = await reapWindowsInstallTree(app);
     if (!reaped.ok) {
       fail(`${label} left Windows processes in the install tree`, {
         leftover: reaped.leftover.slice(0, 20),
       });
+    }
+  } else {
+    const leftoverNeedles = [executable, join(resources, "runtime/dsh/lib/bin.js"), app].filter(Boolean);
+    const leftoverDeadline = Date.now() + 30_000;
+    while (Date.now() < leftoverDeadline) {
+      const leftover = leftoverNeedles.flatMap((needle) => leftoversByCommand(needle));
+      if (leftover.length === 0) break;
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
     }
   }
   if (!freshReadiness || !gateway || !inventory || (code !== 0 && signal === null)) {
@@ -138,30 +131,54 @@ function readWindowsSetupLog() {
   return sanitizeEvidenceText(text, 2_000);
 }
 
-let lastWindowsDefender = { attempted: false };
+let lastWindowsDefender = { attempted: false, mutated: false };
 
-function relaxWindowsInstallLocks(app) {
-  if (process.platform !== "win32") return { attempted: false };
-  const root = resolve(String(process.env.LOCALAPPDATA ?? ""), "Penglai");
-  const script = [
-    "Set-MpPreference -DisableRealtimeMonitoring $true",
-    `Add-MpPreference -ExclusionPath '${root.replace(/'/g, "''")}'`,
-    "Get-MpPreference | Select-Object -ExpandProperty DisableRealtimeMonitoring",
-  ].join("; ");
-  const defender = spawnSync("powershell.exe", ["-NoProfile", "-Command", script], {
-    encoding: "utf8",
-    windowsHide: true,
-    timeout: 30_000,
-  });
-  if (app) {
-    spawnSync("taskkill.exe", ["/F", "/T", "/IM", "Penglai.exe"], { windowsHide: true, timeout: 15_000 });
-  }
+function observeWindowsDefender() {
+  if (process.platform !== "win32") return { attempted: false, mutated: false };
+  const defender = spawnSync(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-Command",
+      "Get-MpPreference | Select-Object DisableRealtimeMonitoring, ExclusionPath | ConvertTo-Json -Compress",
+    ],
+    { encoding: "utf8", windowsHide: true, timeout: 30_000 },
+  );
   lastWindowsDefender = {
     attempted: true,
+    mutated: false,
     status: defender.status,
-    stdout: sanitizeEvidenceText(String(defender.stdout ?? ""), 200),
+    stdout: sanitizeEvidenceText(String(defender.stdout ?? ""), 800),
     stderr: sanitizeEvidenceText(String(defender.stderr ?? ""), 200),
   };
+  if (defender.status !== 0) {
+    fail("Windows Defender preference could not be observed; 0.5.12 requires default-on realtime monitoring with no Penglai exclusions", {
+      defender: lastWindowsDefender,
+    });
+  }
+  let parsed = {};
+  try {
+    parsed = JSON.parse(String(defender.stdout ?? "").trim() || "{}");
+  } catch {
+    fail("Windows Defender preference JSON could not be parsed", { defender: lastWindowsDefender });
+  }
+  const monitoringOff = parsed.DisableRealtimeMonitoring === true || parsed.DisableRealtimeMonitoring === "True";
+  const exclusions = []
+    .concat(parsed.ExclusionPath ?? [])
+    .map((row) => String(row ?? ""))
+    .filter(Boolean);
+  const penglaiExclusion = exclusions.find((row) => /penglai/i.test(row));
+  lastWindowsDefender = { ...lastWindowsDefender, monitoringOff, exclusions: exclusions.slice(0, 20), penglaiExclusion: penglaiExclusion ?? "" };
+  if (monitoringOff) {
+    fail("Windows Defender realtime monitoring is disabled; 0.5.12 requires a default-on security configuration", {
+      defender: lastWindowsDefender,
+    });
+  }
+  if (penglaiExclusion) {
+    fail("Windows Defender has a Penglai exclusion; 0.5.12 requires a default-on security configuration", {
+      defender: lastWindowsDefender,
+    });
+  }
   return lastWindowsDefender;
 }
 
@@ -234,7 +251,11 @@ if (!previousVersion) {
     host: { platform: process.platform, arch: process.arch },
     previousVersions: upgradePaths.map((record) => record.previous.version),
     current: upgradePaths.at(-1).current, upgradePaths,
-    upgradePreservedOwnerData: true, uninstallRemovedApp: true, uninstallPreservedOwnerData: true,
+    leftover: upgradePaths.flatMap((record) => record.leftover ?? []),
+    upgradePreservedOwnerData: true,
+    uninstallRemovedApp: upgradePaths.every((record) => record.uninstallRemovedApp === true),
+    uninstallLeftoverNames: upgradePaths.flatMap((record) => record.leftover ?? []),
+    uninstallPreservedOwnerData: true,
   });
 }
 if (!sourcePin) fail("unsupported previous version");
@@ -274,30 +295,32 @@ if (target === "win32-x86_64") {
   app = previous.app;
 }
 
+let uninstallLeftoverNames = [];
+let uninstallRemovedApp = false;
 const previousIdentity = assertVersion(app, previousVersion, "previous install");
 const previousBoot = await boot(app, userData, "previous install");
-if (target === "win32-x86_64") relaxWindowsInstallLocks(app);
+if (target === "win32-x86_64") observeWindowsDefender();
 
 if (target === "win32-x86_64") {
-  app = installWindows(currentInstaller, "0.5.11 upgrade");
+  app = installWindows(currentInstaller, "0.5.12 upgrade");
 } else {
   const current = installFromExactDmg(
     currentInstaller,
     appRoot,
     installerForTarget(target),
   );
-  if (!current.ok) fail(`0.5.11 DMG upgrade failed: ${current.reason}`);
+  if (!current.ok) fail(`0.5.12 DMG upgrade failed: ${current.reason}`);
   app = current.app;
 }
-const currentIdentity = assertVersion(app, "0.5.11", "upgraded install");
+const currentIdentity = assertVersion(app, "0.5.12", "upgraded install");
 const currentPackage = inspectPackagedCandidate({ app, candidateSha: source.git.head, expectedTarget: target });
 if (currentPackage.verdict !== "PASS") fail("upgraded installer source identity mismatch", { currentPackage });
 const currentBoot = await boot(app, userData, "upgraded install");
 if (!existsSync(sentinel)) fail("upgrade did not preserve isolated Owner data");
 
 if (target === "win32-x86_64") {
-  await reapWindowsInstallTree(app);
-  relaxWindowsInstallLocks(app);
+  await reapWindowsInstallTree(app, 30_000, userData);
+  observeWindowsDefender();
   const uninstaller = join(app, "Uninstall.exe");
   if (!existsSync(uninstaller)) fail("Windows uninstaller missing after upgrade");
   const uninstall = spawnSync(uninstaller, ["/S", `_?=${app}`], {
@@ -313,12 +336,22 @@ if (target === "win32-x86_64") {
     });
   }
   // `_?=` keeps Uninstall.exe in INSTDIR so spawnSync observes the real
-  // process; the in-use uninstaller cannot delete itself. Same follow-up as
-  // cleanupRegisteredWindowsInstallerFixture after registry cleanup.
-  removeTreeNoFollow(app);
+  // process; the in-use uninstaller cannot delete itself. Prove payload
+  // absence first. Only Uninstall.exe may be removed as test cleanup.
+  const residue = classifyUninstallResidue(listInstallTreeFiles(app));
+  if (!residue.payloadRemoved) {
+    fail("Windows uninstaller left app payload", {
+      leftover: residue.payload.slice(0, 40),
+      defender: lastWindowsDefender,
+    });
+  }
+  uninstallLeftoverNames = residue.uninstallerOnly.slice();
+  uninstallRemovedApp = residue.uninstallRemovedApp;
+  removeUninstallerResidualOnly(app, residue);
 } else {
   const exactAppRoot = requireExactChild(appRoot, ROOT, "macOS app test root");
   rmSync(exactAppRoot, { recursive: true, force: true });
+  uninstallRemovedApp = true;
 }
 const removed = await waitRemoved(app, 60_000);
 if (!removed || !existsSync(sentinel)) {
@@ -346,8 +379,13 @@ finish("PASS", {
     installerSha256: currentSha256,
     boot: currentBoot,
   },
+  leftover: uninstallLeftoverNames,
   upgradePreservedOwnerData: true,
-  uninstallRemovedApp: true,
+  uninstallRemovedApp,
+  uninstallLeftoverNames,
   uninstallPreservedOwnerData: true,
   defender: lastWindowsDefender,
+  uninstallResidualAllowed: uninstallLeftoverNames.length
+    ? uninstallLeftoverNames
+    : ["Uninstall.exe"],
 });

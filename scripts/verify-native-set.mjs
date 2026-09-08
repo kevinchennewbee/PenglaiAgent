@@ -5,6 +5,7 @@ import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { evidenceName, installerForTarget, RELEASE_TARGETS } from "./lib/release-targets.mjs";
 import { expectedUpgradeSourceVersions, upgradeUninstallEvidenceMatches } from "./lib/native-upgrade-set.mjs";
+import { PRODUCT_VERSION } from "./lib/product.mjs";
 
 const allowed = new Set([
   "verify:artifact",
@@ -70,7 +71,7 @@ for (const target of RELEASE_TARGETS) {
     });
   }
   if (command === "verify:upgrade-uninstall") {
-    const upgradeSources = JSON.parse(readFileSync(join(ROOT, "docs/0.5.11/UPGRADE_SOURCES.json"), "utf8"));
+    const upgradeSources = JSON.parse(readFileSync(join(ROOT, "docs", PRODUCT_VERSION, "UPGRADE_SOURCES.json"), "utf8"));
     const expectedVersions = expectedUpgradeSourceVersions(upgradeSources);
     if (
       !upgradeUninstallEvidenceMatches(record, {

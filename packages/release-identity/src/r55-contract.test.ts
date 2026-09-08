@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -18,15 +18,15 @@ import { FIRST_PARTY_PLUGIN_METADATA } from "../../runtime/src/plugin-catalog.js
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 
-test("release truth pins Penglai 0.5.11", () => {
-  assert.equal(PRODUCT_VERSION, "0.5.11");
+test("release truth pins Penglai 0.5.12", () => {
+  assert.equal(PRODUCT_VERSION, "0.5.12");
 });
 
 test("DSH alpha source commit and closure digests are exact", () => {
-  assert.equal(PINNED_DSH, "0.1.2-rc.1");
-  assert.equal(PINNED_DSH_COMMIT, "a66e4702047846cdaa10c66c9d3df3951f5ea70d");
-  assert.equal(PINNED_DSH_TARBALL_SHA256, "ca370668053ad6d0ac325e919ef5f65de53de00b7bad78008e6fb422dfce3530");
-  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "31a52e8bc520b185c71849f3b084d65f9f7c888358ae33d4ea2d5eb4aba9f198");
+  assert.equal(PINNED_DSH, "0.1.3-alpha.2");
+  assert.equal(PINNED_DSH_COMMIT, "82a5fd61a7cf5c293cec4bdff68f455398d685e9");
+  assert.equal(PINNED_DSH_TARBALL_SHA256, "6bced5e2da1000509e6d6a2b12242d4aac6ebdda8f12b7fe142a11c474409551");
+  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "1d7380dadb281cdc17ad3df302b2298985c282e813b42d2694626842182000be");
 });
 
 test("R55-TRUTH-003 only three exact target installers", () => {
@@ -37,7 +37,7 @@ test("R55-TRUTH-003 only three exact target installers", () => {
 });
 
 test("release version has no older tag drift", () => {
-  assert.equal(PRODUCT_VERSION, "0.5.11");
+  assert.equal(PRODUCT_VERSION, "0.5.12");
   assert.equal(PRODUCT_VERSION.includes("0.5.6") || PRODUCT_VERSION.includes("0.5.7"), false);
 });
 
@@ -50,12 +50,25 @@ test("bundled Mnemon uses its actual Apache-2.0 license", () => {
   assert.equal(manifest.licenseSha256, MNEMON_UPSTREAM.licenseSha256);
   assert.equal(sbomSource.includes("Noto Sans SC variable font"), true);
   assert.equal(sbomSource.includes("Mnemon"), true);
+  assert.equal(sbomSource.includes("Poppler pdftoppm"), false);
+  assert.equal(noticesSource.includes("Poppler pdftoppm"), false);
   assert.equal(noticesSource.includes("Penglai Office"), true);
   assert.equal(noticesSource.includes("Penglai Memory"), true);
 });
 
+test("0.5.12 does not ship bundled Poppler pdftoppm", () => {
+  const lock = JSON.parse(readFileSync(join(root, "third_party/sources.lock.json"), "utf8"));
+  assert.equal(existsSync(join(root, "packages/release-identity/src/poppler-assets.js")), false);
+  assert.equal(existsSync(join(root, "scripts/fetch-poppler.mjs")), false);
+  assert.equal(existsSync(join(root, "scripts/lib/package-poppler.mjs")), false);
+  assert.equal(
+    (lock.sources ?? []).some((row: { id?: string }) => row.id === "poppler-pdftoppm"),
+    false,
+  );
+});
+
 test("official Web/Agent/Session/Workspace stay on the one fixed DSH core", () => {
-  assert.equal(PINNED_DSH, "0.1.2-rc.1");
+  assert.equal(PINNED_DSH, "0.1.3-alpha.2");
 });
 
 test("R55-DSH-002 official attachment/settings/slot seams used", () => {
@@ -142,7 +155,7 @@ test("R55-BUILTIN-011 no orphan resource after lifecycle operations", () => {
 });
 
 test("R55-BUILTIN-012 DSH core remains usable in every state", () => {
-  assert.equal(PINNED_DSH, "0.1.2-rc.1");
+  assert.equal(PINNED_DSH, "0.1.3-alpha.2");
 });
 
 test("R55-COMM-001 exact provenance lock", () => {

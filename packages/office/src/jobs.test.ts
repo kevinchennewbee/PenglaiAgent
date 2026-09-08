@@ -19,6 +19,8 @@ function liveOffice(userData: string) {
   return createOfficeService({ userData, owner });
 }
 
+const SCOPE = { workspaceId: "ws-a", sessionId: "sess-1" } as const;
+
 test("R56-OFF-003 job store enforces concurrent, retained, cancel, TTL, and wipe", () => {
   const store = new OfficeJobStore({ maxConcurrent: 2, maxRetained: 3, ttlMs: 30 * 60 * 1000 });
   const first = store.create({ format: "docx", bytes: Buffer.from("one"), text: "t" });
@@ -68,18 +70,18 @@ test("R56-OFF-004 retry and undo keep previous backup files", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-office-bak-"));
   const svc = liveOffice(join(dir, "user-data"));
   const dest = join(dir, "note.docx");
-  const created = await createDocument("docx", "original-docx");
+  const created = await createDocument("docx", "original-docx", SCOPE);
   writeFileSync(dest, created.bytes);
-  const edited = await edit(created.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "revised-docx" });
-  const receipt = await svc.approve(edited.id, "commit-to-path", dest);
-  const first = svc.commitToPath(edited.id, receipt, dest, dir);
-  const again = await svc.approve(edited.id, "commit-to-path", dest);
-  const second = svc.commitToPath(edited.id, again, dest, dir);
+  const edited = await edit(created.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "revised-docx" }, SCOPE);
+  const receipt = await svc.approve(edited.id, "commit-to-path", dest, SCOPE);
+  const first = svc.commitToPath(edited.id, receipt, dest, dir, SCOPE);
+  const again = await svc.approve(edited.id, "commit-to-path", dest, SCOPE);
+  const second = svc.commitToPath(edited.id, again, dest, dir, SCOPE);
   assert.notEqual(first.backup, second.backup);
   assert.equal(existsSync(first.backup), true);
   assert.equal(existsSync(second.backup), true);
-  const undoReceipt = await svc.approve(edited.id, "undo");
-  svc.undo(edited.id, undoReceipt);
+  const undoReceipt = await svc.approve(edited.id, "undo", "", SCOPE);
+  svc.undo(edited.id, undoReceipt, SCOPE);
   const backups = readdirSync(join(dir, "user-data", "office", "backups"));
   assert.ok(backups.some((name) => name.endsWith(".bak")));
   assert.ok(backups.some((name) => name.endsWith(".undo")));
@@ -89,16 +91,16 @@ test("R56-OFF-004 retry and undo keep previous backup files", async () => {
 test("R56-OFF-005 commit/export refuse bytes that no longer match the preview digest", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-office-preview-"));
   const svc = liveOffice(join(dir, "user-data"));
-  const created = await svc.create("docx", "preview-digest");
-  await svc.preview(created.id);
+  const created = await svc.create("docx", "preview-digest", SCOPE);
+  await svc.preview(created.id, SCOPE);
   const job = svc.job(created.id);
   const previewed = job.previewResultDigest;
   freezePreviewDigest(job);
   assert.equal(job.previewResultDigest, previewed);
   job.bytes = Buffer.from("tampered-after-preview");
-  const receipt = await svc.approve(created.id, "commit");
+  const receipt = await svc.approve(created.id, "commit", "", SCOPE);
   assert.throws(
-    () => svc.commit(created.id, receipt),
+    () => svc.commit(created.id, receipt, SCOPE),
     (error: unknown) => error instanceof PenglaiError && error.message === "office preview digest mismatch",
   );
   assert.equal(job.receipt, undefined);
@@ -108,10 +110,10 @@ test("R56-OFF-005 commit/export refuse bytes that no longer match the preview di
 test("R56-OFF-005 export digest equals the previewed result bytes", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-office-export-"));
   const svc = liveOffice(join(dir, "user-data"));
-  const created = await svc.create("docx", "export-digest");
-  const preview = await svc.preview(created.id);
-  const receipt = await svc.approve(created.id, "export", "docx");
-  const exported = await svc.export(created.id, "docx", receipt);
+  const created = await svc.create("docx", "export-digest", SCOPE);
+  const preview = await svc.preview(created.id, SCOPE);
+  const receipt = await svc.approve(created.id, "export", "docx", SCOPE);
+  const exported = await svc.export(created.id, "docx", receipt, SCOPE);
   assert.equal(exported.digest, preview[0]?.digest);
   assert.equal(exported.digest, digestBytes(exported.bytes));
 });
@@ -121,11 +123,11 @@ test("R56-OFF-006 commit refuses a second destination after the proposal is boun
   const svc = liveOffice(join(dir, "user-data"));
   const dest = join(dir, "first.docx");
   const other = join(dir, "other.docx");
-  const created = await svc.create("docx", "bound-path");
+  const created = await svc.create("docx", "bound-path", SCOPE);
   writeFileSync(dest, created.bytes);
   writeFileSync(other, created.bytes);
-  const receipt = await svc.approve(created.id, "commit-to-path", dest);
-  svc.commitToPath(created.id, receipt, dest, dir);
-  const again = await svc.approve(created.id, "commit-to-path", other);
-  assert.throws(() => svc.commitToPath(created.id, again, other, dir), /bound proposal|receipt/);
+  const receipt = await svc.approve(created.id, "commit-to-path", dest, SCOPE);
+  svc.commitToPath(created.id, receipt, dest, dir, SCOPE);
+  const again = await svc.approve(created.id, "commit-to-path", other, SCOPE);
+  assert.throws(() => svc.commitToPath(created.id, again, other, dir, SCOPE), /bound proposal|receipt/);
 });

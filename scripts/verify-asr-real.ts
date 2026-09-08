@@ -9,6 +9,7 @@ import {
   SherpaSenseVoiceEngine,
 } from "../packages/asr/src/index.js";
 import { ROOT } from "./lib/repo.mjs";
+import { PRODUCT_VERSION } from "../packages/release-identity/src/pins.ts";
 import { EXIT_BY_VERDICT } from "./lib/exit-contract.mjs";
 import { beginEvidenceRun, finishEvidenceRun, HOST_TARGET } from "./lib/evidence-dir.mjs";
 
@@ -34,7 +35,7 @@ async function fetchFixture(): Promise<Buffer> {
   for (let hop = 0; hop <= 5; hop += 1) {
     const response = await fetch(url, {
       redirect: "manual",
-      headers: { "User-Agent": "Penglai/0.5.11 ASR real verifier" },
+      headers: { "User-Agent": `Penglai/${PRODUCT_VERSION} ASR real verifier` },
       signal: AbortSignal.timeout(60_000),
     });
     if ([301, 302, 303, 307, 308].includes(response.status)) {

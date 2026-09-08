@@ -1,6 +1,6 @@
 {
   "name": "@penglai/channel-dingtalk",
-  "version": "0.5.11",
+  "version": "0.5.12",
   "private": true,
   "type": "module",
   "exports": {
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@penglai/contracts": "workspace:*",
-    "dingtalk-stream": "2.1.4",
+    "dingtalk-stream": "2.1.5",
     "qrcode": "1.5.4"
   }
 }

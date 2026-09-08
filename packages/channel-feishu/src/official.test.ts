@@ -42,12 +42,17 @@ test("R2I-FS-006/007/008 official SDK pin compile/run probe", () => {
   assert.equal(typeof WSClient, "function");
   assert.equal(typeof EventDispatcher, "function");
   const lock = readFileSync(join(root, "pnpm-lock.yaml"), "utf8");
-  assert.match(lock, /@larksuiteoapi\/node-sdk@1\.73\.0/);
+  assert.match(
+    lock,
+    new RegExp(`@larksuiteoapi\\/node-sdk@${PINNED_LARK_SDK.replaceAll(".", "\\.")}`),
+  );
+  assert.equal(typeof (WSClient as { prototype?: { start?: unknown; close?: unknown } }).prototype?.start, "function");
+  assert.equal(typeof (WSClient as { prototype?: { start?: unknown; close?: unknown } }).prototype?.close, "function");
   assert.equal(FEISHU_RECEIVE_EVENT, "im.message.receive_v1");
   assert.equal(FEISHU_EVENT_MODE, "long_connection");
   assert.ok(FEISHU_MIN_SCOPES.includes("im:message.p2p_msg:readonly"));
   assert.ok(FEISHU_MIN_SCOPES.includes("im:message:send_as_bot"));
-  assert.equal(PINNED_LARK_COMMIT, "f54b49f3566c52b54c598194b7ed3015e3e24224");
+  assert.equal(PINNED_LARK_COMMIT, "af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513");
 });
 
 test("R2I-FS-020 no OpenClaw runtime dependency", () => {

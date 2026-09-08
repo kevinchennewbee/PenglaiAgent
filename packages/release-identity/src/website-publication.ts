@@ -87,6 +87,7 @@ export function assertPublicationOnlyChanges(paths: string[], version = PRODUCT_
     `docs/PUBLICATION_MANIFEST_${version}.md`,
     `docs/RELEASE_NOTES_${version}.md`,
     "website/index.html",
+    "website/zh/index.html",
     "website/en/index.html",
   ]) {
     invariant(changed.includes(required), `post-readback publication did not update ${required}`);

@@ -1,8 +1,21 @@
 # Penglai 0.5.11 delivery ledger
 
-Status: active. `[x]` requires implementation and evidence. Unchecked items remain
-in scope. Verification results and remaining limitations are appended to the
-relevant row; no row is closed by intent or a matching version string.
+> **Historical snapshot and final ruling (2026-09-08).** This ledger is the
+> 0.5.11 development and publication record. It is no longer the active
+> delivery ledger; 0.5.12 work is in `docs/0.5.12/TODO.md`.
+>
+> **Final published ruling:** `v0.5.11` is immutable from source SHA
+> `77e7105773b4d43abb7315ea6e83abe17e646cb4`. Native three-target evidence
+> is Actions run `34151469696`. Public-byte readback is run `34155522316`.
+> Website origin readback is run `34157825364` from `main` `f013d0d1`, later
+> recorded on `87f6aec0`. Remaining 0.5.11 rows that stay explicitly unrun
+> (`V11` live accounts; Mnemon Windows special-character / old-db copies)
+> are inherited as 0.5.12 work or `LIVE_NOT_RUN`, not as unpublished 0.5.11.
+
+Status: **closed as a 0.5.11 publication ledger**. `[x]` required
+implementation and evidence during 0.5.11. Unchecked items remaining after
+publication are called out in the ruling above. The body below is preserved
+as a historical snapshot.
 
 ## Foundation and upstream
 

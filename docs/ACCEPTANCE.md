@@ -155,7 +155,7 @@
 | `R50-FS-001` |UI提供创建应用/机器人/权限/事件/发布完整向导 | installed/all |
 | `R50-FS-002` |App ID持久，App Secret只存credential ref且不可读回 | security+installed/all |
 | `R50-FS-003` |doctor区分credential/bot/permission/event/publish/tenant/network | contract+installed/all |
-| `R50-FS-004` |official SDK 1.73.0实体依赖存在于插件closure并可load | artifact+installed/all |
+| `R50-FS-004` |official SDK 1.73.3实体依赖存在于插件closure并可load | artifact+installed/all |
 | `R50-FS-005` |WSClient/EventDispatcher收消息并在3秒内durable enqueue | integration+timing/all |
 | `R50-FS-006` |Client发送到真实open_id/chat target而非peerRef | integration/all |
 | `R50-FS-007` |event dedupe持久且验证tenant/app identity | security+integration/all |
