@@ -99,6 +99,7 @@
     "verify:community-candidates": "node --import tsx scripts/verify-community-candidates.mjs",
     "fetch:mnemon-assets": "node --import tsx scripts/fetch-mnemon-assets.mjs --host-only",
     "fetch:poppler-assets": "node scripts/fetch-poppler.mjs --host-only",
+    "rebuild:fs-ext": "node scripts/rebuild-fs-ext.mjs",
     "verify:asr-real": "node --import tsx scripts/verify-asr-real.ts",
     "verify:moss-real": "node --import tsx scripts/verify-moss-real.ts",
     "progress": "node scripts/progress.mjs",
