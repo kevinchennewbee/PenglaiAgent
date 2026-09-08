@@ -179,10 +179,12 @@ export function nsisExecWaitCommands(script) {
 }
 
 export function extractNsisScopedStopCommand(script) {
-  const match = String(script ?? "").match(
-    /!macro PenglaiStopScoped[\s\S]*?-Command "([^"]+)"[\s\S]*?!macroend/u,
+  const macro = String(script ?? "").match(/!macro PenglaiStopScoped([\s\S]*?)!macroend/u)?.[1] ?? "";
+  const writes = [...macro.matchAll(/FileWrite \$8 "([^"]*)"/gu)].map((row) =>
+    row[1].replace(/\$\\r\$\\n$/u, ""),
   );
-  return match?.[1] ?? "";
+  if (writes.length) return writes.join("; ");
+  return macro.match(/-Command "([^"]+)"/u)?.[1] ?? "";
 }
 
 export function nsisDollarUnescape(text) {
@@ -204,8 +206,8 @@ export function nsisScopedStopContract(script) {
   if (!/TrimEnd/.test(text) || !/\[char\]92/.test(text)) {
     errors.push("must bound INSTDIR with a trailing separator so 0.5 does not match 0.50");
   }
-  if (!/StrCpy \$8 `/.test(text) || !/ExecWait \$8 \$R4/.test(text)) {
-    errors.push("must ExecWait a single prebuilt command variable, not nested NSIS quotes");
+  if (!/penglai-stop-scoped\.ps1/.test(text) || !/-File "\$TEMP\\penglai-stop-scoped\.ps1"/.test(text)) {
+    errors.push("must ExecWait powershell -File a temp stop script, not nested NSIS quotes");
   }
   if (/GetFullPath\(''\$INSTDIR''\)/.test(text)) {
     errors.push("must not embed $INSTDIR in nested NSIS quotes");
