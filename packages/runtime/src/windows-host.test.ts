@@ -347,6 +347,11 @@ test("NSIS script always preserves user data after in-app exact deletion", () =>
   assert.match(payload, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
   assert.match(cleanClone, /process\.platform === "win32"[\s\S]*build:windows-host/);
   assert.match(cleanClone, /rebuild:fs-ext/);
+  const artifact = readFileSync(new URL("../../../scripts/verify-artifact.mjs", import.meta.url), "utf8");
+  const bundleDesktop = readFileSync(new URL("../../../scripts/bundle-desktop.mjs", import.meta.url), "utf8");
+  assert.match(artifact, /docs\/0\.5\.12\/DSH_ALPHA_PACKAGED_BYTES\.json/);
+  assert.doesNotMatch(artifact, /docs\/0\.5\.10\/DSH_ALPHA_PACKAGED_BYTES\.json/);
+  assert.match(bundleDesktop, /docs\/0\.5\.12\/DSH_ALPHA_PACKAGED_BYTES\.json/);
   const rebuildFsExt = readFileSync(new URL("../../../scripts/rebuild-fs-ext.mjs", import.meta.url), "utf8");
   assert.match(rebuildFsExt, /npm-cli\.js/);
   assert.match(rebuildFsExt, /shell: process\.platform === "win32"/);
