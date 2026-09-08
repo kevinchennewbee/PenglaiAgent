@@ -261,7 +261,7 @@ main { overflow: hidden; }
 .hero-copy {
   position: relative;
   z-index: 1;
-  width: min(44rem, calc(100% - 2 * var(--gutter)));
+  width: min(58rem, calc(100% - 2 * var(--gutter)));
   margin: 0 auto 0 max(var(--gutter), calc((100vw - var(--measure)) / 2));
   padding: 8.5rem 0 6.5rem;
 }
@@ -279,9 +279,13 @@ main { overflow: hidden; }
 
 h1 {
   margin: 0;
-  max-width: 18ch;
+  max-width: 100%;
   font-size: clamp(2.5rem, 6.4vw, 4.7rem);
   line-height: 1.08;
+  line-break: strict;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  white-space: nowrap;
 }
 
 .lead {
@@ -669,7 +673,10 @@ footer a { color: var(--paper); }
   .gallery,
   .faq-grid { grid-template-columns: 1fr; }
   .cards article { min-height: 0; }
-  h1 { max-width: none; }
+  h1 {
+    max-width: none;
+    white-space: normal;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
