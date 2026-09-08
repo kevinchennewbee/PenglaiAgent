@@ -2,9 +2,10 @@ export function extractTapFailureDiagnostics(output, maxChars = 12_000) {
   const lines = String(output || "").split(/\r?\n/);
   const selected = new Set();
   for (let index = 0; index < lines.length; index += 1) {
-    if (!/^not ok\b/.test(lines[index].trim())) continue;
+    const trimmed = lines[index].trim();
+    if (!/^not ok\b/.test(trimmed) && !/ERR_DLOPEN_FAILED|Cannot find module|fs-ext|node-gyp|error: '/i.test(trimmed)) continue;
     const start = Math.max(0, index - 1);
-    const end = Math.min(lines.length, index + 20);
+    const end = Math.min(lines.length, index + 24);
     for (let cursor = start; cursor < end; cursor += 1) selected.add(cursor);
   }
   if (selected.size === 0) return "";

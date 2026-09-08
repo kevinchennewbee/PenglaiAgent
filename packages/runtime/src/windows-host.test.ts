@@ -342,6 +342,7 @@ test("NSIS script always preserves user data after in-app exact deletion", () =>
   assert.match(payload, /Penglai\.ico/);
   assert.match(payload, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
   assert.match(cleanClone, /process\.platform === "win32"[\s\S]*build:windows-host/);
+  assert.match(cleanClone, /rebuild:fs-ext/);
   assert.match(packager, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
   assert.doesNotMatch(payload, /const staging = join\(ROOT, "dist", "runtime-staging-win32-x86_64"\)/);
   assert.doesNotMatch(packager, /const staging = join\(ROOT, "dist", "runtime-staging-win32-x86_64"\)/);

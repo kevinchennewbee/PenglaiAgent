@@ -26,3 +26,11 @@ test("clean-clone diagnostics retain each bounded TAP failure context", () => {
 test("clean-clone diagnostics stay empty when TAP has no failures", () => {
   assert.equal(extractTapFailureDiagnostics("ok 1 - passes\n1..1"), "");
 });
+
+test("clean-clone diagnostics retain native addon load failures", () => {
+  const excerpt = extractTapFailureDiagnostics(
+    ["ok 1 - passes", "Error: Cannot find module 'fs-ext'", "ERR_DLOPEN_FAILED"].join("\n"),
+  );
+  assert.match(excerpt, /fs-ext/);
+  assert.match(excerpt, /ERR_DLOPEN_FAILED/);
+});

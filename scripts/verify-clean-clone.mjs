@@ -92,6 +92,8 @@ function run(command, args, label) {
 const steps = [];
 const install = pnpmProcess(["install", "--frozen-lockfile"]);
 steps.push(run(install.command, install.args, "frozen-install"));
+const rebuildFsExt = pnpmProcess(["rebuild:fs-ext"]);
+if (steps.at(-1).status === 0) steps.push(run(rebuildFsExt.command, rebuildFsExt.args, "rebuild:fs-ext"));
 const typecheck = pnpmProcess(["typecheck"]);
 if (steps.at(-1).status === 0) steps.push(run(typecheck.command, typecheck.args, "typecheck"));
 const build = pnpmProcess(["build"]);
