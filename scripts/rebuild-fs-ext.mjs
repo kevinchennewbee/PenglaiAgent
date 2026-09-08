@@ -2,6 +2,7 @@
 /** Rebuild fs-ext after ignore-scripts installs. Required by official JSONL session persistence. */
 
 import { existsSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ROOT } from "./lib/repo.mjs";
@@ -13,7 +14,7 @@ if (!existsSync(join(dir, "binding.gyp"))) {
   process.exit(1);
 }
 const npm = join(dirname(process.execPath), process.platform === "win32" ? "npm.cmd" : "npm");
-const devdir = process.env.npm_config_devdir || "/tmp/node-gyp-dev";
+const devdir = process.env.npm_config_devdir || join(tmpdir(), "node-gyp-dev");
 const env = {
   ...process.env,
   npm_config_devdir: devdir,
