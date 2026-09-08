@@ -2,7 +2,6 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { MNEMON_ASSETS, MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
-import { POPPLER_ASSETS, POPPLER_UPSTREAM } from "../packages/release-identity/src/poppler-assets.js";
 import { collectLockPackageIds, splitLockPackageId } from "./lib/sbom-lock.mjs";
 
 mkdirSync("evidence/generated", { recursive: true });
@@ -93,35 +92,6 @@ components.push({
       { name: `penglai:asset:${asset.target}:binary.sha256`, value: asset.binarySha256 },
       { name: `penglai:asset:${asset.target}:binary.bytes`, value: String(asset.binaryBytes) },
     ]),
-  ],
-});
-components.push({
-  type: "application",
-  name: "Poppler pdftoppm",
-  version: POPPLER_UPSTREAM.version,
-  "bom-ref": `pkg:generic/poppler@${POPPLER_UPSTREAM.version}?sha256=${POPPLER_UPSTREAM.sourceSha256}`,
-  licenses: [{ expression: POPPLER_UPSTREAM.license }],
-  properties: [
-    { name: "penglai:distribution", value: "bundled-spawned-helper-mere-aggregation" },
-    { name: "penglai:source.url", value: POPPLER_UPSTREAM.sourceUrl },
-    { name: "penglai:source.sha256", value: POPPLER_UPSTREAM.sourceSha256 },
-    { name: "penglai:feedstock.commit", value: POPPLER_UPSTREAM.feedstockCommit },
-    ...POPPLER_ASSETS.flatMap((asset) => [
-      { name: `penglai:asset:${asset.target}:archive.sha256`, value: asset.archiveSha256 },
-      { name: `penglai:asset:${asset.target}:tree.sha256`, value: asset.publishedTreeSha256 },
-    ]),
-  ],
-});
-components.push({
-  type: "library",
-  name: "poppler-data",
-  version: POPPLER_UPSTREAM.popplerData.version,
-  "bom-ref": `pkg:generic/poppler-data@${POPPLER_UPSTREAM.popplerData.version}?sha256=${POPPLER_UPSTREAM.popplerData.sha256}`,
-  licenses: [{ expression: "BSD-3-Clause AND (GPL-2.0-only OR GPL-3.0-only)" }],
-  properties: [
-    { name: "penglai:distribution", value: "bundled-with-pdftoppm-helper" },
-    { name: "penglai:source.url", value: POPPLER_UPSTREAM.popplerData.url },
-    { name: "penglai:source.sha256", value: POPPLER_UPSTREAM.popplerData.sha256 },
   ],
 });
 components.push({

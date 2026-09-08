@@ -70,17 +70,6 @@ export function classifyLicense(name, declaredLicense, version = "") {
       rationale: "Penglai Office disables PPT image probing and does not package its sharp 0.35.3/libvips 1.3.2 closure",
     };
   }
-  if (
-    name === "poppler-pdftoppm" &&
-    (license === "GPL-2.0-only OR GPL-3.0-only" || license === "GPL-2.0-or-later")
-  ) {
-    return {
-      effectiveLicense: "GPL-2.0-only OR GPL-3.0-only",
-      disposition: "gpl-separate-helper-mere-aggregation",
-      rationale:
-        "Penglai ships pdftoppm as a spawned sibling helper with COPYING+COPYING3; it is not linked into Electron or DSH",
-    };
-  }
   if (/\b(?:AGPL|GPL|LGPL)-/i.test(license)) {
     throw new Error(`unapproved copyleft production dependency: ${name} (${license})`);
   }

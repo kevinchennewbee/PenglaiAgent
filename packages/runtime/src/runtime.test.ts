@@ -866,7 +866,6 @@ test("owned DSH spawn pins cwd to DSH_HOME so repo .env cannot be a secret layer
   assert.match(src, /DSH_HOME:\s*user\.dshHome/);
   assert.match(src, /PENGLAI_APP_ROOT:\s*env\.PENGLAI_APP_ROOT/);
   assert.match(src, /PENGLAI_MNEMON_BINARY:\s*env\.PENGLAI_MNEMON_BINARY/);
-  assert.match(src, /PENGLAI_PDFTOPPM:\s*env\.PENGLAI_PDFTOPPM/);
   assert.match(src, /DSH_TELEMETRY_DISABLED:\s*"1"/);
   assert.doesNotMatch(src, /DSH_TELEMETRY_MODE/);
   assert.doesNotMatch(src, /DSH_TELEMETRY_OTLP_URL/);

@@ -15,7 +15,6 @@ import {
 } from "./lib/closure-credential.mjs";
 import { ROOT } from "./lib/repo.mjs";
 import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
-import { adHocSignDarwinPoppler, copyPopplerTree } from "./lib/package-poppler.mjs";
 
 const releasePins = readReleaseIdentityPins();
 
@@ -146,20 +145,6 @@ const penglaiExec = join(contents, "MacOS", "Penglai");
 if (existsSync(macExec) && !existsSync(penglaiExec)) {
   execFileSync("mv", [macExec, penglaiExec]);
 }
-const popplerSrc = join(ROOT, "third_party", "poppler", targetSpec.runtimeTarget);
-if (!existsSync(join(popplerSrc, "pdftoppm"))) {
-  const fetched = spawnSync(process.execPath, [join(ROOT, "scripts", "fetch-poppler.mjs"), "--target", targetSpec.runtimeTarget], {
-    cwd: ROOT,
-    stdio: "inherit",
-  });
-  if (fetched.status !== 0 || !existsSync(join(popplerSrc, "pdftoppm"))) {
-    console.error(`bundled Poppler pdftoppm missing at ${popplerSrc}`);
-    process.exit(1);
-  }
-}
-const popplerDest = join(contents, "MacOS", "poppler");
-copyPopplerTree(popplerSrc, popplerDest, targetSpec.runtimeTarget);
-adHocSignDarwinPoppler(popplerDest);
 const fwRes = join(
   contents,
   "Frameworks/Electron Framework.framework/Versions/A/Resources",

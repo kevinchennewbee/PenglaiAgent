@@ -17,11 +17,6 @@ import { finish } from "./lib/exit-contract.mjs";
 import { stagingForTarget } from "./lib/closure-credential.mjs";
 import { writeRequiredFuses } from "./lib/electron-fuses.mjs";
 import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
-import {
-  copyPopplerTree,
-  copyWindowsPopplerDatadirSibling,
-  copyWindowsVcRuntimes,
-} from "./lib/package-poppler.mjs";
 
 const releasePins = readReleaseIdentityPins();
 
@@ -204,24 +199,6 @@ try {
     reason: `Penglai.exe fuse hardening failed: ${String(error)}`,
   });
 }
-
-const popplerSrc = join(ROOT, "third_party", "poppler", "win32-x86_64");
-if (!existsSync(join(popplerSrc, "pdftoppm.exe"))) {
-  const fetched = spawnSync(process.execPath, [join(ROOT, "scripts", "fetch-poppler.mjs"), "--target", "win32-x86_64"], {
-    cwd: ROOT,
-    stdio: "inherit",
-  });
-  if (fetched.status !== 0 || !existsSync(join(popplerSrc, "pdftoppm.exe"))) {
-    finish("FAIL", {
-      command: "package:windows-payload",
-      reason: "bundled Poppler pdftoppm.exe missing",
-    });
-  }
-}
-const popplerDest = join(payload, "poppler");
-copyPopplerTree(popplerSrc, popplerDest, "win32-x86_64");
-copyWindowsPopplerDatadirSibling(popplerDest, payload);
-copyWindowsVcRuntimes(payload, popplerDest);
 
 const resources = join(payload, "resources");
 mkdirSync(resources, { recursive: true });

@@ -41,6 +41,10 @@ Public README/website download tables remain **0.5.11** until immutable
 - A second Agent core, mixed DSH generations, or enabling Budget
   enforcement merely to show usage.
 - Two-hour installed soak / timed wait gates.
+- I05 packaged PDF page-image preview and bundled Poppler `pdftoppm`
+  (**DEFERRED_BY_OWNER / OUT_OF_SCOPE**, not PASS). Pre-existing PDF
+  inspect, digest-bound text preview, and optional host `pdftoppm` when
+  present remain. Do not introduce a substitute renderer.
 
 ## Cohort freeze (development)
 
@@ -75,4 +79,6 @@ GitHub facts already observed (2026-09-08):
 “未合 main / 未授权 / 公开仍是 0.5.10”的句子是开发树快照，终裁以
 `docs/PUBLICATION_MANIFEST_0.5.11.md` 为准。0.5.12 优先消费可证明完整的
 官方 `0.1.3-alpha.2` npm 队列；包数以实际图为准。公开下载在 v0.5.12
-回读前仍指向 0.5.11。
+回读前仍指向 0.5.11。Owner 已将新增 PDF 页预览与捆绑 Poppler 记为
+DEFERRED_BY_OWNER / OUT_OF_SCOPE，不是 PASS；既有 PDF 检查与摘要绑定
+文本预览保留。

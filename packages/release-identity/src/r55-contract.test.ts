@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -50,10 +50,21 @@ test("bundled Mnemon uses its actual Apache-2.0 license", () => {
   assert.equal(manifest.licenseSha256, MNEMON_UPSTREAM.licenseSha256);
   assert.equal(sbomSource.includes("Noto Sans SC variable font"), true);
   assert.equal(sbomSource.includes("Mnemon"), true);
-  assert.equal(sbomSource.includes("Poppler pdftoppm"), true);
-  assert.equal(noticesSource.includes("Poppler pdftoppm"), true);
+  assert.equal(sbomSource.includes("Poppler pdftoppm"), false);
+  assert.equal(noticesSource.includes("Poppler pdftoppm"), false);
   assert.equal(noticesSource.includes("Penglai Office"), true);
   assert.equal(noticesSource.includes("Penglai Memory"), true);
+});
+
+test("0.5.12 does not ship bundled Poppler pdftoppm", () => {
+  const lock = JSON.parse(readFileSync(join(root, "third_party/sources.lock.json"), "utf8"));
+  assert.equal(existsSync(join(root, "packages/release-identity/src/poppler-assets.js")), false);
+  assert.equal(existsSync(join(root, "scripts/fetch-poppler.mjs")), false);
+  assert.equal(existsSync(join(root, "scripts/lib/package-poppler.mjs")), false);
+  assert.equal(
+    (lock.sources ?? []).some((row: { id?: string }) => row.id === "poppler-pdftoppm"),
+    false,
+  );
 });
 
 test("official Web/Agent/Session/Workspace stay on the one fixed DSH core", () => {

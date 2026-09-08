@@ -162,8 +162,6 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /pathToFileURL\(recoveryPage\)/);
   assert.match(main, /navigationDecision\(next, allowedOrigin, recoveryUrl, \{ wizardComplete/);
   assert.match(main, /isOwnedRuntimePath\(layout\.appRoot, layout\.nodeBin\)/);
-  assert.match(main, /PENGLAI_PDFTOPPM/);
-  assert.match(main, /MacOS", "poppler"/);
   assert.match(main, /show:\s*false/);
   assert.match(main, /opacity:\s*platform === "win32" \? 0 : 1/);
   assert.match(main, /backgroundColor:\s*"#f8f4ee"/);

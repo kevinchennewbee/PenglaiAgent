@@ -49,8 +49,6 @@ jobs:
           corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
           pnpm rebuild:fs-ext
-      - name: Fetch and verify pinned Poppler helpers
-        run: node scripts/fetch-poppler.mjs --all
       - name: Install independent Office verification tools
         run: brew install poppler
       - name: Verify release adaptation and historical boundaries

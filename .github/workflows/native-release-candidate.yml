@@ -138,8 +138,6 @@ jobs:
           pnpm verify:contracts
       - name: Fetch and verify the pinned native Mnemon binary
         run: pnpm fetch:mnemon-assets
-      - name: Fetch and verify the pinned native Poppler helper
-        run: pnpm fetch:poppler-assets
       - name: Build exact native installer
         run: pnpm ${{ matrix.package }}
       - name: Verify native closure, artifact, fuses, and signing contract
@@ -305,8 +303,6 @@ jobs:
           pnpm verify:contracts
       - name: Fetch and verify the pinned native Mnemon binary
         run: pnpm fetch:mnemon-assets
-      - name: Fetch and verify the pinned native Poppler helper
-        run: pnpm fetch:poppler-assets
       - name: Build exact native installer with MSVC
         shell: cmd
         run: |

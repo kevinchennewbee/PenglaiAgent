@@ -50,10 +50,12 @@ Base: `origin/main` `87f6aec04b2b77d45a5c2b280d1b75332a80eb33` on
       `/IM "Penglai Helper.exe"` must not kill a foreign instance. Tests
       must use process lists / two roots, not only regex that a dangerous
       command exists.
-- [ ] I05 PDF page preview: keep rasters, show them to the user, bind the
-      reviewed digest, work on all three packaged targets without system
-      PATH `pdftoppm`, enforce timeout/page/byte limits, explicit
-      missing/failure. Text must not be treated as image proof.
+- [ ] I05 packaged PDF page preview / bundled Poppler: **DEFERRED_BY_OWNER /
+      OUT_OF_SCOPE** for 0.5.12, not PASS. Owner 2026-09-08 omitted the
+      newly added three-target page-image preview and its Poppler
+      supply-chain. Preserve pre-existing PDF inspect and digest-bound text
+      preview; optional host `pdftoppm` remains when present. Text is never
+      treated as image proof. No substitute renderer.
 - [ ] I06 Keep immutable 0.5.11 history. Mark development-tree
       ACCEPTANCE_DELTA/TODO statements as snapshots plus the published
       ruling. 0.5.12 ledger must not contradict published v0.5.11.
@@ -161,7 +163,7 @@ mock.
 - Lock migration leftovers closed in tests/provenance: sherpa runtime `1.13.7` / git `917bed95` (onnxruntime-node remains `1.23.2`); Weixin bot_agent `Penglai/0.5.12`; QQ onboard User-Agent uses `RELEASE`. Electron/Feishu/sherpa already at 43.6.0 / 1.73.3 / 1.13.7 in lockfile.
 - Session API on current tree: list/model projections without inspect; resume owned-error reuse/fail-closed; onboarding `snapshotEvents` + `agent/assistant-stream`; budget attempt-stream + message.usage. Replay/owner-remotes SHA is `82a5fd61…`.
 - Office jobs bind Workspace/Session at create/edit/remote instead of mutating after insert.
-- Poppler pin rewritten to conda-forge 26.09.0 for all three targets; Homebrew/oschwartz zip removed from identity. License exception remains mere-aggregation. Host `pdftoppm` is not three-target native evidence. PDF raster unit test skips unless the target `manifest.json.source` is the pinned conda-forge URL; it does not write `docs/` from a Homebrew keg. Closure dylibs outside the poppler conda package still need fetch-time assembly.
+- Packaged Poppler / I05 page rasters later deferred by Owner (2026-09-08): DEFERRED_BY_OWNER / OUT_OF_SCOPE, not PASS. The conda-forge pin and fetch/package work were withdrawn from 0.5.12 rather than completed.
 - This checkpoint does not close F03–F06, I01–I07, U01–U06, V01–V06, D01–D06, or P01–P05.
 
 ## Incremental verification — 2026-09-08 (I07 scope + session API must-changes)
@@ -180,8 +182,8 @@ mock.
   onboarding reads `snapshotEvents()`; listSessions trusts title
   projections; resume maps `SessionAlreadyOwnedError`. DSH source cloned
   at `82a5fd61…`. Pins/lockfile still rc.1 until the atomic cohort write.
-- I05 still open for packaged rasters: no Poppler/pdfjs in the payload.
-  Text is not treated as an image.
+- I05 packaged rasters later recorded DEFERRED_BY_OWNER / OUT_OF_SCOPE.
+  Text is not treated as an image. No bundled Poppler in 0.5.12.
 
 ## Incremental verification — 2026-09-08 (Windows I01–I04 source + design addendum)
 
@@ -221,4 +223,5 @@ mock.
 ## 中文
 
 未勾选项均待完成。历史 0.5.11 开发树文档另行快照+终裁，不在本账本当成
-当前未发布状态。公开下载在 v0.5.12 字节回读前仍指向 0.5.11。
+当前未发布状态。公开下载在 v0.5.12 字节回读前仍指向 0.5.11。I05 打包页
+光栅为 DEFERRED_BY_OWNER / OUT_OF_SCOPE，不是 PASS。

@@ -39,9 +39,10 @@ disabled.
    before test cleanup; Defender is not disabled to manufacture PASS;
    activation is transactional with verified rollback; process stop is bound
    to the target install/data root.
-2. Digest-bound, user-visible PDF page preview on all three targets, with
-   explicit missing/failure/resource limits. Text is never treated as image
-   proof.
+2. Digest-bound PDF inspect/text preview remains. Packaged three-target
+   page-image preview and bundled Poppler are **DEFERRED_BY_OWNER /
+   OUT_OF_SCOPE** (not PASS). Text is never treated as image proof. No
+   substitute renderer.
 3. A consistent 0.5.12 ledger. 0.5.11 development-tree documents are
    historical snapshots plus a final published ruling.
 4. Official DSH at the **latest consumable official npm/tag** (re-checked

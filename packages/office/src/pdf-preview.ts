@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
 import { inspectPdf } from "./adapters/pdf.js";
 
@@ -12,7 +12,7 @@ export const PDF_PREVIEW_LIMITS = Object.freeze({
   maxInputBytes: 8 * 1024 * 1024,
   maxRasterBytes: 1_500_000,
   maxTotalRasterBytes: 6 * 1024 * 1024,
-  dpi: 72,
+  dpi: 36,
 });
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -58,11 +58,7 @@ export function isPngRaster(bytes: Buffer | undefined): bytes is Buffer {
   return Boolean(bytes && bytes.length >= 8 && bytes.subarray(0, 8).equals(PNG_MAGIC));
 }
 
-export async function previewPdfPages(
-  bytes: Buffer,
-  digest: string,
-  options: { execPath?: string } = {},
-): Promise<PdfPreview> {
+export async function previewPdfPages(bytes: Buffer, digest: string): Promise<PdfPreview> {
   if (bytes.length > PDF_PREVIEW_LIMITS.maxInputBytes) {
     throw new PenglaiError("INVALID_INPUT", "PDF preview exceeds size limit");
   }
@@ -70,11 +66,7 @@ export async function previewPdfPages(
   const seen = await inspectPdf(bytes);
   const pageCount = Math.max(seen.pages, seen.pageTexts.length);
   const limited = pageCount > PDF_PREVIEW_LIMITS.maxPages;
-  const rendered = renderPdfRasters(
-    bytes,
-    Math.min(pageCount, PDF_PREVIEW_LIMITS.maxPages),
-    options.execPath ?? process.execPath,
-  );
+  const rendered = renderPdfRasters(bytes, Math.min(pageCount, PDF_PREVIEW_LIMITS.maxPages));
   const pagePreviews = seen.pageTexts.slice(0, PDF_PREVIEW_LIMITS.maxPages).map((text, index) => {
     const size = seen.pageSizes[index] ?? { width: 612, height: 792 };
     const raster = rendered.pages[index];
@@ -156,86 +148,24 @@ export function publicPdfPreview(preview: PdfPreview) {
   };
 }
 
-export function pdfRendererBinaryName(platform: NodeJS.Platform = process.platform): string {
-  return platform === "win32" ? "pdftoppm.exe" : "pdftoppm";
-}
-
-export function bundledPdfRendererPath(execPath = process.execPath): string {
-  return join(execPath, "..", "poppler", pdfRendererBinaryName());
-}
-
-export function pdfRendererCandidates(
-  execPath = process.execPath,
-  options: { platform?: NodeJS.Platform; appRoot?: string; explicit?: string } = {},
-): string[] {
-  const platform = options.platform ?? process.platform;
-  const binary = pdfRendererBinaryName(platform);
-  const execDir = dirname(execPath);
-  const appRoot = options.appRoot ?? process.env.PENGLAI_APP_ROOT ?? "";
-  const explicit = options.explicit ?? process.env.PENGLAI_PDFTOPPM ?? "";
-  const candidates = [
-    ...(explicit ? [explicit] : []),
-    join(execDir, "poppler", binary),
-    join(execDir, binary),
-  ];
-  if (appRoot) {
-    candidates.push(join(appRoot, "poppler", binary));
-    candidates.push(join(appRoot, "..", "poppler", binary));
-    if (platform === "darwin") candidates.push(join(appRoot, "..", "MacOS", "poppler", binary));
-  }
-  return candidates;
-}
-
-export function locatePdfRenderer(execPath = process.execPath): string {
-  return pdfRendererCandidates(execPath).find((path) => existsSync(path)) ?? "";
-}
-
-export function pdfRendererSpawnEnvForPlatform(
-  platform: NodeJS.Platform,
-  binDir: string,
-  sourceEnv: NodeJS.ProcessEnv = process.env,
-): NodeJS.ProcessEnv {
-  const fonts = join(binDir, "fonts");
-  const env: NodeJS.ProcessEnv = {};
-  if (platform === "win32") {
-    const systemRoot = sourceEnv.SystemRoot || sourceEnv.WINDIR || "C:\\Windows";
-    env.PATH = `${join(systemRoot, "System32")};${systemRoot}`;
-    env.SystemRoot = systemRoot;
-    env.WINDIR = systemRoot;
-    env.ComSpec = sourceEnv.ComSpec || join(systemRoot, "System32", "cmd.exe");
-    env.PATHEXT = sourceEnv.PATHEXT || ".COM;.EXE;.BAT;.CMD";
-    env.USERPROFILE = sourceEnv.USERPROFILE;
-    env.TEMP = sourceEnv.TEMP;
-    env.TMP = sourceEnv.TMP;
-  } else {
-    env.HOME = sourceEnv.HOME;
-    env.PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
-    env.TMPDIR = sourceEnv.TMPDIR;
-    env.TEMP = sourceEnv.TEMP;
-    env.TMP = sourceEnv.TMP;
-    env.USERPROFILE = sourceEnv.USERPROFILE;
-    if (sourceEnv.LANG) env.LANG = sourceEnv.LANG;
-    if (sourceEnv.LC_ALL) env.LC_ALL = sourceEnv.LC_ALL;
-  }
-  if (existsSync(fonts)) env.FONTCONFIG_PATH = fonts;
-  return env;
-}
-
-export function pdfRendererSpawnEnv(binDir: string): NodeJS.ProcessEnv {
-  return pdfRendererSpawnEnvForPlatform(process.platform, binDir);
+function hostPdfRenderer(): string {
+  const command = process.platform === "win32" ? "where.exe" : "which";
+  const found = spawnSync(command, ["pdftoppm"], { encoding: "utf8" });
+  if (found.status !== 0) return "";
+  const bin = found.stdout.trim().split(/\r?\n/)[0]?.trim() ?? "";
+  return bin && existsSync(bin) ? bin : "";
 }
 
 function renderPdfRasters(
   bytes: Buffer,
   maxPages: number,
-  execPath = process.execPath,
 ): { engine: "pdftoppm" | "none"; status: PdfRasterStatus; reason?: string; pages: Buffer[] } {
-  const bin = locatePdfRenderer(execPath);
+  const bin = hostPdfRenderer();
   if (!bin) {
     return {
       engine: "none",
       status: "unavailable",
-      reason: "no bundled pdftoppm; page images are not claimed from text",
+      reason: "no host pdftoppm; page images are not claimed from text",
       pages: [],
     };
   }
@@ -244,13 +174,14 @@ function renderPdfRasters(
     const prefix = join(dir, "page");
     const input = join(dir, "in.pdf");
     writeFileSync(input, bytes);
-    const binDir = dirname(bin);
-    const rendered = spawnSync(bin, ["-png", "-r", String(PDF_PREVIEW_LIMITS.dpi), "-f", "1", "-l", String(maxPages), input, prefix], {
-      encoding: "utf8",
-      cwd: binDir,
-      timeout: PDF_PREVIEW_LIMITS.timeoutMs,
-      env: pdfRendererSpawnEnv(binDir),
-    });
+    const rendered = spawnSync(
+      bin,
+      ["-png", "-r", String(PDF_PREVIEW_LIMITS.dpi), "-f", "1", "-l", String(maxPages), input, prefix],
+      {
+        encoding: "utf8",
+        timeout: PDF_PREVIEW_LIMITS.timeoutMs,
+      },
+    );
     if (rendered.error && "code" in rendered.error && rendered.error.code === "ETIMEDOUT") {
       return { engine: "pdftoppm", status: "timeout", reason: "PDF raster timed out", pages: [] };
     }

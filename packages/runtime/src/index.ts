@@ -1574,7 +1574,6 @@ export class EmbeddedDshSupervisor {
       ...(env.PENGLAI_PLUGINS_DIR ? { PENGLAI_PLUGINS_DIR: env.PENGLAI_PLUGINS_DIR } : {}),
       ...(env.PENGLAI_APP_ROOT ? { PENGLAI_APP_ROOT: env.PENGLAI_APP_ROOT } : {}),
       ...(env.PENGLAI_MNEMON_BINARY ? { PENGLAI_MNEMON_BINARY: env.PENGLAI_MNEMON_BINARY } : {}),
-      ...(env.PENGLAI_PDFTOPPM ? { PENGLAI_PDFTOPPM: env.PENGLAI_PDFTOPPM } : {}),
     };
     migrateUserSchema(user);
     killStaleSupervisor(this.layout, user);
@@ -1614,7 +1613,6 @@ export class EmbeddedDshSupervisor {
       ...(env.PENGLAI_MNEMON_BINARY
         ? { PENGLAI_MNEMON_BINARY: env.PENGLAI_MNEMON_BINARY }
         : {}),
-      ...(env.PENGLAI_PDFTOPPM ? { PENGLAI_PDFTOPPM: env.PENGLAI_PDFTOPPM } : {}),
     };
     const dshArgs = dshWebArgs(this.port);
     if (process.platform === "win32") {

@@ -7,7 +7,6 @@ import {
   MOSS_TTS_REVISION,
 } from "../packages/moss-tts/src/models.ts";
 import { MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
-import { POPPLER_ASSETS, POPPLER_UPSTREAM } from "../packages/release-identity/src/poppler-assets.js";
 
 const rootPackage = JSON.parse(readFileSync("package.json", "utf8"));
 const release = JSON.parse(readFileSync("release-contract.json", "utf8"));
@@ -86,13 +85,6 @@ Penglai Office
 - pdf-lib ${dependency(office, "pdf-lib")} and @pdf-lib/fontkit
   ${dependency(office, "@pdf-lib/fontkit")} - MIT:
   https://github.com/Hopding/pdf-lib
-- Poppler pdftoppm ${POPPLER_UPSTREAM.version} - ${POPPLER_UPSTREAM.license};
-  mere aggregation of a spawned helper, not linked into Electron or DSH.
-  Source ${POPPLER_UPSTREAM.sourceUrl} SHA-256 ${POPPLER_UPSTREAM.sourceSha256}.
-  conda-forge feedstock ${POPPLER_UPSTREAM.feedstockCommit}. Three target
-  trees: ${POPPLER_ASSETS.map((asset) => asset.target).join(", ")}.
-  poppler-data ${POPPLER_UPSTREAM.popplerData.version} is BSD-3-Clause AND
-  (${POPPLER_UPSTREAM.license}). COPYING files travel in third_party/poppler.
 - Noto Sans SC variable font - OFL-1.1; commit ${font.upstreamCommit}; bundled
   unmodified SHA-256 ${font.bundledSha256}. The font, OFL text, and attribution
   notice are inside the Office plugin:

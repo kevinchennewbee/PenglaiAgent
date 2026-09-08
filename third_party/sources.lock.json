@@ -107,34 +107,6 @@
       "provenance": "docs/0.5.7/provenance/qqbot-agent-sdk-onboard.md"
     },
     {
-      "id": "poppler-pdftoppm",
-      "upstream": "https://poppler.freedesktop.org/",
-      "version": "26.09.0",
-      "license": "GPL-2.0-only OR GPL-3.0-only",
-      "disposition": "gpl-separate-helper-mere-aggregation",
-      "feedstock": "https://github.com/conda-forge/poppler-feedstock",
-      "feedstockCommit": "13d784d77510e73d6066a75a79cd8e6040a6a261",
-      "sourceSha256": "8059eadb6805340768f138c465b57f8164c92b4a0773c37ef031ea6c0d987b2e",
-      "use": "spawned sibling pdftoppm helper for Office page rasters; not linked into Electron or DSH",
-      "assets": [
-        {
-          "target": "darwin-aarch64",
-          "filename": "poppler-26.09.0-hb6e6627_0.conda",
-          "sha256": "0d2e5190ab4657da34560810bf326f4c5a22766152fecca603b5a06d1eba30b1"
-        },
-        {
-          "target": "darwin-x86_64",
-          "filename": "poppler-26.09.0-hb8a767d_0.conda",
-          "sha256": "7d0f2b3de7c9d2176e6356c10b478f9d539a79368b8741e43467a6e99e4dee68"
-        },
-        {
-          "target": "win32-x86_64",
-          "filename": "poppler-26.09.0-h924501e_0.conda",
-          "sha256": "bb319f6881d91e175f90a9d33a25313e4cfddc15dd234521519985baf92fefcd"
-        }
-      ]
-    },
-    {
       "id": "noto-sans-sc",
       "repo": "https://github.com/notofonts/noto-cjk",
       "commit": "f8d157532fbfaeda587e826d4cd5b21a49186f7c",

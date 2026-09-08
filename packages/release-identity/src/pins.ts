@@ -79,12 +79,6 @@ export {
   mnemonAssetForTarget,
   mnemonReleaseUrl,
 } from "./mnemon-assets.js";
-export {
-  POPPLER_ASSETS as PINNED_POPPLER_ASSETS,
-  POPPLER_UPSTREAM as PINNED_POPPLER_UPSTREAM,
-  popplerAssetForHost,
-  popplerAssetForTarget,
-} from "./poppler-assets.js";
 export const PINNED_DOCX = "9.7.1";
 export const PINNED_MAMMOTH = "1.12.1";
 export const PINNED_EXCELJS = "4.4.0";

@@ -10,10 +10,6 @@ node_modules/
 upstream-dsh/
 third_party/mnemon/bin/
 third_party/mnemon/cache/
-third_party/poppler/cache/
-third_party/poppler/darwin-aarch64/
-third_party/poppler/darwin-x86_64/
-third_party/poppler/win32-x86_64/
 dist/
 evidence/
 .tmp/

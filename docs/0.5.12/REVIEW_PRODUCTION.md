@@ -1,5 +1,10 @@
 # Penglai 0.5.12 independent production review
 
+Supersession (2026-09-08): Owner deferred packaged I05 PDF page-image
+preview and bundled Poppler as **DEFERRED_BY_OWNER / OUT_OF_SCOPE**, not
+PASS. Findings below about finishing Poppler packaging are historical and
+do not authorize completing that optional component in 0.5.12.
+
 Status: **source review of an in-progress dirty tree**. This is not native,
 installed, live-account, or public-release evidence. It does not close any
 `docs/0.5.12/TODO.md` row.

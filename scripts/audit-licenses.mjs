@@ -5,7 +5,6 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { buildDshLocalDependencyMap } from "./lib/dsh-local-dependency-map.mjs";
 import { MNEMON_ASSETS, MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
-import { POPPLER_ASSETS, POPPLER_UPSTREAM } from "../packages/release-identity/src/poppler-assets.js";
 import { resolvePackageMetadata } from "./lib/package-metadata.mjs";
 import {
   classifyLicense,
@@ -104,27 +103,6 @@ const licenses = [
       archiveSha256: asset.archiveSha256,
       binarySha256: asset.binarySha256,
     })),
-  },
-  {
-    name: "Poppler pdftoppm",
-    license: POPPLER_UPSTREAM.license,
-    pin: POPPLER_UPSTREAM.version,
-    sourceSha256: POPPLER_UPSTREAM.sourceSha256,
-    feedstockCommit: POPPLER_UPSTREAM.feedstockCommit,
-    bundledInInstaller: true,
-    mereAggregation: true,
-    assets: POPPLER_ASSETS.map((asset) => ({
-      target: asset.target,
-      archiveSha256: asset.archiveSha256,
-      publishedTreeSha256: asset.publishedTreeSha256,
-    })),
-  },
-  {
-    name: "poppler-data",
-    license: "BSD-3-Clause AND (GPL-2.0-only OR GPL-3.0-only)",
-    pin: POPPLER_UPSTREAM.popplerData.version,
-    sha256: POPPLER_UPSTREAM.popplerData.sha256,
-    bundledInInstaller: true,
   },
   {
     name: "sherpa-onnx",
@@ -293,11 +271,9 @@ if (
   mnemonManifest.license !== MNEMON_UPSTREAM.license ||
   mnemonManifest.licenseSha256 !== MNEMON_UPSTREAM.licenseSha256 ||
   mnemonManifest.commit !== MNEMON_UPSTREAM.commit ||
-  MNEMON_ASSETS.length !== 3 ||
-  POPPLER_UPSTREAM.license !== "GPL-2.0-only OR GPL-3.0-only" ||
-  POPPLER_ASSETS.length !== 3
+  MNEMON_ASSETS.length !== 3
 ) {
-  console.error("Office font, Mnemon, or Poppler license provenance drift");
+  console.error("Office font or Mnemon license provenance drift");
   process.exit(1);
 }
 const lock = readFileSync("pnpm-lock.yaml", "utf8");
@@ -353,11 +329,6 @@ for (const [path, expected] of [
   ["packages/office/fonts/NotoSansSC-VF.ttf", NOTO_CJK_SHA256],
   ["packages/office/fonts/OFL.txt", NOTO_OFL_SHA256],
   ["packages/moss-tts/third_party/sentencepiece-js-Apache-2.0.txt", MNEMON_UPSTREAM.licenseSha256],
-  ["third_party/poppler/COPYING", POPPLER_UPSTREAM.licenseFiles.COPYING],
-  ["third_party/poppler/COPYING3", POPPLER_UPSTREAM.licenseFiles.COPYING3],
-  ["third_party/poppler/poppler-data/COPYING", POPPLER_UPSTREAM.popplerData.licenseFiles.COPYING],
-  ["third_party/poppler/poppler-data/COPYING.adobe", POPPLER_UPSTREAM.popplerData.licenseFiles["COPYING.adobe"]],
-  ["third_party/poppler/poppler-data/COPYING.gpl2", POPPLER_UPSTREAM.popplerData.licenseFiles["COPYING.gpl2"]],
 ]) {
   const actual = pinnedFileHash(path);
   if (actual.exact !== expected && actual.canonicalText !== expected) {
@@ -511,13 +482,6 @@ const result = {
       license: "MIT",
       integrity: "sha256-ae4a9727627f55d5a90bff929caf27dc092153c80b8b79fca9cf18a3fa4125f7",
       use: "selective implementation reference only; @penglai/im remains the sole IM runtime",
-    },
-    {
-      component: `poppler-pdftoppm@${POPPLER_UPSTREAM.version}`,
-      source: POPPLER_UPSTREAM.sourceUrl,
-      license: POPPLER_UPSTREAM.license,
-      integrity: `sha256-${POPPLER_UPSTREAM.sourceSha256}`,
-      use: "spawned sibling helper; mere aggregation; not linked into Electron or DSH",
     },
   ],
   declaredArtifacts: licenses,
