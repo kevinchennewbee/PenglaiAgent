@@ -56,9 +56,11 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
 ; is not nested in the same NSIS quote class as the command line.
 !macro PenglaiStopScoped
   FileOpen $8 "$TEMP\penglai-stop-scoped.ps1" w
+  FileWrite $8 "$$self = $$PID$\r$\n"
+  FileWrite $8 "$$parent = (Get-CimInstance Win32_Process -Filter ('ProcessId=' + $$self)).ParentProcessId$\r$\n"
   FileWrite $8 "$$root = [IO.Path]::GetFullPath('$INSTDIR').TrimEnd([char]92)$\r$\n"
   FileWrite $8 "$$prefix = $$root + [char]92$\r$\n"
-  FileWrite $8 "Get-CimInstance Win32_Process | ForEach-Object { if ($$_.ExecutablePath -and ($$_.ExecutablePath.Equals($$root, [StringComparison]::OrdinalIgnoreCase) -or $$_.ExecutablePath.StartsWith($$prefix, [StringComparison]::OrdinalIgnoreCase))) { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue } }$\r$\n"
+  FileWrite $8 "Get-CimInstance Win32_Process | ForEach-Object { if ($$_.ProcessId -ne $$self -and $$_.ProcessId -ne $$parent -and $$_.ExecutablePath -and ($$_.ExecutablePath.Equals($$root, [StringComparison]::OrdinalIgnoreCase) -or $$_.ExecutablePath.StartsWith($$prefix, [StringComparison]::OrdinalIgnoreCase))) { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue } }$\r$\n"
   FileClose $8
   ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "$TEMP\penglai-stop-scoped.ps1"' $R4
   Delete "$TEMP\penglai-stop-scoped.ps1"

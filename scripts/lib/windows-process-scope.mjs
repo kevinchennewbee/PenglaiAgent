@@ -95,7 +95,7 @@ export function selectProcessesForInstance(rows, { installRoot, dataRoot } = {})
 }
 
 export const WINDOWS_SCOPED_STOP_POWERSHELL =
-  "$root = [IO.Path]::GetFullPath($env:PENGLAI_INSTALL_ROOT).TrimEnd([char]92); $prefix = $root + [char]92; Get-CimInstance Win32_Process | ForEach-Object { if ($_.ExecutablePath -and ($_.ExecutablePath.Equals($root, [StringComparison]::OrdinalIgnoreCase) -or $_.ExecutablePath.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase))) { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } }";
+  "$self = $PID; $parent = (Get-CimInstance Win32_Process -Filter ('ProcessId=' + $self)).ParentProcessId; $root = [IO.Path]::GetFullPath($env:PENGLAI_INSTALL_ROOT).TrimEnd([char]92); $prefix = $root + [char]92; Get-CimInstance Win32_Process | ForEach-Object { if ($_.ProcessId -ne $self -and $_.ProcessId -ne $parent -and $_.ExecutablePath -and ($_.ExecutablePath.Equals($root, [StringComparison]::OrdinalIgnoreCase) -or $_.ExecutablePath.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase))) { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } }";
 
 const NSIS_ESCAPES = new Map([
   ["$", "$"],
@@ -202,6 +202,9 @@ export function nsisScopedStopContract(script) {
   }
   if (!/ExecutablePath/.test(text) || !/StartsWith/.test(text)) {
     errors.push("must stop processes by ExecutablePath under INSTDIR");
+  }
+  if (!/\$\$PID/.test(text) || !/ParentProcessId/.test(text)) {
+    errors.push("must not Stop-Process the uninstaller or its PowerShell child");
   }
   if (!/TrimEnd/.test(text) || !/\[char\]92/.test(text)) {
     errors.push("must bound INSTDIR with a trailing separator so 0.5 does not match 0.50");
