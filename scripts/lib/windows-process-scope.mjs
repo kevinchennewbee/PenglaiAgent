@@ -204,21 +204,25 @@ export function nsisScopedStopContract(script) {
   if (!/TrimEnd/.test(text) || !/\[char\]92/.test(text)) {
     errors.push("must bound INSTDIR with a trailing separator so 0.5 does not match 0.50");
   }
-  if (!/SetEnvironmentVariable\(t "PENGLAI_INSTALL_ROOT", t "\$INSTDIR"\)/.test(text)) {
-    errors.push("must set PENGLAI_INSTALL_ROOT from INSTDIR before PowerShell");
+  if (!/StrCpy \$8 `/.test(text) || !/ExecWait \$8 \$R4/.test(text)) {
+    errors.push("must ExecWait a single prebuilt command variable, not nested NSIS quotes");
   }
-  if (!/\$\$env:PENGLAI_INSTALL_ROOT/.test(text)) {
-    errors.push("must read INSTDIR from $$env:PENGLAI_INSTALL_ROOT, not nested quoted $INSTDIR");
-  }
-  if (/GetFullPath\(''\$INSTDIR''\)/.test(text) || /GetFullPath\('\$INSTDIR'\)/.test(text)) {
+  if (/GetFullPath\(''\$INSTDIR''\)/.test(text)) {
     errors.push("must not embed $INSTDIR in nested NSIS quotes");
+  }
+  const macro = text.match(/!macro PenglaiStopScoped([\s\S]*?)!macroend/u);
+  if (macro && /\bAbort\b/.test(macro[1])) {
+    errors.push("PenglaiStopScoped must not Abort silent uninstall");
   }
   for (const command of nsisExecWaitCommands(text)) {
     if (command.args.length < 1 || command.args.length > 2) {
       errors.push(`ExecWait expects 1-2 parameters, got ${command.args.length}`);
     }
   }
-  const stopCommand = nsisDollarUnescape(extractNsisScopedStopCommand(text));
+  const stopCommand = nsisDollarUnescape(extractNsisScopedStopCommand(text)).replace(
+    /GetFullPath\('\$INSTDIR'\)/gu,
+    "GetFullPath($env:PENGLAI_INSTALL_ROOT)",
+  );
   if (!stopCommand) {
     errors.push("PenglaiStopScoped must include a PowerShell -Command");
   } else if (collapseWhitespace(stopCommand) !== collapseWhitespace(WINDOWS_SCOPED_STOP_POWERSHELL)) {

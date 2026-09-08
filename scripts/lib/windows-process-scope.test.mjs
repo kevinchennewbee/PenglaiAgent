@@ -64,8 +64,8 @@ test("NSIS and upgrade verifier must not kill every Penglai.exe by image name", 
   }
   assert.match(nsis, /ExecutablePath/);
   assert.match(nsis, /StartsWith/);
-  assert.match(nsis, /PENGLAI_INSTALL_ROOT/);
-  assert.match(nsis, /\$\$env:PENGLAI_INSTALL_ROOT/);
+  assert.match(nsis, /ExecWait \$8 \$R4/);
+  assert.match(nsis, /GetFullPath\('\$INSTDIR'\)/);
   assert.doesNotMatch(nsis, /GetFullPath\(''\$INSTDIR''\)/);
   assert.doesNotMatch(upgrade, /DisableRealtimeMonitoring \$true/);
   assert.doesNotMatch(upgrade, /Add-MpPreference -ExclusionPath/);
@@ -80,13 +80,13 @@ test("NSIS ExecWait nested single quotes are the class that yielded four paramet
   const errors = nsisScopedStopContract(`!macro PenglaiStopScoped\n${broken}\n!macroend\n`);
   assert.ok(errors.some((row) => row.includes("got 4")));
   assert.ok(errors.some((row) => row.includes("nested NSIS quotes")));
-  assert.ok(errors.some((row) => row.includes("PENGLAI_INSTALL_ROOT")));
+  assert.ok(errors.some((row) => row.includes("prebuilt command variable")));
   const nsis = readFileSync(join(root, "scripts/nsis/Penglai.nsi"), "utf8");
   for (const command of nsisExecWaitCommands(nsis)) {
     assert.ok(command.args.length >= 1 && command.args.length <= 2, command.line);
   }
-  const stop = nsisExecWaitCommands(nsis).find((command) => command.line.includes("powershell.exe"));
+  const stop = nsisExecWaitCommands(nsis).find((command) => command.args[0] === "$8");
   assert.equal(stop?.args.length, 2);
-  assert.match(nsisDollarUnescape(stop.args[0]), /\$env:PENGLAI_INSTALL_ROOT/);
+  assert.match(nsis, /GetFullPath\('\$INSTDIR'\)/);
   assert.match(WINDOWS_SCOPED_STOP_POWERSHELL, /\$env:PENGLAI_INSTALL_ROOT/);
 });
