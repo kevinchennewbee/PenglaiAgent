@@ -7,6 +7,7 @@
   --hall: #fff9f0;
   --cinnabar: #c45c26;
   --cinnabar-dark: #a44a1c;
+  --cinnabar-ink: #9a4318;
   --gold: #c9a36a;
   --gold-deep: #8a6a32;
   --stone: #2c333a;
@@ -311,11 +312,11 @@ h1 {
 
 .button.primary {
   color: #fffaf4;
-  background: var(--cinnabar);
-  border: 1px solid color-mix(in srgb, var(--gold) 55%, var(--cinnabar));
+  background: var(--cinnabar-ink);
+  border: 1px solid color-mix(in srgb, var(--gold) 55%, var(--cinnabar-ink));
 }
 
-.button.primary:hover { background: var(--cinnabar-dark); }
+.button.primary:hover { background: #8f3d16; }
 
 .button.ghost {
   color: var(--stone);

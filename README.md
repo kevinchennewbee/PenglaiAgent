@@ -6,7 +6,7 @@
 
 DeepSeek Harness, ready to live on a personal computer.
 
-[English](#english) · [中文](#中文) · [Website](https://penglai.pages.dev) · [Download 0.5.11](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.11) · [Security](SECURITY.md)
+[English](#english) · [中文](#中文) · [Website](https://penglai.pages.dev) · [中文网站](https://penglai.pages.dev/zh/) · [Download 0.5.11](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.11) · [Security](SECURITY.md)
 
 The current public product is **Penglai 0.5.11**, an immutable release built from
 `77e7105773b4d43abb7315ea6e83abe17e646cb4`. It consumes official DeepSeek Harness
@@ -17,8 +17,12 @@ not notarized; Windows has no Authenticode.
 [Release notes](docs/RELEASE_NOTES_0.5.11.md) ·
 [Verified publication](docs/PUBLICATION_MANIFEST_0.5.11.md)
 
-Published v0.5.10 tags and assets remain immutable. There is no public 0.5.12
-installer yet. Source tests are not live-account evidence.
+Published v0.5.10 tags and assets remain immutable. This repository is the
+**0.5.12 source candidate**, not a public release. There is no `v0.5.12`
+installer, SHA-256, or download card yet. Every download link below is published
+0.5.11. Public 0.5.11 ships Mnemon `0.2.4` and was built with Node `22.22.2`.
+This candidate tree pins Mnemon `0.2.8` and Node `22.23.2`; those are source
+facts, not a download claim. Source tests are not live-account evidence.
 
 <p align="center">
   <img src="website/shots/0.5.5/plugin-center.png" width="48%" alt="Penglai 0.5.5 Plugin Center in the installed DSH settings">
@@ -142,7 +146,7 @@ for it. The exact capability matrix and remaining format limits live in
 ## Memory that knows which project it belongs to
 
 Penglai Memory stores and recalls records locally and is enabled by default.
-Mnemon 0.2.8 is its only recall engine. The fresh mode intelligently organizes
+Mnemon 0.2.4 is its only recall engine. The fresh mode intelligently organizes
 safe project facts inside the current official Workspace. A separate no-tools
 official Agent uses the current provider/model after a Turn, so that curation
 request is a model call to the provider rather than an offline-only step. The
@@ -259,6 +263,11 @@ public source.
 - Diagnostics and evidence exclude secrets, QR data, chat bodies, account
   identities, private paths, memory bodies, transcripts, and private media.
 
+<p align="center">
+  <img src="website/shots/0.5.5/privacy.png" width="72%" alt="Penglai 0.5.5 local data and privacy step">
+</p>
+<p align="center"><sub>0.5.5 first-run privacy step, kept as a UI reference. Not a 0.5.11 or 0.5.12 screenshot.</sub></p>
+
 See [Security](SECURITY.md), [Product and data contract](docs/PRODUCT.md),
 [Architecture](docs/ARCHITECTURE.md), and [Plugin Center](docs/PLUGIN_CENTER.md)
 for the full boundary.
@@ -271,7 +280,7 @@ and first-party plugins.
 
 **Which version should I download?**
 The public installers are 0.5.11. Published 0.5.10 remains immutable. There is
-no public 0.5.12 installer yet.
+no public 0.5.12 installer yet. This GitHub tree is the 0.5.12 source candidate.
 
 **Why does Gatekeeper or SmartScreen warn?**
 macOS packages are ad-hoc signed and not notarized. Windows packages do not have
@@ -332,7 +341,8 @@ history because they explain the road here; their runtimes are not mixed into
 
 ## Build, contribute, and AI-assisted work
 
-Development uses Node `22.22.2` and pnpm `11.7.0`.
+This 0.5.12 candidate tree uses Node `22.23.2` and pnpm `11.7.0`. Published
+0.5.11 was built with Node `22.22.2` and pnpm `11.7.0`.
 
 ```bash
 corepack enable
@@ -409,7 +419,11 @@ Turn 和会话界面都归 DSH。蓬莱负责那些不太耀眼、却决定桌�
 记忆库、官方 IM 提问/审批身份、有界 PDF 检查和脱敏插件诊断。从 0.5.8、0.5.9
 和 0.5.10 升级时使用独立的 rc.1 数据目录，保留旧代际用于回退。三端安装包均
 通过无需真实账号的引导和插件检查、三条升级路径，以及默认保留用户数据的卸载
-验证。
+验证。本仓库是 **0.5.12 源码候选**，不是公开版本；下载链接仍指向已发布的
+0.5.11。公开的 0.5.11 使用 Mnemon `0.2.4` 与 Node `22.22.2`；当前候选树钉住
+Mnemon `0.2.8` 与 Node `22.23.2`，这是源码事实，不是下载声明。中文网站在
+[penglai.pages.dev/zh](https://penglai.pages.dev/zh/)，英文默认首页在
+[penglai.pages.dev](https://penglai.pages.dev/)。
 
 ## 一次完整使用
 
@@ -483,7 +497,7 @@ typed operation：检查和创建文件、生成可见修改计划、预览、�
 
 ## 蓬莱记忆知道自己属于哪个项目
 
-蓬莱记忆在本机保存和召回记录，并且默认启用。Mnemon 0.2.8 是唯一召回引擎。全新
+蓬莱记忆在本机保存和召回记录，并且默认启用。Mnemon 0.2.4 是唯一召回引擎。全新
 profile 会智能整理当前 official Workspace 的安全项目事实：Turn 结束后，一个禁用全部
 工具的 official Agent 沿用当前供应商和模型，因此“整理候选”本身会调用模型供应商，
 不是完全离线步骤。Host 再用封闭格式与本地策略过滤密钥、敏感内容、类似提示词注入和
@@ -581,6 +595,11 @@ GitHub Release。
 - 诊断和证据不含密钥、二维码、聊天正文、账号身份、私人路径、记忆正文、转写和
   私人媒体。
 
+<p align="center">
+  <img src="website/shots/0.5.5/privacy.png" width="72%" alt="蓬莱 0.5.5 本地数据与隐私说明">
+</p>
+<p align="center"><sub>0.5.5 首次引导中的隐私说明，作为界面参考。不是 0.5.11 或 0.5.12 截图。</sub></p>
+
 完整边界见 [安全说明](SECURITY.md)、[产品与数据契约](docs/PRODUCT.md)、
 [架构](docs/ARCHITECTURE.md) 和 [插件中心](docs/PLUGIN_CENTER.md)。
 
@@ -591,6 +610,7 @@ GitHub Release。
 
 **现在该下载哪个版本？**
 公开安装包是 0.5.11。已发布的 0.5.10 仍不可变。目前没有公开的 0.5.12 安装包。
+本仓库是 0.5.12 源码候选。
 
 **为什么 Gatekeeper 或 SmartScreen 会提示？**
 macOS 是 ad-hoc 签名、未公证；Windows 没有 Authenticode。这是已知限制，不是
@@ -636,7 +656,8 @@ macOS 是 ad-hoc 签名、未公证；Windows 没有 Authenticode。这是已知
 
 ## 构建、贡献与 AI 协作
 
-开发环境使用 Node `22.22.2` 和 pnpm `11.7.0`。
+这份 0.5.12 候选树使用 Node `22.23.2` 和 pnpm `11.7.0`。已发布的 0.5.11
+使用 Node `22.22.2` 和 pnpm `11.7.0`。
 
 ```bash
 corepack enable

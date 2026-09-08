@@ -1,0 +1,12 @@
+# Cloudflare Pages language routes. GitHub Pages ignores this file and serves
+# each directory's index.html, so relative assets keep working on both:
+#   https://penglai.pages.dev/            (Cloudflare root, English default)
+#   https://penglai.pages.dev/zh/         (Chinese)
+#   https://penglai.pages.dev/en/         (English compatibility; canonical is /)
+#   https://kevinchennewbee.github.io/PenglaiAgent/
+#   https://kevinchennewbee.github.io/PenglaiAgent/zh/
+#   https://kevinchennewbee.github.io/PenglaiAgent/en/
+# Do not rewrite / to /zh — English is the public origin default.
+
+/en   /en/index.html   200
+/zh   /zh/index.html   200

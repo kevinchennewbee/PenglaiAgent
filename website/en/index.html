@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- /en/ remains a full English page for old links; canonical is the site root. -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -7,10 +8,18 @@
   <meta name="description" content="Penglai 0.5.11 is an installable desktop distribution of official DeepSeek Harness 0.1.2-rc.1, with Office, Memory, messaging, and local voice.">
   <meta property="og:title" content="Penglai 0.5.11">
   <meta property="og:description" content="DeepSeek Harness, ready to install. Office, Memory, mobile messaging, and local voice in one desktop distribution.">
-  <meta property="og:image" content="https://kevinchennewbee.github.io/PenglaiAgent/shots/0.5.5/plugin-center.png">
+  <meta name="theme-color" content="#0B1C2C">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://penglai.pages.dev/">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="zh_CN">
+  <meta property="og:image" content="https://penglai.pages.dev/shots/0.5.5/plugin-center.png">
+  <meta property="og:image:alt" content="Penglai 0.5.5 Plugin Center, kept as a historical UI reference">
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
-  <link rel="alternate" hreflang="zh-CN" href="../">
-  <link rel="canonical" href="https://penglai.pages.dev/en/">
+  <link rel="canonical" href="https://penglai.pages.dev/">
+  <link rel="alternate" hreflang="en" href="https://penglai.pages.dev/">
+  <link rel="alternate" hreflang="zh-CN" href="https://penglai.pages.dev/zh/">
+  <link rel="alternate" hreflang="x-default" href="https://penglai.pages.dev/">
   <link rel="stylesheet" href="../styles/main.css">
 </head>
 <body>
@@ -28,7 +37,7 @@
       <a href="#privacy">Privacy</a>
       <a href="#faq">FAQ</a>
       <a href="#download">Download</a>
-      <a href="../" hreflang="zh-CN">中文</a>
+      <a href="../zh/" hreflang="zh-CN" lang="zh-CN">中文</a>
       <a class="github" href="https://github.com/kevinchennewbee/PenglaiAgent">GitHub</a>
     </nav>
   </header>
@@ -237,7 +246,7 @@
           <code>5862cf0df14daf12ef223d5a825cad501ea56f78a40cdb54bef4fa8b7779c929</code>
         </a>
       </div>
-      <p class="note-panel">The current public download is published 0.5.11. Published 0.5.10 remains immutable. There is no public 0.5.12 installer yet. The immutable GitHub Release is the sole authoritative public download source; the Beijing mirror has not published 0.5.11. All three installers come from source <code>77e7105773b4d43abb7315ea6e83abe17e646cb4</code>. Full SHA256SUMS, SBOM, third-party notices, and signed update metadata are on the same page. Updates are never silent.</p>
+      <p class="note-panel">The current public download is published 0.5.11. Published 0.5.10 remains immutable. There is no public 0.5.12 installer yet; when those immutable bytes exist, these cards will name them. This page is the 0.5.12 website candidate, not a 0.5.12 download. The immutable GitHub Release is the sole authoritative public download source; the Beijing mirror has not published 0.5.11. All three installers come from source <code>77e7105773b4d43abb7315ea6e83abe17e646cb4</code>. Full SHA256SUMS, SBOM, third-party notices, and signed update metadata are on the same page. Updates are never silent.</p>
       <div class="actions centered">
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.11">Bilingual release notes</a>
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">Security notes</a>
@@ -247,8 +256,9 @@
 
   <footer>
     <p>Penglai is created and maintained by <a href="https://github.com/kevinchennewbee">Kevin Chen / 陈克文</a>, built on <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a>, and released under MIT.</p>
-    <p>Multi-channel engineering references came from the <a href="https://github.com/xmanrui/dsh-im">DSH-IM</a> community, while official QQ Bot onboarding references came from <a href="https://github.com/tencent-connect/botpy">qqbot-agent-sdk</a>. Neither upstream runtime is bundled wholesale.</p>
+    <p>Multi-channel engineering references came from the <a href="https://github.com/xmanrui/dsh-im">DSH-IM</a> community, while official QQ Bot onboarding references came from <a href="https://github.com/tencent-connect/qqbot-agent-sdk">qqbot-agent-sdk</a>. Neither upstream runtime is bundled wholesale.</p>
     <p>Thanks to Electron, Node.js, TypeScript, pnpm, SenseVoice, sherpa-onnx, MOSS-TTS-Nano, Mnemon, Lark SDK, openclaw-weixin, and every contributor.</p>
+    <p><span lang="en">English</span> · <a href="../zh/" hreflang="zh-CN" lang="zh-CN">中文</a></p>
   </footer>
   <script src="../scripts/site.js" defer></script>
 </body>
