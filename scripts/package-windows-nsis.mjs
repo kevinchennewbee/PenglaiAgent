@@ -47,6 +47,8 @@ const payload = join(staging, "payload");
 const nsi = join(ROOT, "scripts", "nsis", "Penglai.nsi");
 const license = join(ROOT, "scripts", "nsis", "license.rtf");
 const icon = join(ROOT, "dist", "native-win32-x86_64", "Penglai.ico");
+const welcomeBmp = join(ROOT, "packaging", "nsis-welcome.bmp");
+const headerBmp = join(ROOT, "packaging", "nsis-header.bmp");
 const makensis = spawnSync("makensis", ["/VERSION"], { encoding: "utf8" });
 if (makensis.status !== 0) {
   console.error("package-windows-nsis BLOCKED: makensis missing on Windows x64 runner");
@@ -57,8 +59,17 @@ if (makensisVersion !== "v3.12") {
   console.error(`package-windows-nsis BLOCKED: expected makensis v3.12, received ${makensisVersion || "unknown"}`);
   process.exit(2);
 }
-if (!existsSync(payload) || !existsSync(nsi) || !existsSync(license) || !existsSync(icon)) {
-  console.error("package-windows-nsis BLOCKED: payload, license, icon, or NSIS script missing");
+if (
+  !existsSync(payload) ||
+  !existsSync(nsi) ||
+  !existsSync(license) ||
+  !existsSync(icon) ||
+  !existsSync(welcomeBmp) ||
+  !existsSync(headerBmp)
+) {
+  console.error(
+    "package-windows-nsis BLOCKED: payload, license, icon, branded bitmaps, or NSIS script missing",
+  );
   process.exit(4);
 }
 const out = join(ROOT, "dist", contract.installer);
@@ -71,6 +82,8 @@ const packed = spawnSync(
     `/DPENGLAI_PAYLOAD=${payload}`,
     `/DPENGLAI_LICENSE=${license}`,
     `/DPENGLAI_ICON=${icon}`,
+    `/DPENGLAI_WELCOME_BMP=${welcomeBmp}`,
+    `/DPENGLAI_HEADER_BMP=${headerBmp}`,
     nsi,
   ],
   { cwd: join(ROOT, "scripts", "nsis"), encoding: "utf8", stdio: "inherit" },

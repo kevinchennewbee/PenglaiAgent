@@ -39,6 +39,16 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
 !include "WinVer.nsh"
 !include "x64.nsh"
 
+!ifdef PENGLAI_WELCOME_BMP
+  !define MUI_WELCOMEFINISHPAGE_BITMAP "${PENGLAI_WELCOME_BMP}"
+  !define MUI_UNWELCOMEFINISHPAGE_BITMAP "${PENGLAI_WELCOME_BMP}"
+!endif
+!ifdef PENGLAI_HEADER_BMP
+  !define MUI_HEADERIMAGE
+  !define MUI_HEADERIMAGE_BITMAP "${PENGLAI_HEADER_BMP}"
+  !define MUI_HEADERIMAGE_UNBITMAP "${PENGLAI_HEADER_BMP}"
+!endif
+
 ; Stop only processes whose ExecutablePath is under this INSTDIR. Image-name
 ; taskkill would kill a second Penglai instance with a different install root.
 !macro PenglaiStopScoped

@@ -594,7 +594,11 @@
         ]),
       ];
     }
-    if (screen.id === "privacy") return [el("p", {}, [t("privacyBody")])];
+    if (screen.id === "privacy") {
+      return t("privacyBody")
+        .split(/\n\n+/)
+        .map((part) => el("p", {}, [part]));
+    }
     if (screen.id === "models") {
       return [
         el("p", {}, [t("modelsBody")]),

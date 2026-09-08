@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Penglai DMG background</title>
+    <style>
+      html, body { margin: 0; width: 660px; height: 400px; overflow: hidden; }
+      body {
+        font-family: "Songti SC", "Noto Serif SC", Georgia, serif;
+        color: #f6f1e8;
+        background:
+          radial-gradient(ellipse at 18% 0%, rgba(201, 163, 106, 0.22), transparent 42%),
+          radial-gradient(ellipse at 88% 110%, rgba(196, 92, 38, 0.18), transparent 38%),
+          linear-gradient(165deg, #0b1c2c, #122433 58%, #0b1c2c);
+      }
+      .hairline {
+        position: absolute; left: 28px; right: 28px; top: 0;
+        height: 2px; background: #c9a36a;
+      }
+      .copy {
+        position: absolute; left: 0; right: 0; top: 28px;
+        text-align: center;
+      }
+      .seal {
+        width: 36px; height: 36px; margin: 0 auto 10px;
+        display: grid; place-items: center;
+        background: #c45c26; color: #fffaf4;
+        border: 1px solid #c9a36a;
+        font: 700 20px/1 Georgia, "Songti SC", serif;
+      }
+      h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: 0.18em;
+      }
+      p { margin: 8px 0 0; font-size: 13px; color: #c9c2b6; letter-spacing: 0.04em; }
+      .arrow {
+        position: absolute; left: 50%; top: 188px;
+        width: 88px; margin-left: -44px;
+        height: 2px; background: rgba(201, 163, 106, 0.7);
+      }
+      .arrow::after {
+        content: "";
+        position: absolute; right: -2px; top: -4px;
+        border: 5px solid transparent;
+        border-left-color: rgba(201, 163, 106, 0.9);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hairline"></div>
+    <div class="copy">
+      <div class="seal">蓬</div>
+      <h1>将蓬莱拖到应用程序</h1>
+      <p>Drag Penglai to Applications</p>
+    </div>
+    <div class="arrow"></div>
+  </body>
+</html>
