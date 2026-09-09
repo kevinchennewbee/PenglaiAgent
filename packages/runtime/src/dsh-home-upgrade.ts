@@ -499,6 +499,8 @@ function collectHistoricalSessionLogs(root: string): string[] {
       current === canonicalRoot
         ? ""
         : relative(canonicalRoot, current).replaceAll("\\", "/");
+    // Skip before lstat so regenerated installation links are not copied.
+    if (isManagedProfileRuntimeTree(currentRelative)) continue;
     const stat = lstatSync(current);
     if (stat.isSymbolicLink()) {
       throw new PenglaiError(
@@ -511,7 +513,6 @@ function collectHistoricalSessionLogs(root: string): string[] {
       continue;
     }
     if (!stat.isDirectory()) continue;
-    if (isManagedProfileRuntimeTree(currentRelative)) continue;
     if (!inside(canonicalRoot, realpathSync(current))) {
       throw new PenglaiError(
         "SECURITY_POLICY",

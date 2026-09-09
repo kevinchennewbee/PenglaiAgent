@@ -1318,4 +1318,118 @@ test("activation of a lived-in 0.5.12 copy still requires Office and Memory", (c
   assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_ALPHA13_VERSION);
 });
 
+const PM_RUNTIME_LINKS = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../testdata/pm-old-profile-runtime-links.json",
+);
+
+test("collectHistoricalSessionLogs skips managed runtime trees before lstat", () => {
+  const src = readFileSync(new URL("./dsh-home-upgrade.ts", import.meta.url), "utf8");
+  const collect = src.slice(
+    src.indexOf("function collectHistoricalSessionLogs"),
+    src.indexOf("function assertHistoricalSessionLogsCopied"),
+  );
+  assert.match(collect, /isManagedProfileRuntimeTree/);
+  assert.ok(
+    collect.indexOf("isManagedProfileRuntimeTree") < collect.indexOf("isSymbolicLink"),
+    "session-log walk must skip regenerated runtime trees before lstat",
+  );
+});
+
+test("bundle-desktop rebuilds runtime dist before packing the DSH home skip", () => {
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "../../../scripts/bundle-desktop.mjs"),
+    "utf8",
+  );
+  assert.match(src, /tsc.*-b/);
+  assert.match(src, /dsh-module-fallback/);
+  assert.match(src, /startsWith\("profiles\/node_modules\/"\)/);
+});
+
+test("PM 498-link 0.1.3-alpha.2 descriptor copies through Home without SECURITY_POLICY", (context) => {
+  if (process.platform === "win32") {
+    context.skip("ordinary Windows users cannot create this symlink fixture");
+    return;
+  }
+  const descriptor = JSON.parse(readFileSync(PM_RUNTIME_LINKS, "utf8")) as {
+    links: Array<{ path: string; target: string }>;
+  };
+  assert.equal(descriptor.links.length, 498);
+  assert.equal(
+    descriptor.links.filter((row) => row.path === "profiles/web/node_modules/@deepseek-ai").length,
+    1,
+  );
+  assert.equal(
+    descriptor.links.filter((row) => row.path.startsWith("profiles/node_modules/")).length,
+    497,
+  );
+
+  const appRuntime = mkdtempSync(join(tmpdir(), "penglai-packaged-app-root-"));
+  const appRoot = join(appRuntime, "Penglai.app");
+  mkdirSync(join(appRoot, "Contents", "Resources", "runtime", "dsh", "node_modules"), { recursive: true });
+  const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-498-"));
+  const previousHome = join(root, "dsh-homes", `dsh-v${DSH_HOME_ALPHA13_VERSION}`);
+  mkdirSync(join(previousHome, "storages", "sessions"), { recursive: true, mode: 0o700 });
+  mkdirSync(join(previousHome, "profiles", "web"), { recursive: true, mode: 0o700 });
+  writeFileSync(join(previousHome, "settings.yaml"), "locale:\n  preference: zh\n", { mode: 0o600 });
+  writeFileSync(join(previousHome, ".credentials.yaml"), FIXTURE_CREDENTIAL, { mode: 0o600 });
+  writeFileSync(
+    join(previousHome, "storages", "sessions", "session.jsonl"),
+    legalSessionJsonl("pm-498"),
+    { mode: 0o600 },
+  );
+  writeFileSync(
+    join(previousHome, "profiles", "web", "package.json"),
+    JSON.stringify({ name: "web", private: true }),
+    { mode: 0o600 },
+  );
+  const activatedAt = "2026-09-07T00:00:00.000Z";
+  const targetDigest = "c".repeat(64);
+  writeFileSync(
+    join(previousHome, ".penglai-dsh-home.json"),
+    JSON.stringify({
+      schema: 1,
+      kind: "fresh",
+      dshVersion: DSH_HOME_ALPHA13_VERSION,
+      state: "active",
+      preparedAt: activatedAt,
+      activatedAt,
+      targetDigest,
+    }),
+  );
+  writeFileSync(
+    join(root, "dsh-home-active.json"),
+    JSON.stringify({
+      schema: 1,
+      activeVersion: DSH_HOME_ALPHA13_VERSION,
+      homeRelative: `dsh-homes/dsh-v${DSH_HOME_ALPHA13_VERSION}`,
+      activationKind: "fresh",
+      activatedAt,
+      targetDigest,
+    }),
+  );
+  for (const row of descriptor.links) {
+    const linkPath = join(previousHome, row.path);
+    mkdirSync(dirname(linkPath), { recursive: true, mode: 0o700 });
+    symlinkSync(row.target.replaceAll("${APP_ROOT}", appRoot), linkPath);
+  }
+
+  const plan = prepareDshHomeForBoot({
+    userRoot: root,
+    reserveBytes: 0,
+    availableBytes: 1024 * 1024 * 1024,
+  });
+  assert.equal(plan.kind, "migration-prepared");
+  assert.equal(existsSync(join(plan.dshHome, "settings.yaml")), true);
+  assert.equal(readFileSync(join(plan.dshHome, ".credentials.yaml"), "utf8"), FIXTURE_CREDENTIAL);
+  assert.equal(
+    readFileSync(join(plan.dshHome, "storages", "sessions", "session.jsonl"), "utf8"),
+    legalSessionJsonl("pm-498"),
+  );
+  assert.equal(existsSync(join(plan.dshHome, "profiles", "node_modules")), false);
+  assert.equal(existsSync(join(plan.dshHome, "profiles", "web", "node_modules")), false);
+  assert.equal(existsSync(join(root, "dsh-home-migrations", `${plan.operationId}.json`)), true);
+});
+
+
 
