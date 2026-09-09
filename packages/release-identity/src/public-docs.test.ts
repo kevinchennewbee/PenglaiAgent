@@ -5,8 +5,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PRODUCT_VERSION, PINNED_DSH } from "./pins.js";
 
-/** Immutable published 0.5.12 notes/README/website still freeze DSH 0.1.3-alpha.2. */
-const PUBLISHED_DSH = "0.1.3-alpha.2";
+/** Immutable published 0.6.0 notes/README/website freeze the current DSH pin. */
+const PUBLISHED_DSH = PINNED_DSH;
 import {
   assertCommittedTemplateIdentity,
   assertObservedReleaseFacts,
@@ -98,11 +98,13 @@ test("website keeps the full bilingual visual site during publication preparatio
   assert.match(zh, /<html lang="zh-CN">/);
   assert.match(enCompat, /<html lang="en">/);
   for (const html of [zh, en, enCompat]) {
-    assert.match(html, /shots\/banner-v1\.png/);
+    assert.match(html, /shots\/0\.5\.5\/welcome\.png/);
     assert.match(html, /shots\/0\.5\.5\/plugin-center\.png/);
+    assert.match(html, /shots\/0\.5\.5\/office\.png/);
+    assert.match(html, /shots\/0\.5\.5\/memory\.png/);
   }
-  assert.match(css, /\.hero-art/);
-  assert.match(css, /\.gallery/);
+  assert.match(css, /\.download-grid/);
+  assert.match(css, /\.site-nav/);
   assert.ok(css.length > 5000, "website stylesheet is unexpectedly reduced");
 });
 

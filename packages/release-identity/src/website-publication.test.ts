@@ -147,6 +147,7 @@ test("website publication permits only the post-readback narrative delta", () =>
       ...required,
       `docs/${PRODUCT_VERSION}/TODO.md`,
       "packages/release-identity/src/website-publication.ts",
+      "packages/release-identity/src/public-docs.test.ts",
       "scripts/readback-release.mjs",
       ".github/workflows/native-release-candidate.yml",
     ]),

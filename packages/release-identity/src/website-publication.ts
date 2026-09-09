@@ -72,6 +72,7 @@ function publicationPath(path: string, version: string): boolean {
     path.startsWith(`docs/${version}/`) ||
     path.startsWith("website/") ||
     path.startsWith("packages/release-identity/src/website-publication") ||
+    path === "packages/release-identity/src/public-docs.test.ts" ||
     path === "scripts/verify-website-release.mjs" ||
     path === "scripts/readback-website.mjs" ||
     path === "scripts/readback-release.mjs" ||
