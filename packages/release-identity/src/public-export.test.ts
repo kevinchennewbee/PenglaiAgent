@@ -15,6 +15,7 @@ import {
   pathAllowed,
   publicExportTreeSha256,
   REQUIRED_PUBLIC_DOCS,
+  isNonTextExportPath,
   scanExportText,
 } from "./public-export.js";
 import { PRODUCT_VERSION, PUBLICATION_TARGET } from "./pins.js";
@@ -183,13 +184,27 @@ test("every required public doc is export-allowed", () => {
   assert.equal(pathAllowed("docs/0.5.12/REVIEW_SESSION_API.md"), false);
 });
 
+test("native shared libraries are not scanned as UTF-8 text", () => {
+  assert.equal(
+    isNonTextExportPath("native/linux-loong64-oldworld/artifacts/libvips-cpp.so.42.20.6"),
+    true,
+  );
+  assert.equal(isNonTextExportPath("artifacts/koffi.node"), true);
+  assert.doesNotThrow(() =>
+    scanExportText(
+      "native/linux-loong64-oldworld/artifacts/libvips-cpp.so.42.20.6",
+      "/Users/alice/\0/Volumes/drive/",
+    ),
+  );
+});
+
 test("allowed tracked non-test text files pass the export scan", () => {
   const names = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" })
     .split("\0")
     .filter(Boolean);
   for (const rel of names) {
     if (!pathAllowed(rel)) continue;
-    if (/\.(png|jpg|jpeg|webp|gif|ico|icns|wasm|ttf|woff2?|tgz|zip|node)$/i.test(rel)) continue;
+    if (isNonTextExportPath(rel)) continue;
     if (/\.test\.(ts|mjs|js)$/.test(rel)) continue;
     scanExportText(rel, readFileSync(join(root, rel), "utf8"));
   }
