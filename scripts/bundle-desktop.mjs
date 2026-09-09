@@ -1,8 +1,16 @@
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, cpSync, copyFileSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { build } from "esbuild";
 import { ROOT } from "./lib/repo.mjs";
+
+const tsc = spawnSync(
+  process.execPath,
+  [join(ROOT, "node_modules/typescript/bin/tsc"), "-b", "--pretty", "false", "--force"],
+  { cwd: ROOT, stdio: "inherit" },
+);
+if (tsc.status !== 0) process.exit(tsc.status ?? 1);
 
 const outDir = join(ROOT, "dist/desktop-bundle");
 rmSync(outDir, { recursive: true, force: true });
@@ -54,4 +62,14 @@ writeFileSync(
   join(outDir, "package.json"),
   JSON.stringify({ name: "penglai", version: "0.6.0", type: "module", main: "electron-main.js" }, null, 2),
 );
+const bundledMain = readFileSync(join(outDir, "electron-main.js"), "utf8");
+if (
+  !bundledMain.includes(".dsh-module-fallback") ||
+  !bundledMain.includes('startsWith("profiles/node_modules/")')
+) {
+  console.error(
+    "bundle-desktop refused: packaged DSH home skip is stale; @penglai/runtime dist was not rebuilt into electron-main.js",
+  );
+  process.exit(1);
+}
 console.log("bundle-desktop", outDir);
