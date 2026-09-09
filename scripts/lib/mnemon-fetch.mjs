@@ -31,6 +31,7 @@ export function parseFetchArgs(argv) {
   let target;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
+    if (arg === "--") continue;
     if (arg === "--host-only") hostOnly = true;
     else if (arg === "--all") all = true;
     else if (arg === "--target") {
