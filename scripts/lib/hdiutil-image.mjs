@@ -1,7 +1,7 @@
 /** argv builders for hdiutil create/convert. Convert must use -o and one image. */
 
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 
 export function hdiutilBusyRetryable(diagnostic) {
   return /resource busy|resource temporarily unavailable|couldn't eject|资源暂时不可用|无法推出/i.test(
@@ -31,6 +31,45 @@ function hdiutilInfoText() {
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   return `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+}
+
+export function waitSync(milliseconds) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+}
+
+/**
+ * hdiutil create/convert/attach can fail with Resource busy on GitHub
+ * macos-15 while Disk Arbitration holds a previous image. Production DMG
+ * packing already retries; live unit tests must use the same class.
+ */
+export function spawnHdiutilWithBusyRetry(
+  args,
+  { attempts = 3, cwd, onRetry, outputPath } = {},
+) {
+  if (!Array.isArray(args) || typeof args[0] !== "string" || args[0].length === 0) {
+    throw new Error("hdiutil argv must start with a verb");
+  }
+  let last;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    last = spawnSync("hdiutil", args, { encoding: "utf8", ...(cwd ? { cwd } : {}) });
+    if (last.stdout) process.stdout.write(last.stdout);
+    if (last.stderr) process.stderr.write(last.stderr);
+    if (last.status === 0) return last;
+    const diagnostic = `${last.stdout ?? ""}\n${last.stderr ?? ""}\n${last.error?.message ?? ""}`;
+    if (!hdiutilBusyRetryable(diagnostic) || attempt === attempts) {
+      return last;
+    }
+    onRetry?.({ attempt, diagnostic });
+    if (typeof outputPath === "string" && outputPath.length > 0) {
+      rmSync(outputPath, { force: true });
+    }
+    const delayMs = attempt * 2_000;
+    process.stderr.write(
+      `hdiutil ${args[0]} reported a busy image; retrying ${attempt + 1}/${attempts} after ${delayMs}ms\n`,
+    );
+    waitSync(delayMs);
+  }
+  return last;
 }
 
 export function detachDmgUntilReleased({ mount, image, attempts = 8, waitMs = 1_000 } = {}) {

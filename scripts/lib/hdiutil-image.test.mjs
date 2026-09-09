@@ -12,6 +12,7 @@ import {
   hdiutilBusyRetryable,
   hdiutilConvertArgs,
   hdiutilCreateArgs,
+  spawnHdiutilWithBusyRetry,
 } from "./hdiutil-image.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -71,6 +72,7 @@ test("convert retries when the UDRW is still attached", () => {
     hdiutilBusyRetryable("hdiutil: convert failed - Resource temporarily unavailable"),
     true,
   );
+  assert.equal(hdiutilBusyRetryable("hdiutil: create failed - Resource busy"), true);
   assert.equal(hdiutilBusyRetryable('hdiutil: couldn\'t eject "disk5" - Resource busy'), true);
   assert.equal(hdiutilBusyRetryable("hdiutil: convert failed - 资源暂时不可用"), true);
   assert.equal(hdiutilBusyRetryable("only a single input file can be specified"), false);
@@ -88,9 +90,13 @@ test("convert retries when the UDRW is still attached", () => {
   assert.deepEqual(disksAttachedToImage(info, "/tmp/other.dmg"), []);
   const dmg = readFileSync(join(root, "scripts/build-local-dmg.mjs"), "utf8");
   assert.match(dmg, /detachDmgUntilReleased/);
-  assert.match(dmg, /hdiutilBusyRetryable/);
+  assert.match(dmg, /spawnHdiutilWithBusyRetry/);
   assert.match(dmg, /onRetry/);
+  assert.match(dmg, /waitSync/);
   assert.doesNotMatch(dmg, /detach", image, "-force"/);
+  const helper = readFileSync(join(root, "scripts/lib/hdiutil-image.mjs"), "utf8");
+  assert.match(helper, /hdiutilBusyRetryable\(diagnostic\)/);
+  assert.match(helper, /spawnHdiutilWithBusyRetry/);
 });
 
 test("build-local-dmg uses the convert builder instead of a second positional path", () => {
@@ -113,26 +119,24 @@ test("hdiutil convert -o is the native class that failed without -o", {
   skip: process.platform !== "darwin" ? "hdiutil is macOS-only" : false,
 }, () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-hdiutil-"));
+  const volumeName = `PenglaiConvertTest-${process.pid}`;
   try {
     const src = join(dir, "src");
     mkdirSync(src);
     writeFileSync(join(src, "hello.txt"), "penglai");
     const rw = join(dir, "rw.dmg");
     const out = join(dir, "out.dmg");
-    const created = spawnSync(
-      "hdiutil",
+    const created = spawnHdiutilWithBusyRetry(
       hdiutilCreateArgs({
-        volumeName: "PenglaiConvertTest",
+        volumeName,
         sourceFolder: src,
         format: "UDRW",
         output: rw,
       }),
-      { encoding: "utf8" },
+      { outputPath: rw },
     );
     assert.equal(created.status, 0, created.stderr);
-    const attached = spawnSync("hdiutil", ["attach", rw, "-readwrite", "-noverify", "-nobrowse"], {
-      encoding: "utf8",
-    });
+    const attached = spawnHdiutilWithBusyRetry(["attach", rw, "-readwrite", "-noverify", "-nobrowse"]);
     assert.equal(attached.status, 0, attached.stderr);
     detachDmgUntilReleased({ image: rw });
     assert.equal(disksAttachedToImage(spawnSync("hdiutil", ["info"], { encoding: "utf8" }).stdout, rw).length, 0);
@@ -152,21 +156,25 @@ test("hdiutil convert -o is the native class that failed without -o", {
       `${bad.stderr ?? ""}\n${bad.stdout ?? ""}`,
       /only a single input file can be specified/,
     );
-    const ok = spawnSync(
-      "hdiutil",
+    const ok = spawnHdiutilWithBusyRetry(
       hdiutilConvertArgs({
         image: rw,
         output: out,
         format: "UDZO",
         imageKey: "zlib-level=9",
       }),
-      { encoding: "utf8" },
+      { outputPath: out, onRetry: () => detachDmgUntilReleased({ image: rw }) },
     );
     assert.equal(ok.status, 0, ok.stderr);
     assert.equal(existsSync(out), true);
-    const verify = spawnSync("hdiutil", ["verify", out], { encoding: "utf8" });
+    const verify = spawnHdiutilWithBusyRetry(["verify", out]);
     assert.equal(verify.status, 0, verify.stderr);
   } finally {
+    try {
+      detachDmgUntilReleased({ image: join(dir, "rw.dmg") });
+    } catch {
+      /* best-effort release before tmpdir removal */
+    }
     rmSync(dir, { recursive: true, force: true });
   }
 });
