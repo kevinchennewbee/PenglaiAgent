@@ -494,19 +494,34 @@ export function assertUosRuntimeClosure(payloadRoot) {
     "mnemon",
     mnemonPin.binaryFilename,
   );
-  if (!existsSync(mnemonPath) || !lstatSync(mnemonPath).isFile()) {
-    throw new Error(
-      "linux-loong64 payload missing required Memory engine at resources/mnemon/mnemon",
-    );
+  let mnemonFd;
+  try {
+    mnemonFd = openSync(mnemonPath, "r");
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      throw new Error(
+        "linux-loong64 payload missing required Memory engine at resources/mnemon/mnemon",
+      );
+    }
+    throw error;
   }
-  const mnemonBytes = readFileSync(mnemonPath);
-  const mnemonSha = createHash("sha256").update(mnemonBytes).digest("hex");
-  if (mnemonSha !== mnemonPin.binarySha256) {
-    throw new Error(
-      `linux-loong64 Mnemon digest ${mnemonSha} is not the pinned architecture build ${mnemonPin.binarySha256}`,
-    );
+  try {
+    if (!fstatSync(mnemonFd).isFile()) {
+      throw new Error(
+        "linux-loong64 Mnemon engine is not a regular file; package is not complete",
+      );
+    }
+    const mnemonBytes = readFileSync(mnemonFd);
+    const mnemonSha = createHash("sha256").update(mnemonBytes).digest("hex");
+    if (mnemonSha !== mnemonPin.binarySha256) {
+      throw new Error(
+        `linux-loong64 Mnemon digest ${mnemonSha} is not the pinned architecture build ${mnemonPin.binarySha256}`,
+      );
+    }
+    assertUos20OldWorldElfBytes(mnemonBytes, "linux-loong64 Mnemon engine");
+  } finally {
+    closeSync(mnemonFd);
   }
-  assertUos20OldWorldElfBytes(mnemonBytes, "linux-loong64 Mnemon engine");
   for (const file of walkPayloadFiles(payloadRoot)) {
     if (file.rel.includes("darwin-arm64") || file.rel.includes("darwin-x64") || file.rel.endsWith(".dylib")) {
       throw new Error(`linux-loong64 payload contains darwin binary ${file.rel}`);
