@@ -26,11 +26,48 @@
     hairline.style.transform = "scaleX(" + progress + ")";
   }
 
+  function computerFamily() {
+    var ua = navigator.userAgent || "";
+    var platform = navigator.platform || "";
+    var ch = navigator.userAgentData && navigator.userAgentData.platform;
+    var token = String(ch || platform || ua).toLowerCase();
+    if (token.indexOf("win") >= 0) return "windows";
+    if (token.indexOf("mac") >= 0) return "mac";
+    if (token.indexOf("linux") >= 0 || token.indexOf("cros") >= 0) return "linux";
+    if (/Windows/i.test(ua)) return "windows";
+    if (/Mac OS|Macintosh/i.test(ua)) return "mac";
+    if (/Linux/i.test(ua) && !/Android/i.test(ua)) return "linux";
+    return "";
+  }
+
+  function hintDownloads() {
+    var family = computerFamily();
+    if (!family) return;
+    var cards = document.querySelectorAll("[data-family]");
+    if (!cards.length) return;
+    var matched = [];
+    cards.forEach(function (card) {
+      if (card.getAttribute("data-family") === family) {
+        card.classList.add("is-likely");
+        matched.push(card);
+      }
+    });
+    if (!matched.length) return;
+    var note = document.getElementById("downloadHint");
+    if (!note) return;
+    var copy = note.getAttribute("data-" + family);
+    if (copy) {
+      note.hidden = false;
+      note.textContent = copy;
+    }
+  }
+
   setMotionFlag();
   updateScroll();
+  hintDownloads();
   window.addEventListener("scroll", updateScroll, { passive: true });
   window.addEventListener("resize", function () {
-    if (window.innerWidth > 860) closeNav();
+    if (window.innerWidth > 880) closeNav();
     updateScroll();
   });
   reduce.addEventListener("change", setMotionFlag);
@@ -66,7 +103,7 @@
           }
         });
       },
-      { rootMargin: "0px 0px -8% 0px", threshold: 0.12 },
+      { rootMargin: "0px 0px -6% 0px", threshold: 0.08 },
     );
     document.querySelectorAll("[data-reveal]").forEach(function (node) {
       observer.observe(node);
@@ -76,79 +113,4 @@
       node.classList.add("is-in");
     });
   }
-
-  if (reduce.matches) return;
-
-  var canvas = document.getElementById("hero-canvas");
-  if (!canvas || !canvas.getContext) return;
-  var context = canvas.getContext("2d");
-  if (!context) return;
-
-  var width = 0;
-  var height = 0;
-  var grain = document.createElement("canvas");
-  var grainContext = grain.getContext("2d");
-  var clouds = [
-    { x: 0.12, y: 0.22, r: 0.28, speed: 0.000012, tint: [246, 241, 232], alpha: 0.08 },
-    { x: 0.62, y: 0.18, r: 0.34, speed: -0.000008, tint: [201, 163, 106], alpha: 0.07 },
-    { x: 0.38, y: 0.68, r: 0.4, speed: 0.000006, tint: [196, 92, 38], alpha: 0.05 },
-  ];
-  var start = performance.now();
-  var frame = 0;
-
-  function paintGrain() {
-    grain.width = 160;
-    grain.height = 160;
-    var pixels = grainContext.createImageData(160, 160);
-    for (var i = 0; i < pixels.data.length; i += 4) {
-      var value = 180 + Math.random() * 50;
-      pixels.data[i] = value;
-      pixels.data[i + 1] = value - 4;
-      pixels.data[i + 2] = value - 10;
-      pixels.data[i + 3] = 28 + Math.random() * 18;
-    }
-    grainContext.putImageData(pixels, 0, 0);
-  }
-
-  function resize() {
-    var ratio = Math.min(window.devicePixelRatio || 1, 2);
-    width = canvas.clientWidth || window.innerWidth;
-    height = canvas.clientHeight || Math.min(window.innerHeight, 860);
-    canvas.width = Math.floor(width * ratio);
-    canvas.height = Math.floor(height * ratio);
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-  }
-
-  function draw(now) {
-    frame = window.requestAnimationFrame(draw);
-    var t = now - start;
-    context.clearRect(0, 0, width, height);
-    clouds.forEach(function (cloud) {
-      var x = ((cloud.x + t * cloud.speed) % 1.4) * width - 0.2 * width;
-      var y = cloud.y * height;
-      var radius = cloud.r * Math.max(width, height);
-      var wash = context.createRadialGradient(x, y, radius * 0.12, x, y, radius);
-      wash.addColorStop(0, "rgba(" + cloud.tint.join(",") + "," + cloud.alpha + ")");
-      wash.addColorStop(1, "rgba(" + cloud.tint.join(",") + ",0)");
-      context.fillStyle = wash;
-      context.beginPath();
-      context.arc(x, y, radius, 0, Math.PI * 2);
-      context.fill();
-    });
-    context.globalAlpha = 0.18;
-    context.fillStyle = context.createPattern(grain, "repeat");
-    context.fillRect(0, 0, width, height);
-    context.globalAlpha = 1;
-  }
-
-  paintGrain();
-  resize();
-  window.addEventListener("resize", resize);
-  reduce.addEventListener("change", function () {
-    if (reduce.matches) {
-      window.cancelAnimationFrame(frame);
-      context.clearRect(0, 0, width, height);
-    }
-  });
-  draw(start);
 })();
