@@ -22,9 +22,11 @@ import {
   UOS_DEB_ARCHITECTURE,
   UOS_DEB_INSTALLER_NAME,
   assertLinuxLoong64PackTarget,
+  assertPackagedDesktopSkip,
   assertUos20OldWorldBinary,
   assertUosRuntimeClosure,
   glibcVersionsNewerThan228,
+  overlayDesktopBundle,
   packageLinuxDeb,
   parseDebControl,
   parseDebDataFiles,
@@ -341,6 +343,30 @@ test("UOS 20 packager refuses a new-world Penglai ELF and accepts old-world ld.s
           iconPath: join(work, "penglai.png"),
         }),
       /chrome-sandbox is new-world/,
+    );
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+});
+
+test("linux packager overlays this SHA desktop bundle then fail-closes without the DSH home skip", () => {
+  const work = mkdtempSync(join(tmpdir(), "penglai-deb-skip-"));
+  try {
+    const payload = join(work, "payload");
+    mkdirSync(join(payload, "resources", "app"), { recursive: true });
+    writeFileSync(join(payload, "resources", "app", "electron-main.js"), "void 0;\n");
+    assert.throws(() => assertPackagedDesktopSkip(payload), /missing the rebuilt DSH home skip/);
+    const bundle = join(work, "bundle");
+    mkdirSync(bundle, { recursive: true });
+    writeFileSync(
+      join(bundle, "electron-main.js"),
+      'startsWith("profiles/node_modules/"); ".dsh-module-fallback";\n',
+    );
+    overlayDesktopBundle(payload, bundle);
+    assertPackagedDesktopSkip(payload);
+    assert.match(
+      readFileSync(join(payload, "resources", "app", "electron-main.js"), "utf8"),
+      /dsh-module-fallback/,
     );
   } finally {
     rmSync(work, { recursive: true, force: true });

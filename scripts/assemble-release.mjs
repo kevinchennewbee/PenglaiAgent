@@ -143,7 +143,7 @@ if (
   !Array.isArray(sbom.components) ||
   sbom.components.length !== sbom.componentCount
 ) {
-  fail("SBOM is not the three-target aggregate bound to this source and lockfile");
+  fail("SBOM is not the release-set aggregate bound to this source and lockfile");
 }
 if (
   !notices.includes(`Penglai ${version} Third-Party Notices`) ||
@@ -151,7 +151,7 @@ if (
   !notices.includes("Audited target: release-set") ||
   !notices.includes("licenses/sharp/")
 ) {
-  fail("third-party notices are not the source-bound three-target aggregate");
+  fail("third-party notices are not the source-bound release-set aggregate");
 }
 
 let release;

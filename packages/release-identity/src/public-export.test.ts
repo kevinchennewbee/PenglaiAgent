@@ -73,6 +73,9 @@ test("R50-PREP-001 allowlist is deterministic and denies private trees", () => {
   assert.equal(pathAllowed("dist/Penglai_0.5.0_macos_aarch64.dmg"), false);
   assert.equal(pathAllowed("docs/0.5.12/UPGRADE_SOURCES.json"), true);
   assert.equal(pathAllowed("docs/0.5.12/pdf-page-preview.png"), false);
+  assert.equal(pathAllowed("docs/RELEASE_NOTES_0.6.0.md"), true);
+  assert.equal(pathAllowed("docs/0.6.0/website-draft/index.html"), true);
+  assert.equal(pathAllowed("docs/0.6.0/PLAN.md"), false);
   const a = publicExportTreeSha256([
     { path: "LICENSE", mode: "0644", size: 1, sha256: "aa", license: "MIT" },
     { path: "README.md", mode: "0644", size: 2, sha256: "bb", license: "MIT" },

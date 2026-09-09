@@ -87,6 +87,25 @@ remain required; UOS native install/startup/function is
 published DSH `0.1.3-alpha.2` and 0.5.12 download tables until public
 v0.6.0 bytes exist.
 
+## PM GUI (ARM, isolated)
+
+Authoritative PM live findings (PM-owned evidence file; not in this tree).
+Do not relabel 0.5.12 native evidence as 0.6.0 runtime acceptance.
+
+- Candidate `6d7b5917` zip `59738af2…`, codesign `--deep --strict` valid:
+  same-path original 0.5.12 userdata upgrade PASS (sessions, custom Flash 4.1,
+  migrated credentials, attachment preview, quit/relaunch).
+- f8ca9446 fresh install PASS: invalid credential recovery, workspace error
+  clearance, custom Flash 4.1 vision, restart persistence. Reusable for
+  unaffected paths.
+- Intel Mac / Windows native/lifecycle still required from the **frozen**
+  four-target SHA after UOS payload integration. Do not dispatch
+  `native-release-candidate.yml` from this prep change.
+
+Electron 31.7.7 UOS pin remains **not maintained**; publishing that
+limitation is an unresolved PM decision. UOS `.deb` payload addons are
+owned by the separate worker; native UOS stays `OWNER_POST_RELEASE`.
+
 Facts already observed (2026-09-09):
 
 - npm dist-tags: `alpha=0.1.5-alpha.1`, `latest=next=0.1.2-rc.1`.

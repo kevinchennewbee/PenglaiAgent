@@ -13,10 +13,12 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { deterministicGzip } from "./deterministic-gzip.mjs";
+import { ROOT } from "./repo.mjs";
 
 // Penglai target key is linux-loong64. UOS dpkg Architecture is loongarch64.
 // Confirmed client is UOS 20 Professional 1070 / kernel 4.19 (old-world).
@@ -301,6 +303,66 @@ export function assertUos20OldWorldBinary(path, label = path) {
     );
   }
   return interpreter;
+}
+
+function writeLinuxInstallerEvidence({ digest, bytes }) {
+  const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  }).trim();
+  const dirty = execFileSync("git", ["status", "--porcelain"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  }).trim();
+  mkdirSync(join(ROOT, "evidence", "generated"), { recursive: true });
+  writeFileSync(
+    join(ROOT, "evidence", "generated", "local-installer-linux-loong64.json"),
+    `${JSON.stringify(
+      {
+        target: LINUX_LOONG64_TARGET,
+        installer: UOS_DEB_INSTALLER_NAME,
+        sourceSha,
+        sha256: digest,
+        bytes,
+        treeDirty: dirty.length > 0,
+        native: false,
+        ownerPostRelease: true,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
+export function overlayDesktopBundle(
+  payloadRoot,
+  bundleDir = join(ROOT, "dist", "desktop-bundle"),
+) {
+  const dest = join(payloadRoot, "resources", "app");
+  const main = join(bundleDir, "electron-main.js");
+  if (!existsSync(main) || lstatSync(main).isSymbolicLink()) {
+    throw new Error(
+      "linux-loong64 packager refused: rebuilt dist/desktop-bundle/electron-main.js missing",
+    );
+  }
+  mkdirSync(dest, { recursive: true });
+  cpSync(bundleDir, dest, { recursive: true });
+}
+
+export function assertPackagedDesktopSkip(payloadRoot) {
+  const main = join(payloadRoot, "resources", "app", "electron-main.js");
+  if (!existsSync(main) || lstatSync(main).isSymbolicLink()) {
+    throw new Error("linux-loong64 payload missing resources/app/electron-main.js");
+  }
+  const text = readFileSync(main, "utf8");
+  if (
+    !text.includes(".dsh-module-fallback") ||
+    !text.includes('startsWith("profiles/node_modules/")')
+  ) {
+    throw new Error(
+      "linux-loong64 payload electron-main.js is missing the rebuilt DSH home skip",
+    );
+  }
 }
 
 function assertPenglaiBinary(payloadRoot) {
@@ -690,6 +752,11 @@ export function packageLinuxDeb({
   mkdirSync(stageRoot, { recursive: true });
   try {
     const dataRoot = stageDebTree({ payloadRoot, stageRoot, iconPath });
+    const optRoot = join(dataRoot, "opt", "Penglai");
+    if (requireRuntimeClosure) {
+      overlayDesktopBundle(optRoot);
+      assertPackagedDesktopSkip(optRoot);
+    }
     const { dataTarGz, md5sums, installedSizeKb } = buildDataTarGz(dataRoot);
     const controlTarGz = buildControlTarGz({ installedSizeKb, md5sums });
     const deb = buildDebArchive({
@@ -699,12 +766,16 @@ export function packageLinuxDeb({
     });
     const outPath = join(outDir, UOS_DEB_INSTALLER_NAME);
     writeFileSync(outPath, deb);
+    const digest = createHash("sha256").update(deb).digest("hex");
+    if (!process.env.NODE_TEST_CONTEXT) writeLinuxInstallerEvidence({ digest, bytes: deb.length });
     return {
       target: LINUX_LOONG64_TARGET,
       architecture: UOS_DEB_ARCHITECTURE,
       installerName: UOS_DEB_INSTALLER_NAME,
       outPath,
       bytes: deb.length,
+      sha256: digest,
+      native: false,
     };
   } finally {
     rmSync(stageRoot, { recursive: true, force: true });
