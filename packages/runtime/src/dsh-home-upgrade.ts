@@ -333,9 +333,18 @@ function safeRelative(path: string): void {
 }
 
 function isManagedProfileRuntimeTree(path: string): boolean {
+  const normalized = path.replaceAll("\\", "/");
+  if (!normalized) return false;
+  // DSH recreates these module graphs from the embedded installation on every
+  // boot: the shared `$DSH_HOME/profiles/node_modules` fallback, each profile's
+  // `.dsh-module-fallback`, and the profile `node_modules` projections / .bin
+  // links into that fallback. They are not user state. User plugin enablement
+  // stays in package.json, cordis.patch.yml, and Plugin Center desired.json.
   return (
-    path === "profiles/node_modules" ||
-    /^profiles\/[^/]+\/node_modules\/(?:@deepseek-ai|@penglai)$/.test(path)
+    normalized === "profiles/node_modules" ||
+    normalized.startsWith("profiles/node_modules/") ||
+    /^profiles\/[^/]+\/node_modules(?:\/|$)/.test(normalized) ||
+    /^profiles\/[^/]+\/\.dsh-module-fallback(?:\/|$)/.test(normalized)
   );
 }
 
@@ -361,13 +370,9 @@ function walkTree(
       current === canonicalRoot
         ? ""
         : relative(canonicalRoot, current).replaceAll("\\", "/");
-    // Profile activation recreates the alpha.2 root dependency mirror,
-    // official @deepseek-ai link, and signed @penglai package trees from the
-    // immutable embedded runtime on every boot. They are not user state and
-    // can contain tens of thousands of files; hashing them would block the
-    // desktop main loop after DSH is already healthy. Every other symlink and
-    // profile path remains part of the bounded migration snapshot.
-    // Historical session logs are user state even if a skip list later grows.
+    // Skip regenerated runtime graphs before lstat so absolute installation
+    // links are neither hashed nor copied. Other symlink state still throws.
+    // Historical session logs remain user state even if a skip list later grows.
     const historicalSessionLog = isHistoricalSessionLogName(
       basename(currentRelative),
     );
