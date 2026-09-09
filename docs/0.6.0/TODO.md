@@ -91,23 +91,26 @@ public checkout.
 
 ## Loongson UnionTech UOS (`linux-loong64`)
 
-- [ ] S01 Pin authentic loong64 Node: unofficial-builds.nodejs.org
-      `node-v22.23.2-linux-loong64.tar.gz` SHA-256
-      `36d02422cc40211415b394b9e24d2d62c0a346405410a0cbdc13a11f97ec4cd1`.
-      Record that this is the Node unofficial-builds project, not
-      nodejs.org official, and why official 404s.
-- [ ] S02 Pin Electron for loong64: reviewed community
-      `darkyzhou/electron-loong64` `v43.4.1` zip SHA-256
-      `58c900f8c38d42290fb4bdc0dc3df90a5977efd96aa39f06ce4bf4345a2fc4e9`
-      (MIT, glibc >= 2.38, LSX, New-World). Disclose 43.4.1 vs 43.6.0
-      skew. Source-rebuild 43.6.0 if matching hardware exists.
-- [ ] S03 Linux generation layout (XDG), `releaseTarget`/`linux-loong64`,
-      process supervision, secrets (libsecret or 0600 file class),
-      Landlock/seccomp mapping. Tests reject other Linux arches as
-      official 0.6 targets unless separately authorized.
-- [ ] S04 `.deb` packaging, desktop file, UOS metadata, launch, update
-      fourth filename, uninstall/data categories. Mandatory Office and
-      Memory stay required-builtin.
+- [x] S01 unofficial-builds Node 22.23.2 loong64 tar.gz hashed
+      `36d02422…` / 57692301 bytes. ELF is **new-world**
+      (`ld-linux-loongarch-lp64d.so.1`, GNU/Linux 5.19.0, GLIBC 2.38) —
+      **not** the UOS 20 client Node. tar.xz local copy truncated; do
+      not pin. See `NODE_LOONG64.json`.
+- [ ] S02 Old-world Electron for UOS 20: hash Loongson ftp
+      `electron-v22.3.27-linux-loong64.zip` (electerm legacy train) and
+      probe 31.7.7 ELF world before any pin. darkyzhou 43.x is
+      new-world-only and incompatible. Do not seal on EOL Chromium
+      without disclosing the gap vs Mac/Windows 43.6.0.
+- [ ] S03 Linux generation layout (XDG) and `releaseTarget`/`linux-loong64`
+      landed with tests rejecting linux-x64/arm64. Process supervision,
+      secrets (libsecret or 0600 file class), and Landlock/seccomp
+      mapping remain open.
+- [ ] S04 `.deb` packaging class: `scripts/package-linux-deb.mjs` stages
+      `/opt/Penglai`, desktop file, UOS `Architecture: loongarch64`,
+      required Office+Memory, chrome-sandbox kept, installer name
+      `Penglai_0.6.0_uos_loong64.deb` (not in `release-contract.json`).
+      Tests cover fail-closed target and control Architecture. Native
+      launch/uninstall remain S06; this is not native UOS PASS.
 - [ ] S05 Native addons: sqlite/fs-ext/node-pty/sharp/koffi/onnx/sherpa/
       Mnemon on loong64 — prebuild or source-build with digest. Memory
       cannot be disabled to ship a window.

@@ -62,28 +62,24 @@
     {
       "id": "dsh-im",
       "repo": "https://github.com/xmanrui/dsh-im",
-      "release": "v3.0.5",
-      "tagObject": "63bdfc72be1289097e3c73acb95ba9260531091d",
-      "commit": "64587b3b6162fa34f1c3ddb335a254d4154c9175",
+      "release": "v4.17.1",
+      "tagObject": "51fb6bb03d86045cbe55e5fde3e55308f0f3643e",
+      "commit": "464c0a91762ebd0befc2d179f036eaae4864fb0e",
       "tagSigned": false,
-      "archive": "https://codeload.github.com/xmanrui/dsh-im/tar.gz/64587b3b6162fa34f1c3ddb335a254d4154c9175",
-      "sha256": "ae4a9727627f55d5a90bff929caf27dc092153c80b8b79fca9cf18a3fa4125f7",
-      "bytes": 9835773,
-      "fetched": "2026-08-26",
+      "archive": "https://codeload.github.com/xmanrui/dsh-im/tar.gz/464c0a91762ebd0befc2d179f036eaae4864fb0e",
+      "sha256": "2bb02ea00d3367c1d93681f1e64bf030813f059f0cd62ef9c523dad1ab3b984b",
+      "bytes": 12029018,
+      "fetched": "2026-09-09",
       "license": "MIT",
+      "licenseSha256": "2e1c6321c5df1830b8758dd6d1cc1c70c41f561129581f1986b408255f67d588",
+      "npmIntegrity": "sha512-hAn0zvPl6+EsA5ZmGSECQtIzAY9IxePOfOCI3d5cxTP1dpzPrpYBW0TlLRv9fI+0A5hyVSEqqCkSKW8KL1cF2Q==",
+      "npmTarballSha256": "607a775b29e1355ab3f2953e45fb217f1102685202e0eca9f121d59abb138fec",
       "use": "selective rewrite into @penglai/im; do not install runtime; do not copy lib/, bin/, or cordis.patch.yml",
-      "supersedes": "v3.0.2 / 54468bbe1e93b30ae5778941cd65e725877dae74",
-      "reviewedAfterPin": [
-        {
-          "release": "v3.0.6",
-          "tagObject": "1351e80da911bcdb8b768995fcc1302ee514e4c9",
-          "commit": "c93f42f1cc1cdc8292f9803c378dc0fa520be4d2",
-          "archiveSha256": "d190fe26b467cc4f1596865bc6e7b2cfc758b744b22619fb25d3f29f08523718",
-          "fetched": "2026-08-27",
-          "decision": "reviewed, no re-pin: native workspace picker is not applicable and Penglai already has bounded Weixin delivery diagnostics"
-        }
-      ],
+      "connectionApi": "already equivalent: Typert penglaiIm remotes on unmodified DSH Connection /api; do not add fetch.register IM core",
+      "supersedes": "v3.0.5 / 64587b3b6162fa34f1c3ddb335a254d4154c9175",
       "historical": [
+        "v3.0.6 / c93f42f1cc1cdc8292f9803c378dc0fa520be4d2",
+        "v3.0.5 / 64587b3b6162fa34f1c3ddb335a254d4154c9175",
         "v3.0.4 / 50d55090b9e44ea937a496042db89e5162a5aa58",
         "v3.0.3 / a9bb0ed3baf40fe9e82da4ac062b57855ce4b866",
         "v3.0.2 / 54468bbe1e93b30ae5778941cd65e725877dae74",
@@ -94,7 +90,7 @@
       ],
       "notice": "third_party/NOTICE-dsh-im.txt",
       "ledger": "docs/0.5.7/provenance/DSH_IM_PORT_LEDGER.md",
-      "provenance": "docs/0.5.7/provenance/dsh-im-v3.0.5.md"
+      "provenance": "docs/0.6.0/provenance/dsh-im-v4.17.1.md"
     },
     {
       "id": "qqbot-agent-sdk-onboard",

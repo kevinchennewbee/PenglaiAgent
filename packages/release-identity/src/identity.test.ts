@@ -52,7 +52,7 @@ test("R50-TRUTH-002 candidateKind trustTier generation and three exact release t
     RELEASE_TARGETS.map((t) => t.installer),
   );
   assert.equal(checked.targets.length, 3);
-  assert.equal(checked.dsh, "0.1.3-alpha.2");
+  assert.equal(checked.dsh, "0.1.5-alpha.1");
   recordAssertion({
     acceptanceId: "R50-TRUTH-002",
     runnerId: "release-identity.identity",

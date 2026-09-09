@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "kind": "penglai-0.6.0-node-linux-loong64-pin",
+  "version": "22.23.2",
+  "project": "nodejs/unofficial-builds",
+  "projectUrl": "https://github.com/nodejs/unofficial-builds",
+  "releaseIndex": "https://unofficial-builds.nodejs.org/download/release/v22.23.2/",
+  "shasums256Url": "https://unofficial-builds.nodejs.org/download/release/v22.23.2/SHASUMS256.txt",
+  "notOfficialNodejsOrg": true,
+  "officialNodejsOrgTarGz": "https://nodejs.org/dist/v22.23.2/node-v22.23.2-linux-loong64.tar.gz",
+  "officialNodejsOrgTarXz": "https://nodejs.org/dist/v22.23.2/node-v22.23.2-linux-loong64.tar.xz",
+  "officialNodejsOrgStatus": "HTTP 404 for both tar.gz and tar.xz",
+  "notGithubLoong64NodeRebuilds": true,
+  "githubLoong64Node": "https://github.com/loong64/node/releases — different rebuild train; do not mix",
+  "archives": {
+    "tar.gz": {
+      "filename": "node-v22.23.2-linux-loong64.tar.gz",
+      "url": "https://unofficial-builds.nodejs.org/download/release/v22.23.2/node-v22.23.2-linux-loong64.tar.gz",
+      "sha256": "36d02422cc40211415b394b9e24d2d62c0a346405410a0cbdc13a11f97ec4cd1",
+      "publishedInShasums256": true
+    },
+    "tar.xz": {
+      "filename": "node-v22.23.2-linux-loong64.tar.xz",
+      "url": "https://unofficial-builds.nodejs.org/download/release/v22.23.2/node-v22.23.2-linux-loong64.tar.xz",
+      "sha256": "050dc2e09d51e40d013029f72f832766c7b04e989db277b061432c1690399977",
+      "publishedInShasums256": true
+    }
+  },
+  "downloadedBytesVerified": {
+    "tar.gz": {
+      "bytes": 57692301,
+      "sha256": "36d02422cc40211415b394b9e24d2d62c0a346405410a0cbdc13a11f97ec4cd1",
+      "gzipTest": true,
+      "interpreter": "/lib64/ld-linux-loongarch-lp64d.so.1",
+      "gnuLinux": "5.19.0",
+      "maxGlibcSymbol": "2.38",
+      "world": "new-world"
+    },
+    "tar.xz": {
+      "localBytes": 11415552,
+      "publishedBytes": 30641168,
+      "status": "truncated-incomplete-do-not-pin"
+    }
+  },
+  "uos20Client": false,
+  "notes": "Actual tar.gz bytes match SHASUMS256. ELF is new-world (ld-linux-loongarch-lp64d.so.1, GNU/Linux 5.19.0, GLIBC 2.38). Incompatible with confirmed UOS 20 / kernel 4.19 old-world. Do not use as the fourth-client Node. tar.xz was truncated after the orphaned download was stopped; do not hash-pin that file. Never substitute GitHub loong64/node."
+}

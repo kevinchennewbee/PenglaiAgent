@@ -50,7 +50,8 @@
   Release 回读。蓬莱办公与蓬莱记忆为 required-builtin DSH 插件；消息连接、
   语音识别、语音生成、主动陪伴随包但默认关闭。
 - 四个 target key 全仓统一：`darwin-aarch64`、`darwin-x86_64`、`win32-x86_64`、
-  `linux-loong64`（龙芯新世界 + 统信 UOS）。0.6.0 目标安装包在身份改写后为
+  `linux-loong64`（统信桌面操作系统 20 专业版 1070 / Loongson-3A6000-HV /
+  内核 4.19.0-loongson-3-desktop，旧世界用户态；不是 V25）。0.6.0 目标安装包在身份改写后为
   `Penglai_0.6.0_macos_aarch64.dmg`、`Penglai_0.6.0_macos_x64.dmg`、
   `Penglai_0.6.0_windows_x64_setup.exe`、`Penglai_0.6.0_uos_loong64.deb`。
   禁止把 ARM Electron 改名成 Intel 包；禁止把 Windows 预检、交叉编译、QEMU

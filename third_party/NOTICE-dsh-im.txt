@@ -1,18 +1,19 @@
 dsh-im
 https://github.com/xmanrui/dsh-im
 
-Penglai 0.5.7 does not install dsh-im as a runtime and does not copy generated
-lib/ or bin/. Selected channel authentication and transport ideas may be
-rewritten into @penglai/im under the MIT license below.
+Penglai 0.6.0 does not install dsh-im as a runtime and does not copy generated
+lib/, bin/, or cordis.patch.yml. Selected channel authentication and transport
+ideas may be rewritten into @penglai/im under the MIT license below.
+Connection /api management is already implemented as Typert penglaiIm remotes.
 
-Pinned identity (current 0.5.7):
-  tag: v3.0.5 (unsigned annotated tag object 63bdfc72be1289097e3c73acb95ba9260531091d)
-  commit: 64587b3b6162fa34f1c3ddb335a254d4154c9175
-  tarball: https://codeload.github.com/xmanrui/dsh-im/tar.gz/64587b3b6162fa34f1c3ddb335a254d4154c9175
-  sha256: ae4a9727627f55d5a90bff929caf27dc092153c80b8b79fca9cf18a3fa4125f7
-  bytes: 9835773
-  fetched: 2026-08-26
-  superseded: v3.0.2 / 54468bbe1e93b30ae5778941cd65e725877dae74 is historical only
+Pinned identity (current 0.6.0):
+  tag: v4.17.1 (unsigned annotated tag object 51fb6bb03d86045cbe55e5fde3e55308f0f3643e)
+  commit: 464c0a91762ebd0befc2d179f036eaae4864fb0e
+  tarball: https://codeload.github.com/xmanrui/dsh-im/tar.gz/464c0a91762ebd0befc2d179f036eaae4864fb0e
+  sha256: 2bb02ea00d3367c1d93681f1e64bf030813f059f0cd62ef9c523dad1ab3b984b
+  bytes: 12029018
+  fetched: 2026-09-09
+  superseded: v3.0.5 / 64587b3b6162fa34f1c3ddb335a254d4154c9175 is historical only
 
 MIT License
 

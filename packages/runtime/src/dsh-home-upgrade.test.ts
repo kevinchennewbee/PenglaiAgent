@@ -23,8 +23,10 @@ import {
   DSH_HOME_SOURCE_VERSION,
   DSH_HOME_ALPHA2_VERSION,
   DSH_HOME_PREVIOUS_VERSION,
+  DSH_HOME_ALPHA13_VERSION,
   DSH_HOME_JSONL_COMPRESSION,
   DSH_HOME_TARGET_VERSION,
+  isHistoricalSessionLogName,
   activateDshHomeBootPlan,
   activateDshHomeUpgrade,
   prepareDshHomeForBoot,
@@ -40,7 +42,7 @@ import {
 const FIXTURE_CREDENTIAL =
   "DEEPSEEK_API_KEY: penglai-test-fixture-key-not-real\n";
 
-test("0.5.11 rc.1 active generation upgrades to 0.1.3-alpha.2 and restores its exact pointer on rollback", () => {
+test("0.5.11 rc.1 active generation upgrades to 0.1.5-alpha.1 and restores its exact pointer on rollback", () => {
   const root = fixtureRoot();
   const previousHome = join(root, "dsh-homes", `dsh-v${DSH_HOME_PREVIOUS_VERSION}`);
   mkdirSync(previousHome, { recursive: true, mode: 0o700 });
@@ -71,7 +73,7 @@ test("0.5.11 rc.1 active generation upgrades to 0.1.3-alpha.2 and restores its e
   assert.deepEqual(prepareDshHomeForBoot({ userRoot: root }), plan, "prepared migration must resume with old pointer still active");
   activateDshHomeBootPlan({ userRoot: root, plan, validation: validProof() });
   assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_TARGET_VERSION);
-  writeFileSync(join(plan.dshHome, "new-generation-only"), "0.1.3-alpha.2 state");
+  writeFileSync(join(plan.dshHome, "new-generation-only"), "0.1.5-alpha.1 state");
   rollbackDshHomeUpgrade({ userRoot: root, operationId: plan.operationId!, reason: "restore previous version" });
   assert.deepEqual(JSON.parse(readFileSync(pointer, "utf8")), {
     ...previous,
@@ -139,7 +141,7 @@ function validProof() {
   };
 }
 
-test("P059-DATA-001 prepares an isolated 0.1.3-alpha.2 working home and leaves 0.5.8 alpha.1 bytes untouched", () => {
+test("P059-DATA-001 prepares an isolated 0.1.5-alpha.1 working home and leaves 0.5.8 alpha.1 bytes untouched", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   const originalCredential = readFileSync(
@@ -329,7 +331,7 @@ test("P059-DATA-005 source mutation during validation blocks activation", () => 
         operationId: "upgrade06",
         validation: validProof(),
       }),
-    /previous DSH home changed during 0.1.3-alpha.2 validation/,
+    /previous DSH home changed during 0.1.5-alpha.1 validation/,
   );
   assert.equal(readActiveDshHome(root), undefined);
 });
@@ -538,7 +540,7 @@ test("P059-DATA-004A migration activation recovers a crash before the active poi
   assert.deepEqual(readActiveDshHome(root), activated);
 });
 
-test("P059-DATA-013 fresh 0.5.12 installs boot and activate only the 0.1.3-alpha.2 generation", () => {
+test("P059-DATA-013 fresh 0.5.12 installs boot and activate only the 0.1.5-alpha.1 generation", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-fresh-"));
   const paths = resolveDshHomeUpgradePaths(root);
   const prepared = prepareDshHomeForBoot({
@@ -605,7 +607,7 @@ test("fresh activation digest excludes regenerated first-party profile runtime t
   assert.equal(activated[0].targetDigest, activated[1].targetDigest);
 });
 
-test("P059-DATA-014 0.5.8 alpha.1 upgrades boot a resumable isolated 0.1.3-alpha.2 generation", () => {
+test("P059-DATA-014 0.5.8 alpha.1 upgrades boot a resumable isolated 0.1.5-alpha.1 generation", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   const prepared = prepareDshHomeForBoot({
@@ -629,7 +631,7 @@ test("P059-DATA-014 0.5.8 alpha.1 upgrades boot a resumable isolated 0.1.3-alpha
   );
 });
 
-test("0.5.9 alpha.2 active generation copies a legal session log into 0.1.3-alpha.2", () => {
+test("0.5.9 alpha.2 active generation copies a legal session log into 0.1.5-alpha.1", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-alpha2-"));
   const previousHome = join(root, "dsh-homes", `dsh-v${DSH_HOME_ALPHA2_VERSION}`);
   mkdirSync(join(previousHome, "storages", "sessions"), { recursive: true, mode: 0o700 });
@@ -673,9 +675,6 @@ const OFFICIAL_RC1_LOG_REL = join(
   OFFICIAL_RC1_SESSION_ID,
   "session.jsonl",
 );
-const OFFICIAL_RC1_USER =
-  "privacy-safe v0 replay from official 0.1.2-rc.1";
-const OFFICIAL_RC1_ASSISTANT = "restored-from-rc1";
 
 function officialRc1Provenance() {
   return JSON.parse(
@@ -814,7 +813,15 @@ test("U02 official rc.1 v0 JSONL checkout bytes match provenance and stay LF", (
   );
 });
 
-test("U02 official rc.1 v0 JSONL migrates through Home and restores with 0.1.3-alpha.2", async () => {
+function assertV3RefusesOfficialRc1Chronology(error: unknown): boolean {
+  assert.ok(error instanceof Error);
+  assert.equal(error.name, "SessionFormatUnsupportedError");
+  assert.match(error.message, /surface before first step cannot acquire a system head/);
+  assert.match(error.message, /source v0 artifact remains unchanged/);
+  return true;
+}
+
+test("U02 official rc.1 v0 JSONL copies through Home; V3 refuses chronology without deleting originals", async () => {
   const provenance = officialRc1Provenance();
   assert.equal(provenance.writer.session, "0.1.2-rc.1");
   assert.equal(provenance.writer.formatVersion, 0);
@@ -842,22 +849,6 @@ test("U02 official rc.1 v0 JSONL migrates through Home and restores with 0.1.3-a
   assert.deepEqual(readFileSync(join(plan.dshHome, OFFICIAL_RC1_LOG_REL)), original);
   assert.deepEqual(readFileSync(join(previousHome, OFFICIAL_RC1_LOG_REL)), original);
 
-  const migrated = await restoreOfficialRc1(join(plan.dshHome, "sessions"), "read");
-  assert.deepEqual(migrated.listedIds, [OFFICIAL_RC1_SESSION_ID]);
-  assert.equal(migrated.userText, OFFICIAL_RC1_USER);
-  assert.equal(migrated.assistantText, OFFICIAL_RC1_ASSISTANT);
-  assert.ok(migrated.eventTypes.includes("user/message"));
-  assert.ok(migrated.eventTypes.includes("assistant/message"));
-  assert.deepEqual(readFileSync(join(previousHome, OFFICIAL_RC1_LOG_REL)), original);
-  assert.deepEqual(readFileSync(join(plan.dshHome, OFFICIAL_RC1_LOG_REL)), original);
-
-  activateDshHomeBootPlan({ userRoot: root, plan, validation: validProof() });
-  assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_TARGET_VERSION);
-
-  const written = await restoreOfficialRc1(join(plan.dshHome, "sessions"), "write");
-  assert.equal(written.headerVersion, 2);
-  assert.equal(written.userText, OFFICIAL_RC1_USER);
-  assert.equal(written.assistantText, OFFICIAL_RC1_ASSISTANT);
   const targetSessionDir = join(
     plan.dshHome,
     "sessions",
@@ -870,21 +861,33 @@ test("U02 official rc.1 v0 JSONL migrates through Home and restores with 0.1.3-a
     "--privacy-safe-workspace--",
     OFFICIAL_RC1_SESSION_ID,
   );
-  const targetNames = readdirSync(targetSessionDir).sort();
-  // Official JSONL write-open takes a POSIX flock on session.lock and never
-  // unlinks that file on release. Windows holds a named kernel semaphore
-  // derived from the path and has no lock file. The kernel flock drops when
-  // the write handle closes.
   assert.deepEqual(
-    targetNames,
-    process.platform === "win32"
-      ? ["session.jsonl", "session.v2.jsonl"]
-      : ["session.jsonl", "session.lock", "session.v2.jsonl"],
+    readdirSync(targetSessionDir).filter((name) => isHistoricalSessionLogName(name)).sort(),
+    ["session.jsonl"],
   );
-  assert.equal(readdirSync(sourceSessionDir).includes("session.v2.jsonl"), false);
-  assert.equal(readdirSync(sourceSessionDir).includes("session.lock"), false);
+
+  await assert.rejects(
+    () => restoreOfficialRc1(join(plan.dshHome, "sessions"), "read"),
+    assertV3RefusesOfficialRc1Chronology,
+  );
+  await assert.rejects(
+    () => restoreOfficialRc1(join(plan.dshHome, "sessions"), "write"),
+    assertV3RefusesOfficialRc1Chronology,
+  );
+  assert.deepEqual(
+    readdirSync(targetSessionDir).filter((name) => isHistoricalSessionLogName(name)).sort(),
+    ["session.jsonl"],
+  );
+  assert.deepEqual(readdirSync(sourceSessionDir).sort(), ["session.jsonl"]);
   assert.deepEqual(readFileSync(join(previousHome, OFFICIAL_RC1_LOG_REL)), original);
   assert.deepEqual(readFileSync(join(plan.dshHome, OFFICIAL_RC1_LOG_REL)), original);
+
+  activateDshHomeBootPlan({ userRoot: root, plan, validation: validProof() });
+  assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_TARGET_VERSION);
+  assert.deepEqual(
+    readdirSync(targetSessionDir).filter((name) => isHistoricalSessionLogName(name)).sort(),
+    ["session.jsonl"],
+  );
 
   rollbackDshHomeUpgrade({
     userRoot: root,
@@ -899,9 +902,11 @@ test("U02 official rc.1 v0 JSONL migrates through Home and restores with 0.1.3-a
   assert.deepEqual(readFileSync(join(previousHome, OFFICIAL_RC1_LOG_REL)), original);
   assert.deepEqual(readdirSync(sourceSessionDir).sort(), ["session.jsonl"]);
 
-  const rolled = await restoreOfficialRc1(join(previousHome, "sessions"), "read");
-  assert.equal(rolled.userText, OFFICIAL_RC1_USER);
-  assert.equal(rolled.assistantText, OFFICIAL_RC1_ASSISTANT);
+  await assert.rejects(
+    () => restoreOfficialRc1(join(previousHome, "sessions"), "read"),
+    assertV3RefusesOfficialRc1Chronology,
+  );
+  assert.deepEqual(readFileSync(join(previousHome, OFFICIAL_RC1_LOG_REL)), original);
 
   assert.throws(
     () => prepareDshHomeForBoot({ userRoot: root, reserveBytes: 0 }),
@@ -966,7 +971,161 @@ test("U02 truncated migrated rc.1 log fails restore; rejection leaves original r
     provenance.sha256,
   );
 
-  const source = await restoreOfficialRc1(join(previousHome, "sessions"), "read");
-  assert.equal(source.userText, OFFICIAL_RC1_USER);
-  assert.equal(source.assistantText, OFFICIAL_RC1_ASSISTANT);
+  await assert.rejects(
+    () => restoreOfficialRc1(join(previousHome, "sessions"), "read"),
+    assertV3RefusesOfficialRc1Chronology,
+  );
+  assert.deepEqual(readFileSync(join(previousHome, OFFICIAL_RC1_LOG_REL)), original);
+  assert.equal(
+    createHash("sha256")
+      .update(readFileSync(join(previousHome, OFFICIAL_RC1_LOG_REL)))
+      .digest("hex"),
+    provenance.sha256,
+  );
 });
+
+test("historical session log names include v0 jsonl and every v2 generation suffix", () => {
+  assert.equal(isHistoricalSessionLogName("session.jsonl"), true);
+  assert.equal(isHistoricalSessionLogName("session.v2.jsonl"), true);
+  assert.equal(isHistoricalSessionLogName("session.v2.jsonl.zstd"), true);
+  assert.equal(isHistoricalSessionLogName("session.v3.jsonl"), true);
+  assert.equal(isHistoricalSessionLogName("session.lock"), false);
+  assert.equal(isHistoricalSessionLogName("session.v2.jsonl.bak"), false);
+});
+
+test("0.5.12 0.1.3-alpha.2 homes upgrade to 0.1.5-alpha.1 without deleting session.v2.jsonl*", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-alpha13-v2-"));
+  const previousHome = join(root, "dsh-homes", `dsh-v${DSH_HOME_ALPHA13_VERSION}`);
+  const sessionDir = join(
+    previousHome,
+    "sessions",
+    "--privacy-safe-workspace--",
+    "penglai-alpha13-v2",
+  );
+  const storageDir = join(previousHome, "storages", "sessions");
+  mkdirSync(sessionDir, { recursive: true, mode: 0o700 });
+  mkdirSync(storageDir, { recursive: true, mode: 0o700 });
+  const v0 = legalSessionJsonl("penglai-alpha13-v2");
+  const v2 = `${JSON.stringify({
+    type: "session",
+    version: 2,
+    id: "penglai-alpha13-v2",
+    createdAt: 1,
+    cwd: "/privacy-safe-workspace",
+    delegationDepth: 0,
+  })}\n`;
+  const v2zstd = Buffer.from("penglai-opaque-session.v2.jsonl.zstd");
+  writeFileSync(join(previousHome, "settings.yaml"), "locale:\n  preference: en\n");
+  writeFileSync(join(sessionDir, "session.jsonl"), v0, { mode: 0o600 });
+  writeFileSync(join(sessionDir, "session.v2.jsonl"), v2, { mode: 0o600 });
+  writeFileSync(join(sessionDir, "session.v2.jsonl.zstd"), v2zstd, { mode: 0o600 });
+  writeFileSync(join(storageDir, "session.jsonl"), v0, { mode: 0o600 });
+  writeFileSync(join(storageDir, "session.v2.jsonl"), v2, { mode: 0o600 });
+  const activatedAt = "2026-09-07T00:00:00.000Z";
+  const targetDigest = "c".repeat(64);
+  writeFileSync(
+    join(previousHome, ".penglai-dsh-home.json"),
+    JSON.stringify({
+      schema: 1,
+      kind: "fresh",
+      dshVersion: DSH_HOME_ALPHA13_VERSION,
+      state: "active",
+      preparedAt: activatedAt,
+      activatedAt,
+      targetDigest,
+    }),
+  );
+  writeFileSync(
+    join(root, "dsh-home-active.json"),
+    JSON.stringify({
+      schema: 1,
+      activeVersion: DSH_HOME_ALPHA13_VERSION,
+      homeRelative: `dsh-homes/dsh-v${DSH_HOME_ALPHA13_VERSION}`,
+      activationKind: "fresh",
+      activatedAt,
+      targetDigest,
+    }),
+  );
+
+  const paths = resolveDshHomeUpgradePaths(root);
+  const journal = prepareDshHomeUpgrade({
+    userRoot: root,
+    operationId: "upgrade-alpha13-v2",
+    availableBytes: 1024 * 1024 * 1024,
+    reserveBytes: 0,
+  });
+  assert.equal(journal.fromVersion, DSH_HOME_ALPHA13_VERSION);
+  assert.equal(journal.toVersion, DSH_HOME_TARGET_VERSION);
+  assert.equal(journal.state, "prepared");
+
+  const sourceSession = join(
+    previousHome,
+    "sessions",
+    "--privacy-safe-workspace--",
+    "penglai-alpha13-v2",
+  );
+  const targetSession = join(
+    paths.targetHome,
+    "sessions",
+    "--privacy-safe-workspace--",
+    "penglai-alpha13-v2",
+  );
+  const sourceStorage = join(previousHome, "storages", "sessions");
+  const targetStorage = join(paths.targetHome, "storages", "sessions");
+  const expectedSessionLogs = [
+    "session.jsonl",
+    "session.v2.jsonl",
+    "session.v2.jsonl.zstd",
+  ];
+  assert.deepEqual(
+    readdirSync(sourceSession).filter((name) => isHistoricalSessionLogName(name)).sort(),
+    expectedSessionLogs,
+  );
+  assert.deepEqual(
+    readdirSync(targetSession).filter((name) => isHistoricalSessionLogName(name)).sort(),
+    expectedSessionLogs,
+  );
+  assert.deepEqual(
+    readdirSync(sourceStorage).filter((name) => isHistoricalSessionLogName(name)).sort(),
+    ["session.jsonl", "session.v2.jsonl"],
+  );
+  assert.deepEqual(
+    readdirSync(targetStorage).filter((name) => isHistoricalSessionLogName(name)).sort(),
+    ["session.jsonl", "session.v2.jsonl"],
+  );
+  assert.equal(readFileSync(join(sourceSession, "session.jsonl"), "utf8"), v0);
+  assert.equal(readFileSync(join(targetSession, "session.jsonl"), "utf8"), v0);
+  assert.equal(readFileSync(join(sourceSession, "session.v2.jsonl"), "utf8"), v2);
+  assert.equal(readFileSync(join(targetSession, "session.v2.jsonl"), "utf8"), v2);
+  assert.deepEqual(readFileSync(join(sourceSession, "session.v2.jsonl.zstd")), v2zstd);
+  assert.deepEqual(readFileSync(join(targetSession, "session.v2.jsonl.zstd")), v2zstd);
+  assert.equal(readFileSync(join(sourceStorage, "session.v2.jsonl"), "utf8"), v2);
+  assert.equal(readFileSync(join(targetStorage, "session.v2.jsonl"), "utf8"), v2);
+
+  const plan = prepareDshHomeForBoot({ userRoot: root, reserveBytes: 0 });
+  assert.equal(plan.kind, "migration-prepared");
+  activateDshHomeBootPlan({ userRoot: root, plan, validation: validProof() });
+  assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_TARGET_VERSION);
+  assert.deepEqual(
+    readdirSync(targetSession).filter((name) => isHistoricalSessionLogName(name)).sort(),
+    expectedSessionLogs,
+  );
+  assert.deepEqual(
+    readdirSync(sourceSession).filter((name) => isHistoricalSessionLogName(name)).sort(),
+    expectedSessionLogs,
+  );
+
+  rollbackDshHomeUpgrade({
+    userRoot: root,
+    operationId: plan.operationId!,
+    reason: "restore previous version",
+  });
+  assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_ALPHA13_VERSION);
+  assert.deepEqual(
+    readdirSync(sourceSession).filter((name) => isHistoricalSessionLogName(name)).sort(),
+    expectedSessionLogs,
+  );
+  assert.equal(readFileSync(join(sourceSession, "session.v2.jsonl"), "utf8"), v2);
+  assert.deepEqual(readFileSync(join(sourceSession, "session.v2.jsonl.zstd")), v2zstd);
+});
+

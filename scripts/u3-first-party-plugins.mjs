@@ -114,7 +114,7 @@ if (!harness) {
 }
 
 const resources = resourcesInside(installed.app, target);
-const alpha2Home = join(userData, "dsh-homes", "dsh-v0.1.3-alpha.2");
+const alpha2Home = join(userData, "dsh-homes", "dsh-v0.1.5-alpha.1");
 const profilePatch = join(alpha2Home, "profiles", "web", "cordis.patch.yml");
 const inventoryPath = join(userData, "plugins", "inventory-snapshot.json");
 const packageRoot = join(alpha2Home, "profiles", "web", "node_modules", "@penglai");

@@ -128,8 +128,8 @@ test("official DSH ships Pi adapter and DeepSeek adapter at the pinned version",
   const deepseekManifest = JSON.parse(readFileSync(deepseekPkg, "utf8")) as { name: string; version: string };
   assert.equal(piManifest.name, "@deepseek-ai/dsh-llm-pi-ai");
   assert.equal(deepseekManifest.name, "@deepseek-ai/dsh-llm-deepseek");
-  assert.equal(piManifest.version, "0.1.3-alpha.2");
-  assert.equal(deepseekManifest.version, "0.1.3-alpha.2");
+  assert.equal(piManifest.version, "0.1.5-alpha.1");
+  assert.equal(deepseekManifest.version, "0.1.5-alpha.1");
   const piMod = await import(pathToFileURL(resolveFrom(piPkg, "@deepseek-ai/dsh-llm-pi-ai")!).href);
   assert.equal(piMod.name, "llm-pi-ai");
   assert.equal(typeof piMod.apply, "function");

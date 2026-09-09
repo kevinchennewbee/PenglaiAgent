@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { foldAlpha2ModelSelection, foldAlpha2Title, hostFromAlpha2Cordis } from "./alpha2-owner-adapter.js";
+import {
+  foldAlpha2ModelSelection,
+  foldAlpha2Title,
+  hostFromAlpha2Cordis,
+  V3_SESSION_EVENT_TYPE_EXTRAS,
+} from "./alpha2-owner-adapter.js";
 
 test("alpha.2 adapter uses the official sessionController for list, create, rename, and model operations", async () => {
   const calls: string[] = [];
@@ -49,7 +54,7 @@ test("alpha.2 adapter uses the official sessionController for list, create, rena
       },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.3-alpha.2");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.5-alpha.1");
   assert.deepEqual(await host.listSessions?.(), [{ id: "session-1", title: "Official title" }]);
   assert.deepEqual(await host.createSession?.("workspace-1", "Penglai"), { id: "session-2" });
   const directory = await host.describeSessionModels?.("session-1");
@@ -113,7 +118,7 @@ test("alpha.2 listSessions trusts title projections and does not inspect cold lo
       async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.3-alpha.2");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.5-alpha.1");
   assert.deepEqual(await host.listSessions?.(), [
     { id: "session-1", title: "Projected" },
     { id: "session-2" },
@@ -148,7 +153,7 @@ test("alpha.2 listSessions trusts the official title projection and does not ins
       async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.3-alpha.2");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.5-alpha.1");
   assert.deepEqual(await host.listSessions?.(), [{ id: "session-1", title: "Old" }]);
   assert.equal(inspected, 0);
   assert.equal(foldAlpha2Title([
@@ -191,7 +196,7 @@ test("alpha.2 adapter uses list model projections and does not inspect cold logs
       async rename(request: { title: string }) { return { title: request.title, seq: 1 }; },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.3-alpha.2");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.5-alpha.1");
   assert.deepEqual((await host.describeSessionModels?.("session-1"))?.current, {
     provider: "deepseek",
     model: "projected",
@@ -221,7 +226,7 @@ test("alpha.2 resume reuses an in-process live Agent on SessionAlreadyOwnedError
       async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.3-alpha.2");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.5-alpha.1");
   assert.equal(await host.resumeAgent("session-1"), live);
 });
 
@@ -246,8 +251,54 @@ test("alpha.2 resume fails closed when SessionAlreadyOwnedError has no live Agen
       async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.3-alpha.2");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.5-alpha.1");
   await assert.rejects(() => host.resumeAgent("session-1"), /already owned by another handle/);
+});
+
+test("owner adapter admits V3 catalog event types and still refuses assistant/chunk", () => {
+  assert.deepEqual(
+    [...V3_SESSION_EVENT_TYPE_EXTRAS].sort(),
+    ["assistant/attempt", "system/message", "tool/ptc-dispatch", "tool/ptc-dispatch-start"],
+  );
+  assert.equal(
+    (V3_SESSION_EVENT_TYPE_EXTRAS as readonly string[]).includes("assistant/chunk"),
+    false,
+  );
+  assert.doesNotThrow(() =>
+    foldAlpha2Title([
+      { type: "system/message", seq: 1, time: 1, data: {} },
+      { type: "assistant/attempt", seq: 2, time: 2, data: {} },
+      { type: "tool/ptc-dispatch-start", seq: 3, time: 3, data: {} },
+      { type: "tool/ptc-dispatch", seq: 4, time: 4, data: {} },
+      { type: "session/title", seq: 5, time: 5, data: { title: "V3" } },
+    ]),
+  );
+  assert.equal(
+    foldAlpha2Title([
+      { type: "system/message", seq: 1, time: 1, data: {} },
+      { type: "assistant/attempt", seq: 2, time: 2, data: {} },
+      { type: "tool/ptc-dispatch-start", seq: 3, time: 3, data: {} },
+      { type: "tool/ptc-dispatch", seq: 4, time: 4, data: {} },
+      { type: "session/title", seq: 5, time: 5, data: { title: "V3" } },
+    ]),
+    "V3",
+  );
+  assert.doesNotThrow(() =>
+    foldAlpha2ModelSelection([
+      { type: "system/message", seq: 1, time: 1, data: {} },
+      { type: "assistant/attempt", seq: 2, time: 2, data: {} },
+      { type: "tool/ptc-dispatch", seq: 3, time: 3, data: {} },
+      { type: "model/selection", seq: 4, time: 4, data: { provider: "p", model: "v3" } },
+    ]),
+  );
+  assert.throws(
+    () => foldAlpha2Title([{ type: "assistant/chunk", seq: 1, time: 1, data: {} }]),
+    /required alpha\.2 Session event is unknown/,
+  );
+  assert.throws(
+    () => foldAlpha2ModelSelection([{ type: "assistant/chunk", seq: 1, time: 1, data: {} }]),
+    /required alpha\.2 Session event is unknown/,
+  );
 });
 
 test("alpha.2 adapter has no apiProxy access path", () => {
@@ -258,5 +309,5 @@ test("alpha.2 adapter has no apiProxy access path", () => {
       return Reflect.get(target, property, receiver);
     } },
   );
-  assert.doesNotThrow(() => hostFromAlpha2Cordis(ctx, "0.1.3-alpha.2"));
+  assert.doesNotThrow(() => hostFromAlpha2Cordis(ctx, "0.1.5-alpha.1"));
 });

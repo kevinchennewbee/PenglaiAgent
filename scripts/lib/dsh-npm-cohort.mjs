@@ -3,13 +3,13 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 
 export const DSH_UPSTREAM = Object.freeze({
-  version: "0.1.3-alpha.2",
-  tag: "dsh-v0.1.3-alpha.2",
-  commit: "82a5fd61a7cf5c293cec4bdff68f455398d685e9",
-  packageCount: 251,
-  rootIntegrity: "sha512-rmf4xgzU9+abvaQ//slyBBhADtPu8fv+SZjxmh4GJwJMZipVa7hNU5m23HgVcB3LNmuGltuQ7jyypuhJ5yU69A==",
-  rootShasum: "4f421920af35f1f9526eb0af2279bec36c304d3e",
-  rootTarballSha256: "6bced5e2da1000509e6d6a2b12242d4aac6ebdda8f12b7fe142a11c474409551",
+  version: "0.1.5-alpha.1",
+  tag: "dsh-v0.1.5-alpha.1",
+  commit: "5dda764ed3aa172535a7967b06ff95d9cbfe536a",
+  packageCount: 258,
+  rootIntegrity: "sha512-AUjywjrPnhXcAdAjRNgyQa1QCnplFTNYZ+XpR9uCZdbg2FiCb06pHyoDUB2Wxuddzid9D7pVwEiU1OTl4Oshsg==",
+  rootShasum: "5d008b33af044fcc726383112c36581f73138d2d",
+  rootTarballSha256: "c75e7e9168500eca90d27813d6d2b02eab124152c995f43bfa5c6a2504ac79e0",
   welcomeNotice: Object.freeze({
     settingsNamespace: "ui-onboarding",
     ackField: "welcomeNoticeVersion",
@@ -38,10 +38,12 @@ export const DSH_VENDOR_VERSIONS = Object.freeze({
   "@deepseek-ai/schemastery": "3.18.2",
 });
 
-export const DSH_LANDLOCK_VERSIONS = Object.freeze({
-  "@deepseek-ai/node-addon-landlock-run": "0.1.1",
-  "@deepseek-ai/node-addon-landlock-run-linux-arm64": "0.1.1",
-  "@deepseek-ai/node-addon-landlock-run-linux-x64": "0.1.1",
+export const DSH_NATIVE_SYSTEM_VERSIONS = Object.freeze({
+  "@deepseek-ai/node-addon-system": "0.1.2",
+  "@deepseek-ai/node-addon-system-darwin-arm64": "0.1.2",
+  "@deepseek-ai/node-addon-system-darwin-x64": "0.1.2",
+  "@deepseek-ai/node-addon-system-linux-arm64": "0.1.2",
+  "@deepseek-ai/node-addon-system-linux-x64": "0.1.2",
 });
 
 const INSTALL_LIFECYCLE_KEYS = ["preinstall", "install", "postinstall"];
@@ -106,8 +108,8 @@ function expectedCategoryAndVersion(manifest, sourcePath) {
     const version = DSH_VENDOR_VERSIONS[manifest.name];
     return version ? { category: "vendor", version } : null;
   }
-  const landlockVersion = DSH_LANDLOCK_VERSIONS[manifest.name];
-  return landlockVersion ? { category: "landlock", version: landlockVersion } : null;
+  const nativeSystemVersion = DSH_NATIVE_SYSTEM_VERSIONS[manifest.name];
+  return nativeSystemVersion ? { category: "native-system", version: nativeSystemVersion } : null;
 }
 
 export function discoverSourcePackages(upstreamRoot) {
@@ -262,19 +264,19 @@ export function validateCohortSnapshot(snapshot) {
   invariant(snapshot.version === DSH_UPSTREAM.version, `unexpected DSH version: ${snapshot.version}`);
   invariant(snapshot.rootTarballSha256 === DSH_UPSTREAM.rootTarballSha256, "@deepseek-ai/dsh tarball SHA-256 mismatch");
   invariant(JSON.stringify(snapshot.upstreamFacts?.welcomeNotice) === JSON.stringify(DSH_UPSTREAM.welcomeNotice), "DSH welcome notice identity mismatch");
-  invariant(snapshot.distTags?.alpha === DSH_UPSTREAM.version, "snapshot npm alpha tag must select the fixed 0.1.3-alpha.2 cohort");
-  invariant(snapshot.distTags?.next === "0.1.2-rc.1", "npm next remains 0.1.2-rc.1 while Penglai consumes alpha.2");
-  invariant(snapshot.distTags?.latest === "0.1.2-rc.1", "npm latest remains 0.1.2-rc.1 while Penglai consumes alpha.2");
+  invariant(snapshot.distTags?.alpha === DSH_UPSTREAM.version, "snapshot npm alpha tag must select the fixed 0.1.5-alpha.1 cohort");
+  invariant(snapshot.distTags?.next === "0.1.2-rc.1", "npm next remains 0.1.2-rc.1 while Penglai consumes 0.1.5-alpha.1");
+  invariant(snapshot.distTags?.latest === "0.1.2-rc.1", "npm latest remains 0.1.2-rc.1 while Penglai consumes 0.1.5-alpha.1");
   const entries = Array.isArray(snapshot.packages) ? snapshot.packages : [];
   invariant(new Set(entries.map((entry) => entry.name)).size === entries.length, "duplicate package in DSH npm cohort");
   const dsh = entries.filter((entry) => entry.category === "dsh");
   const vendor = entries.filter((entry) => entry.category === "vendor");
-  const landlock = entries.filter((entry) => entry.category === "landlock");
+  const nativeSystem = entries.filter((entry) => entry.category === "native-system");
   invariant(dsh.length === DSH_UPSTREAM.packageCount, `DSH package count ${dsh.length}, expected ${DSH_UPSTREAM.packageCount}`);
   invariant(vendor.length === Object.keys(DSH_VENDOR_VERSIONS).length, `vendor package count ${vendor.length}, expected 9`);
-  invariant(landlock.length === Object.keys(DSH_LANDLOCK_VERSIONS).length, `Landlock package count ${landlock.length}, expected 3`);
+  invariant(nativeSystem.length === Object.keys(DSH_NATIVE_SYSTEM_VERSIONS).length, `native-system package count ${nativeSystem.length}, expected 5`);
   for (const entry of entries) {
-    invariant(entry.version === (entry.category === "dsh" ? DSH_UPSTREAM.version : (DSH_VENDOR_VERSIONS[entry.name] ?? DSH_LANDLOCK_VERSIONS[entry.name])), `${entry.name} has unexpected version ${entry.version}`);
+    invariant(entry.version === (entry.category === "dsh" ? DSH_UPSTREAM.version : (DSH_VENDOR_VERSIONS[entry.name] ?? DSH_NATIVE_SYSTEM_VERSIONS[entry.name])), `${entry.name} has unexpected version ${entry.version}`);
     invariant(entry.license === "MIT" || entry.license === "BSD-3-Clause", `${entry.name} has unexpected license ${entry.license}`);
     invariant(/^sha512-/.test(entry.integrity ?? ""), `${entry.name} is missing sha512 integrity`);
     invariant(/^[a-f0-9]{40}$/.test(entry.shasum ?? ""), `${entry.name} has invalid npm shasum`);
@@ -284,8 +286,10 @@ export function validateCohortSnapshot(snapshot) {
     );
     invariant(Array.isArray(entry.signatures) && entry.signatures.length > 0, `${entry.name} is missing npm registry signatures`);
     const officialRepository = entry.repositoryUrl === "https://github.com/deepseek-ai/deepseek-harness";
-    const legacyLandlockRepository = entry.category === "landlock" && entry.repositoryUrl === "https://github.com/deepseek-harness/deepseek-harness";
-    invariant(officialRepository || legacyLandlockRepository, `${entry.name} has unexpected repository ${entry.repositoryUrl}`);
+    const nativeSystemRepository =
+      entry.category === "native-system" &&
+      entry.repositoryUrl === "https://github.com/deepseek-harness/deepseek-harness";
+    invariant(officialRepository || nativeSystemRepository, `${entry.name} has unexpected repository ${entry.repositoryUrl}`);
   }
   const names = new Set(entries.map((entry) => entry.name));
   for (const name of DSH_REQUIRED_PACKAGES) invariant(names.has(name), `required cohort package missing: ${name}`);
@@ -296,7 +300,7 @@ export function validateCohortSnapshot(snapshot) {
   const withLifecycle = entries.filter((entry) => Object.keys(entry.installLifecycleScripts ?? {}).length > 0);
   invariant(withLifecycle.length === 1, `unexpected install lifecycle scripts in ${withLifecycle.map((entry) => entry.name).join(", ") || "none"}`);
   invariant(JSON.stringify(withLifecycle[0]?.installLifecycleScripts) === JSON.stringify(EXPECTED_INSTALL_LIFECYCLE[withLifecycle[0]?.name]), "unexpected DSH install lifecycle command");
-  return { dsh: dsh.length, vendor: vendor.length, landlock: landlock.length, total: entries.length };
+  return { dsh: dsh.length, vendor: vendor.length, nativeSystem: nativeSystem.length, total: entries.length };
 }
 
 export function verifyCohortLock(snapshot, lockText) {
@@ -319,6 +323,8 @@ export function verifyCohortLock(snapshot, lockText) {
     invariant(installed.get(required) === DSH_UPSTREAM.version, `pnpm lock is missing required ${required}@${DSH_UPSTREAM.version}`);
   }
   invariant(!lockText.includes("0.1.2-alpha.1"), "pnpm lock still contains alpha.1");
+  invariant(!lockText.includes("0.1.3-alpha.2"), "pnpm lock still contains 0.1.3-alpha.2");
+  invariant(!lockText.includes("node-addon-landlock-run"), "pnpm lock still contains Landlock packages from a previous DSH generation");
   invariant(!lockText.includes("@deepseek-ai/dsh-client-runtime"), "pnpm lock contains removed dsh-client-runtime");
   return { packages: installed.size };
 }

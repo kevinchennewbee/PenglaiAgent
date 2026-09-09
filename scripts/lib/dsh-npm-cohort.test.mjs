@@ -11,13 +11,13 @@ import {
   verifyCohortLock,
 } from "./dsh-npm-cohort.mjs";
 
-test("discovers public fixed DSH, vendor, and Landlock source packages", () => {
+test("discovers public fixed DSH, vendor, and native-system source packages", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-npm-cohort-"));
   const fixtures = [
     ["apps/cli", { name: "@deepseek-ai/dsh", version: DSH_UPSTREAM.version, license: "MIT" }],
     ["packages/util/deque", { name: "@deepseek-ai/dsh-deque", version: DSH_UPSTREAM.version, license: "MIT" }],
     ["vendor/cordis", { name: "@deepseek-ai/cordis", version: "4.0.2", license: "MIT" }],
-    ["native/landlock-run/packages/entry", { name: "@deepseek-ai/node-addon-landlock-run", version: "0.1.1", license: "BSD-3-Clause" }],
+    ["native/system/packages/entry", { name: "@deepseek-ai/node-addon-system", version: "0.1.2", license: "BSD-3-Clause" }],
     ["packages/private/fixture", { name: "@deepseek-ai/dsh-private", version: DSH_UPSTREAM.version, private: true }],
   ];
   writeFileSync(join(root, "package.json"), JSON.stringify({ name: "root", private: true }));
@@ -31,7 +31,7 @@ test("discovers public fixed DSH, vendor, and Landlock source packages", () => {
     { name: "@deepseek-ai/cordis", category: "vendor" },
     { name: "@deepseek-ai/dsh", category: "dsh" },
     { name: "@deepseek-ai/dsh-deque", category: "dsh" },
-    { name: "@deepseek-ai/node-addon-landlock-run", category: "landlock" },
+    { name: "@deepseek-ai/node-addon-system", category: "native-system" },
   ]);
 });
 

@@ -33,7 +33,8 @@ Public README/website download tables remain **0.5.12** until immutable
   as `UNAUTHORIZED` for wizard `errorAuth`; stale workspace error cleared
   on path/id change. No model-id regex exceptions.
 - Four actual native targets from one clean `main` SHA: Apple Silicon,
-  Intel Mac, Windows x64, and Loongson UnionTech UOS (`linux-loong64`).
+  Intel Mac, Windows x64, and Loongson UnionTech UOS 20 Professional 1070
+  (`linux-loong64`, kernel 4.19.0-loongson-3-desktop, old-world; not V25).
   A feasibility note, cross-build, or three-platform set is not a
   completed four-platform release.
 - Linux desktop packaging class: layout, `.deb`, desktop integration,
@@ -65,10 +66,13 @@ Public README/website download tables remain **0.5.12** until immutable
 
 ## Cohort freeze (development)
 
-Exact identities will be recorded in `COHORT_FREEZE.json` and must match
-`packages/release-identity/src/pins.ts` plus `release-contract.json` after
-F03/F04. Until that freeze, shipped pins remain 0.5.12; this delta
-authorizes the 0.6.0 retitle only together with the chosen cohort.
+Development pins now match `packages/release-identity/src/pins.ts`,
+`release-contract.json`, `release-info.json`, and
+`docs/0.6.0/DSH_NPM_COHORT.json`: official DSH `0.1.5-alpha.1` /
+`5dda764e…` / 272 packages. `PRODUCT_VERSION` and `RELEASE_TARGETS`
+remain the published 0.5.12 three-target set until F05 identity
+retitle. Public README/website/release notes stay on published DSH
+`0.1.3-alpha.2`.
 
 Facts already observed (2026-09-09):
 
@@ -85,8 +89,13 @@ Facts already observed (2026-09-09):
   `dsh-v0.1.3-alpha.2...dsh-v0.1.5-alpha.1`. npm has no `0.1.4`.
 - Discovered complete npm graph: **272** packages (258 DSH + 9 vendor +
   5 `node-addon-system@0.1.2`). Not 254 or 263. Do not mix leftover
-  Landlock `0.1.1` from 0.5.12. F03 still writes this graph into product
-  pins.
+  Landlock `0.1.1` from 0.5.12. This graph is now the development pin.
+- Session V3: Home copy keeps `session.jsonl` and every
+  `session.vN.jsonl*`. Official DSH 0.1.5 refuses v0/v2 logs whose first
+  surface arrives before `step/start` (`SessionFormatUnsupportedError`,
+  same class as DSH `expectedUnsupported`) and does not write a successor
+  or mutate the original. Rollback restores the previous Home pointer.
+  That is fail-closed preservation, not replay PASS.
 
 ## Conditional records
 
@@ -94,9 +103,9 @@ Facts already observed (2026-09-09):
 - Hosted Windows Defender-on: `I02_HOST_UNAVAILABLE` is honest, not a
   fake PASS and not a product defect. Do not weaken Defender or treat
   default-off as normal OS.
-- UOS/LoongArch native PASS requires matching hardware (or a signed UOS
-  loong64 environment that actually boots that ABI). QEMU on Mac is not
-  native Loongson proof.
+- UOS native PASS requires the confirmed UOS 20 Professional 1070 /
+  3A6000-HV / kernel 4.19 host (old-world). QEMU on Mac is not native
+  proof. V25 is not this target.
 
 ## 中文
 

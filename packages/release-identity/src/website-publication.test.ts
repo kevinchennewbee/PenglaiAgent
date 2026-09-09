@@ -51,7 +51,7 @@ function narrative(exactBytes: boolean): string {
   });
   return [
     `Penglai ${PRODUCT_VERSION}`,
-    "0.1.3-alpha.2",
+    "0.1.5-alpha.1",
     sourceSha,
     `https://github.com/${repo}/releases/tag/${tag}`,
     `docs/RELEASE_NOTES_${PRODUCT_VERSION}.md`,
@@ -72,7 +72,7 @@ function validInput(): WebsitePublicationInput {
     repo,
     version: PRODUCT_VERSION,
     tag,
-    dshVersion: "0.1.3-alpha.2",
+    dshVersion: "0.1.5-alpha.1",
     peeledSourceSha: sourceSha,
     targetCommitish: sourceSha,
     releaseManifestSourceSha: sourceSha,

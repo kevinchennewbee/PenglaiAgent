@@ -4,6 +4,9 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PRODUCT_VERSION, PINNED_DSH } from "./pins.js";
+
+/** Immutable published 0.5.12 notes/README/website still freeze DSH 0.1.3-alpha.2. */
+const PUBLISHED_DSH = "0.1.3-alpha.2";
 import {
   assertCommittedTemplateIdentity,
   assertObservedReleaseFacts,
@@ -132,7 +135,7 @@ test("published README, website and security match the current observed manifest
   const pages = ["website/index.html", "website/zh/index.html", "website/en/index.html"].map((path) => readFileSync(join(root, path), "utf8"));
   const contract = JSON.parse(readFileSync(join(root, "release-contract.json"), "utf8"));
   assert.ok(manifest.includes("PUBLIC_READBACK_PASS"));
-  assert.ok(notes.includes(PINNED_DSH));
+  assert.ok(notes.includes(PUBLISHED_DSH));
   assert.ok(notes.includes("not notarized"));
   for (const target of contract.targets) {
     const row = manifest.split(/\r?\n/).find((line) => line.startsWith("|") && line.includes(target.installer));
@@ -142,7 +145,7 @@ test("published README, website and security match the current observed manifest
     const bytes = cells.find((cell) => /^[1-9][0-9,]*$/.test(cell));
     assert.ok(sha && bytes, `current manifest lacks exact bytes for ${target.installer}`);
     for (const content of [readme, ...pages]) {
-      assert.ok(content.includes(PRODUCT_VERSION) && content.includes(PINNED_DSH));
+      assert.ok(content.includes(PRODUCT_VERSION) && content.includes(PUBLISHED_DSH));
       assert.ok(content.includes(`https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${PRODUCT_VERSION}/${target.installer}`));
       assert.ok(content.includes(sha));
     }
@@ -151,7 +154,7 @@ test("published README, website and security match the current observed manifest
   }
   const security = readFileSync(join(root, "SECURITY.md"), "utf8");
   assert.ok(security.includes(`${PRODUCT_VERSION} | Current immutable public release`));
-  assert.ok(security.includes(PINNED_DSH));
+  assert.ok(security.includes(PUBLISHED_DSH));
   assert.match(security, /Eight platforms have connection entries/);
   assert.match(security, /security\/advisories\/new/);
   assert.doesNotMatch([readme, ...pages, security].join("\n"), /two-hour installed soak remain|两小时安装版稳定运行仍/);
