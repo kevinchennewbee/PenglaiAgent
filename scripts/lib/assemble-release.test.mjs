@@ -26,13 +26,14 @@ test("assemble-release refuses a signing key that does not match the embedded up
       macosAarch64DmgName(),
       macosX64DmgName(),
       windowsSetupName(),
+      `Penglai_${PRODUCT_VERSION}_uos_loong64.deb`,
     ];
     const nativeEvidence = join(temp, "native-evidence");
     mkdirSync(nativeEvidence);
     const assets = names.map((name, index) => {
       const bytes = Buffer.from(`native-fixture-${index}`);
       writeFileSync(join(staging, name), bytes);
-      const target = ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"][index];
+      const target = ["darwin-aarch64", "darwin-x86_64", "win32-x86_64", "linux-loong64"][index];
       writeFileSync(
         join(nativeEvidence, `local-installer-${target}.json`),
         JSON.stringify({ target, sourceSha, installer: name, sha256: sha256(bytes), treeDirty: false }),

@@ -21,6 +21,7 @@ import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ROOT } from "./lib/repo.mjs";
 import { PRODUCT_VERSION, UPDATER_SEQUENCE } from "./lib/product.mjs";
+import { NATIVE_INSTALLED_TARGETS } from "./lib/release-targets.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { githubReleaseEndpoint } from "./lib/github-release.mjs";
 
@@ -91,11 +92,13 @@ if (!nodeTest) {
 const installers = Array.isArray(contract.targets)
   ? contract.targets.map((row) => ({ target: String(row.key), name: String(row.installer) }))
   : [];
-if (installers.length !== 3) fail("release contract must declare exactly three installers");
+if (installers.length !== contract.targets.length) {
+  fail("release contract must declare every exact installer target");
+}
 const installerNames = installers.map((row) => row.name).sort();
 const startingFiles = readdirSync(staging).sort();
 if (JSON.stringify(startingFiles) !== JSON.stringify(installerNames)) {
-  fail(`staging must initially contain only the three installers: ${JSON.stringify(startingFiles)}`);
+  fail(`staging must initially contain only the contract installers: ${JSON.stringify(startingFiles)}`);
 }
 const nativeEvidenceDir = resolve(option("--native-evidence-dir", join(ROOT, "evidence/generated")));
 
@@ -181,10 +184,10 @@ if (
 const releaseAssets = Array.isArray(release.assets) ? release.assets : [];
 const installerAssets = new Map(releaseAssets.map((asset) => [String(asset.name), asset]));
 if (
-  releaseAssets.length !== 3 ||
+  releaseAssets.length !== installerNames.length ||
   releaseAssets.some((asset) => !installerNames.includes(String(asset.name)))
 ) {
-  fail("draft Release must contain only the three exact installer assets");
+  fail("draft Release must contain only the exact installer assets");
 }
 
 const installerRows = installers.map(({ target, name }) => {
@@ -295,16 +298,18 @@ const updateManifest = {
   publicExportTreeSha256: publicExport.publicExportTreeSha256,
   releaseManifestSha256: sha256(releaseManifestBytes),
   platforms: Object.fromEntries(
-    installerRows.map((row) => [
-      row.target,
-      {
-        assetId: row.assetId,
-        url: `https://github.com/${contract.publication.repo}/releases/download/${tag}/${row.name}`,
-        size: row.size,
-        sha256: row.sha256,
-        signature: signBytes(row.bytes, privateKey).toString("base64"),
-      },
-    ]),
+    installerRows
+      .filter((row) => NATIVE_INSTALLED_TARGETS.includes(row.target))
+      .map((row) => [
+        row.target,
+        {
+          assetId: row.assetId,
+          url: `https://github.com/${contract.publication.repo}/releases/download/${tag}/${row.name}`,
+          size: row.size,
+          sha256: row.sha256,
+          signature: signBytes(row.bytes, privateKey).toString("base64"),
+        },
+      ]),
   ),
   migration: { fromSchema: 3, toSchema: 3, backupRequired: true, rollbackCompatible: true },
 };
@@ -315,7 +320,7 @@ writeFileSync(join(staging, "update-manifest-v1.json.sig"), updateSignature);
 
 const parsed = parseAppUpdateManifest(JSON.parse(updateBytes.toString("utf8")), issuedMs);
 verifyBytes(updateBytes, updateSignature, EMBEDDED_UPDATER_PUBLIC_KEY.publicKeyHex);
-for (const row of installerRows) {
+for (const row of installerRows.filter((entry) => NATIVE_INSTALLED_TARGETS.includes(entry.target))) {
   verifyBytes(row.bytes, Buffer.from(parsed.platforms[row.target].signature, "base64"), EMBEDDED_UPDATER_PUBLIC_KEY.publicKeyHex);
 }
 
