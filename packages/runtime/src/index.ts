@@ -135,7 +135,14 @@ export function assertAbsoluteExecutable(path: string, label: string): void {
   if (!st.isFile()) throw new PenglaiError("DSH_UNAVAILABLE", `${label} is not a file`);
 }
 
-export function resolveRuntimeLayout(appRoot: string, platform: "darwin" | "win32" = process.platform === "win32" ? "win32" : "darwin"): RuntimeLayout {
+export function resolveRuntimeLayout(
+  appRoot: string,
+  platform: "darwin" | "win32" | "linux" = process.platform === "win32"
+    ? "win32"
+    : process.platform === "linux"
+      ? "linux"
+      : "darwin",
+): RuntimeLayout {
   const root = resolve(appRoot);
   const nodeBin =
     platform === "win32" ? join(root, "runtime", "node", "node.exe") : join(root, "runtime", "node", "bin", "node");

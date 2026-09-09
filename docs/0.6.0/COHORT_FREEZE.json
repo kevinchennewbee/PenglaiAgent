@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "kind": "penglai-0.6.0-development-cohort-freeze",
+  "status": "discovery",
+  "publicRelease": {
+    "productVersion": "0.5.12",
+    "tag": "v0.5.12",
+    "immutable": true
+  },
+  "previousPublicRelease": {
+    "productVersion": "0.5.11",
+    "tag": "v0.5.11",
+    "immutable": true
+  },
+  "development": {
+    "versionLabel": "0.6.0",
+    "publicationAuthorized": true,
+    "identityRetitled": false,
+    "baseMain": "c3ea3f08822386a0345e8c1900368041302a839c"
+  },
+  "dsh": {
+    "candidateVersion": "0.1.5-alpha.1",
+    "tag": "dsh-v0.1.5-alpha.1",
+    "commit": "5dda764ed3aa172535a7967b06ff95d9cbfe536a",
+    "packageCount": 272,
+    "packageCountBreakdown": {
+      "dsh": 258,
+      "vendor": 9,
+      "nodeAddonSystem": 5
+    },
+    "rootIntegrity": "sha512-AUjywjrPnhXcAdAjRNgyQa1QCnplFTNYZ+XpR9uCZdbg2FiCb06pHyoDUB2Wxuddzid9D7pVwEiU1OTl4Oshsg==",
+    "rootShasum": "5d008b33af044fcc726383112c36581f73138d2d",
+    "tarballSha256": "c75e7e9168500eca90d27813d6d2b02eab124152c995f43bfa5c6a2504ac79e0",
+    "notes": "Discovered 2026-09-09 from registry.npmjs.org + source tag. Not copied from 254 or 263. Landlock 0.1.1 is not in this tree; native sandbox is node-addon-system 0.1.2. Status remains discovery until F03 writes the graph into product pins."
+  },
+  "dshIm": {
+    "npm": "@xmanrui/dsh-im@4.17.1",
+    "commit": "464c0a91762ebd0befc2d179f036eaae4864fb0e",
+    "license": "MIT",
+    "tarballSha256": "607a775b29e1355ab3f2953e45fb217f1102685202e0eca9f121d59abb138fec",
+    "use": "selective port into @penglai/im; do not install runtime; do not copy cordis.patch.yml; do not ship WhatsApp or replace Office"
+  },
+  "runtime": {
+    "node": "22.23.2",
+    "electronMacWindows": "43.6.0",
+    "electronLoong64": "43.4.1",
+    "electronLoong64Source": "https://github.com/darkyzhou/electron-loong64/releases/download/v43.4.1/electron-v43.4.1-linux-loong64.zip",
+    "electronLoong64Sha256": "58c900f8c38d42290fb4bdc0dc3df90a5977efd96aa39f06ce4bf4345a2fc4e9",
+    "nodeLoong64Source": "https://unofficial-builds.nodejs.org/download/release/v22.23.2/node-v22.23.2-linux-loong64.tar.gz",
+    "nodeLoong64Sha256": "36d02422cc40211415b394b9e24d2d62c0a346405410a0cbdc13a11f97ec4cd1",
+    "pnpm": "11.7.0",
+    "onnxruntimeNode": "1.23.2"
+  },
+  "targets": [
+    "darwin-aarch64",
+    "darwin-x86_64",
+    "win32-x86_64",
+    "linux-loong64"
+  ],
+  "migration": {
+    "session": "v3-preserve-originals-no-downgrade",
+    "homeGeneration": "preserve-previous-DSH-Home-then-health-check-before-pointer-switch",
+    "center": "last-good-profile",
+    "windowsUpgrade": "INSTDIR.pending-then-INSTDIR.previous",
+    "mixedDshGenerations": "forbidden"
+  }
+}

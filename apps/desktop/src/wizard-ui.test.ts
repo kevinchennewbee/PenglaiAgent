@@ -161,6 +161,7 @@ test("wizard API-test classifier distinguishes auth, rate, model, timeout, netwo
   assert.ok(match);
   const classify = Function(`${match[0]}; return classifyApiTestError;`)() as (err: unknown) => string;
   assert.equal(classify(new Error("401 unauthorized invalid key")), "auth");
+  assert.equal(classify(new Error("Penglai request rejected: UNAUTHORIZED")), "auth");
   assert.equal(
     classify({ isDSHRemoteError: true, code: "AUTH", message: "401 unauthorized invalid key" }),
     "auth",
@@ -197,4 +198,8 @@ test("wizard API-test classifier distinguishes auth, rate, model, timeout, netwo
   assert.doesNotMatch(js, /if \(!result \|\| result\.passed !== true\) throw new Error\(t\("errorGeneric"\)\)/);
   assert.match(js, /official nonce Turn did not complete/);
   assert.match(js, /official first Turn did not complete/);
+  assert.match(
+    js,
+    /state\.workspacePath = String\(picked\);\s*state\.workspaceId = "";\s*state\.error = "";/,
+  );
 });

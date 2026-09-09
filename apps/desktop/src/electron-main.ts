@@ -287,10 +287,12 @@ async function main(): Promise<void> {
     app.exit(2);
     return;
   }
-  const platform = process.platform === "darwin" || process.platform === "win32"
-    ? process.platform
-    : undefined;
+  const platform =
+    process.platform === "darwin" || process.platform === "win32" || process.platform === "linux"
+      ? process.platform
+      : undefined;
   if (!platform) throw new PenglaiError("SECURITY_POLICY", `unsupported desktop platform ${process.platform}`);
+  releaseTarget(platform, process.arch);
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("disable-gpu");
   app.commandLine.appendSwitch("in-process-gpu");
@@ -300,6 +302,13 @@ async function main(): Promise<void> {
     ...(process.env.PENGLAI_USER_DATA ? { envUserData: process.env.PENGLAI_USER_DATA } : {}),
     ...(platform === "win32" && process.env.LOCALAPPDATA
       ? { localAppData: process.env.LOCALAPPDATA }
+      : {}),
+    ...(platform === "linux"
+      ? {
+          ...(process.env.XDG_DATA_HOME ? { dataHome: process.env.XDG_DATA_HOME } : {}),
+          ...(process.env.XDG_CACHE_HOME ? { cacheHome: process.env.XDG_CACHE_HOME } : {}),
+          ...(process.env.XDG_STATE_HOME ? { stateHome: process.env.XDG_STATE_HOME } : {}),
+        }
       : {}),
   });
   // Electron keys the single-instance lock by userData. Set the generation or

@@ -28,6 +28,10 @@ import {
   createPenglaiOnboardingRemoteImpl,
   PenglaiOnboardingRemote,
 } from "./onboarding-remote.js";
+import {
+  createPenglaiModelInputImpl,
+  PenglaiModelInputRemote,
+} from "./model-input-remote.js";
 import { recoverInterruptedTransaction, type ResourceCounts } from "./profile-tx.js";
 import {
   releaseOnboardingTestWorkspaces,
@@ -746,6 +750,7 @@ export async function apply(ctx: {
     agents: official,
   });
   new PenglaiOnboardingRemote(ctx as never, onboarding);
+  new PenglaiModelInputRemote(ctx as never, createPenglaiModelInputImpl(official));
   void releaseOnboardingTestWorkspaces(
     official.workspaceRegistry,
     join(userData, "onboarding"),

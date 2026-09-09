@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 export const GENERATION_ID = "penglai-dsh-v0.5";
 
-export type LayoutPlatform = "darwin" | "win32";
+export type LayoutPlatform = "darwin" | "win32" | "linux";
 
 export interface GenerationLayout {
   generationId: string;
@@ -22,8 +22,28 @@ export function resolveGenerationLayout(opts: {
   home?: string;
   localAppData?: string;
   libraryRoot?: string;
+  dataHome?: string;
+  cacheHome?: string;
+  stateHome?: string;
 }): GenerationLayout {
   const home = opts.home ?? homedir();
+  if (opts.platform === "linux") {
+    const dataHome = opts.dataHome ?? join(home, ".local", "share");
+    const cacheHome = opts.cacheHome ?? join(home, ".cache");
+    const stateHome = opts.stateHome ?? join(home, ".local", "state");
+    const userData = join(dataHome, "Penglai", "0.5");
+    return {
+      generationId: GENERATION_ID,
+      userData,
+      dshHome: join(userData, "dsh-home"),
+      logs: join(stateHome, "Penglai", "0.5", "logs"),
+      cache: join(cacheHome, "Penglai", "0.5"),
+      updates: join(cacheHome, "Penglai", "0.5", "updates"),
+      im: join(userData, "im"),
+      uninstall: join(userData, "uninstall"),
+      legacyCandidates: [join(home, ".dsh")],
+    };
+  }
   if (opts.platform === "darwin") {
     const library = opts.libraryRoot ?? join(home, "Library");
     const userData = join(library, "Application Support", "Penglai", "0.5");

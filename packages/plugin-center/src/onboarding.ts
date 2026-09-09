@@ -1032,16 +1032,22 @@ export function viewOfficialSessionEvent(args: unknown[]): {
   };
 }
 
-function turnFailureFromReason(reason: unknown): PenglaiError | undefined {
+const AUTH_TURN_FAILURE =
+  /\bAUTH\b|401|403|unauthorized|invalid.?key|authentication fails|MISSING_CREDENTIAL|no credential|no API key/i;
+
+export function turnFailureFromReason(reason: unknown): PenglaiError | undefined {
   const rec = asRecord(reason);
   if (!rec || rec.kind !== "error") return undefined;
   const error = rec.error;
-  if (typeof error === "string" && error.trim()) return new PenglaiError("INVALID_INPUT", error);
+  if (typeof error === "string" && error.trim()) {
+    return new PenglaiError(AUTH_TURN_FAILURE.test(error) ? "UNAUTHORIZED" : "INVALID_INPUT", error);
+  }
   const detail = asRecord(error);
   const code = typeof detail?.code === "string" ? detail.code : "";
   const status = typeof detail?.status === "number" ? String(detail.status) : "";
   const message = typeof detail?.message === "string" && detail.message.trim() ? detail.message : "official turn failed";
-  return new PenglaiError("INVALID_INPUT", [code, status, message].filter(Boolean).join(" "));
+  const joined = [code, status, message].filter(Boolean).join(" ");
+  return new PenglaiError(AUTH_TURN_FAILURE.test(`${code} ${status} ${message}`) ? "UNAUTHORIZED" : "INVALID_INPUT", joined);
 }
 
 async function runOfficialTurn(

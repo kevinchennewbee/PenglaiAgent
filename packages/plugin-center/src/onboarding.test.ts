@@ -24,6 +24,7 @@ import {
   onboardingApiTestCwd,
   releaseOnboardingTestWorkspaces,
   runOfficialNonceTurn,
+  turnFailureFromReason,
 } from "./onboarding.js";
 import { contribute } from "./client.js";
 import { assertOnboardingRemoteHasNoSecretSurface } from "./onboarding-remote.js";
@@ -690,6 +691,24 @@ test("official nonce Turn observes (session, event) firehose without sessionId i
   const result = await impl.testSelectedModel({ nonce: "fire1" });
   assert.equal((result as { passed?: boolean }).passed, true);
   assert.equal(impl.status().current, "workspace-v1");
+});
+
+test("official AUTH 401 turn/end is UNAUTHORIZED so the wizard can show errorAuth", () => {
+  const auth = turnFailureFromReason({
+    kind: "error",
+    error: {
+      message: "Authentication Fails, Your api key: ****0001 is invalid",
+      code: "AUTH",
+      status: 401,
+    },
+  });
+  assert.equal(auth?.errorClass, "UNAUTHORIZED");
+  assert.match(auth?.message ?? "", /AUTH|401|Authentication Fails/);
+  const other = turnFailureFromReason({
+    kind: "error",
+    error: { message: "disk full", code: "SERVER", status: 500 },
+  });
+  assert.equal(other?.errorClass, "INVALID_INPUT");
 });
 
 test("MISSING_CREDENTIAL on official turn/end fails as auth without waiting out the nonce timeout", async () => {

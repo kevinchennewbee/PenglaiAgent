@@ -710,6 +710,7 @@
               onChange: (ev) => {
                 state.workspaceId = ev.target.value;
                 if (state.workspaceId) state.workspacePath = "";
+                state.error = "";
                 render();
               },
             },
@@ -746,6 +747,7 @@
                 if (picked) {
                   state.workspacePath = String(picked);
                   state.workspaceId = "";
+                  state.error = "";
                   render();
                 }
               } catch (err) {

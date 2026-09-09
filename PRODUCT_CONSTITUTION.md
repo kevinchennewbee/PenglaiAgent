@@ -39,17 +39,22 @@
 
 ## 当前发行边界
 
-- 当前产品与发布契约为 **Penglai v0.5.12**（D-068）。公开下载身份在不可变
-  `v0.5.12` 回读前仍是已发布的 **v0.5.11**。已发布的 **v0.5.10** 与 **v0.5.11**
-  tag 与附件保持不可变。0.5.12 消费官方 DSH `0.1.3-alpha.2` 完整 263 包 npm
-  cohort（`82a5fd61a7cf5c293cec4bdff68f455398d685e9`）。蓬莱办公与蓬莱记忆为 required-builtin DSH 插件；
-  消息连接、语音识别、语音生成、主动陪伴随包但默认关闭。机器可读候选身份来自
-  `packages/release-identity/src/pins.ts` 与 `release-contract.json`；公开下载
-  事实只来自不可变 GitHub Release 回读。
-- 三个 target key 全仓统一：`darwin-aarch64`、`darwin-x86_64`、`win32-x86_64`。
-  0.5.12 目标安装包在身份改写后为 `Penglai_0.5.12_macos_aarch64.dmg`、
-  `Penglai_0.5.12_macos_x64.dmg`、`Penglai_0.5.12_windows_x64_setup.exe`。
-  禁止把 ARM Electron 改名成 Intel 包；禁止把 Windows 预检或交叉编译写成 native PASS。
+- 当前产品与发布契约为 **Penglai v0.5.12**（D-068，已发布）。当前**开发树**为
+  **Penglai 0.6.0**（D-070）。公开下载身份在不可变 `v0.6.0` 回读前仍是已发布的
+  **v0.5.12**。已发布的 **v0.5.10**、**v0.5.11** 与 **v0.5.12** tag 与附件保持
+  不可变。0.6.0 将消费官方 DSH `0.1.5-alpha.1` 完整 npm cohort（tag
+  `dsh-v0.1.5-alpha.1` / commit `5dda764ed3aa172535a7967b06ff95d9cbfe536a`）；
+  包数以实际依赖图为准，不得假定 254 或 263。在 F04/F05 身份改写前，机器可读
+  候选身份仍来自 `packages/release-identity/src/pins.ts` 与
+  `release-contract.json` 中的 0.5.12 钉选。公开下载事实只来自不可变 GitHub
+  Release 回读。蓬莱办公与蓬莱记忆为 required-builtin DSH 插件；消息连接、
+  语音识别、语音生成、主动陪伴随包但默认关闭。
+- 四个 target key 全仓统一：`darwin-aarch64`、`darwin-x86_64`、`win32-x86_64`、
+  `linux-loong64`（龙芯新世界 + 统信 UOS）。0.6.0 目标安装包在身份改写后为
+  `Penglai_0.6.0_macos_aarch64.dmg`、`Penglai_0.6.0_macos_x64.dmg`、
+  `Penglai_0.6.0_windows_x64_setup.exe`、`Penglai_0.6.0_uos_loong64.deb`。
+  禁止把 ARM Electron 改名成 Intel 包；禁止把 Windows 预检、交叉编译、QEMU
+  或 linux-x64 写成龙芯 native PASS。可行性备忘或三端发布不能冒充四端完成。
 - 0.5.0 已发布的 Apple Silicon 客户端只能手动覆盖安装到 0.5.1；0.5.1 之后同平台才走 PUDP。不得声称 0.5.0 可一键升级。Intel/Windows 在 0.5.0 没有客户端，视为全新安装。
 - PPDP 是 0.5.1 产品能力，不是未来 TODO：签名目录、受限 GitHub 资产下载、默认禁用、主进程 Owner capability、DSH loader/profile 事务、inventory 回读。
 - 本地语音与第一方插件合同：`@penglai/asr`、`@penglai/moss-tts` 必须进入真实 DSH loader/Center，并服务 DSH Web 与 live 微信/飞书的受支持能力。会话 Read 朗读原文，不冒充翻译。`@penglai/office` 与 `@penglai/memory` 是 required-builtin；`@penglai/im`、`@penglai/asr`、`@penglai/moss-tts`、`@penglai/companion` 随包且默认关闭。旧 `@penglai/context` 只用于迁移。Goal/Todo/Skills/MCP/Web/图片 Attachments/Schedule/TokenMeter 使用 official DSH。alpha.2 已有 official generic file Turn（uploadFile receipt）；仍不得用 DOM hack 或第二会话引擎补齐，也不得在 Penglai 未接线前宣称会话输入框支持普通文档。
@@ -60,7 +65,8 @@
 - 默认“智能整理 Workspace”：自动 curator 必须走 official Agent、禁用工具、Host 封闭校验，只能把安全项目事实写入 exact Workspace；个人/全局记忆仍需 Owner 确认，召回不得跨 Workspace。
 - Owner 已授权 **Penglai 0.5.11** 完整开发、正常测试、推送与 PR 合并、三端原生构建、完整十项附件发布及 README/官网收尾；固定官方 DSH `0.1.2-rc.1` npm cohort；明确排除两小时测试。该授权已完成。已发布的 0.5.10 与 0.5.11 tag 与附件不得改写。临时 API key、聊天正文、二维码、账号身份、私有路径、profile、凭据或私钥仍不得上传。
 - **0.5.11 发布授权**（D-067，已完成）：消费官方 DSH `0.1.2-rc.1` 完整 254 包 npm cohort；当时拒绝用不完整的 `dsh-v0.1.3-alpha.1` 标签混装。公开身份为 **0.5.11**。精确冻结记录见 `docs/0.5.11/COHORT_FREEZE.json`。
-- **0.5.12 全流程授权**（D-068）：完整开发、上游升级适配、缺陷修复、正常测试、推送与 PR 合并、三端原生构建、精确十项附件不可变发布及 README/既有官网更新与公开回读。优先官方 DSH `0.1.3-alpha.2` 完整后继 npm cohort；包数以实际依赖图为准。明确排除两小时测试；`test:soak` 保留。缺真实账号凭据记 `LIVE_NOT_RUN`，不升为新发布阻断。精确冻结见 `docs/0.5.12/`。
+- **0.5.12 全流程授权**（D-068，已完成）：完整开发、上游升级适配、缺陷修复、正常测试、推送与 PR 合并、三端原生构建、精确十项附件不可变发布及 README/既有官网更新与公开回读。官方 DSH `0.1.3-alpha.2` 完整 263 包 npm cohort。该授权已完成。已发布的 0.5.12 tag 与附件不得改写。精确冻结见 `docs/0.5.12/`。
+- **0.6.0 全流程授权**（D-070）：完整开发、官方 DSH `0.1.5-alpha.1` 队列与 DSH IM 4.17.1 忠实接入、已发现缺陷修复、正常测试、推送与 PR 合并、**四端**原生构建（Apple Silicon、Intel Mac、Windows x64、龙芯统信 UOS）、更新后的精确附件不可变发布及 README/既有官网更新与公开回读。包数以实际依赖图为准。明确排除两小时测试；`test:soak` 保留。缺真实账号凭据记 `LIVE_NOT_RUN`，不升为新发布阻断。新增 PDF 页预览/Poppler 仍为 D-069 延期。精确冻结见 `docs/0.6.0/`。
 
 0.5.8 的预览方向不改写已经公开的 0.5.7 tag、Release、附件或历史文档。迁移到新 DSH 时必须从现行源代码与产品表面移除 WhatsApp 的说明卡、channel identity、连接路径、adapter/runtime 接线、Baileys/libsignal 依赖以及任何支持或路线图声明；Git 历史与明确标注为历史的发行审计记录继续保留。移除完成后需用 catalog、依赖闭包、lockfile、SBOM、许可证、安装包内容和用户界面反向证明 WhatsApp 不再属于 Penglai。
 

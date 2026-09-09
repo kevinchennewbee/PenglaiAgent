@@ -9,6 +9,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 test("classifyApiTestError maps AUTH, rate, and adapter failures", () => {
   assert.equal(classifyApiTestError(new Error("AUTH Authentication Fails")).class, "auth");
+  assert.equal(classifyApiTestError(new Error("Penglai request rejected: UNAUTHORIZED")).class, "auth");
   assert.equal(classifyApiTestError(new Error("429 rate limit")).class, "rate");
   assert.equal(classifyApiTestError(new Error('no adapter registered for provider "x"')).class, "adapter");
   assert.equal(classifyApiTestError(new Error("something else")).class, "unknown");
@@ -37,6 +38,7 @@ test("wizard classifier stays in lockstep with classifyApiTestError", () => {
   const classify = Function(`${match[0]}; return classifyApiTestError;`)() as (err: unknown) => string;
   const fixtures = [
     "AUTH Authentication Fails, Your api key: ****0f08 is invalid",
+    "Penglai request rejected: UNAUTHORIZED",
     "401 unauthorized",
     "429 rate limit",
     "unknown model 404",
