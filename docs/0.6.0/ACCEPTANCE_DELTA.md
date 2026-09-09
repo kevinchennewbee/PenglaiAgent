@@ -50,6 +50,11 @@ Public README/website download tables remain **0.5.12** until immutable
   storage, secrets, updates, uninstall, runtime closure, and mandatory
   Office/Memory semantics. Do not disable required plugins or sandbox
   to show a window. No unsolicited OS upgrade and no second Agent core.
+  `node-addon-require-builtin` is official optional internals probing,
+  not a required loong64 native. Do not invent
+  `node-addon-require-builtin-linux-loong64-gnu`. Product web profile
+  uses official `patchReload: startup`. Flock, pty, koffi, and sharp
+  remain required native capability.
 - Deterministic source gates. Owner excludes the two-hour installed soak.
   `test:soak` remains required.
 - Exact asset set updated for four installers, then sealed from one clean

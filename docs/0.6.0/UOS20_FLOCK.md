@@ -51,7 +51,9 @@ darwin). Do not ship Zig’s default spawn-helper: it received
 ## Still missing for a complete `.deb`
 
 npm `@koromix/koffi-linux-loong64@3.1.6` ELF is **new-world**
-(`GLIBC_2.36`). Do not embed it. `node-addon-require-builtin-linux-loong64-gnu`
-and sharp have no old-world loong64 build yet. The packager fails closed
-unless the payload contains old-world Node, the pinned DSH CLI, and this
-flock addon.
+(`GLIBC_2.36`). Do not embed it. sharp still needs the old-world loong64
+build from the addon worker. `node-addon-require-builtin` native is
+**optional internals probing**, unpublished on loong64; do not fabricate
+`node-addon-require-builtin-linux-loong64-gnu`. See
+`docs/0.6.0/OPTIONAL_INTERNALS.md`. The packager fails closed unless the
+payload contains old-world Node, the pinned DSH CLI, and this flock addon.

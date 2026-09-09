@@ -82,6 +82,8 @@ export * from "./fuses.js";
 export * from "./dsh-web-auth.js";
 
 export const PENGLAI_VERSION = RELEASE;
+/** Official DSH `startup` freeze: no live HMR. Internals probing is optional. */
+export const PRODUCT_WEB_PATCH_RELOAD = "startup";
 export const PINNED_DSH = "0.1.5-alpha.1";
 export const PINNED_NODE = "22.23.2";
 export const PINNED_ELECTRON = "43.6.0";
@@ -265,6 +267,31 @@ function removeTreeNoFollow(path: string): void {
 export function seedWebProfile(seedDir: string, destDir: string): void {
   mkdirSync(destDir, { recursive: true, mode: 0o700 });
   copyDir(seedDir, destDir);
+}
+
+/**
+ * Penglai's product web profile is startup-frozen. Official `web` defaults to
+ * `patchReload: live`, which mounts HMR and requires Node internals. Penglai
+ * never enables the internals execArgv. Pin the official `startup` value so a
+ * missing optional require-builtin native cannot fail boot.
+ */
+export function pinProductWebPatchReload(profileDir: string): boolean {
+  const manifestPath = join(profileDir, "package.json");
+  const manifestText = readRegularFileNoFollow(manifestPath, "utf8");
+  if (manifestText === undefined) return false;
+  const manifest = JSON.parse(manifestText) as {
+    dsh?: { profile?: { bundles?: string[]; patchReload?: string } };
+  };
+  if (manifest.dsh?.profile?.patchReload === PRODUCT_WEB_PATCH_RELOAD) return false;
+  manifest.dsh = {
+    ...manifest.dsh,
+    profile: {
+      ...(manifest.dsh?.profile ?? {}),
+      patchReload: PRODUCT_WEB_PATCH_RELOAD,
+    },
+  };
+  writeFileAtomic(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 0o600);
+  return true;
 }
 
 export function extractedPackageRoot(tmp: string): string {
@@ -785,6 +812,7 @@ export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout):
     installFirstPartyPlugins(layout, user.profileWeb, user.transactions);
   }
   linkOfficialDeepseek(layout, user.profileWeb);
+  pinProductWebPatchReload(user.profileWeb);
   seedFreshSettings(user);
   recordKeychainMigrationIfNeeded(user);
 }

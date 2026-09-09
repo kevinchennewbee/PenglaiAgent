@@ -114,6 +114,12 @@ test("embed-runtime is target-aware and reads the release contract", () => {
   const closure = readFileSync(new URL("../../../scripts/lib/dsh-closure.mjs", import.meta.url), "utf8");
   assert.match(closure, /REQUIRE_BUILTIN_NATIVE_BY_TARGET/);
   assert.match(closure, /node-addon-require-builtin-darwin-arm64/);
+  assert.match(closure, /OPTIONAL_INTERNALS_TARGETS/);
+  assert.match(closure, /"linux-loong64": "linux-loong64"/);
+  assert.doesNotMatch(
+    closure,
+    /REQUIRE_BUILTIN_NATIVE_BY_TARGET = \{[^}]*linux-loong64/,
+  );
 });
 
 test("Windows signing inspection stays in the PowerShell 7 host module graph", () => {

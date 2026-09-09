@@ -9,8 +9,11 @@ import {
   DSH_RUNTIME_INTEGRATION_ROOTS,
   locateWorkspaceDsh,
   materializeNestedVersionConflicts,
+  OPTIONAL_INTERNALS_TARGETS,
   packageSupportsTarget,
   REQUIRED_DSH_RUNTIME_PACKAGES,
+  REQUIRE_BUILTIN_NATIVE_BY_TARGET,
+  resolveRequireBuiltinNative,
 } from "./dsh-closure.mjs";
 
 test("locateWorkspaceDsh uses hoisted node_modules when .pnpm has no DSH entry", () => {
@@ -112,6 +115,42 @@ test("flattening preserves a package-local dependency when its version differs",
   assert.equal(result.nestedConflictCount, 1);
   const nested = JSON.parse(readFileSync(join(modules, "package-a", "node_modules", "package-x", "package.json"), "utf8"));
   assert.equal(nested.version, "1.0.0");
+});
+
+test("require-builtin native is required only where npm publishes it", () => {
+  assert.equal(REQUIRE_BUILTIN_NATIVE_BY_TARGET["darwin-aarch64"], "node-addon-require-builtin-darwin-arm64");
+  assert.equal(REQUIRE_BUILTIN_NATIVE_BY_TARGET["darwin-x86_64"], "node-addon-require-builtin-darwin-x64");
+  assert.equal(REQUIRE_BUILTIN_NATIVE_BY_TARGET["win32-x86_64"], "node-addon-require-builtin-win32-x64-msvc");
+  assert.equal("linux-loong64" in REQUIRE_BUILTIN_NATIVE_BY_TARGET, false);
+  assert.deepEqual([...OPTIONAL_INTERNALS_TARGETS], ["linux-loong64"]);
+  const optional = resolveRequireBuiltinNative(resolve("package.json"), "linux-loong64");
+  assert.equal(optional.required, false);
+  assert.equal(optional.name, undefined);
+  const required = resolveRequireBuiltinNative(resolve("package.json"), "darwin-aarch64");
+  assert.equal(required.required, true);
+  assert.equal(required.name, "node-addon-require-builtin-darwin-arm64");
+  assert.throws(
+    () => resolveRequireBuiltinNative(resolve("package.json"), "linux-x64"),
+    /no require-builtin native mapping/,
+  );
+});
+
+test("official loader declares require-builtin as an optional peer", () => {
+  const loader = JSON.parse(
+    readFileSync(resolve("node_modules/@deepseek-ai/cordis-plugin-loader/package.json"), "utf8"),
+  );
+  assert.equal(loader.peerDependencies["node-addon-require-builtin"], "^0.1.4");
+  assert.equal(loader.peerDependenciesMeta["node-addon-require-builtin"].optional, true);
+  const builtin = JSON.parse(
+    readFileSync(resolve("node_modules/node-addon-require-builtin/package.json"), "utf8"),
+  );
+  assert.equal("node-addon-require-builtin-linux-loong64-gnu" in (builtin.optionalDependencies ?? {}), false);
+  const loaderJs = readFileSync(
+    resolve("node_modules/@deepseek-ai/cordis-plugin-loader/lib/index.js"),
+    "utf8",
+  );
+  assert.match(loaderJs, /try \{\s*return require\("node-addon-require-builtin"\)\.requireBuiltin\(id\);\s*\} catch \{\}/);
+  assert.match(loaderJs, /if \(!raw\) return;/);
 });
 
 test("closure fails closed when a required peer cannot be resolved", () => {

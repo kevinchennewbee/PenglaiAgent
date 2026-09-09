@@ -29,12 +29,20 @@ export const DSH_RUNTIME_INTEGRATION_ROOTS = [
   "@deepseek-ai/dsh-client-ui-slots",
 ];
 
+/** Published require-builtin native packages. Missing these is a flatten FAIL. */
 export const REQUIRE_BUILTIN_NATIVE_BY_TARGET = {
   "darwin-aarch64": "node-addon-require-builtin-darwin-arm64",
   "darwin-x86_64": "node-addon-require-builtin-darwin-x64",
   "win32-x86_64": "node-addon-require-builtin-win32-x64-msvc",
-  "linux-loong64": "node-addon-require-builtin-linux-loong64-gnu",
 };
+
+/**
+ * Targets whose official loader internals probe is optional and whose
+ * require-builtin native package is unpublished. Do not invent a loong64
+ * gnu optional package. This is not a waiver of required natives
+ * (flock, pty, koffi, sharp).
+ */
+export const OPTIONAL_INTERNALS_TARGETS = Object.freeze(["linux-loong64"]);
 
 export const NODE_PTY_PREBUILD_BY_TARGET = {
   "darwin-aarch64": "darwin-arm64",
@@ -326,6 +334,9 @@ export function pruneNodePtyNativePayloads(modulesDir, target) {
 }
 
 export function resolveRequireBuiltinNative(installAnchor, target) {
+  if (OPTIONAL_INTERNALS_TARGETS.includes(target)) {
+    return { name: undefined, dir: undefined, required: false };
+  }
   const name = REQUIRE_BUILTIN_NATIVE_BY_TARGET[target];
   if (!name) throw new Error(`no require-builtin native mapping for ${target}`);
   const anchors = [
@@ -335,9 +346,9 @@ export function resolveRequireBuiltinNative(installAnchor, target) {
   ];
   for (const anchor of anchors) {
     const dir = packageDirFromAnchor(anchor, name);
-    if (dir) return { name, dir };
+    if (dir) return { name, dir, required: true };
   }
-  return { name, dir: undefined };
+  return { name, dir: undefined, required: true };
 }
 
 export function materializeDshClosure(installAnchor, destRoot, target) {
@@ -355,23 +366,26 @@ export function materializeDshClosure(installAnchor, destRoot, target) {
   assertNestedVersionConflicts(links, modulesDir, target);
   const nodePty = pruneNodePtyNativePayloads(modulesDir, target);
   const native = resolveRequireBuiltinNative(installAnchor, target);
-  if (!native.dir || !existsSync(join(native.dir, "package.json"))) {
-    throw new Error(`embedded DSH closure missing ${native.name} for ${target}`);
-  }
-  copyFlatPackage(native.dir, join(modulesDir, native.name));
   const flattened = new Map(
     [...links.keys()]
       .filter((name) => name !== appName)
       .map((name) => [name, join(modulesDir, name)]),
   );
-  flattened.set(native.name, join(modulesDir, native.name));
-  assertDshClosure(flattened);
-  if (!existsSync(join(modulesDir, native.name, "package.json"))) {
-    throw new Error(`flattened DSH closure missing ${native.name}`);
+  if (native.required !== false) {
+    if (!native.name || !native.dir || !existsSync(join(native.dir, "package.json"))) {
+      throw new Error(`embedded DSH closure missing ${native.name} for ${target}`);
+    }
+    copyFlatPackage(native.dir, join(modulesDir, native.name));
+    flattened.set(native.name, join(modulesDir, native.name));
+    if (!existsSync(join(modulesDir, native.name, "package.json"))) {
+      throw new Error(`flattened DSH closure missing ${native.name}`);
+    }
   }
+  assertDshClosure(flattened);
   return {
     packages: [...flattened.keys()],
-    native: native.name,
+    native: native.name ?? null,
+    optionalInternals: native.required === false ? "unavailable" : "embedded",
     nodePty,
     nestedConflicts,
   };

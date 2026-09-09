@@ -34,6 +34,8 @@ import {
   isPenglaiProductTitle,
   linkOfficialDeepseek,
   mergeLegacyContextIntoMemory,
+  pinProductWebPatchReload,
+  PRODUCT_WEB_PATCH_RELOAD,
   probeOfficialDsh,
   recoverProfile,
   resetManagedDshModuleFallback,
@@ -79,6 +81,33 @@ test("embedded DSH Web never opens the operating-system browser", () => {
     "--port",
     "3080",
   ]);
+  const supervisor = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+  assert.match(supervisor, /spawn\(this\.layout\.nodeBin, \[this\.layout\.dshEntry, \.\.\.dshArgs\]/);
+  const envBlock = supervisor.slice(supervisor.indexOf("const childEnv"), supervisor.indexOf("const dshArgs"));
+  assert.match(envBlock, /PATH: "\/usr\/bin:\/bin"/);
+  assert.doesNotMatch(envBlock, /NODE_OPTIONS/);
+});
+
+test("product web profile is official startup-frozen, not live HMR", () => {
+  const seed = JSON.parse(
+    readFileSync(new URL("../../../profile-seed/web/package.json", import.meta.url), "utf8"),
+  );
+  assert.equal(seed.dsh.profile.patchReload, "startup");
+  assert.equal(PRODUCT_WEB_PATCH_RELOAD, "startup");
+  const profile = mkdtempSync(join(tmpdir(), "penglai-web-reload-"));
+  writeFileSync(
+    join(profile, "package.json"),
+    JSON.stringify({
+      name: "dsh-profile-web",
+      dsh: { profile: { bundles: ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"], patchReload: "live" } },
+    }),
+  );
+  assert.equal(pinProductWebPatchReload(profile), true);
+  assert.equal(
+    JSON.parse(readFileSync(join(profile, "package.json"), "utf8")).dsh.profile.patchReload,
+    "startup",
+  );
+  assert.equal(pinProductWebPatchReload(profile), false);
 });
 
 test("Windows owned DSH receives only the required OS environment", () => {
