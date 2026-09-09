@@ -1,11 +1,24 @@
 import { macosAarch64DmgName, macosX64DmgName, windowsSetupName } from "./product.mjs";
 
-export const RELEASE_TARGETS = Object.freeze(["darwin-aarch64", "darwin-x86_64", "win32-x86_64"]);
+export const RELEASE_TARGETS = Object.freeze([
+  "darwin-aarch64",
+  "darwin-x86_64",
+  "win32-x86_64",
+  "linux-loong64",
+]);
+
+/** Mac/Windows native install/lifecycle. linux-loong64 native is OWNER_POST_RELEASE. */
+export const NATIVE_INSTALLED_TARGETS = Object.freeze([
+  "darwin-aarch64",
+  "darwin-x86_64",
+  "win32-x86_64",
+]);
 
 export const TARGET_INSTALLERS = Object.freeze({
   "darwin-aarch64": macosAarch64DmgName(),
   "darwin-x86_64": macosX64DmgName(),
   "win32-x86_64": windowsSetupName(),
+  "linux-loong64": "Penglai_0.6.0_uos_loong64.deb",
 });
 
 export function assertReleaseTarget(target) {
@@ -24,6 +37,9 @@ export function hostMatchesTarget(target, platform = process.platform, arch = pr
   if (target === "darwin-aarch64") return platform === "darwin" && arch === "arm64";
   if (target === "darwin-x86_64") return platform === "darwin" && arch === "x64";
   if (target === "win32-x86_64") return platform === "win32" && arch === "x64";
+  if (target === "linux-loong64") {
+    return platform === "linux" && (arch === "loong64" || arch === "loongarch64");
+  }
   return false;
 }
 
@@ -57,4 +73,9 @@ export function walkedCoreOnboarding(walked) {
 export function missingReleaseTargets(present) {
   const have = new Set(present ?? []);
   return RELEASE_TARGETS.filter((target) => !have.has(target));
+}
+
+export function missingNativeInstalledTargets(present) {
+  const have = new Set(present ?? []);
+  return NATIVE_INSTALLED_TARGETS.filter((target) => !have.has(target));
 }

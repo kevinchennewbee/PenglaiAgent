@@ -52,6 +52,6 @@ for (const asset of packagedBytes.brandAssets ?? []) {
 }
 writeFileSync(
   join(outDir, "package.json"),
-  JSON.stringify({ name: "penglai", version: "0.5.12", type: "module", main: "electron-main.js" }, null, 2),
+  JSON.stringify({ name: "penglai", version: "0.6.0", type: "module", main: "electron-main.js" }, null, 2),
 );
 console.log("bundle-desktop", outDir);

@@ -33,6 +33,7 @@ import {
   readProcessIdentity,
 } from "./lib/runner-live.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
+import { PRODUCT_VERSION } from "./lib/product.mjs";
 
 const certFault = String(process.env.PENGLAI_RUNNER_FAULT ?? "").trim();
 if (certFault || process.env.PENGLAI_RUNNER_CERT === "1") {
@@ -61,7 +62,7 @@ const expectedInstaller = installerForTarget(expectedTarget);
 if (process.env.PENGLAI_SOAK_ALLOW_LONG !== "1") {
   finish("INCOMPLETE", {
     command: "test:soak:installed",
-    productVersion: "0.5.12",
+    productVersion: PRODUCT_VERSION,
     requestedHours: hoursWanted,
     sourceSha: git.head,
     reason:
@@ -535,7 +536,7 @@ const leftover = leftoversByCommand(installedDsh).filter(
 const elapsedHours = (Date.now() - started) / 3600_000;
 const rec = {
   command: "test:soak:installed",
-  productVersion: "0.5.12",
+  productVersion: PRODUCT_VERSION,
   hours: elapsedHours,
   requestedHours: hoursWanted,
   samples,

@@ -9,11 +9,12 @@ import {
   evidenceName,
   hostMatchesTarget,
   installerForTarget,
-  missingReleaseTargets,
+  missingNativeInstalledTargets,
   nativeBlocked,
   parseTargetArg,
-  RELEASE_TARGETS,
+  NATIVE_INSTALLED_TARGETS,
 } from "./lib/release-targets.mjs";
+import { PRODUCT_VERSION } from "./lib/product.mjs";
 
 const identity = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/index.ts")).href);
 
@@ -86,12 +87,12 @@ function validateInstalledCompanions(target, installed) {
 }
 
 if (process.argv.includes("--aggregate")) {
-  const present = RELEASE_TARGETS.filter((target) => existsSync(join(evidenceDir, evidenceName("installed-e2e", target))));
-  const missing = missingReleaseTargets(present);
+  const present = NATIVE_INSTALLED_TARGETS.filter((target) => existsSync(join(evidenceDir, evidenceName("installed-e2e", target))));
+  const missing = missingNativeInstalledTargets(present);
   if (missing.length) {
     finish("INCOMPLETE", {
       command: "verify:installed",
-      reason: "three-target installed evidence set is incomplete",
+      reason: "Mac/Windows installed evidence set is incomplete",
       present,
       missing,
     });
@@ -108,7 +109,7 @@ if (process.argv.includes("--aggregate")) {
       rec.schema !== 2 ||
       rec.command !== "test:e2e:installed" ||
       rec.verdict !== "PASS" ||
-      rec.productVersion !== "0.5.12" ||
+      rec.productVersion !== PRODUCT_VERSION ||
       rec.target !== target ||
       rec.installer !== expectedInstaller ||
       !/^[0-9a-f]{64}$/.test(String(rec.installerSha256 ?? "")) ||
@@ -154,8 +155,8 @@ const blob = JSON.stringify(rec);
 if (/0\.2\.0-alpha|usable-fixture|sourceRead":true|Penglai-v0\.2\.0/.test(blob)) {
   finish("STALE", { command: "verify:installed", reason: "installed evidence is stale alpha or test-endpoint based" });
 }
-if (rec.productVersion !== "0.5.12" || rec.verdict !== "PASS") {
-  finish("INCOMPLETE", { command: "verify:installed", reason: "0.5 installed suite not PASS", target });
+if (rec.productVersion !== PRODUCT_VERSION || rec.verdict !== "PASS") {
+  finish("INCOMPLETE", { command: "verify:installed", reason: `${PRODUCT_VERSION} installed suite not PASS`, target });
 }
 if (rec.schema !== 2 || rec.command !== "test:e2e:installed" || Object.values(rec.checks ?? {}).some((value) => value !== "PASS")) {
   finish("FAIL", { command: "verify:installed", reason: "installed keyless boundary checks are incomplete", target });

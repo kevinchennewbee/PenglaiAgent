@@ -79,10 +79,13 @@ Public README/website download tables remain **0.5.12** until immutable
 Development pins now match `packages/release-identity/src/pins.ts`,
 `release-contract.json`, `release-info.json`, and
 `docs/0.6.0/DSH_NPM_COHORT.json`: official DSH `0.1.5-alpha.1` /
-`5dda764e…` / 272 packages. `PRODUCT_VERSION` and `RELEASE_TARGETS`
-remain the published 0.5.12 three-target set until F05 identity
-retitle. Public README/website/release notes stay on published DSH
-`0.1.3-alpha.2`.
+`5dda764e…` / 272 packages. F05 retitled `PRODUCT_VERSION` to `0.6.0`
+and `RELEASE_TARGETS` to four installers including
+`Penglai_0.6.0_uos_loong64.deb`. Mac/Windows native install/lifecycle
+remain required; UOS native install/startup/function is
+`OWNER_POST_RELEASE`. Public README/website/release notes stay on
+published DSH `0.1.3-alpha.2` and 0.5.12 download tables until public
+v0.6.0 bytes exist.
 
 Facts already observed (2026-09-09):
 

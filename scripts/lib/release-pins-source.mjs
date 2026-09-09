@@ -67,11 +67,11 @@ function releaseTargets(source) {
     installer: match[4],
   }));
   if (
-    rows.length !== 3 ||
+    rows.length !== 4 ||
     new Set(rows.map((row) => row.key)).size !== rows.length
   ) {
     throw new Error(
-      "release pin RELEASE_TARGETS must contain three unique closed rows",
+      "release pin RELEASE_TARGETS must contain four unique closed rows",
     );
   }
   return rows;

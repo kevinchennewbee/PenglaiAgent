@@ -1,4 +1,4 @@
-# Penglai 0.5.12 product contract
+# Penglai 0.6.0 product contract
 
 ## English
 
@@ -11,21 +11,22 @@ first run, process supervision, local data boundaries, assisted updates,
 uninstall, and a reviewed set of DSH plugins. It does not ship a second agent,
 provider gateway, session store, or chat page.
 
-Version 0.5.12 targets Apple Silicon, Intel Mac, and Windows x64. 0.6.0
-development consumes official DSH `0.1.5-alpha.1` (272-package npm cohort)
-while public downloads remain published v0.5.12. A fresh user brings a provider credential, selects an official
-model and Workspace, receives a real first DSH reply, and then uses the official
-DSH Web interface. Published 0.5.10 and 0.5.11 remain immutable. Public README
-and website download tables stay on published v0.5.11 until immutable v0.5.12
-bytes are read back.
+Version 0.6.0 targets Apple Silicon, Intel Mac, Windows x64, and UnionTech
+UOS 20 `linux-loong64`. It consumes official DSH `0.1.5-alpha.1` (272-package
+npm cohort). Public README and website download tables stay on published
+v0.5.12 until immutable v0.6.0 GitHub Release bytes are read back. A fresh
+user brings a provider credential, selects an official model and Workspace,
+receives a real first DSH reply, and then uses the official DSH Web
+interface. Published 0.5.10, 0.5.11, and 0.5.12 remain immutable.
 
 ### 2. Supported platforms
 
 | Device | Exact installer |
 | --- | --- |
-| Apple Silicon, macOS 13+ | `Penglai_0.5.12_macos_aarch64.dmg` |
-| Intel Mac, macOS 13+ | `Penglai_0.5.12_macos_x64.dmg` |
-| Windows 10+ x64 | `Penglai_0.5.12_windows_x64_setup.exe` |
+| Apple Silicon, macOS 13+ | `Penglai_0.6.0_macos_aarch64.dmg` |
+| Intel Mac, macOS 13+ | `Penglai_0.6.0_macos_x64.dmg` |
+| Windows 10+ x64 | `Penglai_0.6.0_windows_x64_setup.exe` |
+| UnionTech UOS 20 loong64 | `Penglai_0.6.0_uos_loong64.deb` |
 
 The app contains its target Electron, Node, DSH closure, profile seed, bundled
 plugins, licenses, and integrity metadata. It never falls back to a system Node,
@@ -186,9 +187,12 @@ Agent、模型、工具、审批、Workspace、Session、Turn 和会话 UI。蓬
 首次引导、进程监管、本地数据边界、辅助升级、卸载和经过审核的 DSH 插件，不另造
 Agent、模型网关、Session 存储或聊天页。
 
-0.5.12 公开发布仍固定 DSH `0.1.3-alpha.2`。0.6.0 开发树消费官方 DSH `0.1.5-alpha.1`，支持 Apple 芯片、Intel Mac 和 Windows x64。
-用户自备模型密钥，选择 official 模型和 Workspace，收到第一条真实 DSH 回复后进入
-official DSH Web。已发布的 0.5.10 与 0.5.11 保持不可变。
+0.5.12 公开发布仍固定 DSH `0.1.3-alpha.2`。README 与网站下载表在公开
+v0.6.0 附件回读前保持 0.5.12。0.6.0 开发树消费官方 DSH `0.1.5-alpha.1`
+（272 包），目标为 Apple 芯片、Intel Mac、Windows x64，以及统信 UOS 20
+`linux-loong64`（`Penglai_0.6.0_uos_loong64.deb`）。用户自备模型密钥，
+选择 official 模型和 Workspace，收到第一条真实 DSH 回复后进入 official
+DSH Web。已发布的 0.5.10、0.5.11 与 0.5.12 保持不可变。
 
 ### 2. 全新安装
 

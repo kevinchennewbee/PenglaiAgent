@@ -33,6 +33,11 @@ export const PACKAGED_TARGETS = Object.freeze({
     appRelative: `dist/Penglai-v${PRODUCT_VERSION}-win32-x64/Penglai`,
     dmgRelative: `dist/Penglai_${PRODUCT_VERSION}_windows_x64_setup.exe`,
   }),
+  "linux-loong64": Object.freeze({
+    buildTarget: "linux-loong64",
+    appRelative: `dist/runtime-staging-linux-loong64/payload`,
+    dmgRelative: `dist/Penglai_${PRODUCT_VERSION}_uos_loong64.deb`,
+  }),
 });
 
 function readJson(path, label) {
@@ -71,20 +76,25 @@ export function inspectPackagedCandidate({
       reason: `unsupported packaged target ${expectedTarget}`,
     };
   const windows = expectedTarget === "win32-x86_64";
+  const linux = expectedTarget === "linux-loong64";
   const appPresent = windows
     ? Boolean(app && existsSync(join(app, "Penglai.exe")))
-    : Boolean(app && existsSync(join(app, "Contents/Info.plist")));
+    : linux
+      ? Boolean(app && existsSync(join(app, "Penglai")) && existsSync(join(app, "chrome-sandbox")))
+      : Boolean(app && existsSync(join(app, "Contents/Info.plist")));
   if (!appPresent) {
     return {
       verdict: "INCOMPLETE",
       reason: windows
         ? "exact Windows Penglai.exe payload missing"
-        : "exact from-DMG Penglai.app missing",
+        : linux
+          ? "exact linux-loong64 Penglai payload missing"
+          : "exact from-DMG Penglai.app missing",
       app,
     };
   }
 
-  const resources = windows
+  const resources = windows || linux
     ? join(app, "resources")
     : join(app, "Contents/Resources");
   const releasePath = join(resources, "release-info.json");

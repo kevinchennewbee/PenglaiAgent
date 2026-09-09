@@ -244,7 +244,7 @@ if (native) {
     `${JSON.stringify(
       {
         productName: "Penglai",
-        productVersion: "0.5.12",
+        productVersion: releasePins.productVersion,
         buildNumber: 0,
         candidateOrdinal: 0,
         candidateKind: "public-community-release",

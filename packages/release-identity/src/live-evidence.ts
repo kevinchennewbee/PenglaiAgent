@@ -1,4 +1,5 @@
 import type { VerifierVerdict } from "./exit.js";
+import { NATIVE_INSTALLED_TARGET_KEYS } from "./pins.js";
 
 export const LIVE_CHANNELS = [
   "weixin",
@@ -12,7 +13,7 @@ export const LIVE_CHANNELS = [
 ] as const;
 
 const CHANNELS = new Set<string>(LIVE_CHANNELS);
-const RELEASE_TARGETS = new Set(["darwin-aarch64", "darwin-x86_64", "win32-x86_64"]);
+const NATIVE_INSTALLER_TARGETS = new Set<string>(NATIVE_INSTALLED_TARGET_KEYS);
 const HEX_40 = /^[0-9a-f]{40}$/;
 const HEX_64 = /^[0-9a-f]{64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -118,7 +119,7 @@ export function evaluateLiveEvidence(
   if (expected && raw.sourceSha !== expected.sourceSha) {
     return { verdict: "STALE", reason: "live evidence source SHA is not the release candidate", acceptedPlatforms: [] };
   }
-  if (!Array.isArray(raw.nativeInstallers) || raw.nativeInstallers.length !== RELEASE_TARGETS.size) {
+  if (!Array.isArray(raw.nativeInstallers) || raw.nativeInstallers.length !== NATIVE_INSTALLER_TARGETS.size) {
     return { verdict: "INCOMPLETE", reason: "live evidence does not bind all three native installers", acceptedPlatforms: [] };
   }
   const nativeInstallers = new Map<string, string>();
@@ -127,7 +128,7 @@ export function evaluateLiveEvidence(
       !isRecord(entry) ||
       !hasOnlyKeys(entry, NATIVE_INSTALLER_KEYS) ||
       typeof entry.target !== "string" ||
-      !RELEASE_TARGETS.has(entry.target) ||
+      !NATIVE_INSTALLER_TARGETS.has(entry.target) ||
       typeof entry.installerSha256 !== "string" ||
       !HEX_64.test(entry.installerSha256) ||
       nativeInstallers.has(entry.target)
@@ -139,7 +140,7 @@ export function evaluateLiveEvidence(
     }
     nativeInstallers.set(entry.target, entry.installerSha256);
   }
-  if ([...RELEASE_TARGETS].some((target) => !nativeInstallers.has(target))) {
+  if ([...NATIVE_INSTALLER_TARGETS].some((target) => !nativeInstallers.has(target))) {
     return { verdict: "INCOMPLETE", reason: "live evidence native installer set is incomplete", acceptedPlatforms: [] };
   }
 

@@ -1129,3 +1129,193 @@ test("0.5.12 0.1.3-alpha.2 homes upgrade to 0.1.5-alpha.1 without deleting sessi
   assert.deepEqual(readFileSync(join(sourceSession, "session.v2.jsonl.zstd")), v2zstd);
 });
 
+function livedInAlpha13Home(options: { userStateSymlink?: boolean } = {}): {
+  root: string;
+  previousHome: string;
+  appRuntime: string;
+} {
+  const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-lived-in-"));
+  const previousHome = join(root, "dsh-homes", `dsh-v${DSH_HOME_ALPHA13_VERSION}`);
+  const appRuntime = mkdtempSync(join(tmpdir(), "penglai-embedded-dsh-runtime-"));
+  mkdirSync(join(previousHome, "storages", "sessions"), { recursive: true, mode: 0o700 });
+  mkdirSync(join(previousHome, "profiles", "web", "node_modules", ".bin"), { recursive: true, mode: 0o700 });
+  mkdirSync(join(previousHome, "profiles", "web", ".dsh-module-fallback", "node_modules"), {
+    recursive: true,
+    mode: 0o700,
+  });
+  mkdirSync(join(previousHome, "profiles", "node_modules"), { recursive: true, mode: 0o700 });
+  mkdirSync(join(previousHome, "profiles", "web", "node_modules", "@penglai", "office"), {
+    recursive: true,
+    mode: 0o700,
+  });
+  writeFileSync(join(appRuntime, "index.js"), "export {};\n");
+  writeFileSync(join(previousHome, "settings.yaml"), "locale:\n  preference: zh\n", { mode: 0o600 });
+  writeFileSync(join(previousHome, ".credentials.yaml"), FIXTURE_CREDENTIAL, { mode: 0o600 });
+  writeFileSync(
+    join(previousHome, "storages", "sessions", "session.jsonl"),
+    legalSessionJsonl("lived-in-0512"),
+    { mode: 0o600 },
+  );
+  writeFileSync(
+    join(previousHome, "profiles", "web", "package.json"),
+    JSON.stringify({ name: "web", private: true, dsh: { profile: { bundles: ["@deepseek-ai/dsh-web-app"] } } }, null, 2),
+    { mode: 0o600 },
+  );
+  writeFileSync(join(previousHome, "profiles", "web", "cordis.patch.yml"), "[]\n", { mode: 0o600 });
+  writeFileSync(
+    join(previousHome, "profiles", "web", "node_modules", "@penglai", "office", "package.json"),
+    JSON.stringify({ name: "@penglai/office", version: "0.5.12" }),
+    { mode: 0o600 },
+  );
+  const activatedAt = "2026-09-07T00:00:00.000Z";
+  const targetDigest = "c".repeat(64);
+  writeFileSync(
+    join(previousHome, ".penglai-dsh-home.json"),
+    JSON.stringify({
+      schema: 1,
+      kind: "fresh",
+      dshVersion: DSH_HOME_ALPHA13_VERSION,
+      state: "active",
+      preparedAt: activatedAt,
+      activatedAt,
+      targetDigest,
+    }),
+  );
+  writeFileSync(
+    join(root, "dsh-home-active.json"),
+    JSON.stringify({
+      schema: 1,
+      activeVersion: DSH_HOME_ALPHA13_VERSION,
+      homeRelative: `dsh-homes/dsh-v${DSH_HOME_ALPHA13_VERSION}`,
+      activationKind: "fresh",
+      activatedAt,
+      targetDigest,
+    }),
+  );
+  const linkType = process.platform === "win32" ? "junction" : "dir";
+  symlinkSync(appRuntime, join(previousHome, "profiles", "node_modules", "cordis"), linkType);
+  symlinkSync(
+    appRuntime,
+    join(previousHome, "profiles", "web", ".dsh-module-fallback", "node_modules", "cordis"),
+    linkType,
+  );
+  symlinkSync(
+    join(previousHome, "profiles", "web", ".dsh-module-fallback", "node_modules", "cordis"),
+    join(previousHome, "profiles", "web", "node_modules", "cordis"),
+    linkType,
+  );
+  symlinkSync(
+    join(appRuntime, "index.js"),
+    join(previousHome, "profiles", "web", "node_modules", ".bin", "dsh"),
+  );
+  if (options.userStateSymlink) {
+    symlinkSync(join(appRuntime, "index.js"), join(previousHome, "linked.txt"));
+  }
+  return { root, previousHome, appRuntime };
+}
+
+test("lived-in 0.5.12 DSH module-fallback and profile node_modules runtime links do not block 0.1.5-alpha.1 copy", (context) => {
+  if (process.platform === "win32") {
+    context.skip("ordinary Windows users cannot create this symlink fixture");
+    return;
+  }
+  const { root, previousHome } = livedInAlpha13Home();
+  const plan = prepareDshHomeForBoot({
+    userRoot: root,
+    reserveBytes: 0,
+    availableBytes: 1024 * 1024 * 1024,
+  });
+  assert.equal(plan.kind, "migration-prepared");
+  assert.equal(
+    readFileSync(join(plan.dshHome, "settings.yaml"), "utf8"),
+    "locale:\n  preference: zh\n",
+  );
+  assert.equal(readFileSync(join(plan.dshHome, ".credentials.yaml"), "utf8"), FIXTURE_CREDENTIAL);
+  assert.equal(
+    readFileSync(join(plan.dshHome, "storages", "sessions", "session.jsonl"), "utf8"),
+    legalSessionJsonl("lived-in-0512"),
+  );
+  assert.match(
+    readFileSync(join(plan.dshHome, "profiles", "web", "package.json"), "utf8"),
+    /dsh-web-app/,
+  );
+  assert.equal(readFileSync(join(plan.dshHome, "profiles", "web", "cordis.patch.yml"), "utf8"), "[]\n");
+  assert.equal(existsSync(join(plan.dshHome, "profiles", "node_modules")), false);
+  assert.equal(existsSync(join(plan.dshHome, "profiles", "web", "node_modules")), false);
+  assert.equal(existsSync(join(plan.dshHome, "profiles", "web", ".dsh-module-fallback")), false);
+  assert.equal(
+    lstatSync(join(previousHome, "profiles", "web", "node_modules", "cordis")).isSymbolicLink(),
+    true,
+  );
+  const active = activateDshHomeBootPlan({
+    userRoot: root,
+    plan,
+    validation: validProof(),
+  });
+  assert.equal(active.activeVersion, DSH_HOME_TARGET_VERSION);
+  assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_TARGET_VERSION);
+});
+
+test("user-state symlink in a lived-in 0.5.12 home still fails closed", (context) => {
+  if (process.platform === "win32") {
+    context.skip("ordinary Windows users cannot create this symlink fixture");
+    return;
+  }
+  const { root } = livedInAlpha13Home({ userStateSymlink: true });
+  assert.throws(
+    () =>
+      prepareDshHomeForBoot({
+        userRoot: root,
+        reserveBytes: 0,
+        availableBytes: 1024 * 1024 * 1024,
+      }),
+    /refuses symlink state/,
+  );
+});
+
+test("home-root node_modules symlink is not treated as a regenerated DSH graph", (context) => {
+  if (process.platform === "win32") {
+    context.skip("ordinary Windows users cannot create this symlink fixture");
+    return;
+  }
+  const { root, previousHome, appRuntime } = livedInAlpha13Home();
+  mkdirSync(join(previousHome, "node_modules"), { recursive: true, mode: 0o700 });
+  symlinkSync(appRuntime, join(previousHome, "node_modules", "cordis"), "dir");
+  assert.throws(
+    () =>
+      prepareDshHomeForBoot({
+        userRoot: root,
+        reserveBytes: 0,
+        availableBytes: 1024 * 1024 * 1024,
+      }),
+    /refuses symlink state/,
+  );
+});
+
+test("activation of a lived-in 0.5.12 copy still requires Office and Memory", (context) => {
+  if (process.platform === "win32") {
+    context.skip("ordinary Windows users cannot create this symlink fixture");
+    return;
+  }
+  const { root } = livedInAlpha13Home();
+  const plan = prepareDshHomeForBoot({
+    userRoot: root,
+    reserveBytes: 0,
+    availableBytes: 1024 * 1024 * 1024,
+  });
+  assert.throws(
+    () =>
+      activateDshHomeBootPlan({
+        userRoot: root,
+        plan,
+        validation: {
+          ...validProof(),
+          requiredPluginsActive: ["@penglai/office"],
+        },
+      }),
+    /requires exact healthy alpha validation/,
+  );
+  assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_ALPHA13_VERSION);
+});
+
+

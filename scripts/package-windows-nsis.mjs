@@ -8,9 +8,10 @@ import { spawnSync } from "node:child_process";
 import { ROOT } from "./lib/repo.mjs";
 import { stagingForTarget } from "./lib/closure-credential.mjs";
 import { cleanupRegisteredWindowsInstallerFixture, removeTreeNoFollow } from "./lib/installed-app.mjs";
+import { PRODUCT_VERSION, windowsSetupName } from "./lib/product.mjs";
 
 const contract = {
-  installer: "Penglai_0.5.12_windows_x64_setup.exe",
+  installer: windowsSetupName(),
   currentUser: true,
   languages: ["zh", "en"],
   refuseDowngrade: true,
@@ -96,7 +97,7 @@ if (!existsSync(out)) {
   console.error("package-windows-nsis FAIL: setup missing after makensis");
   process.exit(1);
 }
-const installedRoot = resolve(ROOT, "dist", "Penglai-v0.5.12-win32-x64");
+const installedRoot = resolve(ROOT, "dist", `Penglai-v${PRODUCT_VERSION}-win32-x64`);
 const installedApp = join(installedRoot, "Penglai");
 const fixtureRoot = mkdtempSync(join(tmpdir(), "pgl-w-"));
 const fixtureApp = join(fixtureRoot, "Penglai");

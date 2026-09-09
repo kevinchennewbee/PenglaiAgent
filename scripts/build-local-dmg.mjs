@@ -107,14 +107,14 @@ const targetArg = process.argv.includes("--target")
   : process.env.PENGLAI_PACK_TARGET;
 const TARGETS = {
   "darwin-arm64": {
-    out: "dist/Penglai-v0.5.12-arm64",
-    dmg: "dist/Penglai_0.5.12_macos_aarch64.dmg",
-    from: "dist/Penglai-v0.5.12-arm64-from-dmg",
+    out: `dist/Penglai-v${releasePins.productVersion}-arm64`,
+    dmg: `dist/Penglai_${releasePins.productVersion}_macos_aarch64.dmg`,
+    from: `dist/Penglai-v${releasePins.productVersion}-arm64-from-dmg`,
   },
   "darwin-x64": {
-    out: "dist/Penglai-v0.5.12-x64",
-    dmg: "dist/Penglai_0.5.12_macos_x64.dmg",
-    from: "dist/Penglai-v0.5.12-x64-from-dmg",
+    out: `dist/Penglai-v${releasePins.productVersion}-x64`,
+    dmg: `dist/Penglai_${releasePins.productVersion}_macos_x64.dmg`,
+    from: `dist/Penglai-v${releasePins.productVersion}-x64-from-dmg`,
   },
 };
 if (!targetArg || !TARGETS[targetArg]) {
@@ -273,7 +273,7 @@ const dirty =
 const hash = sha256(dmgPath);
 const info = {
   productName: "Penglai",
-  productVersion: "0.5.12",
+  productVersion: releasePins.productVersion,
   name: targetSpec.dmg
     .split("/")
     .pop()

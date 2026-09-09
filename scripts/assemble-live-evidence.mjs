@@ -6,7 +6,8 @@ import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { writeEvidenceJson } from "./lib/evidence-json.mjs";
-import { evidenceName, RELEASE_TARGETS } from "./lib/release-targets.mjs";
+import { evidenceName, NATIVE_INSTALLED_TARGETS } from "./lib/release-targets.mjs";
+import { PRODUCT_VERSION } from "./lib/product.mjs";
 
 const outDir = join(ROOT, "evidence/generated");
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -22,7 +23,7 @@ const readRecord = (path, label) => {
 
 const source = requireCleanCandidateSource();
 if (!source.ok) finish("STALE", { command: "assemble:live-evidence", reason: source.reason, ...source.git });
-const nativeInstallers = RELEASE_TARGETS.map((target) => {
+const nativeInstallers = NATIVE_INSTALLED_TARGETS.map((target) => {
   const record = readRecord(join(outDir, evidenceName("local-installer", target)), `${target} installer`).value;
   if (record.target !== target || record.sourceSha !== source.git.head || !/^[0-9a-f]{64}$/.test(String(record.sha256 ?? ""))) {
     finish("STALE", { command: "assemble:live-evidence", reason: `${target} installer binding is stale` });
@@ -30,7 +31,7 @@ const nativeInstallers = RELEASE_TARGETS.map((target) => {
   return { target, installerSha256: record.sha256 };
 });
 
-const modelCandidates = RELEASE_TARGETS.map((target) => ({
+const modelCandidates = NATIVE_INSTALLED_TARGETS.map((target) => ({
   target,
   path: join(outDir, evidenceName("installed-e2e-live", target)),
 })).filter((row) => existsSync(row.path));
@@ -45,7 +46,7 @@ const model = modelRecord.value;
 if (
   model.command !== "test:e2e:installed:live" ||
   model.verdict !== "PASS" ||
-  model.productVersion !== "0.5.12" ||
+  model.productVersion !== PRODUCT_VERSION ||
   model.sourceSha !== source.git.head ||
   model.target !== modelCandidates[0].target ||
   model.installerSha256 !== nativeInstallers.find((row) => row.target === model.target)?.installerSha256
@@ -81,7 +82,7 @@ const cases = LIVE_CHANNELS.map((platform) => {
     value.scope !== "im-owner-live-case" ||
     value.command !== "test:e2e:im:live" ||
     value.verdict !== "PASS" ||
-    value.productVersion !== "0.5.12" ||
+    value.productVersion !== PRODUCT_VERSION ||
     value.sourceSha !== source.git.head ||
     value.platform !== platform ||
     value.redacted !== true
@@ -110,14 +111,14 @@ const cases = LIVE_CHANNELS.map((platform) => {
 const liveSet = {
   schemaVersion: 3,
   scope: "release-native-live-set",
-  productVersion: "0.5.12",
+  productVersion: PRODUCT_VERSION,
   sourceSha: source.git.head,
   nativeInstallers,
   officialModel,
   redacted: true,
   cases,
 };
-const evaluated = evaluateLiveEvidence(liveSet, "0.5.12", {
+const evaluated = evaluateLiveEvidence(liveSet, PRODUCT_VERSION, {
   sourceSha: source.git.head,
   nativeInstallers: Object.fromEntries(nativeInstallers.map((row) => [row.target, row.installerSha256])),
 });

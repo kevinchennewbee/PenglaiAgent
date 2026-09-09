@@ -106,7 +106,8 @@ export function assertCanonicalDownloadUrl(url: string): void {
   const ok =
     host === "nodejs.org" ||
     host === "github.com" ||
-    host === "objects.githubusercontent.com";
+    host === "objects.githubusercontent.com" ||
+    host === "ftp.loongnix.cn";
   if (!ok) throw new PenglaiError("SECURITY_POLICY", `download host not allowlisted ${host}`);
 }
 

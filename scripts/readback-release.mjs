@@ -227,7 +227,7 @@ for (const [target, platform] of Object.entries(update.platforms)) {
 }
 
 if (Object.keys(update.platforms).sort().join(",") !== "darwin-aarch64,darwin-x86_64,win32-x86_64") {
-  finish("FAIL", { command, reason: "update manifest does not cover exactly three targets" });
+  finish("FAIL", { command, reason: "update manifest does not cover Mac/Windows native targets" });
 }
 
 const assetSetSha256 = publicationAssetSeal(rows);

@@ -43,8 +43,8 @@ if (protectedChanges.length > 0) {
   fail(`0.5.12 rewrote immutable published history: ${protectedChanges.join(", ")}`);
 }
 
-if (pins.productVersion !== "0.5.12" || pins.dsh !== "0.1.5-alpha.1") {
-  fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.5.12/0.1.5-alpha.1`);
+if (pins.productVersion !== "0.6.0" || pins.dsh !== "0.1.5-alpha.1") {
+  fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.6.0/0.1.5-alpha.1`);
 }
 if (existsSync(join(ROOT, ".pnpmfile.mjs"))) fail("0.5.12 must not activate the historical alpha.1 source resolver");
 

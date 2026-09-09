@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { MNEMON_ASSETS, MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
 import { collectLockPackageIds, splitLockPackageId } from "./lib/sbom-lock.mjs";
+import { PRODUCT_VERSION } from "./lib/product.mjs";
 
 mkdirSync("evidence/generated", { recursive: true });
 const lock = readFileSync("pnpm-lock.yaml", "utf8");
@@ -159,10 +160,10 @@ const sbom = {
   specVersion: "1.5",
   version: 1,
   metadata: {
-    component: { type: "application", name: "Penglai", version: "0.5.12" },
-    tools: [{ name: "penglai-sbom", version: "0.5.12" }],
+    component: { type: "application", name: "Penglai", version: PRODUCT_VERSION },
+    tools: [{ name: "penglai-sbom", version: PRODUCT_VERSION }],
   },
-  release: "0.5.12",
+  release: PRODUCT_VERSION,
   sourceSha:
     licenseEvidence.sourceSha ||
     execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),

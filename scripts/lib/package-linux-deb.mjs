@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
 import {
   chmodSync,
+  closeSync,
   cpSync,
   existsSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
   rmSync,
@@ -17,8 +20,8 @@ import { deterministicGzip } from "./deterministic-gzip.mjs";
 
 // Penglai target key is linux-loong64. UOS dpkg Architecture is loongarch64.
 // Confirmed client is UOS 20 Professional 1070 / kernel 4.19 (old-world).
-// Installer name is 0.6.0; RELEASE_TARGETS / release-contract stay the 0.5.12
-// three-target set until F05. Office+Memory stay required-builtin; chrome-sandbox
+// linux-loong64 is a RELEASE_TARGETS row. Native install/startup/function
+// remain OWNER_POST_RELEASE. Office+Memory stay required-builtin; chrome-sandbox
 // must remain in the payload. ELF payloads must use /lib64/ld.so.1, not
 // new-world ld-linux-loongarch-lp64d.so.1. Never --no-sandbox.
 export const LINUX_LOONG64_TARGET = "linux-loong64";
@@ -181,6 +184,9 @@ export function assertRequiredBuiltinPlugins(pluginsDir) {
 
 export const UOS20_OLD_WORLD_INTERPRETER = "/lib64/ld.so.1";
 export const UOS20_NEW_WORLD_INTERPRETER = "/lib64/ld-linux-loongarch-lp64d.so.1";
+export const ELF_MACHINE_LOONGARCH = 258;
+export const UOS20_FLOCK_SHA256 =
+  "b065bcb1945dffa04a075578dff55a50604c3901716912714b81c24757167868";
 
 export function readElfInterpreter(bytes) {
   if (!Buffer.isBuffer(bytes) || bytes.length < 64) return undefined;
@@ -218,6 +224,58 @@ export function readElfInterpreter(bytes) {
   return undefined;
 }
 
+export function readElfMachine(bytes) {
+  if (!Buffer.isBuffer(bytes) || bytes.length < 20) return undefined;
+  if (bytes.subarray(0, 4).toString("binary") !== "\u007fELF") return undefined;
+  const little = bytes[5] === 1;
+  return little ? bytes.readUInt16LE(18) : bytes.readUInt16BE(18);
+}
+
+export function glibcVersionsNewerThan228(bytes) {
+  const text = Buffer.isBuffer(bytes) ? bytes.toString("latin1") : "";
+  const newer = [];
+  for (const match of text.matchAll(/GLIBC_(\d+)\.(\d+)/g)) {
+    const major = Number(match[1]);
+    const minor = Number(match[2]);
+    if (major > 2 || (major === 2 && minor > 28)) {
+      newer.push(`GLIBC_${major}.${minor}`);
+    }
+  }
+  return [...new Set(newer)];
+}
+
+export function assertUos20OldWorldElfBytes(bytes, label, { requireInterp = false } = {}) {
+  if (!Buffer.isBuffer(bytes) || bytes.subarray(0, 4).toString("binary") !== "\u007fELF") {
+    throw new Error(`${label} must be ELF for UOS 20`);
+  }
+  const machine = readElfMachine(bytes);
+  if (machine !== ELF_MACHINE_LOONGARCH) {
+    throw new Error(`${label} ELF machine ${machine ?? "missing"} is not LoongArch`);
+  }
+  const interpreter = readElfInterpreter(bytes);
+  if (interpreter === UOS20_NEW_WORLD_INTERPRETER || bytes.includes(Buffer.from(UOS20_NEW_WORLD_INTERPRETER))) {
+    throw new Error(`${label} is new-world; UOS 20 requires old-world ${UOS20_OLD_WORLD_INTERPRETER}`);
+  }
+  if (requireInterp) {
+    if (interpreter !== UOS20_OLD_WORLD_INTERPRETER) {
+      throw new Error(
+        `${label} dynamic loader ${interpreter ?? "missing"} is not the UOS 20 old-world interpreter ${UOS20_OLD_WORLD_INTERPRETER}`,
+      );
+    }
+  } else if (interpreter && interpreter !== UOS20_OLD_WORLD_INTERPRETER) {
+    throw new Error(`${label} dynamic loader ${interpreter} is not UOS 20 old-world`);
+  }
+  const newer = glibcVersionsNewerThan228(bytes);
+  if (newer.length) {
+    throw new Error(`${label} needs ${newer.join(", ")}; UOS 20 glibc is 2.28`);
+  }
+  return interpreter;
+}
+
+export function assertUos20OldWorldElf(path, label = path, opts = {}) {
+  return assertUos20OldWorldElfBytes(readFileSync(path), label, opts);
+}
+
 export function assertSandboxNotStripped(payloadRoot) {
   const sandbox = join(payloadRoot, "chrome-sandbox");
   if (!existsSync(sandbox) || !lstatSync(sandbox).isFile()) {
@@ -251,6 +309,94 @@ function assertPenglaiBinary(payloadRoot) {
     throw new Error("linux-loong64 payload missing Penglai executable");
   }
   assertUos20OldWorldBinary(binary, "Penglai executable");
+}
+
+const FLOCK_ADDON_REL = join(
+  "runtime",
+  "dsh",
+  "node_modules",
+  "@deepseek-ai",
+  "node-addon-system-linux-loong64",
+  "bin",
+  "glibc",
+  "system.node",
+);
+
+function walkPayloadFiles(root, rel = "") {
+  const files = [];
+  for (const name of readdirSync(root).sort()) {
+    const absolute = join(root, name);
+    const nextRel = rel ? `${rel}/${name}` : name;
+    const stat = lstatSync(absolute);
+    if (stat.isSymbolicLink()) {
+      throw new Error(`linux-loong64 payload must not contain symlinks: ${nextRel}`);
+    }
+    if (stat.isDirectory()) {
+      files.push(...walkPayloadFiles(absolute, nextRel));
+      continue;
+    }
+    if (!stat.isFile()) {
+      throw new Error(`unsupported payload entry ${nextRel}`);
+    }
+    files.push({ absolute, rel: nextRel });
+  }
+  return files;
+}
+
+export function assertUosRuntimeClosure(payloadRoot) {
+  const nodeBin = join(payloadRoot, "runtime", "node", "bin", "node");
+  if (!existsSync(nodeBin) || !lstatSync(nodeBin).isFile()) {
+    throw new Error(
+      "linux-loong64 payload missing old-world Node at runtime/node/bin/node; package is not complete",
+    );
+  }
+  assertUos20OldWorldElf(nodeBin, "embedded Node", { requireInterp: true });
+  const dshBin = join(payloadRoot, "runtime", "dsh", "lib", "bin.js");
+  if (!existsSync(dshBin) || !lstatSync(dshBin).isFile()) {
+    throw new Error(
+      "linux-loong64 payload missing pinned DSH CLI at runtime/dsh/lib/bin.js; package is not complete",
+    );
+  }
+  const flock = join(payloadRoot, FLOCK_ADDON_REL);
+  let flockFd;
+  try {
+    flockFd = openSync(flock, "r");
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      throw new Error(
+        "linux-loong64 payload missing glibc flock addon node-addon-system-linux-loong64/bin/glibc/system.node; package is not complete",
+      );
+    }
+    throw error;
+  }
+  try {
+    if (!fstatSync(flockFd).isFile()) {
+      throw new Error(
+        "linux-loong64 flock addon is not a regular file; package is not complete",
+      );
+    }
+    const flockBytes = readFileSync(flockFd);
+    assertUos20OldWorldElfBytes(flockBytes, "linux-loong64 flock addon");
+    const flockSha = createHash("sha256").update(flockBytes).digest("hex");
+    if (flockSha !== UOS20_FLOCK_SHA256) {
+      throw new Error(
+        `linux-loong64 flock addon digest ${flockSha} is not the pinned old-world build ${UOS20_FLOCK_SHA256}`,
+      );
+    }
+  } finally {
+    closeSync(flockFd);
+  }
+  for (const file of walkPayloadFiles(payloadRoot)) {
+    if (file.rel.includes("darwin-arm64") || file.rel.includes("darwin-x64") || file.rel.endsWith(".dylib")) {
+      throw new Error(`linux-loong64 payload contains darwin binary ${file.rel}`);
+    }
+    if (!file.rel.endsWith(".node") && !file.rel.endsWith(".so") && basename(file.rel) !== "node") {
+      continue;
+    }
+    const bytes = readFileSync(file.absolute);
+    if (bytes.subarray(0, 4).toString("binary") !== "\u007fELF") continue;
+    assertUos20OldWorldElf(file.absolute, file.rel, { requireInterp: basename(file.rel) === "node" });
+  }
 }
 
 function putOctal(header, offset, length, value) {
@@ -527,6 +673,7 @@ export function packageLinuxDeb({
   payloadRoot,
   outDir,
   iconPath,
+  requireRuntimeClosure = true,
 } = {}) {
   assertLinuxLoong64PackTarget(target);
   if (!payloadRoot || !existsSync(payloadRoot)) {
@@ -536,6 +683,7 @@ export function packageLinuxDeb({
   assertPenglaiBinary(payloadRoot);
   assertSandboxNotStripped(payloadRoot);
   assertRequiredBuiltinPlugins(join(payloadRoot, "resources", "plugins"));
+  if (requireRuntimeClosure) assertUosRuntimeClosure(payloadRoot);
   mkdirSync(outDir, { recursive: true });
   const stageRoot = join(tmpdir(), `penglai-deb-${process.pid}-${Date.now().toString(36)}`);
   rmSync(stageRoot, { recursive: true, force: true });
