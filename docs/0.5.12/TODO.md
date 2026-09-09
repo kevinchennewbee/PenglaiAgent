@@ -220,8 +220,22 @@ mock.
 - U01 GitHub: `v0.1.3-alpha.2` released 2026-09-07, short SHA `82a5fd6`;
   `v0.1.3-alpha.1` short SHA `d347e70`. npm graph probe in progress.
 
+## Incremental verification — 2026-09-09 (public v0.5.12)
+
+Public identity is **0.5.12**. Immutable release [`v0.5.12`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.12). Build source SHA `54a0ef30afa4e3d653e400a637d4aa8eb4abbb75`. Published v0.5.10 and v0.5.11 were not rewritten.
+
+- V04/V05: three-target native [PASS](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34293608792) including 0.5.8/0.5.9/0.5.10/0.5.11 upgrade and default uninstall.
+- P03: ten-file set assembled; GitHub asset digests match `SHA256SUMS`.
+- P04: publication and public-byte readback [PASS](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34305249020).
+- Signed Plugin Center distribution: catalog-mode native [PASS](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34306423051) against live immutable `plugin-catalog-v1.000006`; no new catalog sequence published.
+- P05: README, `website/`, and SECURITY.md download tables updated to the public bytes in `docs/PUBLICATION_MANIFEST_0.5.12.md`; live origin readback follows merge/deploy.
+- I02: hosted Windows `defaultOs=INCOMPLETE` (runner RTM already off with `C:\`/`D:\` exclusions; Penglai `mutated: false`). Not default-OS Defender-on PASS.
+- I05: DEFERRED_BY_OWNER / OUT_OF_SCOPE, not PASS.
+- V06: LIVE_NOT_RUN. No live model/IM credentials in this isolated profile.
+
 ## 中文
 
-未勾选项均待完成。历史 0.5.11 开发树文档另行快照+终裁，不在本账本当成
-当前未发布状态。公开下载在 v0.5.12 字节回读前仍指向 0.5.11。I05 打包页
-光栅为 DEFERRED_BY_OWNER / OUT_OF_SCOPE，不是 PASS。
+未勾选项均待完成。历史 0.5.11 开发树文档另行快照+终裁。v0.5.12 已按
+`docs/PUBLICATION_MANIFEST_0.5.12.md` 公开发布；已发布的 0.5.10 与 0.5.11
+未被改写。I05 打包页光栅为 DEFERRED_BY_OWNER / OUT_OF_SCOPE，不是 PASS。
+I02 托管 Windows Defender 默认开启仍为 NOT PROVEN。

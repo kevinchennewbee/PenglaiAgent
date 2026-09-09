@@ -11,7 +11,16 @@ Final published ruling: **v0.5.11** from source SHA
 recorded from `main` `87f6aec04b2b77d45a5c2b280d1b75332a80eb33`.
 
 Public README/website download tables remain **0.5.11** until immutable
-`v0.5.12` GitHub Release bytes exist and are read back.
+`v0.5.12` GitHub Release bytes exist and are read back. That sentence is a
+development-tree snapshot. Final published ruling: **v0.5.12** from source SHA
+`54a0ef30afa4e3d653e400a637d4aa8eb4abbb75` on 2026-09-09; native
+[34293608792](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34293608792);
+publication
+[34305249020](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34305249020);
+see `docs/PUBLICATION_MANIFEST_0.5.12.md`. Published **v0.5.10** and
+**v0.5.11** tags and assets were not rewritten. I05 packaged PDF page preview
+and bundled Poppler remain **DEFERRED_BY_OWNER / OUT_OF_SCOPE**, not PASS.
+Hosted Windows Defender default-on remains **NOT PROVEN** (`defaultOs=INCOMPLETE`).
 
 ## In scope for this development tree
 
