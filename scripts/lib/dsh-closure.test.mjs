@@ -178,6 +178,13 @@ test("linux-loong64 flatten omits unpublished require-builtin native and still r
 test("darwin flatten still embeds the published require-builtin native", () => {
   const work = mkdtempSync(join(tmpdir(), "penglai-dsh-required-int-"));
   writeClosureFixture(work);
+  const nativeName = "node-addon-require-builtin-darwin-arm64";
+  const nativeDir = join(work, "node_modules", nativeName);
+  mkdirSync(nativeDir, { recursive: true });
+  writeFileSync(
+    join(nativeDir, "package.json"),
+    JSON.stringify({ name: nativeName, version: "0.1.4" }),
+  );
   const dest = join(work, "dest");
   const flattened = materializeDshClosure(join(work, "package.json"), dest, "darwin-aarch64");
   assert.equal(flattened.native, "node-addon-require-builtin-darwin-arm64");
