@@ -303,6 +303,21 @@ test("UOS 20 packager refuses a new-world Penglai ELF and accepts old-world ld.s
         }),
       /new-world/,
     );
+    const sandboxNew = join(work, "sandbox-new");
+    writePayload(sandboxNew);
+    writeFileSync(join(sandboxNew, "Penglai"), elfWithInterpreter(UOS20_OLD_WORLD_INTERPRETER));
+    chmodSync(join(sandboxNew, "Penglai"), 0o755);
+    writeFileSync(join(sandboxNew, "chrome-sandbox"), elfWithInterpreter(UOS20_NEW_WORLD_INTERPRETER));
+    assert.throws(
+      () =>
+        packageLinuxDeb({
+          target: LINUX_LOONG64_TARGET,
+          payloadRoot: sandboxNew,
+          outDir: join(work, "out-sandbox"),
+          iconPath: join(work, "penglai.png"),
+        }),
+      /chrome-sandbox is new-world/,
+    );
   } finally {
     rmSync(work, { recursive: true, force: true });
   }

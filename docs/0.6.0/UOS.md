@@ -71,17 +71,24 @@ build host is authorized by implication.
 
 | Option | Runtime | Chromium train | Old-world evidence | Cost |
 | --- | --- | --- | --- | --- |
-| **A. Loongson Electron 22.3.27** | `https://ftp.loongnix.cn/electron/LoongArch/v22.3.27/electron-v22.3.27-linux-loong64.zip` vendor SHASUMS256 `4b46329143bdfb34c11c10c4163b8bd85a3ff4506dd117c8838e479019563a53` (zip bytes not yet downloaded here) | Chromium ~108 (Electron 22) | electerm still builds `*-loong64-legacy` for old-world UOS/Kylin using this zip + GCC 8 from Loongnix | Real old-world path. Official Electron 22 is EOL. Large security split vs 43.6.0 / Chromium 150. Native addons must match Loongnix Electron ABI (electerm hit a custom `NODE_MODULE_VERSION`). |
-| **B. Loongson Electron 31.7.7** | `https://ftp.loongnix.cn/electron/LoongArch/v31.7.7/electron-v31.7.7-linux-loong64.zip` vendor SHASUMS256 `e0c756ca8a66dde3bece6ad902f152f539365ce7442d6353871d7c54d1c0f47b` (zip bytes not yet downloaded). LSX tree is a separate compile (`electron-lsx`, 2026-06-18). | Chromium ~126 (Electron 31) | Vendor lists 3A5000; **ELF interpreter not yet read**. Official Electron 31 is EOL. | Newer than 22, still years behind 43. Must probe `file` on the zip before pinning. LSX-on is not proof of new-world userspace. |
+| **A. Loongson Electron 22.3.27** | Vendor SHASUMS256 `4b46329143bdfb34c11c10c4163b8bd85a3ff4506dd117c8838e479019563a53`. Zip bytes were **not** downloaded as a product default. | Chromium ~108 (Electron 22) | electerm still builds `*-loong64-legacy` | **Rejected as default.** Official Electron 22 is EOL. Larger Chromium gap than 31.7.7. |
+| **B. Loongson Electron 31.7.7** | Actual zip SHA-256 `e0c756ca8a66dde3bece6ad902f152f539365ce7442d6353871d7c54d1c0f47b` (151528692 bytes, zip test OK, 2026-09-09). `electron`: interpreter **`/lib64/ld.so.1`**, **for GNU/Linux 4.15.0**, GLIBC symbols through **2.28**, `Chrome/126.0.6478.234`. `chrome-sandbox` same old-world loader. LICENSE MIT Electron. `node_headers` Node **20.18.0** / `NODE_MODULE_VERSION` 125. Zip members dated 2025-02-06. ftp.loongnix.cn has no newer LoongArch Electron than 31.7.7. | Chromium 126 (Electron 31, official train EOL) | **Old-world ABI proven from actual bytes.** Not native UOS PASS. | Newest vendor old-world binary with ELF proof. Security maintenance after 2025-02-06 is **unproven**. Chromium 126 vs Mac/Windows 150 must be disclosed. Embedded Node is 20.18.0, not 22.23.2. |
 | **C. Source-build Electron 43 / Chromium 150 for old-world** | No public old-world 43.x recipe | Chromium 150 | Chromium 150 needs modern LLVM/glibc; old-world baseline is gcc 8 / glibc 2.28 / kernel 4.19 | No public recipe. Builder class is tens of GB RAM and hundreds of GB disk — **not** the 16 GB client. Not authorized paid infra. |
 | **D. OS upgrade to UOS V25 new-world** | Would unlock darkyzhou/unofficial-builds 43.x | Chromium 150 | V25 is new-world in public catalogs | Owner did **not** request this. Not a silent requirement. |
 
-**Recommended next engineering step (not a sealed pin):** treat **A** as
-the only currently demonstrated old-world Electron train; hash
-`electron-v22.3.27-linux-loong64.zip` from ftp.loongnix.cn before any
-payload. Bring **B** only after ELF world is proven. Do not copy
-electerm’s app; only the Electron zip + old-world GCC recipe are
-provenance. Mac/Windows remain 43.6.0.
+**Defensible payload runtime (not a security-equivalent pin):** **B**
+is the newest Loongson vendor Electron whose zip bytes and ELF world
+were actually read. Use it for the UOS `.deb` with an honest Chromium
+126 vs 150 note. Do not silently ship 22.3.27. Do not copy electerm’s
+app. Mac/Windows remain 43.6.0. libLoL is old-world-on-new-world and
+does **not** run Electron 43 on UOS 20. There is no public old-world
+43.x recipe.
+
+**Owner gate (2026-09-09):** native install, startup, and functional
+acceptance on this machine are **post-publication Owner testing**. They
+are not pre-publication blockers. Do not request remote access. Label
+`OWNER_POST_RELEASE`, never PASS. Pre-publication still requires the
+actual `.deb` with ABI/packaging/closure checks.
 
 ## Sandbox (do not fake)
 
@@ -99,7 +106,8 @@ Unmeasured on this host: whether `bwrap` exists and whether user
 namespaces are enabled. If bwrap probes on hardware, DSH can confine
 without Landlock (`enforcement: full` for bwrap). If both rungs fail,
 file-effect tools fail closed; Office and Memory stay required-builtin
-and must not be disabled to show a window.
+and must not be disabled to show a window. That host probe is now
+Owner post-release acceptance, not a pre-publication wait.
 
 Chromium `chrome-sandbox` (setuid helper) is a different layer from DSH
 Landlock. Keep it in the `.deb`. SUID/namespace success is unmeasured.
@@ -113,13 +121,19 @@ Landlock. Keep it in the `.deb`. SUID/namespace success is unmeasured.
   present, must be old-world (`/lib64/ld.so.1`), not new-world
   `ld-linux-loongarch-lp64d.so.1`.
 - Host Node for this client is **not** unofficial-builds 22.23.2 (new-world).
-  Loongson ftp Node tops out at 22.16.0 and is a different train; Electron
-  embeds its own Node. Do not mix.
+  Loongson ftp `node-v22.16.0-linux-loong64.tar.gz` actual SHA-256
+  `37166d30a92b7b913e8cbc4b0aebcef9a21de46820d902687ff3b718cb6c75b1`
+  (59181692, gzip ok). `bin/node`: interpreter **`/lib64/ld.so.1`**,
+  **for GNU/Linux 4.15.0**, GLIBC ≤2.28, LICENSE Node.js MIT. Old-world
+  host/tooling candidate, **behind** product Node 22.23.2. Electron 31.7.7
+  embeds Node **20.18.0** (`NODE_MODULE_VERSION` 125). Do not mix trains.
+- `@deepseek-ai/node-addon-system@0.1.2` ships darwin-arm64/x64 and
+  linux-x64/arm64 only. There is **no** linux-loong64 prebuild in the 272
+  cohort. JSONL flock writes fail closed without a loong64 addon; that is
+  a disclosed compatibility gap, not a reason to disable Memory.
 
-Still needed on the machine (already requested; do not re-ask OS/CPU):
-`dpkg --print-architecture`, `file /bin/ls`, `ldd --version`, whether
-`bwrap` exists, Landlock syscall probe, remote install/sudo. Native
-PASS still needs that access. QEMU is not native proof.
+Host `dpkg` / `bwrap` / Landlock syscall probes are Owner post-release
+acceptance. QEMU is not native proof. Do not request remote access.
 
 ## 中文
 
@@ -129,4 +143,8 @@ GB。这不是 V25，也不是新世界。3A6000 不能单独证明用户态 ABI
 4.19 内核按公开资料属于旧世界（`/lib64/ld.so.1`）。new-world 的
 Electron 43 / unofficial-builds Node 22.23.2 已用实际字节证明不兼容。
 不得要求用户升级系统，也不得用 V25 冒充交付。沙箱不得 `--no-sandbox`
-或伪造 Landlock；4.19 没有 Landlock。办公与记忆保持必装。
+或伪造 Landlock；4.19 没有 Landlock。办公与记忆保持必装。Loongson
+Electron 31.7.7 已用实际 zip/ELF 证明为旧世界（`/lib64/ld.so.1`、
+Chromium 126），不是 43.6.0 的安全等价。原生安装/启动/功能由 Owner
+在正式发布后验收，标 `OWNER_POST_RELEASE`，不得标 PASS，也不得再索
+远程登录。发布前仍须交出真实 `.deb`。

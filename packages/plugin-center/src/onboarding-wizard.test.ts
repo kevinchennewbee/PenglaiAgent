@@ -310,7 +310,7 @@ test("completeWelcome writes the fixed DSH welcomeNoticeVersion then advances we
   ]);
   assert.equal(DSH_WELCOME_NOTICE_VERSION, "2026-08-13.1");
   const npmCohort = JSON.parse(
-    readFileSync(new URL("../../../docs/0.5.12/DSH_NPM_COHORT.json", import.meta.url), "utf8"),
+    readFileSync(new URL("../../../docs/0.6.0/DSH_NPM_COHORT.json", import.meta.url), "utf8"),
   );
   assert.equal(DSH_WELCOME_NOTICE_VERSION, npmCohort.upstreamFacts.welcomeNotice.version);
   const again = await impl.completeWelcome();

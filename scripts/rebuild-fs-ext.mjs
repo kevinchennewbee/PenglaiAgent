@@ -12,9 +12,13 @@ import { nodeGypPrefix } from "./lib/node-gyp-prefix.mjs";
 
 const dir = join(ROOT, "node_modules", "fs-ext");
 const built = join(dir, "build", "Release", "fs_ext.node");
-if (!existsSync(join(dir, "binding.gyp"))) {
-  console.log("fs-ext not in this DSH generation; JSONL persistence does not require a local rebuild");
+if (!existsSync(dir)) {
+  console.log("fs-ext not in this DSH generation; JSONL persistence uses node-addon-system/flock");
   process.exit(0);
+}
+if (!existsSync(join(dir, "binding.gyp"))) {
+  console.error("fs-ext is present without binding.gyp; refuse to treat a broken package as the 0.1.5 prebuild path");
+  process.exit(1);
 }
 const npmJs = join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
 const devdir = process.env.npm_config_devdir || join(tmpdir(), "node-gyp-dev");

@@ -26,6 +26,9 @@ test("node-gyp uses a local Node prefix instead of downloading headers", () => {
     const rebuild = readFileSync(join(repo, "scripts/rebuild-fs-ext.mjs"), "utf8");
     assert.match(rebuild, /nodeGypPrefix/);
     assert.match(rebuild, /npm_config_nodedir/);
+    assert.match(rebuild, /!existsSync\(dir\)/);
+    assert.match(rebuild, /node-addon-system\/flock/);
+    assert.match(rebuild, /fs-ext is present without binding\.gyp/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

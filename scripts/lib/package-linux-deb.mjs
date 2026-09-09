@@ -225,6 +225,7 @@ export function assertSandboxNotStripped(payloadRoot) {
       "linux-loong64 payload missing chrome-sandbox; sandbox must not be stripped",
     );
   }
+  assertUos20OldWorldBinary(sandbox, "chrome-sandbox");
 }
 
 export function assertUos20OldWorldBinary(path, label = path) {

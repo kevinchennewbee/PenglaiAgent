@@ -24,7 +24,12 @@ if (desktop.dependencies["@deepseek-ai/dsh"] !== PINNED_DSH) {
   console.error("desktop DSH pin drift");
   process.exit(1);
 }
-const cohortBytes = readFileSync(join(ROOT, "docs/0.5.12/DSH_NPM_COHORT.json"));
+const publishedCohort = JSON.parse(readFileSync(join(ROOT, "docs/0.5.12/DSH_NPM_COHORT.json"), "utf8"));
+if (publishedCohort.version !== "0.1.3-alpha.2" || publishedCohort.rootTarballSha256 === PINNED_DSH_TARBALL_SHA256) {
+  console.error("published 0.5.12 DSH npm cohort must stay the immutable 0.1.3-alpha.2 identity");
+  process.exit(1);
+}
+const cohortBytes = readFileSync(join(ROOT, "docs/0.6.0/DSH_NPM_COHORT.json"));
 const cohort = JSON.parse(cohortBytes.toString("utf8"));
 if (
   cohort.version !== PINNED_DSH ||
@@ -32,7 +37,7 @@ if (
   cohort.rootTarballSha256 !== PINNED_DSH_TARBALL_SHA256 ||
   createHash("sha256").update(cohortBytes).digest("hex") !== PINNED_DSH_CLOSURE_MANIFEST_SHA256
 ) {
-  console.error("0.5.12 DSH npm cohort is missing the current source or registry identity");
+  console.error("0.6.0 DSH npm cohort is missing the current source or registry identity");
   process.exit(1);
 }
 const historicalAdr = readFileSync(join(ROOT, "docs/adr/0033-dsh-011-rc1-three-targets.md"), "utf8");

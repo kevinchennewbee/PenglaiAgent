@@ -53,6 +53,21 @@ test("0.5.12 publication-authorized freeze stays immutable and is not the 0.6 de
   assert.equal(PINNED_DSH, "0.1.5-alpha.1");
   assert.notEqual(freeze.dsh.version, PINNED_DSH);
   assert.equal(releaseContract.dshVersion, PINNED_DSH);
+  const development = JSON.parse(readFileSync(join(root, "docs/0.6.0/COHORT_FREEZE.json"), "utf8")) as {
+    kind: string;
+    status: string;
+    dsh: { candidateVersion: string; tag: string; commit: string; packageCount: number; tarballSha256: string };
+    publicRelease: { tag: string; immutable: boolean };
+  };
+  assert.equal(development.kind, "penglai-0.6.0-development-cohort-freeze");
+  assert.equal(development.status, "development-pin");
+  assert.equal(development.dsh.candidateVersion, PINNED_DSH);
+  assert.equal(development.dsh.tag, PINNED_DSH_TAG);
+  assert.equal(development.dsh.commit, PINNED_DSH_COMMIT);
+  assert.equal(development.dsh.packageCount, PINNED_DSH_CLOSURE_PACKAGE_COUNT);
+  assert.equal(development.dsh.tarballSha256, PINNED_DSH_TARBALL_SHA256);
+  assert.equal(development.publicRelease.tag, "v0.5.12");
+  assert.equal(development.publicRelease.immutable, true);
 });
 
 function developmentFreeze(base: CohortFreezeRecord): CohortFreezeRecord {

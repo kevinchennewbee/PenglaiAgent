@@ -46,10 +46,12 @@ initially disabled.
 3. Class-level live repairs from PM 0.5.12 GUI evidence: official
    `inputModalities` control, AUTH 401 → wizard `errorAuth`, stale
    workspace error cleared on folder change.
-4. Four-target native: `darwin-aarch64`, `darwin-x86_64`, `win32-x86_64`,
-   `linux-loong64` (UnionTech desktop OS 20 Professional 1070,
-   Loongson-3A6000-HV, kernel 4.19.0-loongson-3-desktop, old-world).
-   Linux packaging class is in-scope now; native UOS PASS is hardware-gated.
+4. Four-target installers: `darwin-aarch64`, `darwin-x86_64`,
+   `win32-x86_64`, `linux-loong64` (UnionTech desktop OS 20 Professional
+   1070, Loongson-3A6000-HV, kernel 4.19.0-loongson-3-desktop, old-world).
+   Linux packaging class and the actual `.deb` are pre-publication.
+   UOS native install/startup/function is Owner post-publication testing,
+   labeled `OWNER_POST_RELEASE`, never PASS.
 5. Reuse the I02 Defender-on class for 0.6 Windows. Do not weaken
    Defender.
 6. README/website/installer/wizard remain product-grade; downloads stay

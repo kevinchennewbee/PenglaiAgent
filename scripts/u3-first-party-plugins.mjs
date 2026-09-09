@@ -179,7 +179,7 @@ writeFileSync(
 );
 writeFileSync(join(onboardingDir, "current-nonce.digest"), `${fixtureNonceDigest}\n`, { mode: 0o600 });
 const dshCohort = JSON.parse(
-  readFileSync(join(ROOT, "docs/0.5.12/DSH_NPM_COHORT.json"), "utf8"),
+  readFileSync(join(ROOT, "docs/0.6.0/DSH_NPM_COHORT.json"), "utf8"),
 );
 const fixtureDshHome = join(userData, "dsh-home");
 mkdirSync(fixtureDshHome, { recursive: true, mode: 0o700 });

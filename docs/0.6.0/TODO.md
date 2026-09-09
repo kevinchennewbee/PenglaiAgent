@@ -96,11 +96,11 @@ public checkout.
       (`ld-linux-loongarch-lp64d.so.1`, GNU/Linux 5.19.0, GLIBC 2.38) —
       **not** the UOS 20 client Node. tar.xz local copy truncated; do
       not pin. See `NODE_LOONG64.json`.
-- [ ] S02 Old-world Electron for UOS 20: hash Loongson ftp
-      `electron-v22.3.27-linux-loong64.zip` (electerm legacy train) and
-      probe 31.7.7 ELF world before any pin. darkyzhou 43.x is
-      new-world-only and incompatible. Do not seal on EOL Chromium
-      without disclosing the gap vs Mac/Windows 43.6.0.
+- [x] S02 Loongson Electron **31.7.7** zip hashed and ELF-read (old-world
+      `/lib64/ld.so.1`, GNU/Linux 4.15.0, GLIBC ≤2.28, Chrome
+      126.0.6478.234). Not a silent 43.6.0 equivalent; Chromium gap vs
+      Mac/Windows 150 must be disclosed. 22.3.27 is not the default.
+      darkyzhou 43.x remains new-world-only.
 - [ ] S03 Linux generation layout (XDG) and `releaseTarget`/`linux-loong64`
       landed with tests rejecting linux-x64/arm64. Process supervision,
       secrets (libsecret or 0600 file class), and Landlock/seccomp
@@ -114,8 +114,10 @@ public checkout.
 - [ ] S05 Native addons: sqlite/fs-ext/node-pty/sharp/koffi/onnx/sherpa/
       Mnemon on loong64 — prebuild or source-build with digest. Memory
       cannot be disabled to ship a window.
-- [ ] S06 Actual native UOS wizard/lifecycle on Loongson hardware.
-      Cross-build and QEMU are not native PASS.
+- [ ] S06 UOS native install/startup/function: **Owner post-publication
+      acceptance** (2026-09-09). Not a pre-publication blocker. Do not
+      request remote access. Label `OWNER_POST_RELEASE`, never PASS.
+      Cross-build and QEMU are not native proof.
 
 ## Evidence and normal tests
 

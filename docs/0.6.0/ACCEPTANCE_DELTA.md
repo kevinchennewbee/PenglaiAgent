@@ -32,15 +32,24 @@ Public README/website download tables remain **0.5.12** until immutable
   `inputModalities` via official DeepSeek settings; AUTH 401 classified
   as `UNAUTHORIZED` for wizard `errorAuth`; stale workspace error cleared
   on path/id change. No model-id regex exceptions.
-- Four actual native targets from one clean `main` SHA: Apple Silicon,
+- Four actual installer targets from one clean `main` SHA: Apple Silicon,
   Intel Mac, Windows x64, and Loongson UnionTech UOS 20 Professional 1070
   (`linux-loong64`, kernel 4.19.0-loongson-3-desktop, old-world; not V25).
-  A feasibility note, cross-build, or three-platform set is not a
-  completed four-platform release.
+  A feasibility note, another platform, or a missing `.deb` is not the
+  UOS deliverable.
+- **UOS 20 native install, startup, and functional acceptance** are
+  Owner post-publication testing (Owner, 2026-09-09). They are **not**
+  pre-publication blockers and must be labeled `OWNER_POST_RELEASE`,
+  never PASS. Do not request remote access or require native execution
+  evidence before publication. Pre-publication still requires the actual
+  `Penglai_0.6.0_uos_loong64.deb` with architecture/ABI/dependency/
+  packaging/closure checks, honest Chromium/Node generation disclosure,
+  and no sandbox weakening. Mac/Windows retain their existing native
+  gates.
 - Linux desktop packaging class: layout, `.deb`, desktop integration,
-  launch, storage, secrets, updates, uninstall, runtime closure, and
-  mandatory Office/Memory semantics. Do not disable required plugins or
-  sandbox to show a window.
+  storage, secrets, updates, uninstall, runtime closure, and mandatory
+  Office/Memory semantics. Do not disable required plugins or sandbox
+  to show a window. No unsolicited OS upgrade and no second Agent core.
 - Deterministic source gates. Owner excludes the two-hour installed soak.
   `test:soak` remains required.
 - Exact asset set updated for four installers, then sealed from one clean
@@ -61,8 +70,9 @@ Public README/website download tables remain **0.5.12** until immutable
   present remain. Do not pull this into 0.6.0 without a new explicit
   Owner request.
 - Linux amd64 / Windows ARM as additional official targets.
-- Advertising a Loongson/UOS download before actual native
-  functional/lifecycle evidence on that ABI.
+- Labeling UOS native install/startup/functions PASS, or substituting a
+  report for the actual `.deb`. Public notes must state that UOS native
+  acceptance is pending Owner post-release testing.
 
 ## Cohort freeze (development)
 
