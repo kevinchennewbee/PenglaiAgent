@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // Portable linux-loong64 .deb class. Native UOS PASS remains Loongson hardware.
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { stagingForTarget } from "./lib/closure-credential.mjs";
@@ -48,6 +49,17 @@ if (!payloadArg && !existsSync(payloadRoot)) {
     }),
   );
   process.exit(4);
+}
+
+const bundle = spawnSync(process.execPath, [join(ROOT, "scripts/bundle-desktop.mjs")], {
+  cwd: ROOT,
+  stdio: "inherit",
+});
+if (bundle.status !== 0) {
+  console.error(
+    "package:linux-deb refused: this SHA dist/desktop-bundle rebuild failed",
+  );
+  process.exit(bundle.status ?? 1);
 }
 
 try {

@@ -13,6 +13,31 @@ required provenance change.
 Current development HEAD at this plan: `6d7b5917` plus this prep branch.
 Final freeze SHA is **not** `6d7b5917` once addons merge.
 
+## Dispatch once the freeze SHA is origin/main
+
+Do this only after the addon `MANIFEST.json` is integrated and that merge
+is `origin/main`. Do not dispatch from this prep PR.
+
+```bash
+# Confirm freeze identity first.
+git fetch origin main
+git rev-parse origin/main   # must equal the addon-integration merge SHA
+
+# Four-target native/packaging set. Intel Mac uses macos-15-intel;
+# Windows uses windows-2022. linux-loong64 packages only.
+gh workflow run native-release-candidate.yml --ref main -f mode=native
+```
+
+Expected native jobs: `darwin-aarch64`, `darwin-x86_64`, `win32-x86_64`
+(installed e2e, upgrade from published 0.5.12, default uninstall).
+Expected packaging job: `linux-loong64` `.deb` +
+`local-installer-linux-loong64.json` (`native: false`). Aggregate then
+`verify:native-set` on Mac/Windows only and `verify:release`.
+
+Do **not** run `deploy-website.yml` or `publish-release.yml` from this
+step. Those stay blocked until the Electron 31.7.7 shipping decision and
+immutable public bytes. 0.5.12 native evidence must not be relabeled.
+
 ## What is already accepted (do not rerun)
 
 - PM ARM candidate `6d7b5917` zip `59738af2…`: same-path original 0.5.12

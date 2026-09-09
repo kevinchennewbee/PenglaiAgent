@@ -8,6 +8,7 @@ import {
   fstatSync,
   lstatSync,
   mkdirSync,
+  mkdtempSync,
   openSync,
   readdirSync,
   readFileSync,
@@ -15,7 +16,6 @@ import {
   writeFileSync,
 } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { deterministicGzip } from "./deterministic-gzip.mjs";
@@ -772,9 +772,9 @@ export function packageLinuxDeb({
   assertRequiredBuiltinPlugins(join(payloadRoot, "resources", "plugins"));
   if (requireRuntimeClosure) assertUosRuntimeClosure(payloadRoot);
   mkdirSync(outDir, { recursive: true });
-  const stageRoot = join(tmpdir(), `penglai-deb-${process.pid}-${Date.now().toString(36)}`);
-  rmSync(stageRoot, { recursive: true, force: true });
-  mkdirSync(stageRoot, { recursive: true });
+  // Exclusive stage next to the installer output. The shared OS temp directory
+  // is world-writable and is not a legal place to assemble a release payload.
+  const stageRoot = mkdtempSync(join(outDir, ".penglai-deb-stage-"));
   try {
     const dataRoot = stageDebTree({ payloadRoot, stageRoot, iconPath });
     const optRoot = join(dataRoot, "opt", "Penglai");
