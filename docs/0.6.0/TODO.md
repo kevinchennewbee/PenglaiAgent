@@ -141,11 +141,11 @@ public checkout.
 
 ## README, website, installers and release
 
-- [ ] D01 README: English then Chinese; four-target download cards only
-      after public bytes. Honest UOS limits until native evidence.
+- [x] D01 README: English then Chinese; four-target download cards bound
+      to public v0.6.0 bytes after readback. Honest UOS limits retained.
 - [ ] D02 `website/` + gh-pages/pages.dev: desktop 1280 and mobile 390,
       reduced-motion, keyboard, live origin readback after publish.
-      Downloads stay 0.5.12 until v0.6.0 readback.
+      Downloads now bind v0.6.0 public bytes; live origin readback is P05.
 - [ ] D03 macOS DMG presentation (both Mac targets).
 - [ ] D04 Windows NSIS install/upgrade UI.
 - [ ] D05 Electron first-run wizard, including UOS/linux once packaged.
@@ -154,10 +154,11 @@ public checkout.
 - [ ] P01 Acceptance delta, release notes, security, upgrade docs.
 - [ ] P02 Commits, push, PR, merge; exclude Owner files and private
       `.grok` / `pdf-page-preview.png`.
-- [ ] P03 Exact contract asset set from accepted native builds (four
-      installers + metadata).
-- [ ] P04 Immutable publication and public-byte readback. Do not rewrite
-      v0.5.10, v0.5.11, or v0.5.12.
+- [x] P03 Exact contract asset set from freeze `7dd68b4a` (four
+      installers + seven metadata files). GitHub aggregate job on run
+      34376799819 remains FAILED (collector path), not waived.
+- [x] P04 Immutable publication and public-byte readback of `v0.6.0`.
+      v0.5.10, v0.5.11, and v0.5.12 were not rewritten.
 - [ ] P05 Live penglai.pages.dev and GitHub Pages readback for 0.6.0.
 
 ## Notes

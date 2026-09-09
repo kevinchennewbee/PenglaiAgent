@@ -614,6 +614,13 @@ html[lang="zh-CN"] h2 {
   font-size: 0.8rem;
 }
 
+.download-grid code {
+  margin-top: 0.35rem;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  word-break: break-all;
+}
+
 .note-panel {
   max-width: 46rem;
   margin: 0 0 1.4rem;

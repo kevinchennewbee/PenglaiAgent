@@ -128,7 +128,7 @@
         <ul class="workflow-list">
           <li>You can turn memory off, or review candidates first.</li>
           <li>Authorised folders are indexed without changing the originals.</li>
-          <li>Candidate curation is a model call to the provider you selected. Storage and recall stay local. Mnemon 0.2.8 is bundled.</li>
+          <li>Candidate curation is a model call to the provider you selected. Storage and recall stay local. Memory is required and default-on, including on UOS, with the Mnemon 0.2.8 engine packed.</li>
         </ul>
       </div>
       <img src="../shots/0.5.5/memory.png" alt="Penglai Memory settings: Workspace scope, graph, correction, and migration">
@@ -150,7 +150,7 @@
             <span class="state">Opt in</span>
             <h3>Local voice</h3>
           </div>
-          <p>SenseVoice handles speech recognition. MOSS-TTS handles voice generation. Plugin code ships in the app. Large model weights explain themselves before downloading. Conversation Read speaks the original reply rather than translating it.</p>
+          <p>SenseVoice handles speech recognition. MOSS-TTS handles voice generation on Mac and Windows. Plugin code ships in the app. Large SenseVoice weights explain themselves before downloading. MOSS-TTS is not available and not enableable on LoongArch. Conversation Read speaks the original reply rather than translating it.</p>
         </article>
         <article>
           <div>
@@ -190,7 +190,7 @@
         <p><strong>Where data goes</strong> There is no Penglai account, Penglai-operated telemetry backend, or cloud memory sync. Official DSH bundles a dormant DeepSeek OTLP endpoint; Penglai hard-disables it. Model calls still send the context needed for that task to the provider you selected.</p>
         <p><strong>What needs a confirmation</strong> Office save and return, personal Memory, plugin install, and outbound messaging use a confirmation bound to that action. Diagnostics must not contain credentials, chat bodies, QR codes, or private absolute paths.</p>
         <p><strong>Signatures are not an OS endorsement</strong> macOS packages are ad-hoc signed and not notarized. Windows has no Authenticode. Gatekeeper or SmartScreen may warn. Penglai Ed25519 signatures protect updater and plugin bytes; they are not Apple or Microsoft publisher identity.</p>
-        <p><strong>UOS is a fourth target, not a finished native claim</strong> UnionTech UOS 20 LoongArch is packaged as <code>Penglai_0.6.0_uos_loong64.deb</code>. Native install, startup, and function on that host are Owner-tested after publication. That UOS runtime is Loongson Electron 31.7.7 (Chromium 126), not the Mac/Windows Electron 43 train.</p>
+        <p><strong>UOS is a fourth target, not a finished native claim</strong> UnionTech UOS 20 LoongArch is packaged as <code>Penglai_0.6.0_uos_loong64.deb</code>. Native install, startup, and function on that host remain Owner post-publication testing (<code>OWNER_POST_RELEASE</code>), not PASS. That UOS runtime is Loongson Electron 31.7.7 (Chromium 126). It is not maintained and is not a Chromium 150 / Electron 43 security equivalent of Mac/Windows. Memory stays required/on with the packed Mnemon engine. MOSS-TTS is not available and not enableable on LoongArch.</p>
       </div>
     </section>
 
@@ -201,28 +201,32 @@
       <div class="download-grid">
         <a data-family="mac" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_macos_aarch64.dmg">
           <strong>macOS · Apple Silicon</strong>
-          <span>macOS 13+ · M1 and later</span>
+          <span>GitHub · 271.2 MiB · macOS 13+ · M1 and later</span>
           <em>Penglai_0.6.0_macos_aarch64.dmg</em>
+          <code>98d1c0a133d50200c03626d39e225a52ff08d1f1a09fdb1595ab706b70f183cb</code>
         </a>
         <a data-family="mac" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_macos_x64.dmg">
           <strong>macOS · Intel</strong>
-          <span>macOS 13+ · x86_64 Mac</span>
+          <span>GitHub · 280.4 MiB · x86_64 Mac</span>
           <em>Penglai_0.6.0_macos_x64.dmg</em>
+          <code>4c74a4ce9353ccf23aa74471d279237c4b5b9822d118aa2a90e44e16caf16498</code>
         </a>
         <a data-family="windows" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_windows_x64_setup.exe">
           <strong>Windows · x64</strong>
-          <span>Windows 10+ · 64-bit installer</span>
+          <span>GitHub · 352.7 MiB · 64-bit installer</span>
           <em>Penglai_0.6.0_windows_x64_setup.exe</em>
+          <code>6316f623fe877686662b7b3a5641945bc946e2b1dd31bf3d9527c6a17f7c35e9</code>
         </a>
         <a data-family="linux" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_uos_loong64.deb">
           <strong>UOS 20 · LoongArch</strong>
-          <span>UnionTech UOS 20 Professional 1070, old-world. Native function is Owner-tested after publication.</span>
+          <span>GitHub · 279.1 MiB · UOS 20 Professional 1070, old-world. Native function is Owner post-publication.</span>
           <em>Penglai_0.6.0_uos_loong64.deb</em>
+          <code>a541e9fa9b06626750b4a87859cc76ff3df51b5a0eb8960de08e8eba20cad430</code>
         </a>
       </div>
-      <p class="note-panel">The immutable GitHub Release is the authoritative public download source: <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0">v0.6.0</a>. Until those bytes exist and are read back, the last public installers remain <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.12">v0.5.12</a>. After publication, check the file against <code>SHA256SUMS</code> on that page. Linux amd64 and Windows ARM are not targets. Updates are never silent.</p>
+      <p class="note-panel">The immutable GitHub Release is the authoritative public download source: <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0">v0.6.0</a>. All four installers come from source <code>7dd68b4ab08bbe4edf4dfac7f82abb6b164cb316</code>. Check the file against <code>SHA256SUMS</code> on that page. Linux amd64 and Windows ARM are not targets. Updates are never silent. Published 0.5.10, 0.5.11, and 0.5.12 remain immutable.</p>
       <div class="actions">
-        <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/RELEASE_NOTES_0.6.0.md">Release notes draft</a>
+        <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/RELEASE_NOTES_0.6.0.md">Release notes</a>
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">Security notes</a>
       </div>
     </section>
@@ -245,7 +249,7 @@
         </article>
         <article>
           <h3>Which version should I download?</h3>
-          <p>This page describes Penglai 0.6.0. Until the v0.6.0 Release is public, the last immutable installers are 0.5.12. Published 0.5.10 and 0.5.11 remain historical.</p>
+          <p>This page describes published Penglai 0.6.0. Download the matching installer from the immutable <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0">v0.6.0</a> GitHub Release. Published 0.5.10, 0.5.11, and 0.5.12 remain historical and immutable.</p>
         </article>
         <article>
           <h3>Why does Gatekeeper warn?</h3>

@@ -143,7 +143,13 @@ test("website publication permits only the post-readback narrative delta", () =>
     "website/en/index.html",
   ];
   assert.doesNotThrow(() =>
-    assertPublicationOnlyChanges([...required, `docs/${PRODUCT_VERSION}/TODO.md`, "packages/release-identity/src/website-publication.ts"]),
+    assertPublicationOnlyChanges([
+      ...required,
+      `docs/${PRODUCT_VERSION}/TODO.md`,
+      "packages/release-identity/src/website-publication.ts",
+      "scripts/readback-release.mjs",
+      ".github/workflows/native-release-candidate.yml",
+    ]),
   );
   assert.throws(
     () => assertPublicationOnlyChanges([...required, "apps/desktop/src/index.ts"]),

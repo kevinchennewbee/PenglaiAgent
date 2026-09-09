@@ -74,7 +74,9 @@ function publicationPath(path: string, version: string): boolean {
     path.startsWith("packages/release-identity/src/website-publication") ||
     path === "scripts/verify-website-release.mjs" ||
     path === "scripts/readback-website.mjs" ||
-    path === ".github/workflows/deploy-website.yml"
+    path === "scripts/readback-release.mjs" ||
+    path === ".github/workflows/deploy-website.yml" ||
+    path === ".github/workflows/native-release-candidate.yml"
   );
 }
 

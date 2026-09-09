@@ -127,7 +127,7 @@
         <ul class="workflow-list">
           <li>可以关闭记忆，或改成先看候选。</li>
           <li>授权文件夹只建派生索引，撤销时不改原文件。</li>
-          <li>整理候选会调用你选择的模型供应商。记录与召回留在本机。Mnemon 0.2.8 已随包。</li>
+          <li>整理候选会调用你选择的模型供应商。记录与召回留在本机。记忆必装默认开启，UOS 上也带入 Mnemon 0.2.8 引擎。</li>
         </ul>
       </div>
       <img src="../shots/0.5.5/memory.png" alt="蓬莱记忆设置：范围、图谱、更正和迁移">
@@ -149,7 +149,7 @@
             <span class="state">按需启用</span>
             <h3>本地语音</h3>
           </div>
-          <p>SenseVoice 负责识别，MOSS-TTS 负责生成。插件代码随包。较大的模型权重会在启用时说明后再下载。会话朗读原文，不负责翻译。</p>
+          <p>SenseVoice 负责识别。MOSS-TTS 在 Mac/Windows 上负责生成。插件代码随包。SenseVoice 较大权重会在启用时说明后再下载。MOSS-TTS 在龙芯上不可用、不可启用。会话朗读原文，不负责翻译。</p>
         </article>
         <article>
           <div>
@@ -189,7 +189,7 @@
         <p><strong>数据去哪</strong> 没有蓬莱账号、蓬莱运营的遥测后端或云端记忆同步。官方 DSH 自带一个休眠的 DeepSeek OTLP 地址，蓬莱会硬性禁用。模型调用仍会把本次任务需要的内容发给你选择的供应商。</p>
         <p><strong>哪些事要单独确认</strong> 办公保存与回传、记忆个人化、插件安装和外发消息，都走与动作绑定的确认。诊断不得包含凭据、聊天正文、二维码或私人绝对路径。</p>
         <p><strong>签名不是系统背书</strong> macOS 是 ad-hoc 签名、未公证；Windows 没有 Authenticode。Gatekeeper 或 SmartScreen 可能提醒。蓬莱 Ed25519 保护升级和插件字节，不是 Apple 或 Microsoft 发布者身份。</p>
-        <p><strong>UOS 是第四端，不是已完成的真机声明</strong> 统信 UOS 20 龙芯的安装包是 <code>Penglai_0.6.0_uos_loong64.deb</code>。该机上的安装、启动和功能由 Owner 在发布后测试。UOS 运行时是龙芯 Electron 31.7.7（Chromium 126），不是 Mac/Windows 的 Electron 43。</p>
+        <p><strong>UOS 是第四端，不是已完成的真机声明</strong> 统信 UOS 20 龙芯的安装包是 <code>Penglai_0.6.0_uos_loong64.deb</code>。该机上的安装、启动和功能仍是 Owner 发布后测试（<code>OWNER_POST_RELEASE</code>），不是 PASS。UOS 运行时是龙芯 Electron 31.7.7（Chromium 126），未维持，也不是 Mac/Windows Electron 43 / Chromium 150 的安全等价。记忆必开且带入 Mnemon 引擎。MOSS-TTS 在龙芯上不可用、不可启用。</p>
       </div>
     </section>
 
@@ -200,28 +200,32 @@
       <div class="download-grid">
         <a data-family="mac" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_macos_aarch64.dmg">
           <strong>macOS · Apple 芯片</strong>
-          <span>macOS 13+ · M1 及更新</span>
+          <span>GitHub · 271.2 MiB · macOS 13+ · M1 及更新</span>
           <em>Penglai_0.6.0_macos_aarch64.dmg</em>
+          <code>98d1c0a133d50200c03626d39e225a52ff08d1f1a09fdb1595ab706b70f183cb</code>
         </a>
         <a data-family="mac" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_macos_x64.dmg">
           <strong>macOS · Intel</strong>
-          <span>macOS 13+ · x86_64 Mac</span>
+          <span>GitHub · 280.4 MiB · x86_64 Mac</span>
           <em>Penglai_0.6.0_macos_x64.dmg</em>
+          <code>4c74a4ce9353ccf23aa74471d279237c4b5b9822d118aa2a90e44e16caf16498</code>
         </a>
         <a data-family="windows" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_windows_x64_setup.exe">
           <strong>Windows · x64</strong>
-          <span>Windows 10+ · 64 位安装器</span>
+          <span>GitHub · 352.7 MiB · 64 位安装器</span>
           <em>Penglai_0.6.0_windows_x64_setup.exe</em>
+          <code>6316f623fe877686662b7b3a5641945bc946e2b1dd31bf3d9527c6a17f7c35e9</code>
         </a>
         <a data-family="linux" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_uos_loong64.deb">
           <strong>UOS 20 · 龙芯</strong>
-          <span>统信 UOS 20 专业版 1070，旧世界。真机安装与功能由 Owner 在发布后测试。</span>
+          <span>GitHub · 279.1 MiB · 统信 UOS 20 专业版 1070，旧世界。真机功能为 Owner 发布后测试。</span>
           <em>Penglai_0.6.0_uos_loong64.deb</em>
+          <code>a541e9fa9b06626750b4a87859cc76ff3df51b5a0eb8960de08e8eba20cad430</code>
         </a>
       </div>
-      <p class="note-panel">权威公开下载源是不可变 GitHub Release：<a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0">v0.6.0</a>。在这些字节存在并回读完成前，最近的公开安装包仍是 <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.12">v0.5.12</a>。发布后请用该页的 <code>SHA256SUMS</code> 核对文件。Linux amd64 与 Windows ARM 不是目标。更新不会静默执行。</p>
+      <p class="note-panel">权威公开下载源是不可变 GitHub Release：<a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0">v0.6.0</a>。四个安装包来自源码 <code>7dd68b4ab08bbe4edf4dfac7f82abb6b164cb316</code>。请用该页的 <code>SHA256SUMS</code> 核对文件。Linux amd64 与 Windows ARM 不是目标。更新不会静默执行。已发布的 0.5.10、0.5.11、0.5.12 保持不可变。</p>
       <div class="actions">
-        <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/RELEASE_NOTES_0.6.0.md">发布说明草稿</a>
+        <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/RELEASE_NOTES_0.6.0.md">发布说明</a>
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">安全说明</a>
       </div>
     </section>
@@ -244,7 +248,7 @@
         </article>
         <article>
           <h3>现在该下载哪个版本？</h3>
-          <p>本页描述的是 Penglai 0.6.0。在 v0.6.0 Release 公开前，最近的不可变安装包是 0.5.12。已发布的 0.5.10 与 0.5.11 仍是历史版本。</p>
+          <p>本页描述的是已发布的 Penglai 0.6.0。请从不可变 <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0">v0.6.0</a> GitHub Release 下载对应安装包。已发布的 0.5.10、0.5.11、0.5.12 仍是不可变历史版本。</p>
         </article>
         <article>
           <h3>为什么 Gatekeeper 会提示？</h3>

@@ -10,8 +10,8 @@ Official DeepSeek Harness, installed on a personal computer.
 
 **Penglai 0.6.0** puts official DeepSeek Harness `0.1.5-alpha.1` (tag `dsh-v0.1.5-alpha.1`, commit `5dda764ed3aa172535a7967b06ff95d9cbfe536a`, 272 npm packages) on Apple Silicon, Intel Mac, Windows x64, and UnionTech UOS 20 LoongArch. DSH remains the only agent core. Office and Memory start on.
 
-The last immutable public installers are [v0.5.12](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.12). The [v0.6.0](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0) GitHub Release is the download source for this version once those bytes exist and are read back. Published v0.5.10, v0.5.11, and v0.5.12 tags stay immutable.
-[Release notes](docs/RELEASE_NOTES_0.6.0.md)
+Immutable public bytes: [`v0.6.0`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0), built from source `7dd68b4ab08bbe4edf4dfac7f82abb6b164cb316`. Published v0.5.10, v0.5.11, and v0.5.12 tags stay immutable.
+[Release notes](docs/RELEASE_NOTES_0.6.0.md) · [Publication manifest](docs/PUBLICATION_MANIFEST_0.6.0.md)
 
 <p align="center">
   <img src="website/shots/0.5.5/welcome.png" width="78%" alt="Penglai first-run welcome: language, appearance, and a seven-step guide">
@@ -61,20 +61,37 @@ Settings stay simple: install and enable, or disable. Hashes, loader phases, per
 </p>
 <p align="center"><sub>Installed 0.5.5 Plugin Center and Office, kept as UI references. UI state is never proof of installation or health.</sub></p>
 
-Office writes use host-issued `artifact:<uuid>` handles and wait for a confirmation bound to that action. Memory recall never searches another Workspace. Candidate curation is a model call to the provider you selected; storage and recall stay local. Mnemon `0.2.8` is bundled. Large SenseVoice and MOSS-TTS weights download only after an explicit action.
+Office writes use host-issued `artifact:<uuid>` handles and wait for a confirmation bound to that action. Memory recall never searches another Workspace. Candidate curation is a model call to the provider you selected; storage and recall stay local. Memory is required and default-on, including on UOS, with the Mnemon `0.2.8` engine packed. Large SenseVoice weights download only after an explicit action. MOSS-TTS is not available and not enableable on LoongArch.
 
 ## Download
 
-Use the matching file. Do not mix platforms.
+Use the matching file. Do not mix platforms. Check the downloaded installer against `SHA256SUMS` on [`v0.6.0`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0). GitHub Releases is the authoritative source. Linux amd64 and Windows ARM are not targets. All four installers were built from source `7dd68b4ab08bbe4edf4dfac7f82abb6b164cb316`.
 
-| Computer | Installer |
-| --- | --- |
-| Apple Silicon, macOS 13+ | [Penglai_0.6.0_macos_aarch64.dmg](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_macos_aarch64.dmg) |
-| Intel Mac, macOS 13+ | [Penglai_0.6.0_macos_x64.dmg](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_macos_x64.dmg) |
-| Windows 10+ x64 | [Penglai_0.6.0_windows_x64_setup.exe](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_windows_x64_setup.exe) |
-| UnionTech UOS 20 LoongArch | [Penglai_0.6.0_uos_loong64.deb](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_uos_loong64.deb) |
+### Apple Silicon, macOS 13+
 
-After the [v0.6.0](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0) Release is public, check the downloaded file against `SHA256SUMS` on that page. GitHub Releases is the authoritative source. Linux amd64 and Windows ARM are not targets. Native UOS install, startup, and function are Owner-tested after publication. That UOS runtime is Loongson Electron 31.7.7 (Chromium 126), not the Mac/Windows Electron 43 train.
+[`Penglai_0.6.0_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_macos_aarch64.dmg)
+
+284,362,933 bytes · SHA-256 `98d1c0a133d50200c03626d39e225a52ff08d1f1a09fdb1595ab706b70f183cb`
+
+### Intel Mac, macOS 13+
+
+[`Penglai_0.6.0_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_macos_x64.dmg)
+
+293,996,120 bytes · SHA-256 `4c74a4ce9353ccf23aa74471d279237c4b5b9822d118aa2a90e44e16caf16498`
+
+### Windows 10+ x64
+
+[`Penglai_0.6.0_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_windows_x64_setup.exe)
+
+369,849,038 bytes · SHA-256 `6316f623fe877686662b7b3a5641945bc946e2b1dd31bf3d9527c6a17f7c35e9`
+
+### UnionTech UOS 20 LoongArch
+
+[`Penglai_0.6.0_uos_loong64.deb`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_uos_loong64.deb)
+
+292,702,128 bytes · SHA-256 `a541e9fa9b06626750b4a87859cc76ff3df51b5a0eb8960de08e8eba20cad430`
+
+Native UOS install, startup, and function remain Owner post-publication testing (`OWNER_POST_RELEASE`). That UOS runtime is Loongson Electron 31.7.7 (Chromium 126). It is not maintained and is not a Chromium 150 / Electron 43 security equivalent of Mac/Windows.
 
 ## Quick start
 
@@ -99,8 +116,10 @@ Upgrade with the same-platform installer as a manual overlay. Default uninstall 
 - Credentials are stored in app-private YAML through official DSH. That is not Keychain or hardware isolation.
 - macOS is ad-hoc signed and **not notarized**. Windows has **no Authenticode**. Do not disable system security to install.
 - Plugins share the local DSH process. Install only reviewed catalog entries and read their permissions.
-- UOS 20 LoongArch is the fourth packaged target. Native function on that host is not claimed as already tested.
-- Source tests, packaged tests, native installed tests, and live external-account tests are reported separately.
+- UOS 20 LoongArch is the fourth packaged target. Native install, startup, and function on that host remain `OWNER_POST_RELEASE`, not PASS.
+- UOS Electron 31.7.7 / Chromium 126 is not maintained and has no Mac/Windows security parity.
+- Memory stays required/on on UOS with the packed Mnemon engine. MOSS-TTS is not available and not enableable on LoongArch.
+- Source tests, packaged tests, native installed Mac/Windows tests, and live external-account tests are reported separately.
 
 ## Further reading
 
@@ -154,7 +173,7 @@ DSH 始终是唯一的 Agent 核心。Agent loop、模型、工具、审批、Wo
        → DeepSeek Harness（模型、工具、Workspace、Session、会话）
 ```
 
-**Penglai 0.6.0** 使用官方 DeepSeek Harness `0.1.5-alpha.1`（tag `dsh-v0.1.5-alpha.1`，commit `5dda764ed3aa172535a7967b06ff95d9cbfe536a`，272 包）。办公和记忆默认开启。四个安装包面向 Apple 芯片、Intel Mac、Windows x64 和统信 UOS 20 龙芯。最近的不可变公开安装包仍是 [v0.5.12](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.12)。[v0.6.0](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0) 才是本版本的权威下载源，前提是那些字节已经存在并完成回读。
+**Penglai 0.6.0** 使用官方 DeepSeek Harness `0.1.5-alpha.1`（tag `dsh-v0.1.5-alpha.1`，commit `5dda764ed3aa172535a7967b06ff95d9cbfe536a`，272 包）。办公和记忆默认开启。四个安装包面向 Apple 芯片、Intel Mac、Windows x64 和统信 UOS 20 龙芯，来自源码 `7dd68b4ab08bbe4edf4dfac7f82abb6b164cb316`。权威公开下载是不可变 [`v0.6.0`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0)。已发布的 v0.5.10、v0.5.11、v0.5.12 保持不可变。
 
 ## 一次完整使用
 
@@ -183,20 +202,37 @@ DSH 始终是唯一的 Agent 核心。Agent loop、模型、工具、审批、Wo
 </p>
 <p align="center"><sub>0.5.5 安装版插件中心与办公界面，作为参考。界面状态不等于已安装或健康。</sub></p>
 
-办公写入使用 Host 发出的 `artifact:<uuid>` 句柄，并等待与动作绑定的确认。记忆召回不会搜索另一个 Workspace。整理候选会调用你选择的模型供应商；记录与召回留在本机。Mnemon `0.2.8` 已随包。SenseVoice 和 MOSS-TTS 的大模型要你主动下载。
+办公写入使用 Host 发出的 `artifact:<uuid>` 句柄，并等待与动作绑定的确认。记忆召回不会搜索另一个 Workspace。整理候选会调用你选择的模型供应商；记录与召回留在本机。记忆必装默认开启，UOS 上也带入 Mnemon `0.2.8` 引擎。SenseVoice 大模型要你主动下载。MOSS-TTS 在龙芯上不可用、不可启用。
 
 ## 下载
 
-请使用对应安装包，不要混用。
+请使用对应安装包，不要混用。下载后用 [`v0.6.0`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0) 页的 `SHA256SUMS` 核对。权威公开源是 GitHub Release。Linux amd64 与 Windows ARM 不是目标。四个安装包来自源码 `7dd68b4ab08bbe4edf4dfac7f82abb6b164cb316`。
 
-| 电脑 | 安装包 |
-| --- | --- |
-| Apple 芯片，macOS 13+ | [Penglai_0.6.0_macos_aarch64.dmg](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_macos_aarch64.dmg) |
-| Intel Mac，macOS 13+ | [Penglai_0.6.0_macos_x64.dmg](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_macos_x64.dmg) |
-| Windows 10+ x64 | [Penglai_0.6.0_windows_x64_setup.exe](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_windows_x64_setup.exe) |
-| 统信 UOS 20 龙芯 | [Penglai_0.6.0_uos_loong64.deb](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_uos_loong64.deb) |
+### Apple 芯片，macOS 13+
 
-[v0.6.0](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0) 公开发布后，请用该页的 `SHA256SUMS` 核对下载文件。权威公开源是 GitHub Release。Linux amd64 与 Windows ARM 不是目标。UOS 上的安装、启动和功能由 Owner 在发布后测试。该端运行时是龙芯 Electron 31.7.7（Chromium 126），不是 Mac/Windows 的 Electron 43。
+[`Penglai_0.6.0_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_macos_aarch64.dmg)
+
+284,362,933 字节 · SHA-256 `98d1c0a133d50200c03626d39e225a52ff08d1f1a09fdb1595ab706b70f183cb`
+
+### Intel Mac，macOS 13+
+
+[`Penglai_0.6.0_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_macos_x64.dmg)
+
+293,996,120 字节 · SHA-256 `4c74a4ce9353ccf23aa74471d279237c4b5b9822d118aa2a90e44e16caf16498`
+
+### Windows 10+ x64
+
+[`Penglai_0.6.0_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_windows_x64_setup.exe)
+
+369,849,038 字节 · SHA-256 `6316f623fe877686662b7b3a5641945bc946e2b1dd31bf3d9527c6a17f7c35e9`
+
+### 统信 UOS 20 龙芯
+
+[`Penglai_0.6.0_uos_loong64.deb`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_uos_loong64.deb)
+
+292,702,128 字节 · SHA-256 `a541e9fa9b06626750b4a87859cc76ff3df51b5a0eb8960de08e8eba20cad430`
+
+UOS 上的安装、启动和功能仍是 Owner 发布后测试（`OWNER_POST_RELEASE`）。该端运行时是龙芯 Electron 31.7.7（Chromium 126），未维持，也不是 Mac/Windows Electron 43 / Chromium 150 的安全等价。
 
 ## 快速开始
 
@@ -215,8 +251,10 @@ DSH 始终是唯一的 Agent 核心。Agent loop、模型、工具、审批、Wo
 - 密钥写在 official DSH 的 app-private YAML 里。这不是钥匙串或硬件隔离。
 - macOS 是 ad-hoc 签名、**未公证**；Windows **没有 Authenticode**。请不要为了安装而关闭系统安全功能。
 - 插件和 DSH 在同一本地进程中运行，只应安装经过审核的目录条目并阅读权限。
-- 统信 UOS 20 龙芯是第四个打包目标。该机上的功能验收尚未作为已完成事实声明。
-- 源码测试、打包测试、原生安装测试、真实外部账号测试分别记录。
+- 统信 UOS 20 龙芯是第四个打包目标。该机上的安装、启动和功能仍是 `OWNER_POST_RELEASE`，不是 PASS。
+- UOS Electron 31.7.7 / Chromium 126 未维持，也没有 Mac/Windows 安全等价。
+- UOS 上记忆必开且带入 Mnemon 引擎。MOSS-TTS 在龙芯上不可用、不可启用。
+- 源码测试、打包测试、Mac/Windows 原生安装测试、真实外部账号测试分别记录。
 
 ## 继续阅读
 
