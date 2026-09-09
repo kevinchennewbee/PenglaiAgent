@@ -16,22 +16,20 @@ const SRC = join(
   "src",
   "flock.c",
 );
-const TOOLCHAIN =
-  process.env.PENGLAI_UOS20_TOOLCHAIN ||
-  "/tmp/penglai-grok-manager/0.6.0/toolchain/loongson-gnu-toolchain-8.3-x86_64-loongarch64-linux-gnu-rc1.6";
-const SYSROOT = join(TOOLCHAIN, "loongarch64-linux-gnu", "sysroot");
-const HEADERS =
-  process.env.PENGLAI_UOS20_NODE_HEADERS ||
-  "/tmp/penglai-grok-manager/0.6.0/uos-runtime/node_headers_extract/node_headers/include/node";
+const TOOLCHAIN = process.env.PENGLAI_UOS20_TOOLCHAIN;
+const HEADERS = process.env.PENGLAI_UOS20_NODE_HEADERS;
 const OUT =
   process.env.PENGLAI_UOS20_FLOCK_OUT ||
-  "/tmp/penglai-grok-manager/0.6.0/addons/linux-loong64/bin/glibc/system.node";
+  join(ROOT, "dist", "runtime-staging-linux-loong64", "addons", "glibc", "system.node");
+const SYSROOT = TOOLCHAIN ? join(TOOLCHAIN, "loongarch64-linux-gnu", "sysroot") : "";
 
 function fail(message) {
   console.error(JSON.stringify({ verdict: "FAIL", command: "build-uos20-flock", reason: message }));
   process.exit(1);
 }
 
+if (!TOOLCHAIN) fail("set PENGLAI_UOS20_TOOLCHAIN to the extracted gcc 8.3 old-world sysroot root");
+if (!HEADERS) fail("set PENGLAI_UOS20_NODE_HEADERS to Electron 31 node_headers include/node");
 if (!existsSync(SRC)) fail(`missing flock.c at ${SRC}`);
 if (!existsSync(join(SYSROOT, "lib64", "libc-2.28.so"))) fail("missing gcc 8.3 old-world sysroot libc-2.28");
 if (!existsSync(join(HEADERS, "node_api.h"))) fail("missing Electron 31 node_headers node_api.h");

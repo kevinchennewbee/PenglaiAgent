@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
 import {
   chmodSync,
+  closeSync,
   cpSync,
   existsSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
   rmSync,
@@ -241,9 +244,8 @@ export function glibcVersionsNewerThan228(bytes) {
   return [...new Set(newer)];
 }
 
-export function assertUos20OldWorldElf(path, label = path, { requireInterp = false } = {}) {
-  const bytes = readFileSync(path);
-  if (bytes.subarray(0, 4).toString("binary") !== "\u007fELF") {
+export function assertUos20OldWorldElfBytes(bytes, label, { requireInterp = false } = {}) {
+  if (!Buffer.isBuffer(bytes) || bytes.subarray(0, 4).toString("binary") !== "\u007fELF") {
     throw new Error(`${label} must be ELF for UOS 20`);
   }
   const machine = readElfMachine(bytes);
@@ -268,6 +270,10 @@ export function assertUos20OldWorldElf(path, label = path, { requireInterp = fal
     throw new Error(`${label} needs ${newer.join(", ")}; UOS 20 glibc is 2.28`);
   }
   return interpreter;
+}
+
+export function assertUos20OldWorldElf(path, label = path, opts = {}) {
+  return assertUos20OldWorldElfBytes(readFileSync(path), label, opts);
 }
 
 export function assertSandboxNotStripped(payloadRoot) {
@@ -352,17 +358,33 @@ export function assertUosRuntimeClosure(payloadRoot) {
     );
   }
   const flock = join(payloadRoot, FLOCK_ADDON_REL);
-  if (!existsSync(flock) || !lstatSync(flock).isFile()) {
-    throw new Error(
-      "linux-loong64 payload missing glibc flock addon node-addon-system-linux-loong64/bin/glibc/system.node; package is not complete",
-    );
+  let flockFd;
+  try {
+    flockFd = openSync(flock, "r");
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      throw new Error(
+        "linux-loong64 payload missing glibc flock addon node-addon-system-linux-loong64/bin/glibc/system.node; package is not complete",
+      );
+    }
+    throw error;
   }
-  assertUos20OldWorldElf(flock, "linux-loong64 flock addon");
-  const flockSha = createHash("sha256").update(readFileSync(flock)).digest("hex");
-  if (flockSha !== UOS20_FLOCK_SHA256) {
-    throw new Error(
-      `linux-loong64 flock addon digest ${flockSha} is not the pinned old-world build ${UOS20_FLOCK_SHA256}`,
-    );
+  try {
+    if (!fstatSync(flockFd).isFile()) {
+      throw new Error(
+        "linux-loong64 flock addon is not a regular file; package is not complete",
+      );
+    }
+    const flockBytes = readFileSync(flockFd);
+    assertUos20OldWorldElfBytes(flockBytes, "linux-loong64 flock addon");
+    const flockSha = createHash("sha256").update(flockBytes).digest("hex");
+    if (flockSha !== UOS20_FLOCK_SHA256) {
+      throw new Error(
+        `linux-loong64 flock addon digest ${flockSha} is not the pinned old-world build ${UOS20_FLOCK_SHA256}`,
+      );
+    }
+  } finally {
+    closeSync(flockFd);
   }
   for (const file of walkPayloadFiles(payloadRoot)) {
     if (file.rel.includes("darwin-arm64") || file.rel.includes("darwin-x64") || file.rel.endsWith(".dylib")) {
