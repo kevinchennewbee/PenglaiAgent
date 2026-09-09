@@ -457,6 +457,14 @@ test("single-instance ownership is scoped after the app-private userData path", 
   assert.ok(configure >= 0 && lock > configure, "userData must be configured before acquiring the instance lock");
 });
 
+test("linux desktop boot is admitted only after releaseTarget so x64 Linux is not official", () => {
+  const main = readFileSync(join(root, "apps/desktop/src/electron-main.ts"), "utf8");
+  const target = main.indexOf("releaseTarget(platform, process.arch)");
+  const configure = main.indexOf("configureGenerationPaths({");
+  assert.match(main, /process.platform === "linux"/);
+  assert.ok(target >= 0 && configure > target, "unsupported Linux arches must fail before userData is created");
+});
+
 test("installed app helper refuses Electron executable and wrong Info.plist identity", async () => {
   const helper = readFileSync(join(root, "scripts/lib/installed-app.mjs"), "utf8");
   assert.match(helper, /CFBundleExecutable/);

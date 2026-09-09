@@ -40,11 +40,36 @@ test("desktop paths isolate Electron session/cache and keep one 0.5 generation",
   assert.equal(layout.managedData.cacheRoot, layout.cache);
 });
 
+test("linux generation paths use XDG data/cache/state under Penglai/0.5", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-linux-layout-"));
+  const paths = new Map<string, string>();
+  const layout = configureGenerationPaths({
+    app: {
+      setName: () => undefined,
+      getPath: () => root,
+      setPath: (name, path) => paths.set(name, path),
+      setAppLogsPath: (path) => paths.set("logs", path ?? ""),
+    },
+    platform: "linux",
+    dataHome: join(root, "share"),
+    cacheHome: join(root, "cache"),
+    stateHome: join(root, "state"),
+  });
+  assert.equal(layout.userData, join(root, "share", "Penglai", "0.5"));
+  assert.equal(layout.cache, join(root, "cache", "Penglai", "0.5"));
+  assert.equal(layout.logs, join(root, "state", "Penglai", "0.5", "logs"));
+  assert.equal(paths.get("userData"), layout.userData);
+  assert.equal(paths.get("sessionData"), join(layout.cache, "chromium-session"));
+});
+
 test("installed target mapping is exact", () => {
   assert.equal(releaseTarget("darwin", "arm64"), "darwin-aarch64");
   assert.equal(releaseTarget("darwin", "x64"), "darwin-x86_64");
   assert.equal(releaseTarget("win32", "x64"), "win32-x86_64");
+  assert.equal(releaseTarget("linux", "loong64"), "linux-loong64");
+  assert.equal(releaseTarget("linux", "loongarch64"), "linux-loong64");
   assert.throws(() => releaseTarget("linux", "x64"), /unsupported/);
+  assert.throws(() => releaseTarget("linux", "arm64"), /unsupported/);
 });
 
 test("embedded updater contract and fresh Workspace snapshot fail closed", () => {

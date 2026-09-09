@@ -28,14 +28,24 @@ export interface ElectronPathHost {
 
 export function configureGenerationPaths(input: {
   app: ElectronPathHost;
-  platform: "darwin" | "win32";
+  platform: "darwin" | "win32" | "linux";
   envUserData?: string;
   localAppData?: string;
+  dataHome?: string;
+  cacheHome?: string;
+  stateHome?: string;
 }): DesktopDataLayout {
   input.app.setName("Penglai");
   const generation = resolveGenerationLayout({
     platform: input.platform,
     ...(input.platform === "win32" && input.localAppData ? { localAppData: input.localAppData } : {}),
+    ...(input.platform === "linux"
+      ? {
+          ...(input.dataHome ? { dataHome: input.dataHome } : {}),
+          ...(input.cacheHome ? { cacheHome: input.cacheHome } : {}),
+          ...(input.stateHome ? { stateHome: input.stateHome } : {}),
+        }
+      : {}),
   });
   if (input.envUserData && !isAbsolute(input.envUserData)) {
     throw new PenglaiError("SECURITY_POLICY", "PENGLAI_USER_DATA must be absolute");
@@ -71,6 +81,7 @@ export function releaseTarget(platform: NodeJS.Platform, arch: string): string {
   if (platform === "darwin" && arch === "arm64") return "darwin-aarch64";
   if (platform === "darwin" && (arch === "x64" || arch === "x86_64")) return "darwin-x86_64";
   if (platform === "win32" && (arch === "x64" || arch === "x86_64")) return "win32-x86_64";
+  if (platform === "linux" && (arch === "loong64" || arch === "loongarch64")) return "linux-loong64";
   throw new PenglaiError("SECURITY_POLICY", `unsupported installed update target ${platform}/${arch}`);
 }
 

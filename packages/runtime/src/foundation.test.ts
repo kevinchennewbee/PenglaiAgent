@@ -32,6 +32,18 @@ test("R50-DIST-006 generation layout isolates 0.5 and lists legacy", () => {
   assert.ok(mac.legacyCandidates.some((p) => p.includes("penglai-v0.2.0-alpha.3") || p.includes(".dsh")));
   const win = resolveGenerationLayout({ platform: "win32", home: "C:\\Users\\测 试", localAppData: "C:\\Users\\测 试\\AppData\\Local" });
   assert.match(win.userData.replace(/\\/g, "/"), /Penglai\/0\.5$/);
+  const linux = resolveGenerationLayout({
+    platform: "linux",
+    home: "/home/测 试",
+    dataHome: "/home/测 试/.local/share",
+    cacheHome: "/home/测 试/.cache",
+    stateHome: "/home/测 试/.local/state",
+  });
+  assert.equal(linux.userData, "/home/测 试/.local/share/Penglai/0.5");
+  assert.equal(linux.logs, "/home/测 试/.local/state/Penglai/0.5/logs");
+  assert.equal(linux.cache, "/home/测 试/.cache/Penglai/0.5");
+  assert.equal(linux.updates, "/home/测 试/.cache/Penglai/0.5/updates");
+  assert.ok(linux.legacyCandidates.some((p) => p.endsWith(".dsh")));
   assert.equal(joinUserData(join(tmpdir(), "Penglai")), join(tmpdir(), "Penglai", "0.5"));
 });
 
