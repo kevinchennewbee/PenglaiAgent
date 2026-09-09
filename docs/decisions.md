@@ -451,6 +451,32 @@
   NOTICE 声明。不引入替代渲染器。保留 0.5.11 已有的 PDF 检查、摘要绑定
   文本预览，以及主机 PATH 上可选 `pdftoppm`（非三端打包证据）。
 - 后果：I05 打包页光栅不再是 0.5.12 发布阻断。不得把该延期项标成 PASS。
+  0.6.0 未经新的明确 Owner 请求不得重新纳入。
+
+### D-070 — 0.6.0 四端全流程授权：DSH 0.1.5-alpha.1、DSH IM 4.17.1、龙芯 UOS
+
+- 日期：2026-09-09。
+- 决定：Owner 授权 **Penglai 0.6.0** 完整开发、官方 DSH 与 DSH IM 及其他
+  适用插件/依赖升级适配、已发现缺陷修复、正常测试、推送与 PR 合并、
+  四端原生构建、更新后的精确附件不可变发布及 README/既有 gh-pages/
+  pages.dev 官网更新与公开回读。Codex 只做产品经理与 GUI 验收操作。
+  Grok 4.6 xhigh 负责实现与技术审查。该授权仅覆盖 0.6.0，不改写已发布
+  0.5.10/0.5.11/0.5.12。
+- 上游：消费官方 DSH `0.1.5-alpha.1` **完整** npm cohort（tag
+  `dsh-v0.1.5-alpha.1` / commit `5dda764ed3aa172535a7967b06ff95d9cbfe536a`；
+  包数以实际依赖图与 registry integrity 为准，不得假定 254/263，不得混代、
+  源码路径、Git 依赖或本地重打包）。会话 V3 必须保留原日志，禁止静默丢弃
+  与降级读取。DSH IM `@xmanrui/dsh-im@4.17.1` 审查后忠实接入 `@penglai/im`，
+  不得安装其 runtime、复制 `cordis.patch.yml`、引入 WhatsApp 或替换办公插件。
+- 第四目标：龙芯新世界 + 统信 UOS，target key `linux-loong64`。官方
+  Electron/Node 无 loong64 预编译时，允许已审查、带许可证与摘要的
+  unofficial-builds Node 与 `darkyzhou/electron-loong64` 架构构建，并写明
+  与三端官方钉选的版本差异。不得用交叉编译、QEMU 或 linux-x64 冒充龙芯
+  native。可行性备忘不是完成。
+- 已发布 **v0.5.10**、**v0.5.11** 与 **v0.5.12** tag/附件不可变。两小时
+  installed soak 排除；`test:soak` 保留。真实账号缺凭据记 `LIVE_NOT_RUN`。
+  PDF 页预览/Poppler 仍为 D-069 延期。
+- 后果：执行账本为 `docs/0.6.0/`。公开下载在 v0.6.0 回读前仍指向 0.5.12。
 
 ## Superseded
 
@@ -470,7 +496,7 @@
 - browser/CUA、Companion无人值守高权限工具。
 - 任意第三方在线插件市场和远程代码下载。
 - silent auto-update、Mac App Store、Microsoft Store、Developer ID/notarization、Windows Authenticode。
-- Linux与Windows ARM。
+- Linux amd64 与 Windows ARM（龙芯新世界 + 统信 UOS `linux-loong64` 由 D-070 纳入 0.6.0，不再延期）。
 - 云账户、遥测、跨设备同步、Penglai 托管飞书应用。
 - 飞书 user OAuth/Device Flow，直到出现明确 user-scope 功能。
 
