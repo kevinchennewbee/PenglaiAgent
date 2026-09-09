@@ -71,6 +71,14 @@ test("NSIS and upgrade verifier must not kill every Penglai.exe by image name", 
   assert.doesNotMatch(nsis, /GetFullPath\(''\$INSTDIR''\)/);
   assert.doesNotMatch(upgrade, /DisableRealtimeMonitoring \$true/);
   assert.doesNotMatch(upgrade, /Add-MpPreference -ExclusionPath/);
+  const i02 = readFileSync(join(root, ".github/workflows/i02-public-windows-defender.yml"), "utf8");
+  assert.doesNotMatch(i02, /DisableRealtimeMonitoring \$true/);
+  assert.doesNotMatch(i02, /Add-MpPreference -ExclusionPath/);
+  assert.match(i02, /Set-MpPreference -DisableRealtimeMonitoring \$false/);
+  assert.match(i02, /Remove-MpPreference -ExclusionPath/);
+  assert.match(i02, /5d926a884ca2b93c43f8ee8d8e8897df636585d449f1810d25ab4bffae3159da/);
+  assert.match(i02, /I02_HOST_UNAVAILABLE/);
+  assert.match(i02, /mutated = \$false/);
 });
 
 test("NSIS ExecWait nested single quotes are the class that yielded four parameters", () => {
