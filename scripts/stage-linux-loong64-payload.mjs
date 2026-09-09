@@ -100,9 +100,11 @@ cpSync(join(staging, "profile-seed"), join(resources, "profile-seed"), {
   recursive: true,
 });
 cpSync(join(staging, "plugins"), join(resources, "plugins"), { recursive: true });
-if (existsSync(join(staging, "mnemon"))) {
-  cpSync(join(staging, "mnemon"), join(resources, "mnemon"), { recursive: true });
+if (!existsSync(join(staging, "mnemon"))) {
+  console.error("stage-linux-loong64 refused: required Mnemon engine missing");
+  process.exit(1);
 }
+cpSync(join(staging, "mnemon"), join(resources, "mnemon"), { recursive: true });
 cpSync(join(staging, "licenses"), join(resources, "licenses"), { recursive: true });
 for (const name of [
   "runtime-manifest.json",

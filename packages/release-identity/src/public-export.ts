@@ -264,7 +264,7 @@ const OWNER_PATH = [
 export function isNonTextExportPath(rel: string): boolean {
   const n = rel.replaceAll("\\", "/");
   if (
-    /\.(png|jpg|jpeg|webp|gif|ico|icns|wasm|ttf|woff2?|tgz|zip|node|dylib|dll)$/i.test(
+    /\.(png|jpg|jpeg|webp|gif|ico|icns|wasm|ttf|woff2?|tgz|tar\.gz|zip|node|dylib|dll)$/i.test(
       n,
     )
   ) {
@@ -272,6 +272,7 @@ export function isNonTextExportPath(rel: string): boolean {
   }
   // libvips-cpp.so.42.20.6 and other ELF DSOs are not UTF-8 text.
   if (/\.so(?:\.\d+)*$/i.test(n)) return true;
+  if (/(?:^|\/)mnemon(?:\.exe)?$/.test(n)) return true;
   return false;
 }
 

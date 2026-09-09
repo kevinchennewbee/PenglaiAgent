@@ -12,6 +12,10 @@ Official sharp has no `linux-loong64` optional package; `sharp.cjs` loads
 `node-addon-require-builtin` native is unpublished on loong64. Product web
 uses `patchReload: startup`. Do not invent that native.
 
+Mnemon 0.2.8 linux-loong64 is an architecture build of official source
+commit `da9b7da0…` (`artifacts/mnemon`, SHA-256 `a8bc5fc4…`). Recipe:
+`docs/0.6.0/MNEMON_LOONG64.md`. Native execution is UNRUN.
+
 Native install/startup/function on UOS remains `OWNER_POST_RELEASE`.
 Independent ABI review of libvips-cpp `2e9438ad…`:
 `review/ABI-PROVENANCE-REVIEW-2e9438ad.md`.

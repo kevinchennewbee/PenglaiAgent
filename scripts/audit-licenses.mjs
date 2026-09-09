@@ -271,7 +271,7 @@ if (
   mnemonManifest.license !== MNEMON_UPSTREAM.license ||
   mnemonManifest.licenseSha256 !== MNEMON_UPSTREAM.licenseSha256 ||
   mnemonManifest.commit !== MNEMON_UPSTREAM.commit ||
-  MNEMON_ASSETS.length !== 3
+  MNEMON_ASSETS.length !== 4
 ) {
   console.error("Office font or Mnemon license provenance drift");
   process.exit(1);

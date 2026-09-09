@@ -19,6 +19,18 @@ test("fetch-mnemon rejects unknown arguments", () => {
   assert.throws(() => parseFetchArgs(["--weird"]), /unknown fetch-mnemon argument/);
 });
 
+test("linux-loong64 is a pinned architecture-built mnemon target", () => {
+  const parsed = parseFetchArgs(["--target", "linux-loong64"]);
+  const assets = selectAssets(parsed);
+  assert.equal(assets.length, 1);
+  assert.equal(assets[0].target, "linux-loong64");
+  assert.equal(assets[0].architectureBuild, true);
+  assert.equal(
+    assets[0].binarySha256,
+    "a8bc5fc48cbbc60f572dcbb02bf065165837d2134174804820782d2db88bb5be",
+  );
+});
+
 test("fetch-mnemon --host-only selects one host target", () => {
   const parsed = parseFetchArgs(["--host-only"]);
   const assets = selectAssets(parsed, "darwin", "arm64");

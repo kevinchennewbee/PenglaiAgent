@@ -1083,19 +1083,20 @@ for (const p of packs) {
   if (p.id === "@penglai/memory") {
     const asset = mnemonAssetForPluginTarget(effectiveTarget);
     if (!asset) {
-      if (effectiveTarget === "linux-loong64") {
-        console.log(
-          JSON.stringify({
-            mnemon: "unpublished-on-linux-loong64",
-            nativeExecution: "UNRUN",
-          }),
+      console.error("memory plugin missing mnemon pin for", effectiveTarget);
+      process.exit(1);
+    }
+    {
+      let src = join(ROOT, "third_party", "mnemon", "bin", asset.target, asset.binaryFilename);
+      if (!existsSync(src) && asset.architectureBuild) {
+        src = join(
+          ROOT,
+          "native",
+          "linux-loong64-oldworld",
+          "artifacts",
+          asset.binaryFilename,
         );
-      } else {
-        console.error("memory plugin missing mnemon pin for", effectiveTarget);
-        process.exit(1);
       }
-    } else {
-      const src = join(ROOT, "third_party", "mnemon", "bin", asset.target, asset.binaryFilename);
       if (!existsSync(src)) {
         console.error("mnemon binary missing; run pnpm fetch:mnemon-assets -- --target", asset.target);
         process.exit(1);
@@ -1220,7 +1221,7 @@ for (const p of packs) {
     ...(vendorSherpa
       ? { dependencies: { [SHERPA_ONNX]: PINNED_SHERPA_ONNX } }
       : {}),
-    ...(vendorMoss
+    ...(vendorMoss && ortTargetParts(effectiveTarget)
       ? {
           dependencies: {
             [ONNX_RUNTIME_NODE]: PINNED_ONNX_RUNTIME_NODE,

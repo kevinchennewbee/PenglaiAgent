@@ -9,6 +9,7 @@ export const PRODUCT_PLUGIN_TARGETS = [
   "darwin-arm64",
   "darwin-x64",
   "win32-x64",
+  "linux-loong64",
 ] as const;
 
 export type ProductPluginTarget = (typeof PRODUCT_PLUGIN_TARGETS)[number];
@@ -157,6 +158,9 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       ...common,
       id: "@penglai/moss-tts",
       packageFile: `penglai-moss-tts-${RELEASE}.tgz`,
+      // onnxruntime-node 1.23.2 has no linux-loong64 native. Do not advertise
+      // MOSS as enableable on UOS 20 without that engine.
+      platforms: ["darwin-arm64", "darwin-x64", "win32-x64"],
       capabilities: ["settings-ui", "local-tts", "model-manager"],
       permissions: ["local-model", "audio-output"],
       defaultEnabled: false,
@@ -286,8 +290,11 @@ function assertMetadataMatch(
 
 export function runtimePluginTarget(
   platform = process.platform,
-  arch = process.arch,
+  arch: string = process.arch,
 ): ProductPluginTarget {
+  if (platform === "linux" && (arch === "loong64" || arch === "loongarch64")) {
+    return "linux-loong64";
+  }
   const target = `${platform}-${arch}`;
   if (!PRODUCT_PLUGIN_TARGETS.includes(target as ProductPluginTarget)) {
     throw new PenglaiError(

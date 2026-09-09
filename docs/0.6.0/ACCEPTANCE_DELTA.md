@@ -107,9 +107,13 @@ Do not relabel 0.5.12 native evidence as 0.6.0 runtime acceptance.
   four-target SHA after UOS payload integration. Do not dispatch
   `native-release-candidate.yml` from this prep change.
 
-Electron 31.7.7 UOS pin remains **not maintained**; publishing that
-limitation is an unresolved PM decision. UOS `.deb` payload addons are
-owned by the separate worker; native UOS stays `OWNER_POST_RELEASE`.
+Electron 31.7.7 UOS pin remains **not maintained**. PM selected option B
+(2026-09-09): ship those bytes with explicit Chromium 126 / unproven
+maintenance disclosure and no security parity with Mac/Windows. UOS
+`.deb` payload addons including architecture-built Mnemon 0.2.8 are in
+`native/linux-loong64-oldworld/`. Native UOS stays `OWNER_POST_RELEASE`.
+MOSS-TTS is not enableable on this target until an old-world ONNX engine
+exists.
 
 Facts already observed (2026-09-09):
 

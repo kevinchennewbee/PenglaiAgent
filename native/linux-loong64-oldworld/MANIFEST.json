@@ -35,6 +35,14 @@
     "pty.node": {
       "sha256": "5b5b7386569040bdc5af2c3f5213757e032636b0b80b50a3675eb2e347f73cb0",
       "overlay": "runtime/dsh/node_modules/node-pty/prebuilds/linux-loong64/pty.node"
+    },
+    "mnemon": {
+      "sha256": "a8bc5fc48cbbc60f572dcbb02bf065165837d2134174804820782d2db88bb5be",
+      "overlay": "resources/mnemon/mnemon",
+      "version": "0.2.8",
+      "sourceCommit": "da9b7da0e3e7f10c84d5f8e9a42e24453c8159bb",
+      "staticElf": true,
+      "nativeExecution": "UNRUN"
     }
   }
 }

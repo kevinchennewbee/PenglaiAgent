@@ -391,8 +391,15 @@ window.__ModuleLoader__.load({
         const notInstalled = installed === "not-installed" || installed === "unknown";
         const healthy = Boolean(entry.healthy ?? false);
         const revoked = Boolean(entry.revoked);
+        const platformUnavailable = Boolean(
+          Array.isArray(entry.platforms) &&
+            typeof entry.target === "string" &&
+            !entry.platforms.includes(entry.target),
+        );
         const incompatible = Boolean(
-          entry.incompatible || entry.dshCompatible === false,
+          entry.incompatible ||
+            entry.dshCompatible === false ||
+            platformUnavailable,
         );
         const title =
           entry.title?.["zh-CN"] ||
@@ -415,7 +422,9 @@ window.__ModuleLoader__.load({
           unloading: t.centerStatusUnloading,
           failed: t.centerStatusFailed,
         }[runtimePhase];
-        const statusCopy = incompatible
+        const statusCopy = platformUnavailable
+          ? t.centerStatusUnavailable
+          : incompatible
           ? t.centerStatusIncompatible
           : revoked
           ? t.centerStatusRevoked
@@ -438,6 +447,7 @@ window.__ModuleLoader__.load({
             "data-penglai-plugin-source": String(entry.source ?? "bundled-first-party"),
             "data-penglai-plugin-version": String(entry.version ?? ""),
             "data-penglai-plugin-revoked": String(revoked),
+            "data-penglai-plugin-unavailable": String(platformUnavailable),
             className: "penglai-capability-card",
             children: [
               jsx.jsxs("header", {
@@ -460,7 +470,11 @@ window.__ModuleLoader__.load({
                   }),
                 ],
               }),
-              hint ? jsx.jsx("p", { children: hint }) : null,
+              platformUnavailable
+                ? jsx.jsx("p", { children: t.centerUnavailableHint })
+                : hint
+                  ? jsx.jsx("p", { children: hint })
+                  : null,
               jsx.jsx("nav", {
                 "data-penglai-plugin-links": "1",
                 children: [
@@ -905,6 +919,9 @@ window.__ModuleLoader__.load({
         centerInstallDisabled: "安装（停用）",
         centerStatusRevoked: "已撤销",
         centerStatusIncompatible: "不兼容当前版本或平台",
+        centerStatusUnavailable: "本机不提供此功能",
+        centerUnavailableHint:
+          "此功能在当前计算机上不可用，因为没有匹配的本机引擎。",
         centerActionDownloaded: "下载成功。",
         centerActionInstalled: "已安装为停用。",
         centerActionRefreshed: "目录已刷新。",
@@ -1111,6 +1128,9 @@ window.__ModuleLoader__.load({
         centerInstallDisabled: "Install disabled",
         centerStatusRevoked: "Revoked",
         centerStatusIncompatible: "Incompatible version or platform",
+        centerStatusUnavailable: "Not available on this computer",
+        centerUnavailableHint:
+          "This feature is not available on this computer because the native engine is not supported here.",
         centerActionDownloaded: "Downloaded.",
         centerActionInstalled: "Installed disabled.",
         centerActionRefreshed: "Catalog refreshed.",

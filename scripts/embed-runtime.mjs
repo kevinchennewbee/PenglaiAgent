@@ -273,38 +273,38 @@ if (packedPlugins !== stagedPlugins) {
   cpSync(packedPlugins, stagedPlugins, { recursive: true });
 }
 const mnemonAsset = mnemonAssetForTarget(target);
-if (!mnemonAsset && target !== "linux-loong64") {
+if (!mnemonAsset) {
   console.error("embed-runtime missing mnemon pin for", target);
   process.exit(1);
 }
-if (mnemonAsset) {
-  const mnemonSrc = join(ROOT, "third_party", "mnemon", "bin", mnemonAsset.target, mnemonAsset.binaryFilename);
-  if (!existsSync(mnemonSrc) || sha256File(mnemonSrc) !== mnemonAsset.binarySha256) {
-    console.error("embed-runtime mnemon binary missing or hash mismatch; fetch the target asset first");
-    process.exit(1);
-  }
-  mkdirSync(join(staging, "mnemon"), { recursive: true });
-  cpSync(mnemonSrc, join(staging, "mnemon", mnemonAsset.binaryFilename));
-  const mnemonLicense = join(
+let mnemonSrc = join(ROOT, "third_party", "mnemon", "bin", mnemonAsset.target, mnemonAsset.binaryFilename);
+if (!existsSync(mnemonSrc) && mnemonAsset.architectureBuild) {
+  mnemonSrc = join(
     ROOT,
-    "packages/moss-tts/third_party/sentencepiece-js-Apache-2.0.txt",
+    "native",
+    "linux-loong64-oldworld",
+    "artifacts",
+    mnemonAsset.binaryFilename,
   );
-  if (!existsSync(mnemonLicense) || sha256File(mnemonLicense) !== MNEMON_UPSTREAM.licenseSha256) {
-    console.error("embed-runtime Mnemon Apache-2.0 license missing or hash mismatch");
-    process.exit(1);
-  }
-  cpSync(mnemonLicense, join(staging, "mnemon", "LICENSE"));
-  if (mnemonAsset.executable) {
-    const { chmodSync } = await import("node:fs");
-    chmodSync(join(staging, "mnemon", mnemonAsset.binaryFilename), 0o755);
-  }
-} else {
-  console.log(
-    JSON.stringify({
-      mnemon: "unpublished-on-linux-loong64",
-      nativeExecution: "UNRUN",
-    }),
-  );
+}
+if (!existsSync(mnemonSrc) || sha256File(mnemonSrc) !== mnemonAsset.binarySha256) {
+  console.error("embed-runtime mnemon binary missing or hash mismatch; fetch the target asset first");
+  process.exit(1);
+}
+mkdirSync(join(staging, "mnemon"), { recursive: true });
+cpSync(mnemonSrc, join(staging, "mnemon", mnemonAsset.binaryFilename));
+const mnemonLicense = join(
+  ROOT,
+  "packages/moss-tts/third_party/sentencepiece-js-Apache-2.0.txt",
+);
+if (!existsSync(mnemonLicense) || sha256File(mnemonLicense) !== MNEMON_UPSTREAM.licenseSha256) {
+  console.error("embed-runtime Mnemon Apache-2.0 license missing or hash mismatch");
+  process.exit(1);
+}
+cpSync(mnemonLicense, join(staging, "mnemon", "LICENSE"));
+if (mnemonAsset.executable) {
+  const { chmodSync } = await import("node:fs");
+  chmodSync(join(staging, "mnemon", mnemonAsset.binaryFilename), 0o755);
 }
 cpSync(join(ROOT, "profile-seed"), join(staging, "profile-seed"), { recursive: true });
 cpSync(join(ROOT, "release-contract.json"), join(staging, "release-contract.json"));

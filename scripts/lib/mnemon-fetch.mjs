@@ -51,6 +51,9 @@ export function hostTarget(platform = process.platform, arch = process.arch) {
   if (platform === "darwin" && arch === "arm64") return "darwin-aarch64";
   if (platform === "darwin" && arch === "x64") return "darwin-x86_64";
   if (platform === "win32") return "win32-x86_64";
+  if (platform === "linux" && (arch === "loong64" || arch === "loongarch64")) {
+    return "linux-loong64";
+  }
   return undefined;
 }
 

@@ -190,6 +190,16 @@ test("native shared libraries are not scanned as UTF-8 text", () => {
     true,
   );
   assert.equal(isNonTextExportPath("artifacts/koffi.node"), true);
+  assert.equal(
+    isNonTextExportPath("native/linux-loong64-oldworld/artifacts/mnemon"),
+    true,
+  );
+  assert.equal(
+    isNonTextExportPath(
+      "native/linux-loong64-oldworld/artifacts/mnemon_0.2.8_linux_loong64.tar.gz",
+    ),
+    true,
+  );
   assert.doesNotThrow(() =>
     scanExportText(
       "native/linux-loong64-oldworld/artifacts/libvips-cpp.so.42.20.6",

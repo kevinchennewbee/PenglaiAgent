@@ -65,7 +65,7 @@ Mac/Windows stay on official Electron **43.6.0** and Node **22.23.2**.
 on UOS 20. It must not silently require 43.6.0 on this ABI, and it must
 not silently ship EOL Chromium without naming the CVE/Chromium gap.
 
-## Viable runtime options (for PM)
+## Viable runtime options (PM selected B, 2026-09-09)
 
 Builder RAM/disk is **not** the 16 GB client requirement. No paid
 build host is authorized by implication.

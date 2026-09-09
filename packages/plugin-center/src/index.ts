@@ -70,6 +70,9 @@ export interface PluginState {
   actual: "active" | "failed" | "disabled";
   error?: string;
   configuration?: unknown;
+  incompatible?: boolean;
+  platforms?: CatalogEntry["platforms"];
+  target?: CatalogEntry["target"];
 }
 
 export const R2_CATALOG = FIRST_PARTY_PLUGIN_METADATA;
@@ -262,6 +265,18 @@ export class PluginCenterHost {
   setDesired(id: string, enabled: boolean): void {
     if (!this.catalog.some((e) => e.id === id) && !this.allowId?.(id))
       throw new PenglaiError("INVALID_INPUT", "unlisted package");
+    const entry = this.catalog.find((e) => e.id === id);
+    if (
+      enabled &&
+      entry &&
+      Array.isArray(entry.platforms) &&
+      !entry.platforms.includes(entry.target)
+    ) {
+      throw new PenglaiError(
+        "INVALID_INPUT",
+        `${id} is not available on ${entry.target}`,
+      );
+    }
     const next = { ...this.desired(), [id]: enabled };
     atomicJson(join(this.stateDir, "desired.json"), next);
   }
@@ -320,6 +335,12 @@ export class PluginCenterHost {
           };
         }
       }
+      const platformUnavailable = Boolean(
+        e &&
+          Array.isArray(e.platforms) &&
+          e.target &&
+          !e.platforms.includes(e.target),
+      );
       return {
         id,
         desired: wanted ? version : "disabled",
@@ -327,6 +348,9 @@ export class PluginCenterHost {
         loaded: isLoaded,
         healthy: wanted && isLoaded && installed === version && health.healthy,
         actual: isLoaded ? "active" : wanted ? "failed" : "disabled",
+        incompatible: platformUnavailable,
+        ...(e?.platforms ? { platforms: e.platforms } : {}),
+        ...(e?.target ? { target: e.target } : {}),
         ...(health.error ? { error: health.error } : {}),
         ...(health.configuration === undefined
           ? {}

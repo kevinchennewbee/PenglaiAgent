@@ -160,8 +160,12 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   assert.match(client, /const remoteCardIds = state\.remote/);
   assert.match(client, /\.\.\.remoteCardIds/);
   assert.match(client, /all\.indexOf\(id\) === index/);
-  assert.match(client, /entry\.incompatible \|\| entry\.dshCompatible === false/);
+  assert.match(client, /entry\.incompatible \|\|/);
+  assert.match(client, /entry\.dshCompatible === false/);
   assert.match(client, /centerStatusIncompatible/);
+  assert.match(client, /centerStatusUnavailable/);
+  assert.match(client, /centerUnavailableHint/);
+  assert.match(client, /data-penglai-plugin-unavailable/);
   assert.doesNotMatch(client, /\[\.\.\.state\.remote, \.\.\.state\.catalog, \.\.\.FIRST_PARTY_CARDS\]/);
   assert.match(client, /data-penglai-plugin-diagnostics/);
   const diagnostics = client.slice(client.indexOf("data-penglai-plugin-diagnostics"));
@@ -486,6 +490,29 @@ test("R2I-CENTER-013 catalog has real first-party plugins and no historical card
 test("R2-PC-017 rejects unlisted packages", () => {
   const host = hostWith({ list: () => [] });
   assert.throws(() => host.setDesired("@evil/pkg", true));
+});
+
+test("setDesired refuses plugins whose platforms exclude the catalog target", () => {
+  const catalog = TEST_CATALOG.map((entry) => ({
+    ...entry,
+    target: "linux-loong64" as const,
+  }));
+  const host = new PluginCenterHost(
+    mkdtempSync(join(tmpdir(), "pc-loong64-")),
+    { list: () => [] },
+    catalog,
+  );
+  assert.throws(
+    () => host.setDesired("@penglai/moss-tts", true),
+    /@penglai\/moss-tts is not available on linux-loong64/,
+  );
+  host.setDesired("@penglai/moss-tts", false);
+  host.setDesired("@penglai/memory", true);
+  assert.equal(host.desired()["@penglai/memory"], true);
+  const moss = host.reconcile().find((row) => row.id === "@penglai/moss-tts");
+  const memory = host.reconcile().find((row) => row.id === "@penglai/memory");
+  assert.equal(moss?.incompatible, true);
+  assert.equal(memory?.incompatible, false);
 });
 
 test("setDesired accepts signed catalog ids via allowId", () => {

@@ -21,6 +21,7 @@ import { gunzipSync } from "node:zlib";
 import { deterministicGzip } from "./deterministic-gzip.mjs";
 import { ROOT } from "./repo.mjs";
 import { assertUos20OldWorldAddonFiles } from "./uos20-oldworld-addons.mjs";
+import { mnemonAssetForPluginTarget } from "../../packages/release-identity/src/mnemon-assets.js";
 
 // Penglai target key is linux-loong64. UOS dpkg Architecture is loongarch64.
 // Confirmed client is UOS 20 Professional 1070 / kernel 4.19 (old-world).
@@ -483,6 +484,29 @@ export function assertUosRuntimeClosure(payloadRoot) {
   assertUos20OldWorldAddonFiles(
     join(payloadRoot, "resources", "runtime", "dsh", "node_modules"),
   );
+  const mnemonPin = mnemonAssetForPluginTarget(LINUX_LOONG64_TARGET);
+  if (!mnemonPin) {
+    throw new Error("linux-loong64 payload missing pinned Mnemon identity");
+  }
+  const mnemonPath = join(
+    payloadRoot,
+    "resources",
+    "mnemon",
+    mnemonPin.binaryFilename,
+  );
+  if (!existsSync(mnemonPath) || !lstatSync(mnemonPath).isFile()) {
+    throw new Error(
+      "linux-loong64 payload missing required Memory engine at resources/mnemon/mnemon",
+    );
+  }
+  const mnemonBytes = readFileSync(mnemonPath);
+  const mnemonSha = createHash("sha256").update(mnemonBytes).digest("hex");
+  if (mnemonSha !== mnemonPin.binarySha256) {
+    throw new Error(
+      `linux-loong64 Mnemon digest ${mnemonSha} is not the pinned architecture build ${mnemonPin.binarySha256}`,
+    );
+  }
+  assertUos20OldWorldElfBytes(mnemonBytes, "linux-loong64 Mnemon engine");
   for (const file of walkPayloadFiles(payloadRoot)) {
     if (file.rel.includes("darwin-arm64") || file.rel.includes("darwin-x64") || file.rel.endsWith(".dylib")) {
       throw new Error(`linux-loong64 payload contains darwin binary ${file.rel}`);

@@ -82,11 +82,10 @@ public checkout.
       Port Connection `/api` management for unmodified 0.1.5-alpha.1.
       Do not vendor runtime, `cordis.patch.yml`, WhatsApp, or Office
       replacement.
-- [ ] U05 Node 22.23.2 (keep). Electron 43.6.0 for the three existing
+- [x] U05 Node 22.23.2 (keep). Electron 43.6.0 for the three existing
       targets (keep; do not jump to 44). onnxruntime-node 1.23.2 (keep;
-      1.29.0 drops darwin-x64). Mnemon 0.2.8 (keep until a linux-loong64
-      helper exists). Other production SDKs: upgrade only with
-      compatibility/security evidence, then freeze.
+      1.29.0 drops darwin-x64; no loong64 native). Mnemon 0.2.8 kept;
+      linux-loong64 is an architecture build of the same commit.
 - [ ] U06 Privacy/log/test/doc audit of new 0.6 surfaces. No secrets,
       personal paths, or chat media in public docs.
 
@@ -100,9 +99,10 @@ public checkout.
 - [x] S02 Loongson Electron **31.7.7** zip hashed and ELF-read (old-world
       `/lib64/ld.so.1`, GNU/Linux 4.15.0, GLIBC ≤2.28, Chrome
       126.0.6478.234). Compact provenance:
-      `docs/0.6.0/ELECTRON_31_7_7_PROVENANCE.md`. Not a silent 43.6.0
-      equivalent; not maintained; not production-security PASS. 22.3.27
-      is not the default. darkyzhou 43.x remains new-world-only.
+      `docs/0.6.0/ELECTRON_31_7_7_PROVENANCE.md`. **PM option B
+      selected (2026-09-09):** ship with Chromium 126 / unproven
+      maintenance disclosure; no security parity. 22.3.27 is not the
+      default. darkyzhou 43.x remains new-world-only.
 - [ ] S03 Linux generation layout (XDG) and `releaseTarget`/`linux-loong64`
       landed with tests rejecting linux-x64/arm64. Process supervision,
       secrets (libsecret or 0600 file class), and Landlock/seccomp
@@ -113,12 +113,13 @@ public checkout.
       `Penglai_0.6.0_uos_loong64.deb` (in `release-contract.json` after
       F05). CLI packager requires old-world Node + DSH CLI + glibc flock.
       Native launch/uninstall remain S06; this is not native UOS PASS.
-- [ ] S05 Native addons: old-world flock ELF exists
-      (`docs/0.6.0/UOS20_FLOCK.md`, SHA-256 `b065bcb1…`). npm
+- [x] S05 Native addons: old-world flock, pty, koffi, sharp/libvips, and
+      Mnemon 0.2.8 architecture build (`docs/0.6.0/UOS20_ADDONS.md`,
+      `docs/0.6.0/MNEMON_LOONG64.md`). npm
       `@koromix/koffi-linux-loong64@3.1.6` is new-world `GLIBC_2.36` —
-      do not embed. node-pty / sharp still need old-world loong64 builds.
-      require-builtin native is optional internals, unpublished on loong64;
-      do not fabricate it. Memory cannot be disabled.
+      not embedded. require-builtin native is optional internals,
+      unpublished on loong64; do not fabricate it. Memory stays required.
+      MOSS ONNX is not enableable (`docs/0.6.0/MOSS_LOONG64.md`).
 - [ ] S06 UOS native install/startup/function: **Owner post-publication
       acceptance** (2026-09-09). Not a pre-publication blocker. Do not
       request remote access. Label `OWNER_POST_RELEASE`, never PASS.

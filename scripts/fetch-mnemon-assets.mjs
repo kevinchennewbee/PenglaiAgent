@@ -30,6 +30,22 @@ mkdirSync(join(destRoot, "cache"), { recursive: true, mode: 0o755 });
 
 const fetched = [];
 for (const asset of wanted) {
+  if (asset.architectureBuild) {
+    const localBin = join(
+      ROOT,
+      "native",
+      "linux-loong64-oldworld",
+      "artifacts",
+      asset.binaryFilename,
+    );
+    const dest = join(destRoot, "bin", asset.target, asset.binaryFilename);
+    if (!existsSync(localBin)) {
+      throw new Error(`architecture-built mnemon missing at ${localBin}`);
+    }
+    publishBinary(localBin, dest, asset);
+    fetched.push({ target: asset.target, binarySha256: asset.binarySha256, architectureBuild: true });
+    continue;
+  }
   const url = mnemonReleaseUrl(asset.archiveFilename);
   const archive = join(destRoot, "cache", asset.archiveFilename);
   if (!existsSync(archive) || sha256File(archive) !== asset.archiveSha256 || statSync(archive).size !== asset.archiveBytes) {

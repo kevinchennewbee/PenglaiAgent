@@ -459,7 +459,7 @@
 | `R55-MEM-015` | markdown/json export-import preserves scope | unit/all |
 | `R55-MEM-016` | legacy 0.5.3 memory/context migrates with preview | unit/all |
 | `R55-MEM-017` | 100k-scale query remains bounded | unit/all |
-| `R55-MEM-018` | three native Mnemon binaries are identity-pinned | artifact/all |
+| `R55-MEM-018` | four native Mnemon binaries are identity-pinned (including architecture-built linux-loong64) | artifact/all |
 | `R55-MEM-019` | disable then resource-zero | unit/all |
 | `R55-MEM-020` | installed UI shows Penglai Memory | installed/all |
 
