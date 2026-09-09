@@ -16,7 +16,7 @@ test("redacted Center diagnostics omit credentials, chat, QR and private paths",
   assert.doesNotMatch(json, /api[_-]?key|sk-|otpauth|\/Users\/|chat body/i);
   assert.throws(
     () => exportRedactedCenterDiagnostics({
-      catalog: [{ id: "@penglai/im", error: "token=sk-live-secret /Users/agent/.penglai" }],
+      catalog: [{ id: "@penglai/im", error: "token=sk-live-secret /Users/example/.penglai" }],
     }),
     /CENTER_DIAGNOSTIC_REDACTION/,
   );

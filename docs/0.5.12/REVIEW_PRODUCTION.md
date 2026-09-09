@@ -516,8 +516,8 @@ I01–I04 已部分落地：卸载先分类残留、不再关 Defender、robocop
 
 ## Reviewer session identity
 
-Quoted from this reviewer session
-`/Users/agent/.grok/sessions/%2FVolumes%2FKevinSSD-in%2Fmacmini%2FPenglaiAgent/01a07fbc-0dd6-76d2-a570-615702d3f8fe/summary.json`:
+Independent grok-4.6 xhigh review. Local session path and host volume layout
+are omitted from the public tree.
 
 - `current_model_id`: `grok-4.6`
 - `reasoning_effort`: `xhigh`
