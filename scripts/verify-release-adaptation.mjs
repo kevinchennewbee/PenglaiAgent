@@ -43,12 +43,12 @@ if (protectedChanges.length > 0) {
   fail(`0.5.12 rewrote immutable published history: ${protectedChanges.join(", ")}`);
 }
 
-if (pins.productVersion !== "0.5.12" || pins.dsh !== "0.1.3-alpha.2") {
-  fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.5.12/0.1.3-alpha.2`);
+if (pins.productVersion !== "0.5.12" || pins.dsh !== "0.1.5-alpha.1") {
+  fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.5.12/0.1.5-alpha.1`);
 }
 if (existsSync(join(ROOT, ".pnpmfile.mjs"))) fail("0.5.12 must not activate the historical alpha.1 source resolver");
 
-const snapshotPath = join(ROOT, "docs/0.5.12/DSH_NPM_COHORT.json");
+const snapshotPath = join(ROOT, "docs/0.6.0/DSH_NPM_COHORT.json");
 const snapshotBytes = readFileSync(snapshotPath);
 const snapshot = JSON.parse(snapshotBytes.toString("utf8"));
 try {
@@ -61,17 +61,17 @@ if (snapshotSha256 !== pins.dshSource.closureManifestSha256) {
   fail(`DSH npm cohort digest ${snapshotSha256} != release pin ${pins.dshSource.closureManifestSha256}`);
 }
 
-const packagedBytes = readJson("docs/0.5.12/DSH_ALPHA_PACKAGED_BYTES.json");
+const packagedBytes = readJson("docs/0.6.0/DSH_ALPHA_PACKAGED_BYTES.json");
 if (
   packagedBytes.schema !== 2 ||
   packagedBytes.dsh !== pins.dsh ||
   packagedBytes.mode !== "official-npm-cohort-no-source-patch" ||
   packagedBytes.source?.tag !== pins.dshSource.tag ||
   packagedBytes.source?.commit !== pins.dshSource.commit ||
-  packagedBytes.source?.tree !== "897a54135c8440f3736d16100cf9cbfb40015ae5" ||
-  packagedBytes.source?.cohortManifest !== "docs/0.5.12/DSH_NPM_COHORT.json"
+  packagedBytes.source?.tree !== "798c8cd37c0f4118d48c7e9891c6f81e962225c0" ||
+  packagedBytes.source?.cohortManifest !== "docs/0.6.0/DSH_NPM_COHORT.json"
 ) {
-  fail("DSH packaged-byte policy identity is not the fixed alpha.2 source and npm cohort");
+  fail("DSH packaged-byte policy identity is not the fixed 0.1.5-alpha.1 source and npm cohort");
 }
 const cohortByName = new Map(snapshot.packages.map((entry) => [entry.name, entry]));
 for (const row of packagedBytes.officialBytes ?? []) {
@@ -89,7 +89,7 @@ for (const row of packagedBytes.officialBytes ?? []) {
   }
   const target = join(ROOT, row.relative);
   if (!existsSync(target)) {
-    fail(`packaged byte ${row.id} is missing from the installed alpha.2 graph`);
+    fail(`packaged byte ${row.id} is missing from the installed 0.1.5-alpha.1 graph`);
     continue;
   }
   const actual = createHash("sha256").update(readFileSync(target)).digest("hex");
@@ -111,12 +111,12 @@ for (const forbidden of ["0.1.2-alpha.1", "penglai-dsh-source", "@deepseek-ai/ds
   if (lock.includes(forbidden)) fail(`active lock contains forbidden ${forbidden}`);
 }
 for (const required of [
-  "@deepseek-ai/dsh@0.1.3-alpha.2",
-  "@deepseek-ai/dsh-http-proxy@0.1.3-alpha.2",
-  "@deepseek-ai/dsh-client-ui-schedule@0.1.3-alpha.2",
-  "@deepseek-ai/dsh-deque@0.1.3-alpha.2",
-  "@deepseek-ai/dsh-util-time@0.1.3-alpha.2",
-  "@deepseek-ai/dsh-util-values@0.1.3-alpha.2",
+  "@deepseek-ai/dsh@0.1.5-alpha.1",
+  "@deepseek-ai/dsh-http-proxy@0.1.5-alpha.1",
+  "@deepseek-ai/dsh-client-ui-schedule@0.1.5-alpha.1",
+  "@deepseek-ai/dsh-deque@0.1.5-alpha.1",
+  "@deepseek-ai/dsh-util-time@0.1.5-alpha.1",
+  "@deepseek-ai/dsh-util-values@0.1.5-alpha.1",
 ]) {
   if (!lock.includes(required)) fail(`active lock is missing ${required}`);
 }
@@ -147,7 +147,7 @@ for (const relative of [
   "packages/plugin-registry/src/catalog-schema.ts",
 ]) {
   const source = readFileSync(join(ROOT, relative), "utf8");
-  if (source.includes("0.1.2-alpha.1") || !source.includes("0.1.3-alpha.2")) fail(`${relative} is not on 0.1.3-alpha.2`);
+  if (source.includes("0.1.2-alpha.1") || !source.includes("0.1.5-alpha.1")) fail(`${relative} is not on 0.1.5-alpha.1`);
 }
 
 if (failures.length > 0) {

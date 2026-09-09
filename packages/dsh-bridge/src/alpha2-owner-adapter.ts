@@ -2,13 +2,21 @@ import { PenglaiError } from "@penglai/contracts";
 import { KNOWN_SESSION_EVENT_TYPES } from "@deepseek-ai/dsh-session";
 import type { DshAgentLike, DshHost, DshModelSelection } from "./owner-ports.js";
 
-const ALPHA13_SESSION_EVENT_TYPES = new Set<string>([
-  ...KNOWN_SESSION_EVENT_TYPES,
+/** V3 catalog types Penglai must admit even if a pinned dsh-session set lags. Never `assistant/chunk`. */
+export const V3_SESSION_EVENT_TYPE_EXTRAS = [
+  "system/message",
   "assistant/attempt",
+  "tool/ptc-dispatch",
+  "tool/ptc-dispatch-start",
+] as const;
+
+const OFFICIAL_SESSION_EVENT_TYPES = new Set<string>([
+  ...KNOWN_SESSION_EVENT_TYPES,
+  ...V3_SESSION_EVENT_TYPE_EXTRAS,
 ]);
 
 function isKnownOfficialSessionEvent(type: string): boolean {
-  return ALPHA13_SESSION_EVENT_TYPES.has(type);
+  return OFFICIAL_SESSION_EVENT_TYPES.has(type);
 }
 
 function isSessionAlreadyOwned(error: unknown): boolean {

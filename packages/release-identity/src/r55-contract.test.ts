@@ -23,10 +23,10 @@ test("release truth pins Penglai 0.5.12", () => {
 });
 
 test("DSH alpha source commit and closure digests are exact", () => {
-  assert.equal(PINNED_DSH, "0.1.3-alpha.2");
-  assert.equal(PINNED_DSH_COMMIT, "82a5fd61a7cf5c293cec4bdff68f455398d685e9");
-  assert.equal(PINNED_DSH_TARBALL_SHA256, "6bced5e2da1000509e6d6a2b12242d4aac6ebdda8f12b7fe142a11c474409551");
-  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "1d7380dadb281cdc17ad3df302b2298985c282e813b42d2694626842182000be");
+  assert.equal(PINNED_DSH, "0.1.5-alpha.1");
+  assert.equal(PINNED_DSH_COMMIT, "5dda764ed3aa172535a7967b06ff95d9cbfe536a");
+  assert.equal(PINNED_DSH_TARBALL_SHA256, "c75e7e9168500eca90d27813d6d2b02eab124152c995f43bfa5c6a2504ac79e0");
+  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "dc726847c2a3947178d8700d1a991108334a882117a498f358956ebc553122e7");
 });
 
 test("R55-TRUTH-003 only three exact target installers", () => {
@@ -68,7 +68,7 @@ test("0.5.12 does not ship bundled Poppler pdftoppm", () => {
 });
 
 test("official Web/Agent/Session/Workspace stay on the one fixed DSH core", () => {
-  assert.equal(PINNED_DSH, "0.1.3-alpha.2");
+  assert.equal(PINNED_DSH, "0.1.5-alpha.1");
 });
 
 test("R55-DSH-002 official attachment/settings/slot seams used", () => {
@@ -155,7 +155,7 @@ test("R55-BUILTIN-011 no orphan resource after lifecycle operations", () => {
 });
 
 test("R55-BUILTIN-012 DSH core remains usable in every state", () => {
-  assert.equal(PINNED_DSH, "0.1.3-alpha.2");
+  assert.equal(PINNED_DSH, "0.1.5-alpha.1");
 });
 
 test("R55-COMM-001 exact provenance lock", () => {

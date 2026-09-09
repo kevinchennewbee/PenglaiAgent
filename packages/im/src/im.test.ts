@@ -96,7 +96,7 @@ test("im runtime wires single control plane", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -232,7 +232,7 @@ test("R50-ROUTE-001/002/009 binding is official live list plus CAS and vendor ta
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -257,7 +257,7 @@ test("R50-ROUTE-001/002/009 binding is official live list plus CAS and vendor ta
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
       listSessions: async () => [{ id: "s1", title: "正式会话" }],
@@ -324,7 +324,7 @@ test("R50-FS-002 Feishu App ID persists and secret stays a credential ref", asyn
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -366,7 +366,7 @@ test("R50-FS-002 Feishu App ID persists and secret stays a credential ref", asyn
     vault,
     supervisor as never,
     {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -461,12 +461,53 @@ test("R50-WX-002/R50-FS-001/012 IM client has Weixin and Feishu official QR", ()
   assert.equal(client.includes("https:\\/\\/"), false);
 });
 
+test("DSH-IM 4.17.1 is rewrite-source; IM already uses Connection /api via Typert remotes", () => {
+  const lock = JSON.parse(
+    readFileSync(new URL("../../../third_party/sources.lock.json", import.meta.url), "utf8"),
+  ) as {
+    sources: Array<{
+      id?: string;
+      release?: string;
+      commit?: string;
+      sha256?: string;
+      tagObject?: string;
+      use?: string;
+      connectionApi?: string;
+    }>;
+  };
+  const dshIm = lock.sources.find((row) => row.id === "dsh-im");
+  assert.equal(dshIm?.release, "v4.17.1");
+  assert.equal(dshIm?.tagObject, "51fb6bb03d86045cbe55e5fde3e55308f0f3643e");
+  assert.equal(dshIm?.commit, "464c0a91762ebd0befc2d179f036eaae4864fb0e");
+  assert.equal(dshIm?.sha256, "2bb02ea00d3367c1d93681f1e64bf030813f059f0cd62ef9c523dad1ab3b984b");
+  assert.match(String(dshIm?.use), /selective rewrite into @penglai\/im/);
+  assert.match(String(dshIm?.use), /do not install runtime/);
+  assert.match(String(dshIm?.use), /cordis\.patch\.yml/);
+  assert.match(String(dshIm?.connectionApi), /already equivalent/);
+  assert.doesNotMatch(String(dshIm?.use), /install runtime as plugin/);
+
+  const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
+  const remoteSource = readFileSync(new URL("./remote.ts", import.meta.url), "utf8");
+  const hostPlugin = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+  assert.match(remoteSource, /extends TypertRemoteService/);
+  assert.match(remoteSource, /super\(ctx, "penglaiIm"\)/);
+  assert.match(client, /call\("\/api", "penglaiIm\/" \+ method/);
+  assert.match(client, /args: args \? \{ input: args \} : \{\}/);
+  assert.match(hostPlugin, /new PenglaiImRemote\(ctx as Context, host\)/);
+  assert.doesNotMatch(hostPlugin, /connection\.fetch\.register/);
+  assert.doesNotMatch(client, /dsh-im\//);
+  assert.doesNotMatch(client, /cordis\.patch/);
+  assert.doesNotMatch(client, /whatsapp/i);
+  assert.doesNotMatch(client, /wecom-app/);
+  assert.doesNotMatch(hostPlugin, /whatsapp/i);
+});
+
 test("R2I-IMCORE-002 PenglaiImRemote uses Typert @Remote methods", () => {
   const ctx = new Context();
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -495,13 +536,18 @@ test("R2I-IMCORE-002 PenglaiImRemote uses Typert @Remote methods", () => {
     vault,
     supervisor as never,
     {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
   );
   const remote = new PenglaiImRemote(ctx, host);
   const methods = remoteMethods(remote).map((m) => m.method);
+  for (const method of methods) {
+    const endpoint = `penglaiIm/${method}`;
+    assert.equal(endpoint.split("/").length, 2);
+    assert.match(endpoint, /^penglaiIm\/[A-Za-z0-9_$.-]+$/);
+  }
   assert.ok(methods.includes("getOverview"));
   assert.ok(methods.includes("beginWeixinQr"));
   assert.ok(methods.includes("pollWeixinQr"));
@@ -530,7 +576,7 @@ test("weixin QR connected starts receive so the scanner can talk immediately", a
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -561,7 +607,7 @@ test("weixin QR connected starts receive so the scanner can talk immediately", a
     new CredentialsServiceVault(undefined),
     supervisor as never,
     {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -587,7 +633,7 @@ test("Weixin QR protocol failure returns and persists one redacted public cause"
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -618,7 +664,7 @@ test("Weixin QR protocol failure returns and persists one redacted public cause"
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -794,7 +840,7 @@ test("R2I-ROUTE-001 binding requires official workspace/session", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => ({ id: "foreign-session" }) as never,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -811,7 +857,7 @@ test("R2I-ROUTE-001 binding requires official workspace/session", async () => {
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => ({ id: "foreign-session" }) as never,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -900,7 +946,7 @@ test("R2I-ROUTE packaged causal Message→Turn→route stays on original route",
     },
   };
   const hostLike = {
-    version: "0.1.3-alpha.2" as const,
+    version: "0.1.5-alpha.1" as const,
     getAgent: () => agent,
     listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
   };
@@ -1057,7 +1103,7 @@ test("R2I-CRED-009 feishu secret write/read via host round-trips without plainte
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -1080,7 +1126,7 @@ test("R2I-CRED-009 feishu secret write/read via host round-trips without plainte
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -1101,7 +1147,7 @@ test("Feishu owner is required for inbound and persists without appearing in ove
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -1158,7 +1204,7 @@ test("Feishu owner is required for inbound and persists without appearing in ove
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -1192,7 +1238,7 @@ test("R56-SEC-013 sendFileToBoundRoute rehashes bytes and ignores the caller dig
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -1226,7 +1272,7 @@ test("R56-SEC-013 sendFileToBoundRoute rehashes bytes and ignores the caller dig
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },

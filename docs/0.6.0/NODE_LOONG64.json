@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "kind": "penglai-0.6.0-node-linux-loong64-pin",
+  "version": "22.23.2",
+  "project": "nodejs/unofficial-builds",
+  "projectUrl": "https://github.com/nodejs/unofficial-builds",
+  "releaseIndex": "https://unofficial-builds.nodejs.org/download/release/v22.23.2/",
+  "shasums256Url": "https://unofficial-builds.nodejs.org/download/release/v22.23.2/SHASUMS256.txt",
+  "notOfficialNodejsOrg": true,
+  "officialNodejsOrgTarGz": "https://nodejs.org/dist/v22.23.2/node-v22.23.2-linux-loong64.tar.gz",
+  "officialNodejsOrgTarXz": "https://nodejs.org/dist/v22.23.2/node-v22.23.2-linux-loong64.tar.xz",
+  "officialNodejsOrgStatus": "HTTP 404 for both tar.gz and tar.xz",
+  "notGithubLoong64NodeRebuilds": true,
+  "githubLoong64Node": "https://github.com/loong64/node/releases — different rebuild train; do not mix",
+  "archives": {
+    "tar.gz": {
+      "filename": "node-v22.23.2-linux-loong64.tar.gz",
+      "url": "https://unofficial-builds.nodejs.org/download/release/v22.23.2/node-v22.23.2-linux-loong64.tar.gz",
+      "sha256": "36d02422cc40211415b394b9e24d2d62c0a346405410a0cbdc13a11f97ec4cd1",
+      "publishedInShasums256": true
+    },
+    "tar.xz": {
+      "filename": "node-v22.23.2-linux-loong64.tar.xz",
+      "url": "https://unofficial-builds.nodejs.org/download/release/v22.23.2/node-v22.23.2-linux-loong64.tar.xz",
+      "sha256": "050dc2e09d51e40d013029f72f832766c7b04e989db277b061432c1690399977",
+      "publishedInShasums256": true
+    }
+  },
+  "downloadedBytesVerified": {
+    "tar.gz": {
+      "bytes": 57692301,
+      "sha256": "36d02422cc40211415b394b9e24d2d62c0a346405410a0cbdc13a11f97ec4cd1",
+      "gzipTest": true,
+      "interpreter": "/lib64/ld-linux-loongarch-lp64d.so.1",
+      "gnuLinux": "5.19.0",
+      "maxGlibcSymbol": "2.38",
+      "world": "new-world"
+    },
+    "tar.xz": {
+      "localBytes": 11415552,
+      "publishedBytes": 30641168,
+      "status": "truncated-incomplete-do-not-pin"
+    }
+  },
+  "uos20Client": false,
+  "loongnixVendorOldWorld": {
+    "version": "22.16.0",
+    "url": "https://ftp.loongnix.cn/nodejs/LoongArch/dist/v22.16.0/node-v22.16.0-linux-loong64.tar.gz",
+    "shasums256Url": "https://ftp.loongnix.cn/nodejs/LoongArch/dist/v22.16.0/SHASUMS256.txt",
+    "sha256": "37166d30a92b7b913e8cbc4b0aebcef9a21de46820d902687ff3b718cb6c75b1",
+    "bytes": 59181692,
+    "gzipTest": true,
+    "interpreter": "/lib64/ld.so.1",
+    "gnuLinux": "4.15.0",
+    "maxGlibcSymbol": "2.28",
+    "world": "old-world",
+    "license": "MIT",
+    "licenseSha256": "1ae62e2015784ba438db7b04ebd33f3c4ff3efdb824c111c4ececd99945fd52d",
+    "behindProductNode": "22.23.2",
+    "notElectronEmbeddedNode": true,
+    "electron31EmbeddedNode": "20.18.0",
+    "notAProductPin": true
+  },
+  "notes": "unofficial-builds 22.23.2 tar.gz is new-world and incompatible with UOS 20. Loongnix vendor 22.16.0 tar.gz bytes match SHASUMS256 and ELF is old-world (ld.so.1, GNU/Linux 4.15.0, GLIBC 2.28). It is a host/tooling candidate behind product Node 22.23.2, not the Electron 31.7.7 embedded Node 20.18.0, and not a sealed product pin. Never substitute GitHub loong64/node."
+}

@@ -468,10 +468,16 @@
   源码路径、Git 依赖或本地重打包）。会话 V3 必须保留原日志，禁止静默丢弃
   与降级读取。DSH IM `@xmanrui/dsh-im@4.17.1` 审查后忠实接入 `@penglai/im`，
   不得安装其 runtime、复制 `cordis.patch.yml`、引入 WhatsApp 或替换办公插件。
-- 第四目标：龙芯新世界 + 统信 UOS，target key `linux-loong64`。官方
-  Electron/Node 无 loong64 预编译时，允许已审查、带许可证与摘要的
-  unofficial-builds Node 与 `darkyzhou/electron-loong64` 架构构建，并写明
-  与三端官方钉选的版本差异。不得用交叉编译、QEMU 或 linux-x64 冒充龙芯
+- 第四目标：统信桌面操作系统 **20** 专业版 **1070**（64-bit），内核
+  `4.19.0-loongson-3-desktop`，CPU Loongson-3A6000-HV @ 2.5 GHz，target
+  key `linux-loong64`，`.deb` Architecture `loongarch64`。Owner 未要求升级
+  该系统。UOS V20 + 4.19 按公开资料为旧世界 ABI；3A6000 不能单独证明
+  新世界用户态。`dpkg`/glibc/loader 仍未在机上测量。new-world Electron 43
+  与 unofficial-builds Node 22.23.2 已证明不兼容该 ABI。允许已审查、带许可
+  证与摘要的**旧世界** Electron/Node/原生组件（例如 Loongson ftp Electron
+  22.3.27 作为已演示路径），并诚实写出与三端官方 43.6.0 的 Chromium
+  安全代际差。不得静默改用 V25、不得 `--no-sandbox`、不得伪造 Landlock
+  （Landlock 需内核 ≥5.13）。不得用交叉编译、QEMU 或 linux-x64 冒充龙芯
   native。可行性备忘不是完成。
 - 已发布 **v0.5.10**、**v0.5.11** 与 **v0.5.12** tag/附件不可变。两小时
   installed soak 排除；`test:soak` 保留。真实账号缺凭据记 `LIVE_NOT_RUN`。
@@ -496,7 +502,7 @@
 - browser/CUA、Companion无人值守高权限工具。
 - 任意第三方在线插件市场和远程代码下载。
 - silent auto-update、Mac App Store、Microsoft Store、Developer ID/notarization、Windows Authenticode。
-- Linux amd64 与 Windows ARM（龙芯新世界 + 统信 UOS `linux-loong64` 由 D-070 纳入 0.6.0，不再延期）。
+- Linux amd64 与 Windows ARM（统信 UOS 20 专业版 1070 `linux-loong64` 由 D-070 纳入 0.6.0，不再延期；不是 V25）。
 - 云账户、遥测、跨设备同步、Penglai 托管飞书应用。
 - 飞书 user OAuth/Device Flow，直到出现明确 user-scope 功能。
 

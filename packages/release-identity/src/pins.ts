@@ -24,18 +24,18 @@ export const PINNED_NODE_DARWIN_X64_SHA256 =
 export const PINNED_NODE_WIN32_X64_SHA256 =
   "1177b4137ba5adaa56354ae40f1080c7450e8ae09cecb47da459d1c52ac99f97";
 /** Exact official npm pre-release cohort reconciled to the fixed upstream tag. */
-export const PINNED_DSH = "0.1.3-alpha.2";
-export const PINNED_DSH_COMMIT = "82a5fd61a7cf5c293cec4bdff68f455398d685e9";
-export const PINNED_DSH_TAG = "dsh-v0.1.3-alpha.2";
+export const PINNED_DSH = "0.1.5-alpha.1";
+export const PINNED_DSH_COMMIT = "5dda764ed3aa172535a7967b06ff95d9cbfe536a";
+export const PINNED_DSH_TAG = "dsh-v0.1.5-alpha.1";
 export const PINNED_DSH_REPOSITORY = "https://github.com/deepseek-ai/DeepSeek-Harness.git";
 export const PINNED_DSH_NPM_INTEGRITY =
-  "sha512-rmf4xgzU9+abvaQ//slyBBhADtPu8fv+SZjxmh4GJwJMZipVa7hNU5m23HgVcB3LNmuGltuQ7jyypuhJ5yU69A==";
-export const PINNED_DSH_NPM_SHASUM = "4f421920af35f1f9526eb0af2279bec36c304d3e";
+  "sha512-AUjywjrPnhXcAdAjRNgyQa1QCnplFTNYZ+XpR9uCZdbg2FiCb06pHyoDUB2Wxuddzid9D7pVwEiU1OTl4Oshsg==";
+export const PINNED_DSH_NPM_SHASUM = "5d008b33af044fcc726383112c36581f73138d2d";
 export const PINNED_DSH_TARBALL_SHA256 =
-  "6bced5e2da1000509e6d6a2b12242d4aac6ebdda8f12b7fe142a11c474409551";
+  "c75e7e9168500eca90d27813d6d2b02eab124152c995f43bfa5c6a2504ac79e0";
 export const PINNED_DSH_CLOSURE_MANIFEST_SHA256 =
-  "1d7380dadb281cdc17ad3df302b2298985c282e813b42d2694626842182000be";
-export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 263;
+  "dc726847c2a3947178d8700d1a991108334a882117a498f358956ebc553122e7";
+export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 272;
 export const PINNED_LARK_SDK = "1.73.3";
 export const PINNED_LARK_COMMIT = "af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513";
 export const PINNED_DINGTALK_STREAM = "2.1.5";

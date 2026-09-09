@@ -2,7 +2,7 @@
 
 ## 1. 信任目标
 
-0.5保护相互关联的边界：只读target app/runtime、app-private 0.5 DSH profile、official DSH Web本地入口、credentials-local secret、IM因果隔离、厂商网络输入、本地voice/context/memory数据、budget/companion authority、signed assisted update、精确卸载和可公开供应链。任何Penglai插件都不能放宽DSH工具权限、sandbox或人工审批。
+0.5保护相互关联的边界：只读target app/runtime、app-private 0.5 DSH profile、official DSH Web本地入口、credentials-local secret、IM因果隔离、厂商网络输入、本地voice/context/memory数据、budget/companion authority、signed assisted update、精确卸载和可公开供应链。0.6.0 development pins official DSH `0.1.5-alpha.1`.任何Penglai插件都不能放宽DSH工具权限、sandbox或人工审批。
 
 ## 2. 数据分级
 
@@ -60,7 +60,7 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - 同OS用户高权限本地进程可能读取文件，UI/文档必须诚实。
 - permission/ACL invalid、corrupt、write denied、resolve failed全部fail closed；无env/MemoryVault/SQLite/Keychain fallback。
 - 0.4.1 credential不读取、迁移或删除。
-- official DSH 0.1.3-alpha.2 源码内含 session-telemetry adapter 和预配置的 DeepSeek OTLP 地址。
+- official DSH 0.1.5-alpha.1 源码内含 session-telemetry adapter 和预配置的 DeepSeek OTLP 地址。
   蓬莱不运营该后端；owned DSH 的封闭环境白名单固定注入
   `DSH_TELEMETRY_DISABLED=1`，且不转发 `DSH_TELEMETRY_MODE` 或
   `DSH_TELEMETRY_OTLP_URL`。DSH 会在 profile patch 之后禁用该行，不创建 telemetry
@@ -186,7 +186,7 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 
 - Renderer 的 `ownerConfirmed`、布尔值、UUID 外形或模型文本都不是权限。Office、Memory、IM、Plugin Center 和 artifact persistence 统一消费 Main Owner Broker receipt；receipt 绑定 action/object/Workspace/Session/digest/destination/revision，真实动作成功后才 complete。
 - Artifact ID 是不透明 `artifact:<uuid>`，不是 filesystem path 或 content hash。相同字节跨 Workspace 仍为不同 binding；legacy digest 只有唯一时才可解析。
-- official DSH 0.1.3-alpha.2 的通用会话附件能力只按真实接口与安装证据声明。0.5.12 不用 DOM hack、假 image 或第二会话引擎制造普通文件附件；Office/IM 文件走 scope-checked Artifact Service。
+- official DSH 0.1.5-alpha.1 的通用会话附件能力只按真实接口与安装证据声明。0.6.0 不用 DOM hack、假 image 或第二会话引擎制造普通文件附件；Office/IM 文件走 scope-checked Artifact Service。
 - macOS 包只声明双语麦克风用途，并剥离 Electron 默认 camera、Bluetooth 与无关 capture permission。Main 只允许由当前用户手势触发的 audio 请求。
 - 0.5.10 的唯一「消息连接」插件提供八个平台的真实连接 adapter；公开能力边界以
   当前产品合同和对应证据为准。微信、飞书、钉钉、企业微信、QQ 只显示供应商真实

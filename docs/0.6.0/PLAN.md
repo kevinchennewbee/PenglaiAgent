@@ -46,9 +46,12 @@ initially disabled.
 3. Class-level live repairs from PM 0.5.12 GUI evidence: official
    `inputModalities` control, AUTH 401 → wizard `errorAuth`, stale
    workspace error cleared on folder change.
-4. Four-target native: `darwin-aarch64`, `darwin-x86_64`, `win32-x86_64`,
-   `linux-loong64` (UnionTech UOS on Loongson New-World). Linux packaging
-   class is in-scope now; native UOS PASS is hardware-gated.
+4. Four-target installers: `darwin-aarch64`, `darwin-x86_64`,
+   `win32-x86_64`, `linux-loong64` (UnionTech desktop OS 20 Professional
+   1070, Loongson-3A6000-HV, kernel 4.19.0-loongson-3-desktop, old-world).
+   Linux packaging class and the actual `.deb` are pre-publication.
+   UOS native install/startup/function is Owner post-publication testing,
+   labeled `OWNER_POST_RELEASE`, never PASS.
 5. Reuse the I02 Defender-on class for 0.6 Windows. Do not weaken
    Defender.
 6. README/website/installer/wizard remain product-grade; downloads stay
@@ -90,15 +93,20 @@ surfaces or terminate PM apps.
 
 ## Hardware critical path (UOS)
 
-Portable/source work continues without waiting. Native UOS functional and
-lifecycle gates cannot close until Owner/PM provide:
+Portable/source work continues without waiting. OS/CPU/kernel are
+confirmed: UOS 20 Professional 1070, Loongson-3A6000-HV, kernel
+`4.19.0-loongson-3-desktop`. That is old-world; V25 is out. Native
+functional/lifecycle PASS still needs machine access for `dpkg`,
+glibc, loader, bwrap, and Landlock syscall probes. Do not re-ask OS/CPU.
 
-- Loongson CPU model and New-World confirmation (LSX, `glibc >= 2.38`)
-- UnionTech UOS desktop version and package arch (`loong64` vs `loongarch64`)
+Still needed on the host (already requested remote access):
+
+- `dpkg --print-architecture`, `file /bin/ls`, `ldd --version`
+- whether `bwrap` exists and user namespaces work
+- Landlock syscall absence confirmation (expected on 4.19)
 - Existing remote access alias, if any, with install rights
-- Whether a source rebuild of Electron 43.6.0 on that host is available
-  (32 GiB RAM / 200 GiB disk class) versus pinning the reviewed
-  `darkyzhou/electron-loong64` `v43.4.1` binary
+- Whether that host can source-build Electron 43.6.0 (32 GiB RAM / 200 GiB
+  disk class). 43.4.1 remains bootstrap-only.
 
 Do not ask the user to diagnose a port. PM already requested CPU/UOS
 version and remote alias.

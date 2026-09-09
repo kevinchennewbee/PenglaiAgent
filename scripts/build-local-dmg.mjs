@@ -292,7 +292,7 @@ const info = {
   electron: releasePins.electron,
   node: releasePins.node,
   embeddedNode: releasePins.node,
-  dsh: "0.1.3-alpha.2",
+  dsh: "0.1.5-alpha.1",
   dshSource: releasePins.dshSource,
   profileSchema: 3,
   catalogSchema: 3,

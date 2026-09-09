@@ -12,7 +12,7 @@ import {
 } from "./lib/dsh-npm-cohort.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
-const SNAPSHOT = resolve(ROOT, "docs", "0.5.12", "DSH_NPM_COHORT.json");
+const SNAPSHOT = resolve(ROOT, "docs", "0.6.0", "DSH_NPM_COHORT.json");
 const args = process.argv.slice(2);
 const write = args.includes("--write");
 const live = args.includes("--live");

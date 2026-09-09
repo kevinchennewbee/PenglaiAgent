@@ -17,7 +17,7 @@ function requiredRows(overrides: Record<string, object> = {}) {
       moduleName: "@deepseek-ai/dsh-credentials-local",
       enabled: true,
       fiberPhase: "active",
-      version: "0.1.3-alpha.2",
+      version: "0.1.5-alpha.1",
     },
     "@penglai/plugin-center": {
       moduleName: "@penglai/plugin-center",
@@ -153,7 +153,7 @@ test("R56-CORE-003 exact required ids can take version from the pinned catalog",
   assert.equal(proof.required.find((row) => row.id === "@penglai/office")?.version, "0.5.12");
   assert.equal(
     proof.required.find((row) => row.id === "@deepseek-ai/dsh-credentials-local")?.version,
-    "0.1.3-alpha.2",
+    "0.1.5-alpha.1",
   );
 });
 
