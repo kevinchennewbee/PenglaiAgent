@@ -66,7 +66,9 @@ Previous upgrade sources: published 0.5.12 installers.
 
 Workflow job `linux` runs `pnpm build` then `pnpm package:linux-deb`. It
 must fail closed without the full old-world payload (DSH 272, Node 22.16.0,
-flock, pty, koffi, require-builtin, sharp, chrome-sandbox). It must not run
+flock, pty, koffi, sharp, chrome-sandbox). require-builtin native is optional
+internals and unpublished on loong64; Mac/Windows still require the published
+packages. It must not run
 `test:e2e:installed` or `verify:upgrade-uninstall`.
 
 Owner native install/startup/function on UOS 20 Professional 1070 stays
@@ -89,5 +91,7 @@ Owner native install/startup/function on UOS 20 Professional 1070 stays
 
 ## Addon integration handoff
 
-A separate old-world addon worker owns koffi / require-builtin / sharp.
-This repo waits for its `MANIFEST.json`. Do not duplicate those builds here.
+A separate old-world addon worker owns koffi and sharp (+ libvips).
+`node-addon-require-builtin` native is optional internals and unpublished
+on loong64; do not copy or fabricate it. This repo waits for the worker
+`MANIFEST.json` for required natives. Do not duplicate those builds here.

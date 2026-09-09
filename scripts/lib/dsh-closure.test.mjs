@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolve } from "node:path";
@@ -8,9 +8,13 @@ import {
   collectDshClosure,
   DSH_RUNTIME_INTEGRATION_ROOTS,
   locateWorkspaceDsh,
+  materializeDshClosure,
   materializeNestedVersionConflicts,
+  OPTIONAL_INTERNALS_TARGETS,
   packageSupportsTarget,
   REQUIRED_DSH_RUNTIME_PACKAGES,
+  REQUIRE_BUILTIN_NATIVE_BY_TARGET,
+  resolveRequireBuiltinNative,
 } from "./dsh-closure.mjs";
 
 test("locateWorkspaceDsh uses hoisted node_modules when .pnpm has no DSH entry", () => {
@@ -112,6 +116,88 @@ test("flattening preserves a package-local dependency when its version differs",
   assert.equal(result.nestedConflictCount, 1);
   const nested = JSON.parse(readFileSync(join(modules, "package-a", "node_modules", "package-x", "package.json"), "utf8"));
   assert.equal(nested.version, "1.0.0");
+});
+
+test("require-builtin native is required only where npm publishes it", () => {
+  assert.equal(REQUIRE_BUILTIN_NATIVE_BY_TARGET["darwin-aarch64"], "node-addon-require-builtin-darwin-arm64");
+  assert.equal(REQUIRE_BUILTIN_NATIVE_BY_TARGET["darwin-x86_64"], "node-addon-require-builtin-darwin-x64");
+  assert.equal(REQUIRE_BUILTIN_NATIVE_BY_TARGET["win32-x86_64"], "node-addon-require-builtin-win32-x64-msvc");
+  assert.equal("linux-loong64" in REQUIRE_BUILTIN_NATIVE_BY_TARGET, false);
+  assert.deepEqual([...OPTIONAL_INTERNALS_TARGETS], ["linux-loong64"]);
+  const optional = resolveRequireBuiltinNative(resolve("package.json"), "linux-loong64");
+  assert.equal(optional.required, false);
+  assert.equal(optional.name, undefined);
+  const required = resolveRequireBuiltinNative(resolve("package.json"), "darwin-aarch64");
+  assert.equal(required.required, true);
+  assert.equal(required.name, "node-addon-require-builtin-darwin-arm64");
+  assert.throws(
+    () => resolveRequireBuiltinNative(resolve("package.json"), "linux-x64"),
+    /no require-builtin native mapping/,
+  );
+});
+
+function writeClosureFixture(work, { withPty } = {}) {
+  writeFileSync(
+    join(work, "package.json"),
+    JSON.stringify({
+      name: "fixture-root",
+      version: "1.0.0",
+      dependencies: Object.fromEntries(
+        [...REQUIRED_DSH_RUNTIME_PACKAGES, ...(withPty ? ["node-pty"] : [])].map((name) => [name, "1.0.0"]),
+      ),
+    }),
+  );
+  for (const name of REQUIRED_DSH_RUNTIME_PACKAGES) {
+    const dir = join(work, "node_modules", name);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name, version: "1.0.0" }));
+  }
+}
+
+test("linux-loong64 flatten omits unpublished require-builtin native and still requires pty", () => {
+  const work = mkdtempSync(join(tmpdir(), "penglai-dsh-optional-int-"));
+  writeClosureFixture(work, { withPty: true });
+  const pty = join(work, "node_modules", "node-pty");
+  mkdirSync(join(pty, "prebuilds", "linux-loong64"), { recursive: true });
+  writeFileSync(join(pty, "package.json"), JSON.stringify({ name: "node-pty", version: "1.0.0" }));
+  writeFileSync(join(pty, "prebuilds", "linux-loong64", "pty.node"), "pty\n");
+  const dest = join(work, "dest");
+  const flattened = materializeDshClosure(join(work, "package.json"), dest, "linux-loong64");
+  assert.equal(flattened.optionalInternals, "unavailable");
+  assert.equal(flattened.native, null);
+  assert.equal(existsSync(join(dest, "node_modules", "node-addon-require-builtin-linux-loong64-gnu")), false);
+  assert.equal(existsSync(join(dest, "node_modules", "node-pty", "prebuilds", "linux-loong64", "pty.node")), true);
+});
+
+test("darwin flatten still embeds the published require-builtin native", () => {
+  const work = mkdtempSync(join(tmpdir(), "penglai-dsh-required-int-"));
+  writeClosureFixture(work);
+  const dest = join(work, "dest");
+  const flattened = materializeDshClosure(join(work, "package.json"), dest, "darwin-aarch64");
+  assert.equal(flattened.native, "node-addon-require-builtin-darwin-arm64");
+  assert.equal(flattened.optionalInternals, "embedded");
+  assert.equal(
+    existsSync(join(dest, "node_modules", "node-addon-require-builtin-darwin-arm64", "package.json")),
+    true,
+  );
+});
+
+test("official loader declares require-builtin as an optional peer", () => {
+  const loader = JSON.parse(
+    readFileSync(resolve("node_modules/@deepseek-ai/cordis-plugin-loader/package.json"), "utf8"),
+  );
+  assert.equal(loader.peerDependencies["node-addon-require-builtin"], "^0.1.4");
+  assert.equal(loader.peerDependenciesMeta["node-addon-require-builtin"].optional, true);
+  const builtin = JSON.parse(
+    readFileSync(resolve("node_modules/node-addon-require-builtin/package.json"), "utf8"),
+  );
+  assert.equal("node-addon-require-builtin-linux-loong64-gnu" in (builtin.optionalDependencies ?? {}), false);
+  const loaderJs = readFileSync(
+    resolve("node_modules/@deepseek-ai/cordis-plugin-loader/lib/index.js"),
+    "utf8",
+  );
+  assert.match(loaderJs, /try \{\s*return require\("node-addon-require-builtin"\)\.requireBuiltin\(id\);\s*\} catch \{\}/);
+  assert.match(loaderJs, /if \(!raw\) return;/);
 });
 
 test("closure fails closed when a required peer cannot be resolved", () => {

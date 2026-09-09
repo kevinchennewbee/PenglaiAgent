@@ -116,8 +116,9 @@ public checkout.
 - [ ] S05 Native addons: old-world flock ELF exists
       (`docs/0.6.0/UOS20_FLOCK.md`, SHA-256 `b065bcb1…`). npm
       `@koromix/koffi-linux-loong64@3.1.6` is new-world `GLIBC_2.36` —
-      do not embed. node-pty / require-builtin-linux-loong64-gnu / sharp
-      still lack old-world loong64 builds. Memory cannot be disabled.
+      do not embed. node-pty / sharp still need old-world loong64 builds.
+      require-builtin native is optional internals, unpublished on loong64;
+      do not fabricate it. Memory cannot be disabled.
 - [ ] S06 UOS native install/startup/function: **Owner post-publication
       acceptance** (2026-09-09). Not a pre-publication blocker. Do not
       request remote access. Label `OWNER_POST_RELEASE`, never PASS.
