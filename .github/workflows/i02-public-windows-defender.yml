@@ -1,0 +1,165 @@
+name: I02 public Windows installer under active Defender
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: i02-defender-on-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  i02:
+    name: ${{ matrix.runner }} public setup under Defender
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Observe, restore, and maybe install exact public 0.5.12
+        shell: pwsh
+        env:
+          SETUP_1211_URL: https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.11/Penglai_0.5.11_windows_x64_setup.exe
+          SETUP_1211_SHA: 5862cf0df14daf12ef223d5a825cad501ea56f78a40cdb54bef4fa8b7779c929
+          SETUP_1212_URL: https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.12/Penglai_0.5.12_windows_x64_setup.exe
+          SETUP_1212_SHA: 5d926a884ca2b93c43f8ee8d8e8897df636585d449f1810d25ab4bffae3159da
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path evidence/generated | Out-Null
+
+          function Snapshot-Defender {
+            param([string]$Phase)
+            $pref = Get-MpPreference
+            $status = $null
+            try { $status = Get-MpComputerStatus } catch { $status = $null }
+            $paths = @($pref.ExclusionPath)
+            $broad = @(
+              $paths | Where-Object { $_ -and ($_ -match '^[A-Za-z]:\\?$') }
+            )
+            $penglai = @(
+              $paths | Where-Object { $_ -and ($_ -match 'Penglai') }
+            )
+            $rtmPrefOff = [bool]$pref.DisableRealtimeMonitoring
+            $rtmEnabled = $false
+            if ($status -ne $null) {
+              $rtmEnabled = [bool]$status.RealTimeProtectionEnabled
+            }
+            $qualifying = (-not $rtmPrefOff) -and $rtmEnabled -and ($broad.Count -eq 0) -and ($penglai.Count -eq 0)
+            return [ordered]@{
+              phase = $Phase
+              runner = $env:RUNNER_OS
+              image = $env:ImageOS
+              DisableRealtimeMonitoring = $rtmPrefOff
+              RealTimeProtectionEnabled = $rtmEnabled
+              ExclusionPath = @($paths)
+              broadRootExclusions = @($broad)
+              penglaiExclusion = @($penglai)
+              mutated = $false
+              qualifying = $qualifying
+            }
+          }
+
+          $before = Snapshot-Defender -Phase 'before'
+          Write-Host (($before | ConvertTo-Json -Compress))
+
+          # Restore protection only. Never disable RTM. Never add exclusions.
+          $restore = [ordered]@{ attempted = $true; disabledProtection = $false; addedExclusion = $false }
+          try {
+            $svc = Get-Service -Name WinDefend -ErrorAction SilentlyContinue
+            if ($svc -and $svc.Status -ne 'Running') {
+              Set-Service -Name WinDefend -StartupType Automatic -ErrorAction SilentlyContinue
+              Start-Service -Name WinDefend -ErrorAction SilentlyContinue
+            }
+            Set-MpPreference -DisableRealtimeMonitoring $false
+            $restore.realtimeRestore = 'Set-MpPreference -DisableRealtimeMonitoring $false'
+            foreach ($root in @('C:\', 'D:\')) {
+              if (@((Get-MpPreference).ExclusionPath) -contains $root) {
+                Remove-MpPreference -ExclusionPath $root
+              }
+            }
+            $restore.removedBroadRoots = @('C:\', 'D:\')
+          } catch {
+            $restore.error = $_.Exception.Message
+          }
+
+          Start-Sleep -Seconds 3
+          $after = Snapshot-Defender -Phase 'after-restore'
+          $after.restore = $restore
+          $after.mutated = $false
+          $json = $after | ConvertTo-Json -Depth 6
+          Set-Content -Path evidence/generated/i02-defender-on.json -Value $json -Encoding utf8
+          Write-Host $json
+
+          if ($after.penglaiExclusion.Count -gt 0) {
+            throw 'Windows Defender has a Penglai exclusion; Penglai must not add exclusions'
+          }
+          if (-not $after.qualifying) {
+            Write-Host 'I02_HOST_UNAVAILABLE: runner did not present default-on realtime protection without C:\ D:\ exclusions after restore attempt. Penglai did not weaken Defender.'
+            throw 'I02_HOST_UNAVAILABLE'
+          }
+
+          function Fetch-Exact([string]$Url, [string]$Dest, [string]$Expected) {
+            Invoke-WebRequest -Uri $Url -OutFile $Dest -UseBasicParsing
+            $hash = (Get-FileHash -Algorithm SHA256 $Dest).Hash.ToLowerInvariant()
+            if ($hash -ne $Expected) { throw "sha256 mismatch for $Dest" }
+          }
+
+          $prev = Join-Path $env:RUNNER_TEMP 'Penglai_0.5.11_windows_x64_setup.exe'
+          $cur = Join-Path $env:RUNNER_TEMP 'Penglai_0.5.12_windows_x64_setup.exe'
+          Fetch-Exact $env:SETUP_1211_URL $prev $env:SETUP_1211_SHA
+          Fetch-Exact $env:SETUP_1212_URL $cur $env:SETUP_1212_SHA
+
+          $app = Join-Path $env:LOCALAPPDATA 'Penglai\app\0.5'
+          if (Test-Path $app) { throw 'runner already has a Penglai install' }
+
+          $p11 = Start-Process -FilePath $prev -ArgumentList '/S' -Wait -PassThru
+          if ($p11.ExitCode -ne 0) { throw "0.5.11 silent install exit $($p11.ExitCode)" }
+          if (-not (Test-Path (Join-Path $app 'Penglai.exe'))) { throw '0.5.11 payload missing' }
+
+          $p12 = Start-Process -FilePath $cur -ArgumentList '/S' -Wait -PassThru
+          if ($p12.ExitCode -ne 0) { throw "0.5.12 silent upgrade exit $($p12.ExitCode)" }
+          if (-not (Test-Path (Join-Path $app 'Penglai.exe'))) { throw '0.5.12 payload missing after upgrade' }
+
+          $final = Snapshot-Defender -Phase 'after-upgrade'
+          if (-not $final.qualifying) { throw 'Defender left non-qualifying during upgrade' }
+          if ($final.penglaiExclusion.Count -gt 0) { throw 'Penglai exclusion appeared during upgrade' }
+
+          $uninstaller = Join-Path $app 'Uninstall.exe'
+          if (-not (Test-Path $uninstaller)) { throw 'Uninstall.exe missing' }
+          $un = Start-Process -FilePath $uninstaller -ArgumentList @('/S', "_?=$app") -Wait -PassThru
+          if ($un.ExitCode -ne 0) { throw "uninstall exit $($un.ExitCode)" }
+
+          $leftover = @()
+          if (Test-Path $app) {
+            $leftover = Get-ChildItem -LiteralPath $app -Recurse -Force | ForEach-Object { $_.FullName.Substring($app.Length).TrimStart('\') }
+          }
+          $payload = @($leftover | Where-Object { $_.Split('\')[-1] -notin @('Uninstall.exe','Uninstall.exe.nsis','Uninstall.log') })
+          if ($payload.Count -gt 0) {
+            throw ("uninstall left payload: " + ($payload -join ','))
+          }
+
+          $done = Snapshot-Defender -Phase 'after-uninstall'
+          $record = [ordered]@{
+            verdict = 'PASS'
+            command = 'i02-public-windows-defender'
+            previous = '0.5.11'
+            current = '0.5.12'
+            currentSha256 = $env:SETUP_1212_SHA
+            leftover = @($leftover)
+            payloadRemoved = $true
+            defender = $done
+            mutated = $false
+          }
+          Set-Content -Path evidence/generated/i02-defender-on.json -Value ($record | ConvertTo-Json -Depth 8) -Encoding utf8
+      - name: Upload I02 Defender evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: i02-defender-on-${{ matrix.runner }}
+          path: evidence/generated/i02-defender-on.json
+          if-no-files-found: warn
