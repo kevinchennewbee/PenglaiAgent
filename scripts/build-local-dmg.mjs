@@ -24,9 +24,10 @@ import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
 import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
 import {
   detachDmgUntilReleased,
-  hdiutilBusyRetryable,
+  spawnHdiutilWithBusyRetry,
   hdiutilConvertArgs,
   hdiutilCreateArgs,
+  waitSync,
 } from "./lib/hdiutil-image.mjs";
 
 const releasePins = readReleaseIdentityPins();
@@ -39,37 +40,15 @@ function run(command, args, options = {}) {
   execFileSync(command, args, { cwd: ROOT, stdio: "inherit", ...options });
 }
 
-function waitSync(milliseconds) {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
-}
-
 function createDmg(args, dmgPath, { onRetry } = {}) {
-  const attempts = 3;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    const result = spawnSync("hdiutil", args, {
-      cwd: ROOT,
-      encoding: "utf8",
-    });
-    if (result.stdout) process.stdout.write(result.stdout);
-    if (result.stderr) process.stderr.write(result.stderr);
-    if (result.status === 0) return;
-
-    const diagnostic = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
-    const retryable = hdiutilBusyRetryable(diagnostic);
-    if (!retryable || attempt === attempts) {
-      const detail =
-        result.error?.message ?? `exit ${result.status ?? "unknown"}`;
-      throw new Error(`hdiutil ${args[0]} failed: ${detail}`);
-    }
-
-    onRetry?.();
-    rmSync(dmgPath, { force: true });
-    const delayMs = attempt * 2_000;
-    process.stderr.write(
-      `hdiutil ${args[0]} reported a busy image; retrying ${attempt + 1}/${attempts} after ${delayMs}ms\n`,
-    );
-    waitSync(delayMs);
-  }
+  const result = spawnHdiutilWithBusyRetry(args, {
+    cwd: ROOT,
+    outputPath: dmgPath,
+    onRetry,
+  });
+  if (result.status === 0) return;
+  const detail = result.error?.message ?? `exit ${result.status ?? "unknown"}`;
+  throw new Error(`hdiutil ${args[0]} failed: ${detail}`);
 }
 
 function layoutDmgWindow(mountPoint) {

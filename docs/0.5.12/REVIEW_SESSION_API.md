@@ -270,8 +270,8 @@ overlay 仍锁 `0.1.1-rc.2` 哈希，必须随 0.1.3 前端重做。`PINNED_DSH`
 
 ## Reviewer session identity
 
-Quoted from this reviewer session
-`/Users/agent/.grok/sessions/%2FVolumes%2FKevinSSD-in%2Fmacmini%2FPenglaiAgent/01a07fbc-0dd6-76d2-a570-614cad697398/summary.json`:
+Independent grok-4.6 xhigh review. Local session path and host volume layout
+are omitted from the public tree.
 
 - `current_model_id`: `grok-4.6`
 - `reasoning_effort`: `xhigh`
