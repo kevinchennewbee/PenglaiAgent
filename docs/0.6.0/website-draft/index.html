@@ -27,6 +27,12 @@
       <strong>not maintained</strong> and is not a Chromium 150 / Electron 43
       security equivalent. Shipping that limitation is a PM decision, not
       implied by source pins.</li>
+    <li>UOS userspace is old-world glibc 2.28 / <code>/lib64/ld.so.1</code>.
+      Official npm koffi loong64 is new-world and is not shipped. JPEG in
+      libvips is libjpeg-turbo, not mozjpeg. Mnemon 0.2.8 has no loong64
+      binary; Memory plugin is packed, the mnemon engine is unpublished.
+      require-builtin native is unpublished; product web uses startup
+      reload.</li>
   </ul>
   <p><a href="./zh.html" hreflang="zh-CN">中文草稿</a> ·
   <a href="../../RELEASE_NOTES_0.6.0.md">Release notes draft</a></p>

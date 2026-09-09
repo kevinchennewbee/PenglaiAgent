@@ -1,0 +1,19 @@
+--- /private/tmp/penglai-uos20-addons-060/work/vips-pristine/meson.build	2026-08-25 21:35:01
++++ /private/tmp/penglai-uos20-addons-060/work/vips-deps/vips/meson.build	2026-09-09 19:15:39
+@@ -775,9 +775,10 @@
+   subdir('cplusplus')
+ endif
+ 
+-# these lines removed by a regexp for oss-fuzz builds, don't touch!
+-subdir('man')
+-subdir('po')
+-subdir('tools')
+-subdir('test')
+-subdir('fuzz')
++# UOS20 old-world: skip host-executable / i18n / test targets (cross-link of
++# tools fails the same way glib gtester did). Libraries still install.
++# subdir('man')
++# subdir('po')
++# subdir('tools')
++# subdir('test')
++# subdir('fuzz')

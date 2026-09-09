@@ -429,6 +429,7 @@ jobs:
         run: |
           # Fail-closed: a missing old-world payload is not a packaged .deb.
           # Native UOS install/startup/function remain OWNER_POST_RELEASE.
+          pnpm stage:linux-loong64
           pnpm package:linux-deb -- --target linux-loong64
       - name: Upload linux-loong64 installer and packaging evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

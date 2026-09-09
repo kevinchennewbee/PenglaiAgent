@@ -31,10 +31,12 @@ before that.
   folder error clears on a valid path; custom-model image input uses
   official DeepSeek `inputModalities` (no model-id regex).
 - Fourth target: actual UOS 20 old-world `.deb` class with Office/Memory
-  required and chrome-sandbox kept. Payload addons (koffi / sharp) are
-  integrated from a separate old-world build, not from new-world npm
-  `linux-loong64` wheels. `node-addon-require-builtin` native is official
-  optional internals probing and is unpublished on loong64.
+  required and chrome-sandbox kept. Payload addons are architecture
+  builds in `native/linux-loong64-oldworld/` (koffi `4e19ac67…`, sharp.node
+  `7967795e…`, libvips-cpp `2e9438ad…`, flock `b065bcb1…`, pty `5b5b7386…`),
+  not official npm new-world loong64 wheels. JPEG in this libvips is
+  libjpeg-turbo 3.0.4, not mozjpeg. `node-addon-require-builtin` native is
+  unpublished on loong64; product web uses `patchReload: startup`.
 
 ## Known boundaries
 
@@ -49,6 +51,9 @@ before that.
   old-world 43 recipe. V25 is not requested.
 - Packaged PDF page-image preview / bundled Poppler stay Owner-deferred.
 - WhatsApp is not a product surface.
+- Mnemon 0.2.8 publishes no linux-loong64 archive. The Memory plugin is
+  packed; the mnemon engine is unpublished on UOS. MOSS ONNX native is
+  unpublished on loong64.
 
 ## Verification (after freeze)
 
@@ -71,5 +76,7 @@ Silicon、Intel Mac、Windows x64，以及统信 UOS 20 专业版 1070 龙芯旧
 
 macOS 为 ad-hoc 签名、未公证；Windows 无 Authenticode。UOS 使用龙芯厂商
 Electron 31.7.7（Chromium 126），**未维持**，也不是 Mac/Windows Electron 43
-/ Chromium 150 的安全等价；PM 尚未把该限制接受为生产安全 PASS。已发布的
+/ Chromium 150 的安全等价；PM 尚未把该限制接受为生产安全 PASS。UOS 原生
+koffi/sharp/libvips 为旧世界架构构建（libvips-cpp `2e9438ad…`），不是官方
+npm 新世界包；JPEG 实现为 libjpeg-turbo。Mnemon 无 loong64 二进制。已发布的
 0.5.10 / 0.5.11 / 0.5.12 不被改写。

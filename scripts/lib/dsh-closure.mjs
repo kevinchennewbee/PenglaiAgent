@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { overlayUos20OldWorldAddons } from "./uos20-oldworld-addons.mjs";
 
 export const REQUIRED_DSH_RUNTIME_PACKAGES = [
   "zod",
@@ -364,6 +365,9 @@ export function materializeDshClosure(installAnchor, destRoot, target) {
   }
   const nestedConflicts = materializeNestedVersionConflicts(links, modulesDir, target);
   assertNestedVersionConflicts(links, modulesDir, target);
+  if (target === "linux-loong64") {
+    overlayUos20OldWorldAddons(modulesDir);
+  }
   const nodePty = pruneNodePtyNativePayloads(modulesDir, target);
   const native = resolveRequireBuiltinNative(installAnchor, target);
   const flattened = new Map(

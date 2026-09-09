@@ -91,7 +91,7 @@ Owner native install/startup/function on UOS 20 Professional 1070 stays
 
 ## Addon integration handoff
 
-A separate old-world addon worker owns koffi and sharp (+ libvips).
-`node-addon-require-builtin` native is optional internals and unpublished
-on loong64; do not copy or fabricate it. This repo waits for the worker
-`MANIFEST.json` for required natives. Do not duplicate those builds here.
+Required old-world natives live in `native/linux-loong64-oldworld/`
+(libvips-cpp `2e9438ad…`). Official npm koffi-linux-loong64 is new-world
+and is not shipped. `node-addon-require-builtin` native stays unpublished.
+Native UOS remains `OWNER_POST_RELEASE`.

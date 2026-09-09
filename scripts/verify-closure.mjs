@@ -6,6 +6,7 @@ import { ROOT, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { hostTarget, inspectClosureCredential, stagingForTarget } from "./lib/closure-credential.mjs";
 import { PINNED_DSH } from "./lib/product.mjs";
+import { assertUos20OldWorldAddonFiles } from "./lib/uos20-oldworld-addons.mjs";
 
 function argValue(name, fallback) {
   const index = process.argv.indexOf(name);
@@ -24,22 +25,6 @@ const nodeBin = join(staging, target === "win32-x86_64" ? "runtime/node/node.exe
 const dsh = join(staging, "runtime/dsh/lib/bin.js");
 if (!existsSync(nodeBin) || !existsSync(dsh)) {
   finish("FAIL", { command: "verify:closure", target, reason: "closure credential present but node/dsh missing" });
-}
-if (target !== hostTarget()) {
-  finish("INCOMPLETE", {
-    command: "verify:closure",
-    target,
-    reason: "cross-staged closure is structurally complete but requires the matching native runner",
-  });
-}
-const probe = spawnSync(nodeBin, [dsh, "--version"], {
-  encoding: "utf8",
-  env: { PATH: "/usr/bin:/bin", NODE_PATH: "" },
-  cwd: "/tmp",
-});
-const output = `${probe.stdout ?? ""}${probe.stderr ?? ""}`;
-if (probe.status !== 0 || !output.includes(PINNED_DSH)) {
-  finish("FAIL", { command: "verify:closure", target, reason: "embedded DSH closure probe failed" });
 }
 const required = ["zod", "ws", "fflate", "eventsource-parser", "node-addon-require-builtin", "node-addon-native-custom-loader"];
 const missing = required.filter((name) => !existsSync(join(staging, "runtime/dsh/node_modules", name, "package.json")));
@@ -64,12 +49,24 @@ const nativeAddonPackages = {
   // DSH alpha.2 sharp 0.35.4 folds the Windows libvips DLLs into sharp-win32-x64;
   // unlike the Darwin packages there is no separate sharp-libvips-win32-x64.
   "win32-x86_64": ["@koromix/koffi-win32-x64", "@img/sharp-win32-x64"],
+  "linux-loong64": ["@koromix/koffi-linux-loong64"],
 }[target] ?? [];
 const missingAddons = nativeAddonPackages.filter(
   (name) => !existsSync(join(staging, "runtime/dsh/node_modules", name, "package.json")),
 );
 if (missingAddons.length) {
   finish("FAIL", { command: "verify:closure", target, reason: `flattened DSH closure missing native addon(s) ${missingAddons.join(",")}` });
+}
+if (target === "linux-loong64") {
+  try {
+    assertUos20OldWorldAddonFiles(join(staging, "runtime/dsh/node_modules"));
+  } catch (error) {
+    finish("FAIL", {
+      command: "verify:closure",
+      target,
+      reason: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 if (target === "win32-x86_64") {
   const sharpLib = join(staging, "runtime/dsh/node_modules/@img/sharp-win32-x64/lib");
@@ -92,6 +89,22 @@ if (target.startsWith("darwin-")) {
   if (!existsSync(helper) || (statSync(helper).mode & 0o111) === 0) {
     finish("FAIL", { command: "verify:closure", target, reason: "node-pty spawn-helper missing or not executable" });
   }
+}
+if (target !== hostTarget()) {
+  finish("INCOMPLETE", {
+    command: "verify:closure",
+    target,
+    reason: "cross-staged closure is structurally complete but requires the matching native runner",
+  });
+}
+const probe = spawnSync(nodeBin, [dsh, "--version"], {
+  encoding: "utf8",
+  env: { PATH: "/usr/bin:/bin", NODE_PATH: "" },
+  cwd: "/tmp",
+});
+const output = `${probe.stdout ?? ""}${probe.stderr ?? ""}`;
+if (probe.status !== 0 || !output.includes(PINNED_DSH)) {
+  finish("FAIL", { command: "verify:closure", target, reason: "embedded DSH closure probe failed" });
 }
 const nodePtyModule = join(staging, "runtime/dsh/node_modules/node-pty");
 if (existsSync(join(nodePtyModule, "package.json"))) {

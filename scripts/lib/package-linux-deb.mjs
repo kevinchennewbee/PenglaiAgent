@@ -20,6 +20,7 @@ import { basename, join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { deterministicGzip } from "./deterministic-gzip.mjs";
 import { ROOT } from "./repo.mjs";
+import { assertUos20OldWorldAddonFiles } from "./uos20-oldworld-addons.mjs";
 
 // Penglai target key is linux-loong64. UOS dpkg Architecture is loongarch64.
 // Confirmed client is UOS 20 Professional 1070 / kernel 4.19 (old-world).
@@ -187,6 +188,7 @@ export function assertRequiredBuiltinPlugins(pluginsDir) {
 
 export const UOS20_OLD_WORLD_INTERPRETER = "/lib64/ld.so.1";
 export const UOS20_NEW_WORLD_INTERPRETER = "/lib64/ld-linux-loongarch-lp64d.so.1";
+export const UOS20_NEW_WORLD_LOADER_SONAME = "ld-linux-loongarch-lp64d.so.1";
 export const ELF_MACHINE_LOONGARCH = 258;
 export const UOS20_FLOCK_SHA256 =
   "b065bcb1945dffa04a075578dff55a50604c3901716912714b81c24757167868";
@@ -256,7 +258,11 @@ export function assertUos20OldWorldElfBytes(bytes, label, { requireInterp = fals
     throw new Error(`${label} ELF machine ${machine ?? "missing"} is not LoongArch`);
   }
   const interpreter = readElfInterpreter(bytes);
-  if (interpreter === UOS20_NEW_WORLD_INTERPRETER || bytes.includes(Buffer.from(UOS20_NEW_WORLD_INTERPRETER))) {
+  if (
+    interpreter === UOS20_NEW_WORLD_INTERPRETER ||
+    bytes.includes(Buffer.from(UOS20_NEW_WORLD_INTERPRETER)) ||
+    bytes.includes(Buffer.from(UOS20_NEW_WORLD_LOADER_SONAME))
+  ) {
     throw new Error(`${label} is new-world; UOS 20 requires old-world ${UOS20_OLD_WORLD_INTERPRETER}`);
   }
   if (requireInterp) {
@@ -399,6 +405,7 @@ function assertPenglaiBinary(payloadRoot) {
 }
 
 const FLOCK_ADDON_REL = join(
+  "resources",
   "runtime",
   "dsh",
   "node_modules",
@@ -431,17 +438,17 @@ function walkPayloadFiles(root, rel = "") {
 }
 
 export function assertUosRuntimeClosure(payloadRoot) {
-  const nodeBin = join(payloadRoot, "runtime", "node", "bin", "node");
+  const nodeBin = join(payloadRoot, "resources", "runtime", "node", "bin", "node");
   if (!existsSync(nodeBin) || !lstatSync(nodeBin).isFile()) {
     throw new Error(
-      "linux-loong64 payload missing old-world Node at runtime/node/bin/node; package is not complete",
+      "linux-loong64 payload missing old-world Node at resources/runtime/node/bin/node; package is not complete",
     );
   }
   assertUos20OldWorldElf(nodeBin, "embedded Node", { requireInterp: true });
-  const dshBin = join(payloadRoot, "runtime", "dsh", "lib", "bin.js");
+  const dshBin = join(payloadRoot, "resources", "runtime", "dsh", "lib", "bin.js");
   if (!existsSync(dshBin) || !lstatSync(dshBin).isFile()) {
     throw new Error(
-      "linux-loong64 payload missing pinned DSH CLI at runtime/dsh/lib/bin.js; package is not complete",
+      "linux-loong64 payload missing pinned DSH CLI at resources/runtime/dsh/lib/bin.js; package is not complete",
     );
   }
   const flock = join(payloadRoot, FLOCK_ADDON_REL);
@@ -473,6 +480,9 @@ export function assertUosRuntimeClosure(payloadRoot) {
   } finally {
     closeSync(flockFd);
   }
+  assertUos20OldWorldAddonFiles(
+    join(payloadRoot, "resources", "runtime", "dsh", "node_modules"),
+  );
   for (const file of walkPayloadFiles(payloadRoot)) {
     if (file.rel.includes("darwin-arm64") || file.rel.includes("darwin-x64") || file.rel.endsWith(".dylib")) {
       throw new Error(`linux-loong64 payload contains darwin binary ${file.rel}`);

@@ -13,6 +13,9 @@ import {
   PINNED_ELECTRON_DARWIN_ARM64_SHA256,
   PINNED_ELECTRON_DARWIN_X64_SHA256,
   PINNED_ELECTRON_WIN32_X64_SHA256,
+  PINNED_ELECTRON_LINUX_LOONG64,
+  PINNED_ELECTRON_LINUX_LOONG64_SHA256,
+  PINNED_ELECTRON_LINUX_LOONG64_URL,
 } from "../packages/release-identity/src/pins.ts";
 
 const targetArg = process.argv.includes("--target")
@@ -64,9 +67,51 @@ const TARGETS = {
   },
 };
 
+if (targetArg === "linux-loong64" || targetArg === "linux-loongarch64") {
+  const cacheDir = join(process.cwd(), "dist", "runtime-cache", PINNED_ELECTRON_LINUX_LOONG64_SHA256);
+  const zipName = `electron-v${PINNED_ELECTRON_LINUX_LOONG64}-linux-loong64.zip`;
+  const zipPath = join(cacheDir, zipName);
+  mkdirSync(cacheDir, { recursive: true });
+  function sha256Linux(path) {
+    return createHash("sha256").update(readFileSync(path)).digest("hex");
+  }
+  if (!existsSync(zipPath) || sha256Linux(zipPath) !== PINNED_ELECTRON_LINUX_LOONG64_SHA256) {
+    const res = await fetch(PINNED_ELECTRON_LINUX_LOONG64_URL, { redirect: "follow" });
+    if (!res.ok || !res.body) {
+      console.error("ensure-electron BLOCKED: linux-loong64 Electron zip download failed", res.status);
+      process.exit(4);
+    }
+    await pipeline(Readable.fromWeb(res.body), createWriteStream(zipPath));
+    const got = sha256Linux(zipPath);
+    if (got !== PINNED_ELECTRON_LINUX_LOONG64_SHA256) {
+      console.error("downloaded linux-loong64 Electron zip hash mismatch", got);
+      process.exit(1);
+    }
+  }
+  const outDir = join(cacheDir, "extracted");
+  mkdirSync(outDir, { recursive: true });
+  const electronBin = join(outDir, "electron");
+  if (!existsSync(electronBin)) {
+    const unzip = spawnSync("unzip", ["-q", zipPath, "-d", outDir], { stdio: "inherit" });
+    if (unzip.status !== 0) {
+      const ditto = spawnSync("ditto", ["-x", "-k", zipPath, outDir], { stdio: "inherit" });
+      if (ditto.status !== 0) {
+        console.error("ensure-electron BLOCKED: failed to extract linux-loong64 Electron zip");
+        process.exit(4);
+      }
+    }
+  }
+  if (!existsSync(electronBin)) {
+    console.error("ensure-electron BLOCKED: extracted linux-loong64 electron binary missing");
+    process.exit(4);
+  }
+  console.log(electronBin);
+  process.exit(0);
+}
+
 const spec = TARGETS[targetArg];
 if (!spec) {
-  console.error("ensure-electron requires --target darwin-arm64|darwin-x64|win32-x64");
+  console.error("ensure-electron requires --target darwin-arm64|darwin-x64|win32-x64|linux-loong64");
   process.exit(2);
 }
 

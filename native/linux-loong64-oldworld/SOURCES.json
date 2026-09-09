@@ -1,0 +1,35 @@
+{
+  "kind": "penglai-0.6.0-uos20-oldworld-rebuild-inputs",
+  "note": "Packaging uses artifacts/ by digest. These URLs+SHA-256 are the rebuild inputs. Do not use official npm koffi-linux-loong64 bytes.",
+  "jpeg": {
+    "implementation": "libjpeg-turbo-3.0.4",
+    "not": "mozjpeg",
+    "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.0.4/libjpeg-turbo-3.0.4.tar.gz",
+    "sha256": "99130559e7d62e8d695f2c0eaeef912c5828d5b84a0537dcb24c9678c9d5b76b"
+  },
+  "libvips": {
+    "url": "https://github.com/libvips/libvips/releases/download/v8.18.6/vips-8.18.6.tar.xz",
+    "sha256": "3c41e1d5458081bfa4a5bc54e116c46259c75c6760a18027764555632b9dda3e"
+  },
+  "librsvg": {
+    "url": "https://download.gnome.org/sources/librsvg/2.62/librsvg-2.62.91.tar.xz",
+    "sha256": "6caeae129d40dd88f8ec49436fd89bfe4ada716a125187a7fa0def8fcaa0b250",
+    "version": "2.62.91"
+  },
+  "koffi": {
+    "url": "https://registry.npmjs.org/koffi/-/koffi-3.1.6.tgz",
+    "sha256": "28fe3b6492836f8c9cfdabe87ab1d56121a016ce69437579e6bc2241e4efe9a8"
+  },
+  "sharp": {
+    "url": "https://registry.npmjs.org/sharp/-/sharp-0.35.4.tgz",
+    "sha256": "6ebef10290372c7309d9e22e3ecb9e32ca6a3aa6e07f3d83aa904df8ae4f6a5a"
+  },
+  "node": {
+    "url": "https://ftp.loongnix.cn/nodejs/LoongArch/dist/v22.16.0/node-v22.16.0-linux-loong64.tar.gz",
+    "sha256": "37166d30a92b7b913e8cbc4b0aebcef9a21de46820d902687ff3b718cb6c75b1"
+  },
+  "electron": {
+    "url": "https://ftp.loongnix.cn/electron/LoongArch/v31.7.7/electron-v31.7.7-linux-loong64.zip",
+    "sha256": "e0c756ca8a66dde3bece6ad902f152f539365ce7442d6353871d7c54d1c0f47b"
+  }
+}

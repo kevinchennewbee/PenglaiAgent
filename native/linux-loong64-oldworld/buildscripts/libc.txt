@@ -1,0 +1,6 @@
+include_dir=/private/tmp/penglai-uos20-addons-060/inputs/toolchain/sysroot/usr/include
+sys_include_dir=/private/tmp/penglai-uos20-addons-060/inputs/toolchain/sysroot/usr/include
+crt_dir=/private/tmp/penglai-uos20-addons-060/work/linkroot/usr/lib64
+msvc_lib_dir=
+kernel32_lib_dir=
+gcc_dir=/private/tmp/penglai-uos20-addons-060/work/linkroot/usr/lib64
