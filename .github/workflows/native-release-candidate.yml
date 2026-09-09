@@ -424,7 +424,7 @@ jobs:
       - name: Build source from the clean checkout
         run: pnpm build
       - name: Fetch architecture-built linux-loong64 Mnemon
-        run: pnpm fetch:mnemon-assets -- --target linux-loong64
+        run: node --import tsx scripts/fetch-mnemon-assets.mjs --target linux-loong64
       - name: Package UOS .deb from the staged old-world payload
         env:
           PENGLAI_PACK_TARGET: linux-loong64
