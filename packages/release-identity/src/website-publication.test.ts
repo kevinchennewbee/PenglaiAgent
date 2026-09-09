@@ -184,6 +184,8 @@ test("website workflow grants write only to the main-gated deployment job", () =
   const readback = readFileSync(join(root, "scripts/readback-website.mjs"), "utf8");
   assert.ok(readback.includes('const origins = ["https://penglai.pages.dev/", "https://kevinchennewbee.github.io/PenglaiAgent/"];'));
   assert.match(readback, /digest\(bytes\) !== file\.sha256/);
+  assert.match(readback, /isCloudflareRoutingConfig/);
+  assert.match(readback, /cloudflare-routing-config/);
   assert.match(readback, /html\.includes\(releaseSha\)/);
   assert.match(readback, /Penglai \$\{version\}/);
   assert.doesNotMatch(readback, /Penglai 0\.5\.10/);
