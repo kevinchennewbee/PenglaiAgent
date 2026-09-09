@@ -258,7 +258,8 @@ test("native release workflow proves bundled optional plugins across restart", (
     ),
   );
   const macosWorkflow = workflow.slice(workflow.indexOf("\n  macos:"), workflow.indexOf("\n  windows:"));
-  const windowsWorkflow = workflow.slice(workflow.indexOf("\n  windows:"), workflow.indexOf("\n  aggregate:"));
+  const windowsWorkflow = workflow.slice(workflow.indexOf("\n  windows:"), workflow.indexOf("\n  linux:"));
+  const linuxWorkflow = workflow.slice(workflow.indexOf("\n  linux:"), workflow.indexOf("\n  aggregate:"));
   for (const nativeWorkflow of [macosWorkflow, windowsWorkflow]) {
     assert.ok(nativeWorkflow.indexOf("Build source from the clean checkout") >= 0);
     assert.ok(nativeWorkflow.indexOf("Audit target-specific supply chain") >= 0);
@@ -283,6 +284,15 @@ test("native release workflow proves bundled optional plugins across restart", (
     true,
   );
   assert.match(windowsWorkflow, /actualSize -eq \$expectedSize -and \$actual -eq \$expected/);
+  assert.match(macosWorkflow, /Penglai_0\.6\.0_macos_aarch64\.dmg/);
+  assert.match(macosWorkflow, /Penglai_0\.6\.0_macos_x64\.dmg/);
+  assert.match(windowsWorkflow, /Penglai_0\.6\.0_windows_x64_setup\.exe/);
+  assert.match(linuxWorkflow, /package:linux-deb/);
+  assert.match(linuxWorkflow, /OWNER_POST_RELEASE/);
+  assert.match(linuxWorkflow, /Penglai_0\.6\.0_uos_loong64\.deb/);
+  assert.doesNotMatch(linuxWorkflow, /test:e2e:installed/);
+  assert.doesNotMatch(linuxWorkflow, /verify:upgrade-uninstall/);
+  assert.match(workflow, /needs: \[macos, windows, linux\]/);
   assert.match(workflow, /pnpm test:u3:plugins/g);
   assert.match(workflow, /u3-first-party-plugins\.json/g);
   assert.match(compat, /installFromExactInstaller/);

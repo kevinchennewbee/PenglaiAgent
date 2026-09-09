@@ -7,6 +7,7 @@ import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
 import { ROOT } from "./lib/repo.mjs";
 
 const BASE = "87f6aec04b2b77d45a5c2b280d1b75332a80eb33";
+const PUBLISHED_0512 = "54a0ef30afa4e3d653e400a637d4aa8eb4abbb75";
 const pins = readReleaseIdentityPins();
 const failures = [];
 
@@ -25,7 +26,12 @@ function readJson(relative) {
 try {
   execFileSync("git", ["merge-base", "--is-ancestor", BASE, "HEAD"], { cwd: ROOT, stdio: "ignore" });
 } catch {
-  fail(`0.5.12 must descend from published 0.5.11 ${BASE}`);
+  fail(`0.6.0 must descend from published 0.5.11 ${BASE}`);
+}
+try {
+  execFileSync("git", ["merge-base", "--is-ancestor", PUBLISHED_0512, "HEAD"], { cwd: ROOT, stdio: "ignore" });
+} catch {
+  fail(`0.6.0 must descend from published 0.5.12 ${PUBLISHED_0512}`);
 }
 
 const protectedPaths = [
@@ -40,13 +46,14 @@ const protectedPaths = [
 ];
 const protectedChanges = git(["diff", "--name-only", BASE, "--", ...protectedPaths]).split("\n").filter(Boolean);
 if (protectedChanges.length > 0) {
-  fail(`0.5.12 rewrote immutable published history: ${protectedChanges.join(", ")}`);
+  fail(`0.6.0 rewrote immutable published history: ${protectedChanges.join(", ")}`);
 }
+
 
 if (pins.productVersion !== "0.6.0" || pins.dsh !== "0.1.5-alpha.1") {
   fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.6.0/0.1.5-alpha.1`);
 }
-if (existsSync(join(ROOT, ".pnpmfile.mjs"))) fail("0.5.12 must not activate the historical alpha.1 source resolver");
+if (existsSync(join(ROOT, ".pnpmfile.mjs"))) fail("0.6.0 must not activate the historical alpha.1 source resolver");
 
 const snapshotPath = join(ROOT, "docs/0.6.0/DSH_NPM_COHORT.json");
 const snapshotBytes = readFileSync(snapshotPath);
@@ -138,7 +145,7 @@ const manifestGate = spawnSync(process.execPath, [join(ROOT, "scripts/migrate-re
   cwd: ROOT,
   encoding: "utf8",
 });
-if (manifestGate.status !== 0) fail(manifestGate.stderr || manifestGate.stdout || "0.5.12 manifest gate failed");
+if (manifestGate.status !== 0) fail(manifestGate.stderr || manifestGate.stdout || "0.6.0 manifest gate failed");
 
 for (const relative of [
   "packages/dsh-bridge/src/index.ts",

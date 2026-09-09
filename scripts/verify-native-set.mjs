@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
-import { evidenceName, installerForTarget, NATIVE_INSTALLED_TARGETS, RELEASE_TARGETS } from "./lib/release-targets.mjs";
+import { evidenceName, installerForTarget, NATIVE_INSTALLED_TARGETS } from "./lib/release-targets.mjs";
 import { expectedUpgradeSourceVersions, upgradeUninstallEvidenceMatches } from "./lib/native-upgrade-set.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
 
@@ -27,8 +27,7 @@ if (!source.ok) finish("STALE", { command: "verify:native-set", gate: command, r
 
 const basename = command.replaceAll(":", "-");
 const records = [];
-const nativeCommands = new Set(["verify:installed", "verify:upgrade-uninstall", "verify:profile"]);
-const targets = nativeCommands.has(command) ? NATIVE_INSTALLED_TARGETS : RELEASE_TARGETS;
+const targets = NATIVE_INSTALLED_TARGETS;
 for (const target of targets) {
   const installerEvidencePath = join(ROOT, "evidence", "generated", evidenceName("local-installer", target));
   if (!existsSync(installerEvidencePath)) {
