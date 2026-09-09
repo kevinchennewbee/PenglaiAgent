@@ -31,9 +31,10 @@ before that.
   folder error clears on a valid path; custom-model image input uses
   official DeepSeek `inputModalities` (no model-id regex).
 - Fourth target: actual UOS 20 old-world `.deb` class with Office/Memory
-  required and chrome-sandbox kept. Payload addons (koffi / require-builtin /
-  sharp) are integrated from a separate old-world build, not from new-world
-  npm `linux-loong64` wheels.
+  required and chrome-sandbox kept. Payload addons (koffi / sharp) are
+  integrated from a separate old-world build, not from new-world npm
+  `linux-loong64` wheels. `node-addon-require-builtin` native is official
+  optional internals probing and is unpublished on loong64.
 
 ## Known boundaries
 

@@ -317,6 +317,36 @@ test("existing profile is refreshed from newer first-party plugin tarballs", () 
   assert.match(readFileSync(join(user.profileWeb, "node_modules", "@penglai", "plugin-reference", "dist", "index.js"), "utf8"), /v2/);
 });
 
+test("activatePrivateProfile pins lived-in live HMR to official startup without dropping bundles", () => {
+  const app = mkdtempSync(join(tmpdir(), "penglai-app-"));
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
+  mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
+  writeFileSync(join(app, "profile-seed", "web", "package.json"), "{\"name\":\"web\"}\n");
+  writeTrustedPluginSet(app);
+  mkdirSync(join(app, "runtime", "dsh", "node_modules", "@deepseek-ai"), { recursive: true });
+  writeFileSync(join(app, "runtime", "dsh", "node_modules", "@deepseek-ai", ".keep"), "official\n");
+  mkdirSync(user.profileWeb, { recursive: true });
+  mkdirSync(user.transactions, { recursive: true });
+  writeFileSync(
+    join(user.profileWeb, "package.json"),
+    JSON.stringify({
+      name: "dsh-profile-web",
+      dependencies: { "@penglai/office": "0.6.0" },
+      dsh: {
+        profile: {
+          bundles: ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"],
+          patchReload: "live",
+        },
+      },
+    }),
+  );
+  activatePrivateProfile(resolveRuntimeLayout(app), user);
+  const manifest = JSON.parse(readFileSync(join(user.profileWeb, "package.json"), "utf8"));
+  assert.equal(manifest.dsh.profile.patchReload, "startup");
+  assert.deepEqual(manifest.dsh.profile.bundles, ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]);
+  assert.equal(manifest.dependencies["@penglai/office"], "0.6.0");
+});
+
 test("R2-DIST-011 seed activates private profile once", () => {
   const app = mkdtempSync(join(tmpdir(), "penglai-app-"));
   const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
