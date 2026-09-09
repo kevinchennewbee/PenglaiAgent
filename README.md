@@ -6,29 +6,26 @@
 
 DeepSeek Harness, ready to live on a personal computer.
 
-[English](#english) · [中文](#中文) · [Website](https://penglai.pages.dev) · [中文网站](https://penglai.pages.dev/zh/) · [Download 0.5.11](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.11) · [Security](SECURITY.md)
+[English](#english) · [中文](#中文) · [Website](https://penglai.pages.dev) · [中文网站](https://penglai.pages.dev/zh/) · [Download 0.5.12](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.12) · [Security](SECURITY.md)
 
-The current public product is **Penglai 0.5.11**, an immutable release built from
-`77e7105773b4d43abb7315ea6e83abe17e646cb4`. It consumes official DeepSeek Harness
-`0.1.2-rc.1` npm packages, reconciled to tag `dsh-v0.1.2-rc.1` at
-`a66e4702047846cdaa10c66c9d3df3951f5ea70d`. All 254 package archives, registry
+The current public product is **Penglai 0.5.12**, an immutable release built from
+`54a0ef30afa4e3d653e400a637d4aa8eb4abbb75`. It consumes official DeepSeek Harness
+`0.1.3-alpha.2` npm packages, reconciled to tag `dsh-v0.1.3-alpha.2` at
+`82a5fd61a7cf5c293cec4bdff68f455398d685e9`. All 263 package archives, registry
 signatures and pinned source manifests were verified. macOS is ad-hoc signed and
 not notarized; Windows has no Authenticode.
-[Release notes](docs/RELEASE_NOTES_0.5.11.md) ·
-[Verified publication](docs/PUBLICATION_MANIFEST_0.5.11.md)
+[Release notes](docs/RELEASE_NOTES_0.5.12.md) ·
+[Verified publication](docs/PUBLICATION_MANIFEST_0.5.12.md)
 
-Published v0.5.10 tags and assets remain immutable. This repository is the
-**0.5.12 source candidate**, not a public release. There is no `v0.5.12`
-installer, SHA-256, or download card yet. Every download link below is published
-0.5.11. Public 0.5.11 ships Mnemon `0.2.4` and was built with Node `22.22.2`.
-This candidate tree pins Mnemon `0.2.8` and Node `22.23.2`; those are source
-facts, not a download claim. Source tests are not live-account evidence.
+Published v0.5.10 and v0.5.11 tags and assets remain immutable. Public 0.5.12
+ships Mnemon `0.2.8` and was built with Node `22.23.2`. Source tests are not
+live-account evidence.
 
 <p align="center">
   <img src="website/shots/0.5.5/plugin-center.png" width="48%" alt="Penglai 0.5.5 Plugin Center in the installed DSH settings">
   <img src="website/shots/0.5.5/memory.png" width="48%" alt="Penglai Memory in the installed DSH settings">
 </p>
-<p align="center"><sub>Installed 0.5.5 screens kept as UI references. They are not 0.5.11 screenshots; native 0.5.11 evidence lives in the publication manifest.</sub></p>
+<p align="center"><sub>Installed 0.5.5 screens kept as UI references. They are not 0.5.12 screenshots; native 0.5.12 evidence lives in the publication manifest.</sub></p>
 
 <a id="english"></a>
 
@@ -55,12 +52,12 @@ You
        → DeepSeek Harness (models, tools, Workspace, Session, conversation)
 ```
 
-Version 0.5.11 keeps that official Session snapshot path and adds isolation,
+Version 0.5.12 keeps that official Session snapshot path and adds isolation,
 recovery, Memory library, official IM question/approval identity, bounded PDF
-inspect, and redacted Plugin Center diagnostics. Upgrades from 0.5.8, 0.5.9 and
-0.5.10 use an isolated rc.1 DSH Home and preserve the previous generation for
-rollback. All three native installers pass credential-free onboarding and plugin
-checks, the three pinned upgrade paths, and default uninstall with user data
+inspect, and redacted Plugin Center diagnostics. Upgrades from 0.5.8, 0.5.9,
+0.5.10 and 0.5.11 use an isolated DSH Home and preserve the previous generation
+for rollback. All three native installers pass credential-free onboarding and plugin
+checks, the four pinned upgrade paths, and default uninstall with user data
 preserved.
 
 ## A day with Penglai
@@ -83,13 +80,13 @@ preserved.
 </p>
 <p align="center"><sub>First-run welcome from the 0.5.5 installed UI reference.</sub></p>
 
-## What ships in 0.5.11
+## What ships in 0.5.12
 
 | Product surface | Fresh install | What it does |
 | --- | --- | --- |
 | Penglai Office | On | Inspect, create, edit, preview, and save DOCX, XLSX, PPTX, and PDF |
 | Penglai Memory | On | Automatic current-Workspace memory, explicit personal memory, authorised sources, provenance, and a knowledge graph |
-| Mobile Messaging | Off | Eight platform connectors under one IM control plane; WhatsApp is not exposed or supported in 0.5.11 |
+| Mobile Messaging | Off | Eight platform connectors under one IM control plane; WhatsApp is not exposed or supported in 0.5.12 |
 | Speech Recognition | Off | Local SenseVoice transcription; enabling it adds the conversation microphone entry |
 | Voice Generation | Off | Local MOSS-TTS-Nano preview, desktop playback, and supported channel audio |
 | Companion | Off | Opt-in scheduled contact with quiet hours, daily limits, and a bound IM route |
@@ -146,7 +143,7 @@ for it. The exact capability matrix and remaining format limits live in
 ## Memory that knows which project it belongs to
 
 Penglai Memory stores and recalls records locally and is enabled by default.
-Mnemon 0.2.4 is its only recall engine. The fresh mode intelligently organizes
+Mnemon 0.2.8 is its only recall engine. The fresh mode intelligently organizes
 safe project facts inside the current official Workspace. A separate no-tools
 official Agent uses the current provider/model after a Turn, so that curation
 request is a model call to the provider rather than an offline-only step. The
@@ -179,7 +176,7 @@ the official DSH image store. Office files and audio use scoped opaque
 `artifact:<uuid>` references. A mocked webhook is never live evidence.
 
 Slack, Telegram, and Discord use official token or manifest flows and do not
-fake QR. QQ is official Bot QR, not personal QQ login. WhatsApp is not a 0.5.11
+fake QR. QQ is official Bot QR, not personal QQ login. WhatsApp is not a 0.5.12
 product surface: it is not displayed, supported, planned, or bundled.
 
 SenseVoice and MOSS-TTS stay off until requested because their model files are
@@ -197,7 +194,7 @@ It verifies the catalog signature, archive identity, SHA-256, DSH compatibility,
 platform, and declared permissions before staging a package. Activation is a
 separate step and failed activation rolls back.
 
-This is why a reviewed DSH `0.1.2-rc.1`-compatible plugin can join later without
+This is why a reviewed DSH `0.1.3-alpha.2`-compatible plugin can join later without
 publishing a new desktop version merely to change a list. The catalog is still
 fail-closed: arbitrary npm names, Git repositories, and download URLs are not
 accepted. A DSH plugin shares the local DSH process permissions; the permission
@@ -221,32 +218,32 @@ silent update. External Workspaces and the `Penglai/0.5` data generation are
 preserved. Default uninstall removes the application and cache while preserving
 user data.
 
-The immutable [0.5.11 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.11)
+The immutable [0.5.12 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.12)
 contains exactly ten files: three native installers and seven integrity and
-license files. All installers were built from the same source SHA and passed
-[native installed-product gates](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34151469696)
+license files. All installers were built from the same source SHA `54a0ef30afa4e3d653e400a637d4aa8eb4abbb75` and passed
+[native installed-product gates](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34293608792)
 and public download readback.
 
 ### Apple Silicon, macOS 13+
 
-[`Penglai_0.5.11_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.11/Penglai_0.5.11_macos_aarch64.dmg)
+[`Penglai_0.5.12_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.12/Penglai_0.5.12_macos_aarch64.dmg)
 
-467,172,406 bytes · SHA-256 `7a59833e32ae7cdcfc6dae6b1c2d744f251cb929cf251d758479c25fca41c536`
+284,207,080 bytes · SHA-256 `1f6d7f9ceab13c62a6e31d52a0517c4972a52378e5ce102bf2983f3c32fd8034`
 
 ### Intel Mac, macOS 13+
 
-[`Penglai_0.5.11_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.11/Penglai_0.5.11_macos_x64.dmg)
+[`Penglai_0.5.12_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.12/Penglai_0.5.12_macos_x64.dmg)
 
-408,749,431 bytes · SHA-256 `783fcf5c042998d1a550d7c48fe30879d78f996d5602f002dea411826e210798`
+293,808,479 bytes · SHA-256 `f82a5d44bccb7d15def176602f8320d1464eae802897e41c5ec39c8d471d61c3`
 
 ### Windows 10+ x64
 
-[`Penglai_0.5.11_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.11/Penglai_0.5.11_windows_x64_setup.exe)
+[`Penglai_0.5.12_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.12/Penglai_0.5.12_windows_x64_setup.exe)
 
-357,628,547 bytes · SHA-256 `5862cf0df14daf12ef223d5a825cad501ea56f78a40cdb54bef4fa8b7779c929`
+371,054,561 bytes · SHA-256 `5d926a884ca2b93c43f8ee8d8e8897df636585d449f1810d25ab4bffae3159da`
 
 Check the downloaded installer against `SHA256SUMS` before running it. The
-Beijing mirror has not published 0.5.11; GitHub Releases is the authoritative
+Beijing mirror has not published 0.5.12; GitHub Releases is the authoritative
 public source.
 
 ## Privacy
@@ -279,8 +276,7 @@ No. Official DeepSeek Harness is the only core. Penglai owns install, lifecycle,
 and first-party plugins.
 
 **Which version should I download?**
-The public installers are 0.5.11. Published 0.5.10 remains immutable. There is
-no public 0.5.12 installer yet. This GitHub tree is the 0.5.12 source candidate.
+The public installers are 0.5.12. Published 0.5.10 and 0.5.11 remain immutable.
 
 **Why does Gatekeeper or SmartScreen warn?**
 macOS packages are ad-hoc signed and not notarized. Windows packages do not have
@@ -341,8 +337,7 @@ history because they explain the road here; their runtimes are not mixed into
 
 ## Build, contribute, and AI-assisted work
 
-This 0.5.12 candidate tree uses Node `22.23.2` and pnpm `11.7.0`. Published
-0.5.11 was built with Node `22.22.2` and pnpm `11.7.0`.
+This tree uses Node `22.23.2` and pnpm `11.7.0`.
 
 ```bash
 corepack enable
@@ -415,13 +410,12 @@ Turn 和会话界面都归 DSH。蓬莱负责那些不太耀眼、却决定桌�
        → DeepSeek Harness（模型、工具、Workspace、Session、会话）
 ```
 
-0.5.11 继续使用未经修改的官方 DSH `0.1.2-rc.1` npm 包，并补上隔离、恢复、
-记忆库、官方 IM 提问/审批身份、有界 PDF 检查和脱敏插件诊断。从 0.5.8、0.5.9
-和 0.5.10 升级时使用独立的 rc.1 数据目录，保留旧代际用于回退。三端安装包均
-通过无需真实账号的引导和插件检查、三条升级路径，以及默认保留用户数据的卸载
-验证。本仓库是 **0.5.12 源码候选**，不是公开版本；下载链接仍指向已发布的
-0.5.11。公开的 0.5.11 使用 Mnemon `0.2.4` 与 Node `22.22.2`；当前候选树钉住
-Mnemon `0.2.8` 与 Node `22.23.2`，这是源码事实，不是下载声明。中文网站在
+0.5.12 使用未经修改的官方 DSH `0.1.3-alpha.2` npm 包，并补上隔离、恢复、
+记忆库、官方 IM 提问/审批身份、有界 PDF 检查和脱敏插件诊断。从 0.5.8、0.5.9、
+0.5.10 和 0.5.11 升级时使用独立的数据目录，保留旧代际用于回退。三端安装包均
+通过无需真实账号的引导和插件检查、四条升级路径，以及默认保留用户数据的卸载
+验证。公开的 0.5.12 使用 Mnemon `0.2.8` 与 Node `22.23.2`。已发布的 0.5.10 与
+0.5.11 标签与附件仍不可变。中文网站在
 [penglai.pages.dev/zh](https://penglai.pages.dev/zh/)，英文默认首页在
 [penglai.pages.dev](https://penglai.pages.dev/)。
 
@@ -441,13 +435,13 @@ Mnemon `0.2.8` 与 Node `22.23.2`，这是源码事实，不是下载声明。�
 </p>
 <p align="center"><sub>0.5.5 安装版首次引导欢迎页，作为界面参考。</sub></p>
 
-## 0.5.11 带来了什么
+## 0.5.12 带来了什么
 
 | 产品功能 | 全新安装 | 能做什么 |
 | --- | --- | --- |
 | 蓬莱办公 | 默认启用 | 检查、创建、编辑、预览和保存 DOCX、XLSX、PPTX、PDF |
 | 蓬莱记忆 | 默认启用 | 当前 Workspace 自动记忆、明确个人记忆、授权资料、来源追溯和知识图谱 |
-| 消息连接 | 默认关闭 | 八个平台共用一个 IM 控制平面；0.5.11 不展示或支持 WhatsApp |
+| 消息连接 | 默认关闭 | 八个平台共用一个 IM 控制平面；0.5.12 不展示或支持 WhatsApp |
 | 蓬莱语音识别 | 默认关闭 | 本地 SenseVoice 转写；启用后为电脑会话提供麦克风入口 |
 | 蓬莱语音生成 | 默认关闭 | 本地 MOSS-TTS-Nano 试听、电脑播放和支持渠道的语音输出 |
 | 蓬莱主动陪伴 | 默认关闭 | 安静时段、每日上限、指定 IM 路由下的主动联系 |
@@ -497,7 +491,7 @@ typed operation：检查和创建文件、生成可见修改计划、预览、�
 
 ## 蓬莱记忆知道自己属于哪个项目
 
-蓬莱记忆在本机保存和召回记录，并且默认启用。Mnemon 0.2.4 是唯一召回引擎。全新
+蓬莱记忆在本机保存和召回记录，并且默认启用。Mnemon 0.2.8 是唯一召回引擎。全新
 profile 会智能整理当前 official Workspace 的安全项目事实：Turn 结束后，一个禁用全部
 工具的 official Agent 沿用当前供应商和模型，因此“整理候选”本身会调用模型供应商，
 不是完全离线步骤。Host 再用封闭格式与本地策略过滤密钥、敏感内容、类似提示词注入和
@@ -524,7 +518,7 @@ QQ、Slack、Telegram、Discord。文字和受支持的图片、文件、语音�
 图片走 official 图片存储；文件和音频走 `artifact:<uuid>`。
 
 Slack、Telegram、Discord 走官方 Token/Manifest，禁止伪装扫码。QQ 只做官方
-Bot 扫码，不模拟个人号。WhatsApp 不是 0.5.11 的产品能力：不展示、不支持、不列为
+Bot 扫码，不模拟个人号。WhatsApp 不是 0.5.12 的产品能力：不展示、不支持、不列为
 规划，也不捆绑运行时。
 
 SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识别启用并下载模型后，
@@ -538,7 +532,7 @@ SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识�
 读取带版本、不可变的 GitHub Release。安装前会校验目录签名、包身份、SHA-256、DSH
 兼容版本、平台和声明权限。下载与启用是两个阶段，启用失败会回滚。
 
-因此以后审核出一个优秀的 DSH `0.1.2-rc.1` 兼容插件，可以只发布新一代签名目录，不必为了列表变化
+因此以后审核出一个优秀的 DSH `0.1.3-alpha.2` 兼容插件，可以只发布新一代签名目录，不必为了列表变化
 再打一个桌面客户端。它仍然是 fail-closed：任意 npm 包名、Git 仓库或下载地址都
 不会被接受。DSH 插件与本地 DSH 进程共享权限，权限列表用于审核和确认，不是操作
 系统沙箱。
@@ -556,31 +550,31 @@ SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识�
 升级；外部 Workspace 与 `Penglai/0.5` 数据代际会保留。默认卸载去掉应用和缓存，
 保留用户数据。
 
-不可变的 [0.5.11 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.11)
+不可变的 [0.5.12 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.12)
 固定十项附件：三个原生安装包和七项完整性、签名与许可证材料。
-三个安装包来自同一源码提交，并已通过
-[三端原生安装门禁](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34151469696)
+三个安装包来自同一源码提交 `54a0ef30afa4e3d653e400a637d4aa8eb4abbb75`，并已通过
+[三端原生安装门禁](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34293608792)
 和公网下载回读。
 
 ### Apple 芯片，macOS 13+
 
-[`Penglai_0.5.11_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.11/Penglai_0.5.11_macos_aarch64.dmg)
+[`Penglai_0.5.12_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.12/Penglai_0.5.12_macos_aarch64.dmg)
 
-467,172,406 字节 · SHA-256 `7a59833e32ae7cdcfc6dae6b1c2d744f251cb929cf251d758479c25fca41c536`
+284,207,080 字节 · SHA-256 `1f6d7f9ceab13c62a6e31d52a0517c4972a52378e5ce102bf2983f3c32fd8034`
 
 ### Intel Mac，macOS 13+
 
-[`Penglai_0.5.11_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.11/Penglai_0.5.11_macos_x64.dmg)
+[`Penglai_0.5.12_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.12/Penglai_0.5.12_macos_x64.dmg)
 
-408,749,431 字节 · SHA-256 `783fcf5c042998d1a550d7c48fe30879d78f996d5602f002dea411826e210798`
+293,808,479 字节 · SHA-256 `f82a5d44bccb7d15def176602f8320d1464eae802897e41c5ec39c8d471d61c3`
 
 ### Windows 10+ x64
 
-[`Penglai_0.5.11_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.11/Penglai_0.5.11_windows_x64_setup.exe)
+[`Penglai_0.5.12_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.12/Penglai_0.5.12_windows_x64_setup.exe)
 
-357,628,547 字节 · SHA-256 `5862cf0df14daf12ef223d5a825cad501ea56f78a40cdb54bef4fa8b7779c929`
+371,054,561 字节 · SHA-256 `5d926a884ca2b93c43f8ee8d8e8897df636585d449f1810d25ab4bffae3159da`
 
-运行前请用 `SHA256SUMS` 核对下载文件。北京镜像尚未发布 0.5.11；权威公开源是
+运行前请用 `SHA256SUMS` 核对下载文件。北京镜像尚未发布 0.5.12；权威公开源是
 GitHub Release。
 
 ## 隐私
@@ -609,8 +603,7 @@ GitHub Release。
 不是。官方 DeepSeek Harness 是唯一核心。蓬莱负责安装、生命周期和第一方插件。
 
 **现在该下载哪个版本？**
-公开安装包是 0.5.11。已发布的 0.5.10 仍不可变。目前没有公开的 0.5.12 安装包。
-本仓库是 0.5.12 源码候选。
+公开安装包是 0.5.12。已发布的 0.5.10 与 0.5.11 仍不可变。
 
 **为什么 Gatekeeper 或 SmartScreen 会提示？**
 macOS 是 ad-hoc 签名、未公证；Windows 没有 Authenticode。这是已知限制，不是
@@ -656,8 +649,7 @@ macOS 是 ad-hoc 签名、未公证；Windows 没有 Authenticode。这是已知
 
 ## 构建、贡献与 AI 协作
 
-这份 0.5.12 候选树使用 Node `22.23.2` 和 pnpm `11.7.0`。已发布的 0.5.11
-使用 Node `22.22.2` 和 pnpm `11.7.0`。
+这份树使用 Node `22.23.2` 和 pnpm `11.7.0`。
 
 ```bash
 corepack enable
