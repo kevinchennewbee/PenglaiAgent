@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   chmodSync,
   closeSync,
+  constants as fsConstants,
   cpSync,
   existsSync,
   fstatSync,
@@ -340,10 +341,23 @@ export function overlayDesktopBundle(
 ) {
   const dest = join(payloadRoot, "resources", "app");
   const main = join(bundleDir, "electron-main.js");
-  if (!existsSync(main) || lstatSync(main).isSymbolicLink()) {
-    throw new Error(
-      "linux-loong64 packager refused: rebuilt dist/desktop-bundle/electron-main.js missing",
-    );
+  let fd;
+  try {
+    fd = openSync(main, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    if (!fstatSync(fd).isFile()) {
+      throw new Error(
+        "linux-loong64 packager refused: rebuilt dist/desktop-bundle/electron-main.js missing",
+      );
+    }
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      throw new Error(
+        "linux-loong64 packager refused: rebuilt dist/desktop-bundle/electron-main.js missing",
+      );
+    }
+    throw error;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
   }
   mkdirSync(dest, { recursive: true });
   cpSync(bundleDir, dest, { recursive: true });
@@ -351,17 +365,28 @@ export function overlayDesktopBundle(
 
 export function assertPackagedDesktopSkip(payloadRoot) {
   const main = join(payloadRoot, "resources", "app", "electron-main.js");
-  if (!existsSync(main) || lstatSync(main).isSymbolicLink()) {
-    throw new Error("linux-loong64 payload missing resources/app/electron-main.js");
-  }
-  const text = readFileSync(main, "utf8");
-  if (
-    !text.includes(".dsh-module-fallback") ||
-    !text.includes('startsWith("profiles/node_modules/")')
-  ) {
-    throw new Error(
-      "linux-loong64 payload electron-main.js is missing the rebuilt DSH home skip",
-    );
+  let fd;
+  try {
+    fd = openSync(main, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    if (!fstatSync(fd).isFile()) {
+      throw new Error("linux-loong64 payload missing resources/app/electron-main.js");
+    }
+    const text = readFileSync(fd, "utf8");
+    if (
+      !text.includes(".dsh-module-fallback") ||
+      !text.includes('startsWith("profiles/node_modules/")')
+    ) {
+      throw new Error(
+        "linux-loong64 payload electron-main.js is missing the rebuilt DSH home skip",
+      );
+    }
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      throw new Error("linux-loong64 payload missing resources/app/electron-main.js");
+    }
+    throw error;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
   }
 }
 
