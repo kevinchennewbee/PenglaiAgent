@@ -4,7 +4,15 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { PenglaiError } from "@penglai/contracts";
-import { PRODUCT_VERSION } from "./pins.js";
+import {
+  PINNED_DSH,
+  PINNED_DSH_CLOSURE_MANIFEST_SHA256,
+  PINNED_DSH_CLOSURE_PACKAGE_COUNT,
+  PINNED_DSH_COMMIT,
+  PINNED_DSH_TAG,
+  PINNED_DSH_TARBALL_SHA256,
+  PRODUCT_VERSION,
+} from "./pins.js";
 import {
   assertCohortFreeze,
   COHORT_FREEZE_KIND,
@@ -27,25 +35,46 @@ function loadContract() {
   };
 }
 
-test("0.5.12 publication-authorized freeze retitles identity and keeps 0.5.11 immutable", () => {
+test("0.5.12 publication-authorized freeze stays immutable and is not the 0.6 development DSH pin", () => {
   const freeze = loadFreeze();
   const releaseContract = loadContract();
   const productVersion = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version as string;
-  assertCohortFreeze({ freeze, productVersion, releaseContract });
   assert.equal(freeze.kind, COHORT_FREEZE_KIND);
   assert.equal(freeze.status, "publication-authorized");
+  assert.equal(freeze.dsh.version, "0.1.3-alpha.2");
+  assert.equal(freeze.dsh.tag, "dsh-v0.1.3-alpha.2");
+  assert.equal(freeze.dsh.commit, "82a5fd61a7cf5c293cec4bdff68f455398d685e9");
   assert.equal(freeze.dsh.rejectedSuccessor.tag, REJECTED_DSH_SUCCESSOR_TAG);
   assert.equal(productVersion, "0.5.12");
   assert.equal(productVersion, PRODUCT_VERSION);
   assert.equal(releaseContract.publication.tag, "v0.5.12");
   assert.equal(freeze.previousPublicRelease?.tag, "v0.5.11");
   assert.equal(readFileSync(join(root, "packages/contracts/src/index.ts"), "utf8").includes('export const RELEASE = "0.5.12"'), true);
+  assert.equal(PINNED_DSH, "0.1.5-alpha.1");
+  assert.notEqual(freeze.dsh.version, PINNED_DSH);
+  assert.equal(releaseContract.dshVersion, PINNED_DSH);
 });
 
+function developmentFreeze(base: CohortFreezeRecord): CohortFreezeRecord {
+  return {
+    ...base,
+    dsh: {
+      ...base.dsh,
+      version: PINNED_DSH,
+      tag: PINNED_DSH_TAG,
+      commit: PINNED_DSH_COMMIT,
+      packageCount: PINNED_DSH_CLOSURE_PACKAGE_COUNT,
+      tarballSha256: PINNED_DSH_TARBALL_SHA256,
+      closureManifestSha256: PINNED_DSH_CLOSURE_MANIFEST_SHA256,
+    },
+  };
+}
+
 test("cohort freeze rejects mixed DSH generations and rewriting v0.5.11", () => {
-  const freeze = loadFreeze();
+  const freeze = developmentFreeze(loadFreeze());
   const releaseContract = loadContract();
   const productVersion = PRODUCT_VERSION;
+  assertCohortFreeze({ freeze, productVersion, releaseContract });
   assert.throws(
     () =>
       assertCohortFreeze({
