@@ -161,6 +161,12 @@ test("linux-loong64 flatten omits unpublished require-builtin native and still r
   mkdirSync(join(pty, "prebuilds", "linux-loong64"), { recursive: true });
   writeFileSync(join(pty, "package.json"), JSON.stringify({ name: "node-pty", version: "1.0.0" }));
   writeFileSync(join(pty, "prebuilds", "linux-loong64", "pty.node"), "pty\n");
+  const sharp = join(work, "node_modules", "sharp");
+  mkdirSync(sharp, { recursive: true });
+  writeFileSync(join(sharp, "package.json"), JSON.stringify({ name: "sharp", version: "0.35.4" }));
+  const rootPkg = JSON.parse(readFileSync(join(work, "package.json"), "utf8"));
+  rootPkg.dependencies.sharp = "0.35.4";
+  writeFileSync(join(work, "package.json"), JSON.stringify(rootPkg));
   const dest = join(work, "dest");
   const flattened = materializeDshClosure(join(work, "package.json"), dest, "linux-loong64");
   assert.equal(flattened.optionalInternals, "unavailable");

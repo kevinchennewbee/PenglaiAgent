@@ -31,12 +31,20 @@ Electron 31 / Chromium 126 is EOL. Public patch/CVE maintenance after
 - libLoL: old-world-on-new-world. Does not run Electron 43 on UOS 20.
 - No public old-world Electron 43 / Chromium 150 recipe.
 
-## Options for PM (Owner UOS 20 stays; V25 is not a substitute)
+## PM shipping decision (2026-09-09)
 
-| Option | Meaning |
+**Option B is selected** under Owner full-release and exact UOS 20
+constraints. Ship the proven Loongson Electron **31.7.7 / Chromium 126**
+bytes. Disclose unproven ongoing maintenance. Do **not** claim security
+parity with Mac/Windows Electron 43 / Chromium 150. Preserve sandbox.
+This is not native UOS PASS.
+
+| Option | Status |
 | --- | --- |
-| **B. Ship 31.7.7 with this disclosure** | Viable ABI for UOS 20. Chromium 126 vs Mac/Windows 150 must stay in README/site. Not a security-equivalent pin. |
-| **C. Source-build Electron 43 old-world** | No public recipe. Builder class is tens of GB RAM. Not authorized paid infra. |
-| **D. Upgrade the client OS to UOS V25** | Owner did not request this. Not silent delivery. |
+| **B. Ship 31.7.7 with this disclosure** | **Selected.** Viable ABI for UOS 20. Chromium 126 vs Mac/Windows 150 must stay in README/site. Not a security-equivalent pin. |
+| **C. Source-build Electron 43 old-world** | Not taken. No public recipe. Builder class is tens of GB RAM. Not authorized paid infra. |
+| **D. Upgrade the client OS to UOS V25** | Not taken. Owner did not request this. |
 
-Native install/startup/function remain `OWNER_POST_RELEASE`.
+Native install/startup/function remain `OWNER_POST_RELEASE`. Final
+publication still waits the four freeze artifacts and PM GUI/design
+handoff.

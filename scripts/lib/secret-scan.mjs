@@ -58,7 +58,7 @@ export const SECRET_RULES = Object.freeze([
 ]);
 
 const SKIP_PATH =
-  /^(?:node_modules\/|.*\/node_modules\/|dist\/|.*\/dist\/|\.git\/|pnpm-lock\.yaml$|package-lock\.json$|.*\.(?:png|jpg|jpeg|webp|gif|icns|ico|woff2?|dylib|node|wasm|tgz|zip)$)/;
+  /^(?:node_modules\/|.*\/node_modules\/|dist\/|.*\/dist\/|\.git\/|pnpm-lock\.yaml$|package-lock\.json$|.*\.(?:png|jpg|jpeg|webp|gif|icns|ico|woff2?|dylib|dll|node|wasm|tgz|tar\.gz|zip)$|.*\.so(?:\.\d+)*$|(?:.*\/)?mnemon(?:\.exe)?$)/;
 
 export function isSkippedScanPath(rel) {
   return SKIP_PATH.test(rel.replaceAll("\\", "/"));

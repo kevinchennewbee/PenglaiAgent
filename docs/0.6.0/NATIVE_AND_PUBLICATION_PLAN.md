@@ -77,8 +77,8 @@ Owner native install/startup/function on UOS 20 Professional 1070 stays
 ## Publication (blocked until all of the below)
 
 1. Four contract installers from the frozen SHA.
-2. Electron 31.7.7 shipping decision recorded by PM (disclosure vs hold).
-   Source integration is not that acceptance.
+2. Electron 31.7.7 option B is recorded (Chromium 126 disclosure, no
+   security parity). Source integration is not GUI acceptance.
 3. Edit existing `website/{index,en/index,zh/index}.html` in place
    (English first, Chinese second) in the publication commit after
    public bytes exist. Bind installer names, sizes and SHA-256 to
@@ -91,7 +91,8 @@ Owner native install/startup/function on UOS 20 Professional 1070 stays
 
 ## Addon integration handoff
 
-A separate old-world addon worker owns koffi and sharp (+ libvips).
-`node-addon-require-builtin` native is optional internals and unpublished
-on loong64; do not copy or fabricate it. This repo waits for the worker
-`MANIFEST.json` for required natives. Do not duplicate those builds here.
+Required old-world natives live in `native/linux-loong64-oldworld/`
+(libvips-cpp `2e9438ad…`, Mnemon `a8bc5fc4…`). Official npm
+koffi-linux-loong64 is new-world and is not shipped.
+`node-addon-require-builtin` native stays unpublished. MOSS ONNX is not
+available on this target. Native UOS remains `OWNER_POST_RELEASE`.

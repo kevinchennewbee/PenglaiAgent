@@ -75,6 +75,9 @@ test("R55-DSH-002 official attachment/settings/slot seams used", () => {
   const packer = readFileSync(join(root, "scripts/pack-plugins.mjs"), "utf8");
   assert.match(packer, /dsh-client-ui-slots/);
   assert.match(packer, /dsh-api-remotes/);
+  assert.doesNotMatch(packer, /unpublished-on-linux-loong64/);
+  const embed = readFileSync(join(root, "scripts/embed-runtime.mjs"), "utf8");
+  assert.doesNotMatch(embed, /unpublished-on-linux-loong64/);
 });
 
 test("R55-DSH-003 no parallel model/provider/chat runtime", () => {

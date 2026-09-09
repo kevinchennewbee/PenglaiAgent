@@ -36,10 +36,10 @@ mkdirSync(dest, { recursive: true });
 const targetArg = process.argv.includes("--target")
   ? process.argv[process.argv.indexOf("--target") + 1]
   : process.env.PENGLAI_PACK_TARGET;
-const ALLOWED_TARGETS = new Set(["darwin-arm64", "darwin-x64", "win32-x64"]);
+const ALLOWED_TARGETS = new Set(["darwin-arm64", "darwin-x64", "win32-x64", "linux-loong64"]);
 if (targetArg && !ALLOWED_TARGETS.has(targetArg)) {
   console.error(
-    "pack-plugins --target must be darwin-arm64, darwin-x64, or win32-x64",
+    "pack-plugins --target must be darwin-arm64, darwin-x64, win32-x64, or linux-loong64",
   );
   process.exit(1);
 }
@@ -48,7 +48,9 @@ const localTarget =
     ? `darwin-${process.arch}`
     : process.platform === "win32"
       ? `win32-${process.arch}`
-      : null;
+      : process.platform === "linux" && (process.arch === "loong64" || process.arch === "loongarch64")
+        ? "linux-loong64"
+        : null;
 const effectiveTarget =
   targetArg ??
   (localTarget && ALLOWED_TARGETS.has(localTarget) ? localTarget : null);
@@ -1049,17 +1051,27 @@ for (const p of packs) {
     vendorSherpaOnnx(stage);
   }
   if (vendorMoss) {
-    if (
-      !hostJs.includes(ONNX_RUNTIME_NODE) ||
-      !hostJs.includes(SENTENCEPIECE_JS)
-    ) {
-      console.error(
-        p.id,
-        "host bundle dropped the MOSS native runtime imports",
+    if (ortTargetParts(effectiveTarget)) {
+      if (
+        !hostJs.includes(ONNX_RUNTIME_NODE) ||
+        !hostJs.includes(SENTENCEPIECE_JS)
+      ) {
+        console.error(
+          p.id,
+          "host bundle dropped the MOSS native runtime imports",
+        );
+        process.exit(1);
+      }
+      vendorMossRuntime(stage);
+    } else {
+      console.log(
+        JSON.stringify({
+          mossNative: "unpublished",
+          target: effectiveTarget,
+          nativeExecution: "UNRUN",
+        }),
       );
-      process.exit(1);
     }
-    vendorMossRuntime(stage);
   }
   if (vendorOfficePptfast) {
     if (!hostJs.includes(PPTFAST)) {
@@ -1074,28 +1086,39 @@ for (const p of packs) {
       console.error("memory plugin missing mnemon pin for", effectiveTarget);
       process.exit(1);
     }
-    const src = join(ROOT, "third_party", "mnemon", "bin", asset.target, asset.binaryFilename);
-    if (!existsSync(src)) {
-      console.error("mnemon binary missing; run pnpm fetch:mnemon-assets -- --target", asset.target);
-      process.exit(1);
-    }
-    const destBin = join(stage, "resources", "mnemon", asset.binaryFilename);
-    mkdirSync(dirname(destBin), { recursive: true });
-    cpSync(src, destBin);
-    const licenseSrc = join(
-      ROOT,
-      "packages/moss-tts/third_party/sentencepiece-js-Apache-2.0.txt",
-    );
-    if (!existsSync(licenseSrc) || sha256(licenseSrc) !== MNEMON_UPSTREAM.licenseSha256) {
-      console.error("Mnemon Apache-2.0 license missing or hash mismatch");
-      process.exit(1);
-    }
-    cpSync(licenseSrc, join(stage, "resources", "mnemon", "LICENSE"));
-    if (asset.executable) chmodSync(destBin, 0o755);
-    const got = sha256(destBin);
-    if (got !== asset.binarySha256) {
-      console.error("packed mnemon hash mismatch", got);
-      process.exit(1);
+    {
+      let src = join(ROOT, "third_party", "mnemon", "bin", asset.target, asset.binaryFilename);
+      if (!existsSync(src) && asset.architectureBuild) {
+        src = join(
+          ROOT,
+          "native",
+          "linux-loong64-oldworld",
+          "artifacts",
+          asset.binaryFilename,
+        );
+      }
+      if (!existsSync(src)) {
+        console.error("mnemon binary missing; run pnpm fetch:mnemon-assets -- --target", asset.target);
+        process.exit(1);
+      }
+      const destBin = join(stage, "resources", "mnemon", asset.binaryFilename);
+      mkdirSync(dirname(destBin), { recursive: true });
+      cpSync(src, destBin);
+      const licenseSrc = join(
+        ROOT,
+        "packages/moss-tts/third_party/sentencepiece-js-Apache-2.0.txt",
+      );
+      if (!existsSync(licenseSrc) || sha256(licenseSrc) !== MNEMON_UPSTREAM.licenseSha256) {
+        console.error("Mnemon Apache-2.0 license missing or hash mismatch");
+        process.exit(1);
+      }
+      cpSync(licenseSrc, join(stage, "resources", "mnemon", "LICENSE"));
+      if (asset.executable) chmodSync(destBin, 0o755);
+      const got = sha256(destBin);
+      if (got !== asset.binarySha256) {
+        console.error("packed mnemon hash mismatch", got);
+        process.exit(1);
+      }
     }
   }
   if (p.id === "@penglai/office") {
@@ -1198,7 +1221,7 @@ for (const p of packs) {
     ...(vendorSherpa
       ? { dependencies: { [SHERPA_ONNX]: PINNED_SHERPA_ONNX } }
       : {}),
-    ...(vendorMoss
+    ...(vendorMoss && ortTargetParts(effectiveTarget)
       ? {
           dependencies: {
             [ONNX_RUNTIME_NODE]: PINNED_ONNX_RUNTIME_NODE,

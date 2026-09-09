@@ -1,0 +1,19 @@
+{
+    "name": "@koromix/koffi-linux-loong64",
+    "version": "3.1.6",
+    "description": "Old-world UOS 20 architecture build of koffi 3.1.6 (not the npm new-world GLIBC_2.36 binary)",
+    "author": {
+        "name": "Niels Martignène",
+        "email": "niels.martignene@protonmail.com",
+        "url": "https://koromix.dev/"
+    },
+    "homepage": "https://koffi.dev/",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Koromix/koffi"
+    },
+    "license": "MIT",
+    "main": "./index.js",
+    "os": ["linux"],
+    "cpu": ["loong64"]
+}

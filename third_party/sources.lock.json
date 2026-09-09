@@ -29,6 +29,15 @@
           "target": "win32-x86_64",
           "filename": "mnemon_0.2.8_windows_amd64.zip",
           "sha256": "a61be46f98a243cf6b1194241ef808a880ba57a1c5c2cb0f7152502db80655f3"
+        },
+        {
+          "target": "linux-loong64",
+          "filename": "mnemon_0.2.8_linux_loong64.tar.gz",
+          "sha256": "29474c67d5ed878e055e45103aed188b325e72dece03e92813eb1776dff66fc7",
+          "architectureBuild": true,
+          "binarySha256": "a8bc5fc48cbbc60f572dcbb02bf065165837d2134174804820782d2db88bb5be",
+          "source": "native/linux-loong64-oldworld/artifacts/mnemon",
+          "upstreamCommit": "da9b7da0e3e7f10c84d5f8e9a42e24453c8159bb"
         }
       ]
     },

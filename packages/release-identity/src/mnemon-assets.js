@@ -51,6 +51,21 @@ export const MNEMON_ASSETS = Object.freeze([
     binaryBytes: 13_734_400,
     executable: true,
   },
+  {
+    target: "linux-loong64",
+    platform: "linux",
+    arch: "loong64",
+    pluginTarget: "linux-loong64",
+    archiveFilename: "mnemon_0.2.8_linux_loong64.tar.gz",
+    archiveSha256: "29474c67d5ed878e055e45103aed188b325e72dece03e92813eb1776dff66fc7",
+    archiveBytes: 6_100_624,
+    binaryFilename: "mnemon",
+    binarySha256: "a8bc5fc48cbbc60f572dcbb02bf065165837d2134174804820782d2db88bb5be",
+    binaryBytes: 15_401_144,
+    executable: true,
+    architectureBuild: true,
+    sourceCommit: "da9b7da0e3e7f10c84d5f8e9a42e24453c8159bb",
+  },
 ]);
 
 export function mnemonReleaseUrl(filename) {
@@ -62,7 +77,12 @@ export function mnemonAssetForTarget(target) {
 }
 
 export function mnemonAssetForHost(platform = process.platform, arch = process.arch) {
-  const normalized = arch === "arm64" || arch === "x64" ? arch : "other";
+  const normalized =
+    arch === "arm64" || arch === "x64"
+      ? arch
+      : arch === "loong64" || arch === "loongarch64"
+        ? "loong64"
+        : "other";
   return MNEMON_ASSETS.find((row) => row.platform === platform && row.arch === normalized);
 }
 

@@ -1,0 +1,11 @@
+4e19ac67411eb7ff1afde00150f90f22f802e649f90ac86572ae36814edd8a90  deliverables/koffi-3.1.6/package/linux_loong64/koffi.node
+7967795e0f7d5274cb7d8480e2fb73b85ce3d0bfc0981e4eab8272463b27a2c2  deliverables/sharp-0.35.4/install-layout/src/build/Release/sharp-linux-loong64-0.35.4.node
+2e9438ad2c854acc6c9d50ea9d84d0b9083b1d06b2ec425c1993e11dd10cedd6  deliverables/sharp-0.35.4/lib/libvips-cpp.so.42.20.6
+f6ce0989616b2b357a3c7a30880f1acf019c529adb044a78da94ed2bae448a65  deliverables/sharp-0.35.4/lib/libvips-cpp.so.42.20.6.f6ce0989
+782e707c7168cd0b2995a6f757210156f2559938c86f8c0e00a38d0ee25c41ce  deliverables/sharp-0.35.4/lib/libvips-cpp.so.42.20.6.782e707c
+471de39f5a56dad5870f1ff5010eabbd4f88da94778e1b2f7ad7e990cdebf9fc  deliverables/sharp-0.35.4/lib/libvips-cpp.so.42.20.6.471de39f
+b065bcb1945dffa04a075578dff55a50604c3901716912714b81c24757167868  deliverables/reused-flock-pty/glibc/system.node
+5b5b7386569040bdc5af2c3f5213757e032636b0b80b50a3675eb2e347f73cb0  deliverables/reused-flock-pty/node-pty/pty.node
+ee1e140c629fc06f1a331808bb9a67c0ae4c44e5f40e1222be713d440a1bc499  deliverables/sharp-0.35.4/provenance/libowprobe.so
+a8bc5fc48cbbc60f572dcbb02bf065165837d2134174804820782d2db88bb5be  artifacts/mnemon
+29474c67d5ed878e055e45103aed188b325e72dece03e92813eb1776dff66fc7  artifacts/mnemon_0.2.8_linux_loong64.tar.gz

@@ -150,10 +150,14 @@ test("R55-MEM-017 query API remains bounded; verify:memory-real owns the exact 1
   svc.close();
 });
 
-test("R55-MEM-018 three native Mnemon binaries are identity-pinned", () => {
-  assert.equal(MNEMON_ASSETS.length, 3);
-  assert.equal(new Set(MNEMON_ASSETS.map((row) => row.archiveSha256)).size, 3);
-  assert.equal(new Set(MNEMON_ASSETS.map((row) => row.binarySha256)).size, 3);
+test("R55-MEM-018 four native Mnemon binaries are identity-pinned", () => {
+  assert.equal(MNEMON_ASSETS.length, 4);
+  assert.equal(new Set(MNEMON_ASSETS.map((row) => row.archiveSha256)).size, 4);
+  assert.equal(new Set(MNEMON_ASSETS.map((row) => row.binarySha256)).size, 4);
+  assert.equal(
+    MNEMON_ASSETS.some((row) => row.target === "linux-loong64" && row.architectureBuild === true),
+    true,
+  );
   for (const row of MNEMON_ASSETS) {
     assert.notEqual(row.archiveSha256, row.binarySha256);
     assert.ok(row.binaryBytes > 1_000_000);

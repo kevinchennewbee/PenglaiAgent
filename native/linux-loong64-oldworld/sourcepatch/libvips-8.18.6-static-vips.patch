@@ -1,0 +1,16 @@
+--- /private/tmp/penglai-uos20-addons-060/work/vips-pristine/libvips/meson.build	2026-08-25 21:35:01
++++ /private/tmp/penglai-uos20-addons-060/work/vips-deps/vips/libvips/meson.build	2026-09-09 19:15:39
+@@ -18,12 +18,10 @@
+ subdir('mosaicing')
+ subdir('create')
+ 
+-libvips_lib = library('vips',
++libvips_lib = static_library('vips',
+     enumtypes,
+     link_whole: libvips_components,
+     dependencies: libvips_deps,
+-    version: library_version,
+-    darwin_versions: darwin_versions,
+     gnu_symbol_visibility: 'hidden',
+     install: true,
+     link_args: nodelete_link_args,

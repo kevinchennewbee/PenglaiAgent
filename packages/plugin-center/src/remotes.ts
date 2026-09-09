@@ -567,6 +567,16 @@ export function createCenterRemote(opts: {
   ) => {
     if (action === "disable") refuseRequiredPluginDisable(id);
     const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
+    if (
+      (action === "enable" || action === "install") &&
+      Array.isArray(entry.platforms) &&
+      !entry.platforms.includes(hostTarget())
+    ) {
+      throw new PenglaiError(
+        "INVALID_INPUT",
+        `${id} is not available on ${hostTarget()}`,
+      );
+    }
     const previousEnabled = Boolean(opts.host.desired()[id]);
     const previousPresent = normalizeInventory(opts.inventory.list()).some(
       (row) => rowMatches(row, id),

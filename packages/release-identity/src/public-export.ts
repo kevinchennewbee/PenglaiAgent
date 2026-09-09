@@ -261,7 +261,23 @@ const OWNER_PATH = [
   /C:\\Users\\[A-Za-z0-9._-]+/i,
 ];
 
+export function isNonTextExportPath(rel: string): boolean {
+  const n = rel.replaceAll("\\", "/");
+  if (
+    /\.(png|jpg|jpeg|webp|gif|ico|icns|wasm|ttf|woff2?|tgz|tar\.gz|zip|node|dylib|dll)$/i.test(
+      n,
+    )
+  ) {
+    return true;
+  }
+  // libvips-cpp.so.42.20.6 and other ELF DSOs are not UTF-8 text.
+  if (/\.so(?:\.\d+)*$/i.test(n)) return true;
+  if (/(?:^|\/)mnemon(?:\.exe)?$/.test(n)) return true;
+  return false;
+}
+
 export function scanExportText(rel: string, text: string): void {
+  if (isNonTextExportPath(rel) || text.includes("\0")) return;
   const testFile = /\.test\.(ts|mjs|js)$/.test(rel);
   if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(text)) {
     throw new PenglaiError(

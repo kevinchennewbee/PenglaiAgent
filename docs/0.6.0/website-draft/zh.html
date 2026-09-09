@@ -25,6 +25,11 @@
     <li>UOS Electron 31.7.7（Chromium 126，龙芯 ftp zip 2025-02-06）
       <strong>未维持</strong>，也不是 Mac/Windows Electron 43 / Chromium 150
       的安全等价。是否带着该限制公开发布由 PM 决定，源码钉扎不等于接受。</li>
+    <li>UOS 用户态为旧世界 glibc 2.28 / <code>/lib64/ld.so.1</code>。官方 npm
+      koffi loong64 为新世界，不随本包提供。libvips JPEG 实现为
+      libjpeg-turbo，不是 mozjpeg。Mnemon 0.2.8 无 loong64 二进制；记忆插件
+      会打包，mnemon 引擎未发布。require-builtin 原生未发布，产品 web 使用
+      startup 重载。</li>
   </ul>
   <p><a href="./index.html" hreflang="en">English draft</a> ·
   <a href="../../RELEASE_NOTES_0.6.0.md">发行说明草稿</a></p>

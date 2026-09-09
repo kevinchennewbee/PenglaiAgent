@@ -48,12 +48,9 @@ SHA-256 `5b5b7386569040bdc5af2c3f5213757e032636b0b80b50a3675eb2e347f73cb0`
 darwin). Do not ship Zig’s default spawn-helper: it received
 `ld-linux-loongarch-lp64d.so.1`.
 
-## Still missing for a complete `.deb`
+## Required natives now in-tree
 
-npm `@koromix/koffi-linux-loong64@3.1.6` ELF is **new-world**
-(`GLIBC_2.36`). Do not embed it. sharp still needs the old-world loong64
-build from the addon worker. `node-addon-require-builtin` native is
-**optional internals probing**, unpublished on loong64; do not fabricate
-`node-addon-require-builtin-linux-loong64-gnu`. See
-`docs/0.6.0/OPTIONAL_INTERNALS.md`. The packager fails closed unless the
-payload contains old-world Node, the pinned DSH CLI, and this flock addon.
+See `docs/0.6.0/UOS20_ADDONS.md` and `native/linux-loong64-oldworld/`.
+Official npm koffi-linux-loong64 remains new-world and is **not** shipped.
+`node-addon-require-builtin` native stays unpublished. Native UOS
+install/startup/function remain `OWNER_POST_RELEASE`.
