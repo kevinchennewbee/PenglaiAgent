@@ -187,7 +187,7 @@ if (
 }
 
 const releaseArtifacts = Array.isArray(releaseManifest.artifacts) ? releaseManifest.artifacts : [];
-const installerNames = expected.filter((name) => name.endsWith(".dmg") || name.endsWith(".exe")).sort();
+const installerNames = expected.filter((name) => name.endsWith(".dmg") || name.endsWith(".exe") || name.endsWith(".deb")).sort();
 if (JSON.stringify(releaseArtifacts.map((row) => row.name).sort()) !== JSON.stringify(installerNames)) {
   finish("FAIL", { command, reason: "release manifest installer set mismatch" });
 }

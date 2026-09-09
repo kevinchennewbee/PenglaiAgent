@@ -10,8 +10,9 @@ Grok 4.6 xhigh owns implementation and technical review. This supersedes
 the previous no-new-release boundary and the UOS exclusion **for 0.6.0
 only**.
 
-Public README/website download tables remain **0.5.12** until immutable
-`v0.6.0` GitHub Release bytes exist and are read back.
+Public README/website download tables now bind immutable
+`v0.6.0` GitHub Release bytes after public readback. Installer source remains
+`7dd68b4ab08bbe4edf4dfac7f82abb6b164cb316`.
 
 ## In scope
 

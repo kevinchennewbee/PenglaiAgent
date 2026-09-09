@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 420" role="img" aria-labelledby="title desc">
+  <title id="title">Penglai</title>
+  <desc id="desc">Editorial mark for Penglai: a quiet ink island, the cinnabar seal, and the product name. Drawn as original vector art for this repository.</desc>
+  <rect width="1280" height="420" fill="#F3EEE4"/>
+  <rect x="48" y="36" width="1184" height="348" fill="none" stroke="#DDD4C6" stroke-width="1"/>
+  <path d="M48 292 C 180 268 250 250 340 252 C 430 254 490 276 620 286 C 760 296 900 278 1232 292 L 1232 384 L 48 384 Z" fill="#E7E0D2"/>
+  <path d="M48 318 C 200 304 320 298 470 306 C 640 316 820 300 1232 314 L 1232 384 L 48 384 Z" fill="#DED6C6"/>
+  <path d="M120 300 C 170 240 210 210 268 206 C 310 204 338 228 372 250 C 400 228 430 214 470 218 C 520 224 548 250 580 268 C 610 250 650 238 700 248 C 748 258 776 286 820 300 C 700 312 430 328 120 300 Z" fill="#2A3A34"/>
+  <path d="M210 268 C 236 232 258 214 292 214 C 324 214 344 236 366 258 C 390 238 418 228 450 234 C 486 242 508 264 528 280 C 500 292 360 304 210 268 Z" fill="#1A1714"/>
+  <g fill="#1A1714">
+    <rect x="286" y="168" width="22" height="10"/>
+    <rect x="282" y="176" width="30" height="8"/>
+    <rect x="288" y="184" width="18" height="28"/>
+    <rect x="283" y="212" width="28" height="6"/>
+  </g>
+  <path d="M276 176 L 314 148 L 352 176 Z" fill="#1A1714"/>
+  <path d="M294 148 L 314 128 L 334 148 Z" fill="#C45C26"/>
+  <path d="M160 304 C 178 298 196 298 210 304 C 196 310 178 310 160 304 Z" fill="#1A1714"/>
+  <rect x="178" y="292" width="14" height="8" fill="#1A1714"/>
+  <circle cx="1088" cy="96" r="18" fill="#C4A56A" fill-opacity="0.35"/>
+  <rect x="932" y="148" width="72" height="72" fill="#C45C26" stroke="#C4A56A" stroke-width="1.5"/>
+  <text x="968" y="198" text-anchor="middle" font-size="42" font-family="Georgia, 'Songti SC', 'Noto Serif SC', serif" fill="#F3EEE4">蓬</text>
+  <text x="1020" y="186" font-size="42" font-family="Georgia, 'Iowan Old Style', Palatino, serif" fill="#1A1714">Penglai</text>
+  <text x="1022" y="214" font-size="13" letter-spacing="5" font-family="Avenir Next, Segoe UI, PingFang SC, sans-serif" fill="#6A6258">PENG LAI</text>
+  <rect x="1020" y="232" width="48" height="1" fill="#C4A56A"/>
+  <text x="1020" y="256" font-size="15" font-family="Georgia, Palatino, serif" fill="#3A342C">DeepSeek Harness</text>
+  <text x="1020" y="278" font-size="15" font-family="Georgia, Palatino, serif" fill="#3A342C">on your computer</text>
+</svg>
