@@ -205,6 +205,7 @@ test("Penglai branding shadows rc.8 official single slots at a distinct priority
 test("R50-IM-002 onboarding remotes are not blocked by a prior penglaiCenter provide", () => {
   const host = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
   assert.match(host, /new PenglaiOnboardingRemote/);
+  assert.match(host, /new PenglaiModelInputRemote/);
   assert.match(host, /new PenglaiCenterRemote/);
   const provideThenRemote =
     /provide\?\.\("penglaiCenter"[\s\S]{0,120}new PenglaiCenterRemote/;
@@ -322,6 +323,7 @@ test("Penglai settings mounts strict generated-client descriptors before using r
                 remote: {
                   penglaiCenter: {},
                   pluginInventory: {},
+                  penglaiModelInput: {},
                 },
                 slots: { inject() {} },
                 connection: {},
@@ -361,11 +363,17 @@ test("Penglai settings mounts strict generated-client descriptors before using r
     "locale",
     "remote.penglaiCenter",
     "remote.pluginInventory",
+    "remote.penglaiModelInput",
   ]);
   const endpoints = new Set(
     contribution?.descriptors.map((row) => `${row.namespace}/${row.method}`),
   );
-  for (const endpoint of ["penglaiCenter/list", "penglaiCenter/enable"])
+  for (const endpoint of [
+    "penglaiCenter/list",
+    "penglaiCenter/enable",
+    "penglaiModelInput/list",
+    "penglaiModelInput/setImageInput",
+  ])
     assert.ok(endpoints.has(endpoint), endpoint);
   const enable = contribution?.descriptors.find(
     (row) => row.namespace === "penglaiCenter" && row.method === "enable",

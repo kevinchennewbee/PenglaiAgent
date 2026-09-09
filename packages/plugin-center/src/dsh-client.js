@@ -110,6 +110,7 @@ window.__ModuleLoader__.load({
           ],
           ["enable", "disable", "update", "rollback", "download", "installDisabled", "installEnable", "conversationUsage"],
         ),
+        ...methods("penglaiModelInput", ["list", "setImageInput"], ["setImageInput"]),
       ],
     };
 
@@ -827,6 +828,13 @@ window.__ModuleLoader__.load({
           COMMITTED: "更新已完成",
           UNKNOWN: "等待操作",
         },
+        modelImageTitle: "模型图片输入",
+        modelImageHint:
+          "官方目录只给声明了图片输入的模型打开附件。自定义模型默认仅文本。请先在官方模型设置中添加该模型，再到这里打开图片输入。这里写入官方 DeepSeek 设置的 inputModalities，不会猜测未知模型。",
+        modelImageEmpty: "还没有可配置的 DeepSeek 模型。请先在模型设置中添加。",
+        modelImageAccept: "接受图片输入",
+        modelImageSaved: "已写入官方设置。新会话会使用更新后的能力。",
+        modelImageError: "未能更新模型图片能力。",
         uninstallTitle: "存储与卸载",
         uninstallHint:
           "卸载应用时默认保留你的数据。如果需要完整删除，请按类别选择；账号凭据需要再次确认。工作文件夹和旧版数据不会被删除。",
@@ -1022,6 +1030,13 @@ window.__ModuleLoader__.load({
           COMMITTED: "Update complete",
           UNKNOWN: "Waiting",
         },
+        modelImageTitle: "Model image input",
+        modelImageHint:
+          "The official catalog only attaches images to models that declare image input. Custom models default to text. Add the model in official Models first, then enable image input here. This writes official DeepSeek inputModalities and does not guess unknown models.",
+        modelImageEmpty: "No DeepSeek models to configure yet. Add one in Models first.",
+        modelImageAccept: "Accept image input",
+        modelImageSaved: "Saved to official settings. New sessions use the updated capability.",
+        modelImageError: "Could not update model image capability.",
         uninstallTitle: "Storage and uninstall",
         uninstallHint:
           "Uninstalling the app keeps your data by default. For a complete deletion, choose each category; account credentials require another confirmation. Work folders and older-version data are never deleted.",
@@ -2035,6 +2050,83 @@ window.__ModuleLoader__.load({
           children: jsx.jsx(UninstallSection, {}),
         });
       }
+      function ModelImageSection() {
+        const t = localeCopy();
+        const remote = ctx.remote.penglaiModelInput;
+        const [models, setModels] = React.useState([]);
+        const [error, setError] = React.useState("");
+        const [saved, setSaved] = React.useState("");
+        const [busy, setBusy] = React.useState(false);
+        const load = React.useCallback(async () => {
+          if (!remote?.list) {
+            setError(t.modelImageError);
+            return;
+          }
+          try {
+            const snapshot = unwrapRemote(await remote.list());
+            setModels(Array.isArray(snapshot?.models) ? snapshot.models : []);
+            setError("");
+          } catch {
+            setError(t.modelImageError);
+          }
+        }, [remote, t.modelImageError]);
+        React.useEffect(() => {
+          load();
+        }, [load]);
+        const toggle = async (modelId, enabled) => {
+          if (!remote?.setImageInput || busy) return;
+          setBusy(true);
+          setSaved("");
+          try {
+            const snapshot = unwrapRemote(
+              await remote.setImageInput({ modelId, enabled }),
+            );
+            setModels(Array.isArray(snapshot?.models) ? snapshot.models : []);
+            setError("");
+            setSaved(t.modelImageSaved);
+          } catch {
+            setError(t.modelImageError);
+          } finally {
+            setBusy(false);
+          }
+        };
+        return jsx.jsxs("div", {
+          className: "penglai-settings-page",
+          "data-penglai-settings": "model-input",
+          children: [
+            jsx.jsx("h3", { children: t.modelImageTitle }),
+            jsx.jsx("p", { children: t.modelImageHint }),
+            models.length === 0
+              ? jsx.jsx("p", { children: t.modelImageEmpty })
+              : jsx.jsx("ul", {
+                  children: models.map((row) =>
+                    jsx.jsx(
+                      "li",
+                      {
+                        children: jsx.jsxs("label", {
+                          children: [
+                            jsx.jsx("input", {
+                              type: "checkbox",
+                              checked: row.imageInput === true,
+                              disabled: busy,
+                              onChange: (ev) => toggle(row.id, ev.target.checked),
+                            }),
+                            " ",
+                            row.name || row.id,
+                            " ",
+                            t.modelImageAccept,
+                          ],
+                        }),
+                      },
+                      row.id,
+                    ),
+                  ),
+                }),
+            saved ? jsx.jsx("p", { children: saved }) : null,
+            error ? jsx.jsx("p", { children: error }) : null,
+          ],
+        });
+      }
       ctx.slots.inject("sidebar.brand.mark", () =>
         ctx.slots.register({ name: "sidebar.brand.mark", priority: -100 }, PenglaiBrandMark),
       );
@@ -2057,6 +2149,17 @@ window.__ModuleLoader__.load({
             inject: centerInjected,
           },
           PenglaiOverviewSection,
+        ),
+      );
+      ctx.slots.inject("settings.section", () =>
+        ctx.slots.register(
+          {
+            name: "settings.section",
+            id: "penglai-model-input",
+            order: 17.4,
+            label: () => localeCopy().modelImageTitle,
+          },
+          ModelImageSection,
         ),
       );
       ctx.slots.inject("settings.section", function* () {
@@ -2097,6 +2200,7 @@ window.__ModuleLoader__.load({
           "locale",
           "remote.penglaiCenter",
           "remote.pluginInventory",
+          "remote.penglaiModelInput",
         ],
         applyView,
       );
