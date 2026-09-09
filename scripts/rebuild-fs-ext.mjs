@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-/** Rebuild fs-ext after ignore-scripts installs. Required by official JSONL session persistence. */
+/** Rebuild fs-ext after ignore-scripts installs when that package is present.
+ *  Official DSH 0.1.5-alpha.1 JSONL persistence uses native prebuilds instead
+ *  of fs-ext; absence is success, not a missing-binding failure. */
 
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -11,8 +13,8 @@ import { nodeGypPrefix } from "./lib/node-gyp-prefix.mjs";
 const dir = join(ROOT, "node_modules", "fs-ext");
 const built = join(dir, "build", "Release", "fs_ext.node");
 if (!existsSync(join(dir, "binding.gyp"))) {
-  console.error("fs-ext binding.gyp missing");
-  process.exit(1);
+  console.log("fs-ext not in this DSH generation; JSONL persistence does not require a local rebuild");
+  process.exit(0);
 }
 const npmJs = join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
 const devdir = process.env.npm_config_devdir || join(tmpdir(), "node-gyp-dev");
