@@ -8,6 +8,13 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const version = JSON.parse(readFileSync(join(root, "release-contract.json"), "utf8")).version;
 
 const origins = ["https://penglai.pages.dev/", "https://kevinchennewbee.github.io/PenglaiAgent/"];
+const cloudflareOrigin = origins[0];
+
+function isCloudflareRoutingConfig(origin, name) {
+  // Cloudflare Pages consumes `_redirects` as routing config and serves HTML at
+  // that URL. GitHub Pages serves the sealed file as a static document.
+  return origin === cloudflareOrigin && name === "_redirects";
+}
 const index = process.argv.indexOf("--directory");
 const directory = resolve(index < 0 ? "website" : process.argv[index + 1]);
 const releaseSha = process.env.RELEASE_SHA;
@@ -42,6 +49,10 @@ try {
       for (const file of pending) {
         if (Date.now() >= deadline) throw new Error("public website verification deadline exceeded");
         const url = new URL(file.name.replace(/(^|\/)index\.html$/, "$1"), origin);
+        if (isCloudflareRoutingConfig(origin, file.name)) {
+          result.files.push({ ...file, size: null, url: url.href, servedAs: "cloudflare-routing-config" });
+          continue;
+        }
         try {
           const response = await fetch(url, { signal: AbortSignal.timeout(20_000), headers: { "Cache-Control": "no-cache" } });
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
