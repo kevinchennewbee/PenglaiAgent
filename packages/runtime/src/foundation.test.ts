@@ -43,6 +43,7 @@ test("R50-DIST-006 generation layout isolates 0.5 and lists legacy", () => {
   assert.equal(linux.logs, "/home/测 试/.local/state/Penglai/0.5/logs");
   assert.equal(linux.cache, "/home/测 试/.cache/Penglai/0.5");
   assert.equal(linux.updates, "/home/测 试/.cache/Penglai/0.5/updates");
+  assert.equal(linux.userData.includes("\\"), false);
   assert.ok(linux.legacyCandidates.some((p) => p.endsWith(".dsh")));
   assert.equal(joinUserData(join(tmpdir(), "Penglai")), join(tmpdir(), "Penglai", "0.5"));
 });
