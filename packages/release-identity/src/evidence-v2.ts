@@ -2,13 +2,14 @@ import { execFileSync } from "node:child_process";
 import type { AssertionRecord } from "./assertion.js";
 import { assertNativeHonest, assertNoFanOut } from "./assertion.js";
 import { EXIT_BY_VERDICT, type VerifierVerdict } from "./exit.js";
-import { RELEASE_TARGETS } from "./pins.js";
+import { NATIVE_INSTALLED_TARGET_KEYS, RELEASE_TARGETS } from "./pins.js";
 import type { AcceptanceEntry, AcceptanceResult, CompletenessTotals, ResultStatus } from "./registry.js";
 import { isStaleCompletionMap, readyBlocked } from "./registry.js";
 
 export const EVIDENCE_SCHEMA_V2 = 4 as const;
 
 export const DESKTOP_TARGETS = RELEASE_TARGETS.map((t) => t.key);
+export const NATIVE_INSTALLED_TARGETS = [...NATIVE_INSTALLED_TARGET_KEYS];
 
 export const PLATFORM_TOKEN_TO_TARGET: Record<string, string> = {
   "mac-arm": "darwin-aarch64",
@@ -18,16 +19,24 @@ export const PLATFORM_TOKEN_TO_TARGET: Record<string, string> = {
   aggregate: "aggregate",
 };
 
-export const PLATFORM_SCOPED_RUNNER_CLASSES = new Set([
+export const PACKAGED_SCOPED_RUNNER_CLASSES = new Set([
   "artifact",
   "build",
   "closure",
-  "installed",
   "signing",
+]);
+
+export const NATIVE_SCOPED_RUNNER_CLASSES = new Set([
+  "installed",
   "soak",
   "live",
   "visual",
   "parity",
+]);
+
+export const PLATFORM_SCOPED_RUNNER_CLASSES = new Set([
+  ...PACKAGED_SCOPED_RUNNER_CLASSES,
+  ...NATIVE_SCOPED_RUNNER_CLASSES,
 ]);
 
 export const UNIT_OR_CONTRACT_CLASSES = new Set(["unit", "contract"]);
@@ -94,6 +103,9 @@ export function isPlatformScopedRunner(runnerClass: string): boolean {
 export function expandPlatforms(platforms: readonly string[], runnerClasses: readonly string[]): string[] {
   const tokens = platforms.length ? [...platforms] : ["all"];
   if (tokens.includes("all")) {
+    const packaged = runnerClasses.some((runner) => PACKAGED_SCOPED_RUNNER_CLASSES.has(runner));
+    const native = runnerClasses.some((runner) => NATIVE_SCOPED_RUNNER_CLASSES.has(runner));
+    if (native && !packaged) return [...NATIVE_INSTALLED_TARGETS];
     if (runnerClasses.some(isPlatformScopedRunner)) return [...DESKTOP_TARGETS];
     return ["source"];
   }

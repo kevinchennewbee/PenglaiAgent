@@ -3,13 +3,14 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ROOT, gitState, isDocsOnlyRange } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
-import { evidenceName, RELEASE_TARGETS } from "./lib/release-targets.mjs";
+import { evidenceName, NATIVE_INSTALLED_TARGETS } from "./lib/release-targets.mjs";
+import { PRODUCT_VERSION } from "./lib/product.mjs";
 
 const identity = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/index.ts")).href);
 const git = gitState();
 if (process.argv.includes("--aggregate")) {
   const records = [];
-  for (const target of RELEASE_TARGETS) {
+  for (const target of NATIVE_INSTALLED_TARGETS) {
     const soakPath = join(ROOT, "evidence/generated", evidenceName("soak", target));
     const installerPath = join(ROOT, "evidence/generated", evidenceName("local-installer", target));
     if (!existsSync(soakPath) || !existsSync(installerPath)) {
@@ -20,7 +21,7 @@ if (process.argv.includes("--aggregate")) {
     const samples = soak.samplesCovered ?? soak.sampleSet ?? [];
     const required = ["im", "offline", "sleep"];
     if (
-      soak.productVersion !== "0.5.12" ||
+      soak.productVersion !== PRODUCT_VERSION ||
       soak.target !== target ||
       soak.hours < 2 ||
       soak.sourceSha !== git.head ||
@@ -44,8 +45,8 @@ const rec = JSON.parse(readFileSync(path, "utf8"));
 if (/0\.2\.0-alpha|ba5ba3dd|c19e393e/.test(JSON.stringify(rec))) {
   finish("STALE", { command: "verify:soak", reason: "soak evidence bound to stale alpha source/artifact" });
 }
-if (rec.productVersion !== "0.5.12" || rec.hours < 2) {
-  finish("INCOMPLETE", { command: "verify:soak", reason: "exact 0.5 two-hour soak not present" });
+if (rec.productVersion !== PRODUCT_VERSION || rec.hours < 2) {
+  finish("INCOMPLETE", { command: "verify:soak", reason: `exact ${PRODUCT_VERSION} two-hour soak not present` });
 }
 const current = existsSync(dmgPath) ? JSON.parse(readFileSync(dmgPath, "utf8")) : null;
 const samples = rec.samplesCovered ?? rec.sampleSet ?? (rec.lastHealth ? ["http", "ws", "process"] : []);

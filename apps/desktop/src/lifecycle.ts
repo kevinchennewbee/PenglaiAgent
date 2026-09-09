@@ -107,7 +107,7 @@ export function loadUpdaterReleaseContract(resourcesRoot: string): UpdaterReleas
   const value = raw as Partial<UpdaterReleaseContract>;
   if (
     typeof value.version !== "string" ||
-    !/^0\.5\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(value.version) ||
+    !/^0\.(?:5|6)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(value.version) ||
     value.updaterChannel !== "desktop-v0.5" ||
     typeof value.updaterPublicKeyId !== "string" ||
     value.updaterPublicKeyId.length < 8 ||

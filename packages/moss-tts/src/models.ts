@@ -21,7 +21,7 @@ import {
   unlink,
 } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { isErrorClass, PenglaiError, readExactRegularFile, redactedDiagnosticReference, type ErrorClass } from "@penglai/contracts";
+import { isErrorClass, PenglaiError, RELEASE, readExactRegularFile, redactedDiagnosticReference, type ErrorClass } from "@penglai/contracts";
 
 export type TtsModelState =
   | "not_installed"
@@ -552,7 +552,7 @@ export class TtsModelManager {
         throw new PenglaiError("SECURITY_POLICY", "MOSS partial file unsafe");
       }
       let existing = opened.size;
-      const headers: Record<string, string> = { "User-Agent": "Penglai/0.5.12 model-manager" };
+      const headers: Record<string, string> = { "User-Agent": `Penglai/${RELEASE} model-manager` };
       const validator = op.validators?.[file.path];
       if (existing) {
         headers.Range = `bytes=${existing}-`;

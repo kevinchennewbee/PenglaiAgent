@@ -5,7 +5,8 @@ import { pathToFileURL } from "node:url";
 import { ROOT } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
-import { evidenceName, RELEASE_TARGETS } from "./lib/release-targets.mjs";
+import { evidenceName, NATIVE_INSTALLED_TARGETS } from "./lib/release-targets.mjs";
+import { PRODUCT_VERSION } from "./lib/product.mjs";
 
 const liveSetPath = join(ROOT, "evidence/generated/live.json");
 if (!existsSync(liveSetPath)) {
@@ -35,7 +36,7 @@ if (!source.ok) {
   finish("STALE", { command: "verify:live", reason: source.reason, ...source.git });
 }
 const nativeInstallers = {};
-for (const target of RELEASE_TARGETS) {
+for (const target of NATIVE_INSTALLED_TARGETS) {
   const installerEvidence = join(ROOT, "evidence/generated", evidenceName("local-installer", target));
   if (!existsSync(installerEvidence)) {
     finish("INCOMPLETE", { command: "verify:live", reason: `missing native installer evidence for ${target}` });
@@ -50,7 +51,7 @@ for (const target of RELEASE_TARGETS) {
   }
   nativeInstallers[target] = installer.sha256;
 }
-const result = evaluateLiveEvidence(rec, "0.5.12", {
+const result = evaluateLiveEvidence(rec, PRODUCT_VERSION, {
   sourceSha: source.git.head,
   nativeInstallers,
 });
@@ -88,7 +89,7 @@ delete expectedOfficialFields.evidenceSha256;
 if (
   official.value.command !== "test:e2e:installed:live" ||
   official.value.verdict !== "PASS" ||
-  official.value.productVersion !== "0.5.12" ||
+  official.value.productVersion !== PRODUCT_VERSION ||
   official.value.sourceSha !== source.git.head ||
   official.value.officialNonceTurn !== true ||
   official.value.officialFirstTurn !== true ||
@@ -115,7 +116,7 @@ for (const platform of LIVE_CHANNELS) {
     detail.value.scope !== "im-owner-live-case" ||
     detail.value.command !== "test:e2e:im:live" ||
     detail.value.verdict !== "PASS" ||
-    detail.value.productVersion !== "0.5.12" ||
+    detail.value.productVersion !== PRODUCT_VERSION ||
     detail.value.sourceSha !== source.git.head ||
     detail.value.redacted !== true ||
     Object.entries(summaryFields).some(([key, value]) => detailFields[key] !== value)

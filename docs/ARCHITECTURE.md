@@ -1,4 +1,4 @@
-# Penglai 0.5.12 architecture
+# Penglai 0.6.0 architecture
 
 ## English
 

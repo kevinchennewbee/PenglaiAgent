@@ -152,17 +152,18 @@ export function assertNoLatestDownloads(text: string): void {
   }
 }
 
-export const COHORT_FREEZE_KIND = "penglai-0.5.12-development-cohort-freeze" as const;
+export const COHORT_FREEZE_KIND = "penglai-0.6.0-development-cohort-freeze" as const;
+export const PUBLISHED_0512_FREEZE_KIND = "penglai-0.5.12-development-cohort-freeze" as const;
 export const REJECTED_DSH_SUCCESSOR_TAG = "dsh-v0.1.3-alpha.1" as const;
 
 export interface CohortFreezeRecord {
   schema: 1;
   kind: typeof COHORT_FREEZE_KIND;
   status: "development-frozen" | "publication-authorized";
-  publicRelease: { productVersion: string; tag: string; immutable: true };
+  publicRelease: { productVersion: string; tag: string; immutable: boolean };
   previousPublicRelease?: { productVersion: string; tag: string; immutable: true };
   development: {
-    versionLabel: "0.5.12";
+    versionLabel: "0.6.0";
     publicationAuthorized: boolean;
     identityRetitled: boolean;
   };
@@ -200,24 +201,34 @@ export function assertCohortFreeze(input: {
   }
   if (freeze.status === "publication-authorized") {
     if (freeze.development.publicationAuthorized !== true || freeze.development.identityRetitled !== true) {
-      throw new PenglaiError("SECURITY_POLICY", "publication-authorized freeze must retitle 0.5.12");
+      throw new PenglaiError("SECURITY_POLICY", "publication-authorized freeze must retitle 0.6.0");
+    }
+    if (freeze.publicRelease.immutable !== true) {
+      throw new PenglaiError("SECURITY_POLICY", "current public identity must stay immutable once tagged");
     }
     if (
-      freeze.previousPublicRelease?.productVersion !== "0.5.11" ||
-      freeze.previousPublicRelease.tag !== "v0.5.11" ||
+      freeze.previousPublicRelease?.productVersion !== "0.5.12" ||
+      freeze.previousPublicRelease.tag !== "v0.5.12" ||
       freeze.previousPublicRelease.immutable !== true
     ) {
-      throw new PenglaiError("SECURITY_POLICY", "published 0.5.11 identity must stay immutable");
+      throw new PenglaiError("SECURITY_POLICY", "published 0.5.12 identity must stay immutable");
     }
   } else if (freeze.status === "development-frozen") {
-    if (freeze.development.publicationAuthorized !== false || freeze.development.identityRetitled !== false) {
-      throw new PenglaiError("SECURITY_POLICY", "0.5.12 identity retitle requires publication authorization");
+    if (freeze.development.publicationAuthorized !== false || freeze.development.identityRetitled !== true) {
+      throw new PenglaiError("SECURITY_POLICY", "0.6.0 identity is retitled and development-frozen until publication");
+    }
+    if (freeze.publicRelease.immutable === true) {
+      throw new PenglaiError("SECURITY_POLICY", "0.6.0 public identity is not immutable until the GitHub Release exists");
+    }
+    if (
+      freeze.previousPublicRelease?.productVersion !== "0.5.12" ||
+      freeze.previousPublicRelease.tag !== "v0.5.12" ||
+      freeze.previousPublicRelease.immutable !== true
+    ) {
+      throw new PenglaiError("SECURITY_POLICY", "published 0.5.12 identity must stay immutable");
     }
   } else {
     throw new PenglaiError("INVALID_INPUT", "cohort freeze identity");
-  }
-  if (freeze.publicRelease.immutable !== true) {
-    throw new PenglaiError("SECURITY_POLICY", "current public identity must stay immutable once tagged");
   }
   if (
     freeze.publicRelease.productVersion !== PRODUCT_VERSION ||

@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.5.12";
+export const PRODUCT_VERSION = "0.6.0";
 export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
@@ -17,6 +17,18 @@ export const PINNED_ELECTRON_DARWIN_X64_SHA256 =
   "27f0ba89978e6a8a2fea212f8be8b114a60f5747df41f42f424b8b0131477ec4";
 export const PINNED_ELECTRON_WIN32_X64_SHA256 =
   "4140545d6ed47b59c35900f266dea6c02f4a5496069ece7f6e7bc825e0d959c2";
+/** Loongson vendor linux-loong64 old-world train. Not Electron 43.6.0 / Chromium 150. */
+export const PINNED_ELECTRON_LINUX_LOONG64 = "31.7.7";
+export const PINNED_ELECTRON_LINUX_LOONG64_SHA256 =
+  "e0c756ca8a66dde3bece6ad902f152f539365ce7442d6353871d7c54d1c0f47b";
+export const PINNED_ELECTRON_LINUX_LOONG64_URL =
+  "https://ftp.loongnix.cn/electron/LoongArch/v31.7.7/electron-v31.7.7-linux-loong64.zip";
+/** Loongnix vendor old-world Node; Electron 31 embeds Node 20.18.0 instead. */
+export const PINNED_NODE_LINUX_LOONG64 = "22.16.0";
+export const PINNED_NODE_LINUX_LOONG64_SHA256 =
+  "37166d30a92b7b913e8cbc4b0aebcef9a21de46820d902687ff3b718cb6c75b1";
+export const PINNED_NODE_LINUX_LOONG64_URL =
+  "https://ftp.loongnix.cn/nodejs/LoongArch/dist/v22.16.0/node-v22.16.0-linux-loong64.tar.gz";
 export const PINNED_NODE_DARWIN_ARM64_SHA256 =
   "61130f394c1630d211dd50aecc4353d379480f36d3ac913cd85dbba1aed585c6";
 export const PINNED_NODE_DARWIN_X64_SHA256 =
@@ -109,13 +121,13 @@ export const GITHUB_ACTIONS_STATUS = "AVAILABLE";
 export const CANDIDATE_SOURCE_SHA_NONE = "NONE";
 export const UPDATER_CHANNEL = "desktop-v0.5";
 /** Monotonic after the last complete public manifest (0.5.11, sequence 7). */
-export const UPDATER_SEQUENCE = 8;
+export const UPDATER_SEQUENCE = 9;
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.5.12",
-  release: "v0.5.12",
-  channel: "stable-v0.5.12",
+  tag: "v0.6.0",
+  release: "v0.6.0",
+  channel: "stable-v0.6.0",
 });
 
 export const RELEASE_TARGETS = [
@@ -123,23 +135,36 @@ export const RELEASE_TARGETS = [
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.5.12_macos_aarch64.dmg",
+    installer: "Penglai_0.6.0_macos_aarch64.dmg",
   },
   {
     key: "darwin-x86_64",
     platform: "darwin",
     arch: "x64",
-    installer: "Penglai_0.5.12_macos_x64.dmg",
+    installer: "Penglai_0.6.0_macos_x64.dmg",
   },
   {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
-    installer: "Penglai_0.5.12_windows_x64_setup.exe",
+    installer: "Penglai_0.6.0_windows_x64_setup.exe",
+  },
+  {
+    key: "linux-loong64",
+    platform: "linux",
+    arch: "loong64",
+    installer: "Penglai_0.6.0_uos_loong64.deb",
   },
 ] as const;
 
 export type ReleaseTargetKey = (typeof RELEASE_TARGETS)[number]["key"];
+
+/** Mac/Windows native install/lifecycle. linux-loong64 native is OWNER_POST_RELEASE. */
+export const NATIVE_INSTALLED_TARGET_KEYS = [
+  "darwin-aarch64",
+  "darwin-x86_64",
+  "win32-x86_64",
+] as const satisfies readonly ReleaseTargetKey[];
 
 /** Vendor archive names stay as published (darwin-x64, win-x64). Selection uses RELEASE_TARGETS.key only. */
 export const RUNTIME_INPUTS = [
@@ -191,10 +216,27 @@ export const RUNTIME_INPUTS = [
     url: `https://github.com/electron/electron/releases/download/v${PINNED_ELECTRON}/electron-v${PINNED_ELECTRON}-win32-x64.zip`,
     sha256: PINNED_ELECTRON_WIN32_X64_SHA256,
   },
+  {
+    kind: "node" as const,
+    target: "linux-loong64" as const,
+    filename: `node-v${PINNED_NODE_LINUX_LOONG64}-linux-loong64.tar.gz`,
+    archive: "tar.gz",
+    url: PINNED_NODE_LINUX_LOONG64_URL,
+    sha256: PINNED_NODE_LINUX_LOONG64_SHA256,
+  },
+  {
+    kind: "electron" as const,
+    target: "linux-loong64" as const,
+    filename: `electron-v${PINNED_ELECTRON_LINUX_LOONG64}-linux-loong64.zip`,
+    archive: "zip",
+    url: PINNED_ELECTRON_LINUX_LOONG64_URL,
+    sha256: PINNED_ELECTRON_LINUX_LOONG64_SHA256,
+  },
 ] as const;
 
 export function releaseTargetFromHost(platform: string, arch: string): ReleaseTargetKey {
-  const normalized = arch === "x86_64" ? "x64" : arch === "aarch64" ? "arm64" : arch;
+  const normalized =
+    arch === "x86_64" ? "x64" : arch === "aarch64" ? "arm64" : arch === "loongarch64" ? "loong64" : arch;
   const found = RELEASE_TARGETS.find((row) => row.platform === platform && row.arch === normalized);
   if (!found) throw new Error(`unsupported installed target ${platform}/${arch}`);
   return found.key;

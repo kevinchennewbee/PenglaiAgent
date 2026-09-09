@@ -311,17 +311,17 @@ const previousBoot = await boot(app, userData, "previous install");
 if (target === "win32-x86_64") observeWindowsDefender();
 
 if (target === "win32-x86_64") {
-  app = installWindows(currentInstaller, "0.5.12 upgrade");
+  app = installWindows(currentInstaller, `${PRODUCT_VERSION} upgrade`);
 } else {
   const current = installFromExactDmg(
     currentInstaller,
     appRoot,
     installerForTarget(target),
   );
-  if (!current.ok) fail(`0.5.12 DMG upgrade failed: ${current.reason}`);
+  if (!current.ok) fail(`${PRODUCT_VERSION} DMG upgrade failed: ${current.reason}`);
   app = current.app;
 }
-const currentIdentity = assertVersion(app, "0.5.12", "upgraded install");
+const currentIdentity = assertVersion(app, PRODUCT_VERSION, "upgraded install");
 const currentPackage = inspectPackagedCandidate({ app, candidateSha: source.git.head, expectedTarget: target });
 if (currentPackage.verdict !== "PASS") fail("upgraded installer source identity mismatch", { currentPackage });
 const currentBoot = await boot(app, userData, "upgraded install");

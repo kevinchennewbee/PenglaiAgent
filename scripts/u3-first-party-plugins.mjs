@@ -28,6 +28,7 @@ import {
   nativeBlocked,
   parseTargetArg,
 } from "./lib/release-targets.mjs";
+import { PRODUCT_VERSION } from "./lib/product.mjs";
 
 const REQUIRED_BUILTIN = ["@penglai/office", "@penglai/memory"];
 const OPTIONAL_PLUGINS = [
@@ -293,7 +294,7 @@ function installedPackages() {
 function requiredPackagesOk(packages) {
   return REQUIRED_BUILTIN.every((id) => {
     const pkg = packages.find((row) => row.id === id);
-    return pkg?.present && pkg.version === "0.5.12";
+    return pkg?.present && pkg.version === PRODUCT_VERSION;
   });
 }
 
@@ -301,7 +302,7 @@ function optionalPackagesOk(packages, enabled) {
   if (!enabled) return true;
   return OPTIONAL_PLUGINS.every((id) => {
     const pkg = packages.find((row) => row.id === id);
-    return pkg?.present && pkg.version === "0.5.12";
+    return pkg?.present && pkg.version === PRODUCT_VERSION;
   });
 }
 

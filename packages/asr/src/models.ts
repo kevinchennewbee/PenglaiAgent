@@ -21,7 +21,7 @@ import {
   unlink,
 } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { isErrorClass, PenglaiAsrError, PenglaiError, readExactRegularFile, redactedDiagnosticReference, type ErrorClass } from "@penglai/contracts";
+import { isErrorClass, PenglaiAsrError, PenglaiError, RELEASE, readExactRegularFile, redactedDiagnosticReference, type ErrorClass } from "@penglai/contracts";
 import type { AsrModelState } from "./service.js";
 
 export const SENSEVOICE_MODEL_ID = "sensevoice-int8";
@@ -616,7 +616,7 @@ export class AsrModelManager {
       }
       let existing = opened.size;
       const headers: Record<string, string> = {
-        "User-Agent": "Penglai/0.5.12 model-manager",
+        "User-Agent": `Penglai/${RELEASE} model-manager`,
       };
       if (existing) headers.Range = `bytes=${existing}-`;
       const response = await this.fetchPinned(file.url, headers, signal);

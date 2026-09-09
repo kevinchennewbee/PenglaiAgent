@@ -24,8 +24,9 @@ Owner did **not** ask to upgrade this OS. V25 is not the client. A V25
 new-world build is not this target and is not delivery.
 
 Target key remains **`linux-loong64`**. UOS `.deb` `Architecture:` remains
-**`loongarch64`**. Packager name: `Penglai_0.6.0_uos_loong64.deb`. That
-filename is not in `release-contract.json` until F05.
+**`loongarch64`**. Packager name: `Penglai_0.6.0_uos_loong64.deb`. F05
+put that filename in `release-contract.json`. Native install/startup/
+function remain `OWNER_POST_RELEASE`.
 
 ## ABI assessment (source-backed; loader still unmeasured)
 
@@ -97,17 +98,17 @@ Linux Landlock is a kernel LSM from **5.13**
 Kernel **4.19 cannot provide Landlock**. Do not assume the syscall exists.
 
 Official DSH `0.1.5-alpha.1` `@deepseek-ai/dsh-sandbox-local` Linux chain
-is **`bwrap` then `landlock`**. If no runner probes usable,
-`confine()` fails **`SANDBOX_UNAVAILABLE`**. Commands must **not** run
-unrestricted. Penglai must not pass `--no-sandbox`, strip
-`chrome-sandbox`, or pretend Landlock succeeded.
-
-Unmeasured on this host: whether `bwrap` exists and whether user
-namespaces are enabled. If bwrap probes on hardware, DSH can confine
-without Landlock (`enforcement: full` for bwrap). If both rungs fail,
-file-effect tools fail closed; Office and Memory stay required-builtin
-and must not be disabled to show a window. That host probe is now
-Owner post-release acceptance, not a pre-publication wait.
+is **`bwrap` then `landlock`**. The structural bwrap path is the host
+`bwrap` binary (`command -v bwrap`, typically `/usr/bin/bwrap` from
+bubblewrap). Landlock is a kernel LSM from 5.13; kernel **4.19 cannot
+provide it**, so the landlock-run rung must fail closed on this OS.
+If bwrap probes usable (user namespaces / setuid helper), confine is
+bwrap-only. If no runner probes usable, `confine()` fails
+**`SANDBOX_UNAVAILABLE`**. Commands must **not** run unrestricted.
+Penglai must not pass `--no-sandbox`, strip `chrome-sandbox`, bundle a
+fake Landlock, or disable Office/Memory. Whether UOS 20 1070 actually
+ships `/usr/bin/bwrap` and enables user namespaces is
+**`OWNER_POST_RELEASE`**, not pre-publication native PASS.
 
 Chromium `chrome-sandbox` (setuid helper) is a different layer from DSH
 Landlock. Keep it in the `.deb`. SUID/namespace success is unmeasured.

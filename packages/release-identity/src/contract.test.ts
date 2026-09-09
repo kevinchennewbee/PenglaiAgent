@@ -18,16 +18,16 @@ import { GENERATION_ID } from "./pins.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
-test("R50-DIST-001 committed release-contract pins three targets and hashed downloads", () => {
+test("R50-DIST-001 committed release-contract pins four targets and hashed downloads", () => {
   const raw = JSON.parse(readFileSync(join(root, "release-contract.json"), "utf8"));
   const contract = assertReleaseContract(raw);
   assert.equal(contract.dshVersion, "0.1.5-alpha.1");
   assert.deepEqual(
     contract.targets.map((row) => row.key),
-    ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"],
+    ["darwin-aarch64", "darwin-x86_64", "win32-x86_64", "linux-loong64"],
   );
-  assert.equal(contract.targets.length, 3);
-  assert.equal(contract.runtimeInputs.length, 6);
+  assert.equal(contract.targets.length, 4);
+  assert.equal(contract.runtimeInputs.length, 8);
   assert.ok(updaterRequiresIndependentSignature(contract));
   assert.deepEqual(contract.exactAssets, [...EXACT_RELEASE_ASSETS]);
   assert.doesNotThrow(() => assertCanonicalUpdaterManifestUrl(contract.updaterManifestUrl));
@@ -40,7 +40,7 @@ test("R50-DIST-001 committed release-contract pins three targets and hashed down
     acceptanceId: "R50-DIST-001",
     runnerId: "release-identity.contract",
     testId: "release-contract-pins",
-    assertionId: "three-targets-hashed-downloads-exact-set",
+    assertionId: "four-targets-hashed-downloads-exact-set",
     status: "PASS",
     candidateSourceSha: "a".repeat(40),
     exitCode: 0,

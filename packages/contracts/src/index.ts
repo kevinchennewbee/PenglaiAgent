@@ -24,7 +24,7 @@ export * from "./center-journal.js";
 export * from "./usage-projection.js";
 
 export const SCHEMA_VERSION = 12;
-export const RELEASE = "0.5.12";
+export const RELEASE = "0.6.0";
 
 export const CONFIG = Object.freeze({
   pairingTtlMs: 5 * 60_000,

@@ -18,8 +18,8 @@ import { FIRST_PARTY_PLUGIN_METADATA } from "../../runtime/src/plugin-catalog.js
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 
-test("release truth pins Penglai 0.5.12", () => {
-  assert.equal(PRODUCT_VERSION, "0.5.12");
+test("release truth pins Penglai 0.6.0", () => {
+  assert.equal(PRODUCT_VERSION, "0.6.0");
 });
 
 test("DSH alpha source commit and closure digests are exact", () => {
@@ -29,15 +29,15 @@ test("DSH alpha source commit and closure digests are exact", () => {
   assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "dc726847c2a3947178d8700d1a991108334a882117a498f358956ebc553122e7");
 });
 
-test("R55-TRUTH-003 only three exact target installers", () => {
+test("R55-TRUTH-003 four exact target installers including linux-loong64", () => {
   assert.deepEqual(
     RELEASE_TARGETS.map((row) => row.key),
-    ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"],
+    ["darwin-aarch64", "darwin-x86_64", "win32-x86_64", "linux-loong64"],
   );
 });
 
 test("release version has no older tag drift", () => {
-  assert.equal(PRODUCT_VERSION, "0.5.12");
+  assert.equal(PRODUCT_VERSION, "0.6.0");
   assert.equal(PRODUCT_VERSION.includes("0.5.6") || PRODUCT_VERSION.includes("0.5.7"), false);
 });
 

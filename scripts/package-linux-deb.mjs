@@ -56,6 +56,7 @@ try {
     payloadRoot,
     outDir,
     iconPath,
+    requireRuntimeClosure: true,
   });
   console.log(
     JSON.stringify({

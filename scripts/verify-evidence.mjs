@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { ROOT, gitState, isDocsOnlyRange } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
-import { evidenceName, missingReleaseTargets, RELEASE_TARGETS } from "./lib/release-targets.mjs";
+import { evidenceName, missingNativeInstalledTargets, RELEASE_TARGETS } from "./lib/release-targets.mjs";
 
 const git = gitState();
 const identity = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/index.ts")).href);
@@ -90,7 +90,7 @@ for (const target of RELEASE_TARGETS) {
   }
 }
 const installedPresent = RELEASE_TARGETS.filter((target) => existsSync(join(evidenceDir, evidenceName("installed-e2e", target))));
-const installedMissing = missingReleaseTargets(installedPresent);
+const installedMissing = missingNativeInstalledTargets(installedPresent);
 if (installedMissing.length) {
   imported.push({
     kind: "installed-set",

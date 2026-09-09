@@ -39,16 +39,16 @@
 
 ## 当前发行边界
 
-- 当前产品与发布契约为 **Penglai v0.5.12**（D-068，已发布）。当前**开发树**为
-  **Penglai 0.6.0**（D-070）。公开下载身份在不可变 `v0.6.0` 回读前仍是已发布的
-  **v0.5.12**。已发布的 **v0.5.10**、**v0.5.11** 与 **v0.5.12** tag 与附件保持
-  不可变。0.6.0 将消费官方 DSH `0.1.5-alpha.1` 完整 npm cohort（tag
-  `dsh-v0.1.5-alpha.1` / commit `5dda764ed3aa172535a7967b06ff95d9cbfe536a`）；
-  包数以实际依赖图为准，不得假定 254 或 263。在 F04/F05 身份改写前，机器可读
-  候选身份仍来自 `packages/release-identity/src/pins.ts` 与
-  `release-contract.json` 中的 0.5.12 钉选。公开下载事实只来自不可变 GitHub
-  Release 回读。蓬莱办公与蓬莱记忆为 required-builtin DSH 插件；消息连接、
-  语音识别、语音生成、主动陪伴随包但默认关闭。
+- 当前产品与发布契约为 **Penglai v0.6.0**（D-070，F05 身份改写）。公开下载
+  身份在不可变 `v0.6.0` GitHub Release 回读前仍是已发布的 **v0.5.12**。
+  已发布的 **v0.5.10**、**v0.5.11** 与 **v0.5.12** tag 与附件保持不可变。
+  0.6.0 消费官方 DSH `0.1.5-alpha.1` 完整 npm cohort（tag
+  `dsh-v0.1.5-alpha.1` / commit `5dda764ed3aa172535a7967b06ff95d9cbfe536a`，
+  272 包）。机器可读候选身份来自 `packages/release-identity/src/pins.ts` 与
+  `release-contract.json`。公开下载事实只来自不可变 GitHub Release 回读。
+  蓬莱办公与蓬莱记忆为 required-builtin DSH 插件；消息连接、语音识别、
+  语音生成、主动陪伴随包但默认关闭。UOS 20 原生安装/启动/功能为 Owner
+  发布后验收（`OWNER_POST_RELEASE`），不得标 PASS。
 - 四个 target key 全仓统一：`darwin-aarch64`、`darwin-x86_64`、`win32-x86_64`、
   `linux-loong64`（统信桌面操作系统 20 专业版 1070 / Loongson-3A6000-HV /
   内核 4.19.0-loongson-3-desktop，旧世界用户态；不是 V25）。0.6.0 目标安装包在身份改写后为

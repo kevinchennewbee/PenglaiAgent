@@ -26,10 +26,11 @@ public checkout.
 - [ ] F04 Freeze the selected DSH/runtime/plugin cohort and
       Session V3 / Home migrate/rollback design; update constitution,
       D-070, pins and 0.6.0 acceptance delta atomically.
-- [ ] F05 Retitle product identity to 0.6.0 in package manifests,
-      `release-contract.json` and installer names. README/website download
-      tables stay 0.5.12 until public 0.6.0 bytes exist. Do not rewrite
-      v0.5.10, v0.5.11, or v0.5.12.
+- [x] F05 Retitle product identity to 0.6.0 in package manifests,
+      `release-contract.json` and installer names (four targets including
+      `Penglai_0.6.0_uos_loong64.deb`). README/website download tables stay
+      0.5.12 until public 0.6.0 bytes exist. Do not rewrite v0.5.10,
+      v0.5.11, or v0.5.12.
 - [ ] F06 Independent Grok 4.6 xhigh review of affected production code
       after repairs; fix findings; re-review.
 
@@ -98,9 +99,10 @@ public checkout.
       not pin. See `NODE_LOONG64.json`.
 - [x] S02 Loongson Electron **31.7.7** zip hashed and ELF-read (old-world
       `/lib64/ld.so.1`, GNU/Linux 4.15.0, GLIBC ≤2.28, Chrome
-      126.0.6478.234). Not a silent 43.6.0 equivalent; Chromium gap vs
-      Mac/Windows 150 must be disclosed. 22.3.27 is not the default.
-      darkyzhou 43.x remains new-world-only.
+      126.0.6478.234). Compact provenance:
+      `docs/0.6.0/ELECTRON_31_7_7_PROVENANCE.md`. Not a silent 43.6.0
+      equivalent; not maintained; not production-security PASS. 22.3.27
+      is not the default. darkyzhou 43.x remains new-world-only.
 - [ ] S03 Linux generation layout (XDG) and `releaseTarget`/`linux-loong64`
       landed with tests rejecting linux-x64/arm64. Process supervision,
       secrets (libsecret or 0600 file class), and Landlock/seccomp
@@ -108,12 +110,14 @@ public checkout.
 - [ ] S04 `.deb` packaging class: `scripts/package-linux-deb.mjs` stages
       `/opt/Penglai`, desktop file, UOS `Architecture: loongarch64`,
       required Office+Memory, chrome-sandbox kept, installer name
-      `Penglai_0.6.0_uos_loong64.deb` (not in `release-contract.json`).
-      Tests cover fail-closed target and control Architecture. Native
-      launch/uninstall remain S06; this is not native UOS PASS.
-- [ ] S05 Native addons: sqlite/fs-ext/node-pty/sharp/koffi/onnx/sherpa/
-      Mnemon on loong64 — prebuild or source-build with digest. Memory
-      cannot be disabled to ship a window.
+      `Penglai_0.6.0_uos_loong64.deb` (in `release-contract.json` after
+      F05). CLI packager requires old-world Node + DSH CLI + glibc flock.
+      Native launch/uninstall remain S06; this is not native UOS PASS.
+- [ ] S05 Native addons: old-world flock ELF exists
+      (`docs/0.6.0/UOS20_FLOCK.md`, SHA-256 `b065bcb1…`). npm
+      `@koromix/koffi-linux-loong64@3.1.6` is new-world `GLIBC_2.36` —
+      do not embed. node-pty / require-builtin-linux-loong64-gnu / sharp
+      still lack old-world loong64 builds. Memory cannot be disabled.
 - [ ] S06 UOS native install/startup/function: **Owner post-publication
       acceptance** (2026-09-09). Not a pre-publication blocker. Do not
       request remote access. Label `OWNER_POST_RELEASE`, never PASS.

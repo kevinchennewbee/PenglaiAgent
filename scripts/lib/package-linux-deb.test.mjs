@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { RELEASE_TARGETS } from "./release-targets.mjs";
+import { RELEASE_TARGETS, TARGET_INSTALLERS } from "./release-targets.mjs";
 import {
   LINUX_LOONG64_TARGET,
   REQUIRED_BUILTIN_PLUGIN_IDS,
@@ -23,6 +23,8 @@ import {
   UOS_DEB_INSTALLER_NAME,
   assertLinuxLoong64PackTarget,
   assertUos20OldWorldBinary,
+  assertUosRuntimeClosure,
+  glibcVersionsNewerThan228,
   packageLinuxDeb,
   parseDebControl,
   parseDebDataFiles,
@@ -39,8 +41,8 @@ const PNG_1X1 = Buffer.from(
 
 function writePluginCatalog(pluginsDir, extra = {}) {
   mkdirSync(pluginsDir, { recursive: true });
-  const office = "penglai-office-0.5.12.tgz";
-  const memory = "penglai-memory-0.5.12.tgz";
+  const office = "penglai-office-0.6.0.tgz";
+  const memory = "penglai-memory-0.6.0.tgz";
   writeFileSync(join(pluginsDir, office), "office-plugin\n");
   writeFileSync(join(pluginsDir, memory), "memory-plugin\n");
   writeFileSync(
@@ -106,19 +108,11 @@ test("packager fails closed unless the Penglai target key is linux-loong64", () 
   assert.match(`${refused.stderr}${refused.stdout}`, /linux-loong64/);
 });
 
-test("UOS installer name is packager-owned and not in RELEASE_TARGETS", () => {
+test("UOS installer name is packager-owned and in RELEASE_TARGETS", () => {
   assert.equal(uosDebInstallerName(), "Penglai_0.6.0_uos_loong64.deb");
   assert.equal(UOS_DEB_INSTALLER_NAME, "Penglai_0.6.0_uos_loong64.deb");
-  assert.deepEqual([...RELEASE_TARGETS], [
-    "darwin-aarch64",
-    "darwin-x86_64",
-    "win32-x86_64",
-  ]);
-  assert.equal(
-    RELEASE_TARGETS.includes("linux-loong64"),
-    false,
-    "do not retitle RELEASE_TARGETS until F05",
-  );
+  assert.equal(RELEASE_TARGETS.includes("linux-loong64"), true);
+  assert.equal(TARGET_INSTALLERS["linux-loong64"], "Penglai_0.6.0_uos_loong64.deb");
 });
 
 test("control Architecture is loongarch64 while target key stays linux-loong64", () => {
@@ -149,6 +143,7 @@ test("staged .deb keeps /opt/Penglai, desktop file, and required Office+Memory",
       payloadRoot: payload,
       outDir,
       iconPath: icon,
+      requireRuntimeClosure: false,
     });
     assert.equal(packed.installerName, UOS_DEB_INSTALLER_NAME);
     assert.equal(packed.architecture, UOS_DEB_ARCHITECTURE);
@@ -169,17 +164,41 @@ test("staged .deb keeps /opt/Penglai, desktop file, and required Office+Memory",
     assert.match(desktop, /Exec=\/opt\/Penglai\/Penglai %U/);
     assert.match(desktop, /X-Penglai-Target=linux-loong64/);
     assert.equal(
-      data.has("opt/Penglai/resources/plugins/penglai-office-0.5.12.tgz"),
+      data.has("opt/Penglai/resources/plugins/penglai-office-0.6.0.tgz"),
       true,
     );
     assert.equal(
-      data.has("opt/Penglai/resources/plugins/penglai-memory-0.5.12.tgz"),
+      data.has("opt/Penglai/resources/plugins/penglai-memory-0.6.0.tgz"),
       true,
     );
     assert.deepEqual([...REQUIRED_BUILTIN_PLUGIN_IDS], [
       "@penglai/office",
       "@penglai/memory",
     ]);
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+});
+
+test("deliverable UOS packager fails closed without DSH Node and flock", () => {
+  const work = mkdtempSync(join(tmpdir(), "penglai-deb-closure-"));
+  try {
+    const payload = join(work, "payload");
+    const icon = join(work, "penglai.png");
+    writePayload(payload);
+    writeFileSync(icon, PNG_1X1);
+    assert.throws(() => assertUosRuntimeClosure(payload), /runtime\/node\/bin\/node/);
+    assert.throws(
+      () =>
+        packageLinuxDeb({
+          target: LINUX_LOONG64_TARGET,
+          payloadRoot: payload,
+          outDir: join(work, "out"),
+          iconPath: icon,
+          requireRuntimeClosure: true,
+        }),
+      /package is not complete/,
+    );
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
@@ -208,13 +227,13 @@ test("payload contract refuses missing sandbox or disabled Office/Memory", () =>
         entries: [
           {
             id: "@penglai/office",
-            packageFile: "penglai-office-0.5.12.tgz",
+            packageFile: "penglai-office-0.6.0.tgz",
             installClass: "optional-first-party",
             defaultEnabled: false,
           },
           {
             id: "@penglai/memory",
-            packageFile: "penglai-memory-0.5.12.tgz",
+            packageFile: "penglai-memory-0.6.0.tgz",
             installClass: "required-builtin",
             defaultEnabled: true,
           },
@@ -260,6 +279,11 @@ function elfWithInterpreter(interpreter) {
   interp.copy(buf, interpOff);
   return buf;
 }
+
+test("UOS 20 runtime closure rejects GLIBC newer than 2.28", () => {
+  assert.deepEqual(glibcVersionsNewerThan228(Buffer.from("GLIBC_2.27\0GLIBC_2.28\0")), []);
+  assert.deepEqual(glibcVersionsNewerThan228(Buffer.from("GLIBC_2.36\0")), ["GLIBC_2.36"]);
+});
 
 test("UOS 20 packager refuses a new-world Penglai ELF and accepts old-world ld.so.1", () => {
   assert.equal(readElfInterpreter(Buffer.from("#!/bin/sh\n")), undefined);

@@ -33,18 +33,21 @@ export const REQUIRE_BUILTIN_NATIVE_BY_TARGET = {
   "darwin-aarch64": "node-addon-require-builtin-darwin-arm64",
   "darwin-x86_64": "node-addon-require-builtin-darwin-x64",
   "win32-x86_64": "node-addon-require-builtin-win32-x64-msvc",
+  "linux-loong64": "node-addon-require-builtin-linux-loong64-gnu",
 };
 
 export const NODE_PTY_PREBUILD_BY_TARGET = {
   "darwin-aarch64": "darwin-arm64",
   "darwin-x86_64": "darwin-x64",
   "win32-x86_64": "win32-x64",
+  "linux-loong64": "linux-loong64",
 };
 
 const PACKAGE_TARGET_BY_RELEASE_TARGET = {
   "darwin-aarch64": { os: "darwin", cpu: "arm64" },
   "darwin-x86_64": { os: "darwin", cpu: "x64" },
   "win32-x86_64": { os: "win32", cpu: "x64" },
+  "linux-loong64": { os: "linux", cpu: "loong64" },
 };
 
 const ROOT_CANDIDATE = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
