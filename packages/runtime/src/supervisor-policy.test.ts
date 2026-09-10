@@ -213,5 +213,7 @@ test("supervisor restart preserves required child paths and stop cancels restart
   assert.match(src, /async stop\(\): Promise<void> \{[\s\S]*clearTimeout\(this\.restartTimer\)/);
   assert.match(src, /status: "manual-action-required"/);
   assert.match(src, /reason: "restart-budget-exhausted"/);
+  assert.match(src, /this\.child\.on\("exit", \(code\) => \{/);
+  assert.match(src, /this\.scheduleRestartAfterExit\(intentional, failure, code\)/);
   assert.match(src, /this\.scheduleRestartAfterExit\(false, "restart-start-failed", null\)/);
 });
