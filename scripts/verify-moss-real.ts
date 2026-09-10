@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { join } from "node:path";
 import {
   AsrModelManager,
@@ -14,6 +13,16 @@ import {
 import { ROOT } from "./lib/repo.mjs";
 import { EXIT_BY_VERDICT } from "./lib/exit-contract.mjs";
 import { beginEvidenceRun, finishEvidenceRun, HOST_TARGET } from "./lib/evidence-dir.mjs";
+import {
+  buildMossRealFailEvidence,
+  evaluateMossRealAudiblePredicate,
+  evaluateMossRealSemanticPredicates,
+  mossRealCatchExtra,
+  mossRealSha256,
+  mossRealSimilarity,
+  retainMossRealPredicateFailure,
+  unevaluatedMossRealPredicate,
+} from "./lib/moss-real-observability.ts";
 
 const FIXTURE = Object.freeze({
   id: "penglai-moss-roundtrip-zh-v1",
@@ -25,33 +34,30 @@ const FIXTURE = Object.freeze({
 const cacheRoot = join(ROOT, ".cache", "moss-real");
 const run = beginEvidenceRun({ command: "verify:moss-real", target: HOST_TARGET });
 
-function sha256(value: Buffer | string): string {
-  return createHash("sha256").update(value).digest("hex");
-}
+const runtimeIdentity = {
+  engine: "onnxruntime-node",
+  engineVersion: "1.23.2",
+  tokenizer: "sentencepiece-js",
+  tokenizerVersion: "1.1.0",
+  modifiedRuntimeSha256:
+    "b49d214bbe9ba9849d48e1588c66a70173eee76c211bb4f473b5eadf7bce038c",
+};
 
-function normalized(value: string): string {
-  return value.normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}\s]/gu, "");
-}
-
-function similarity(left: string, right: string): number {
-  const a = [...normalized(left)];
-  const b = [...normalized(right)];
-  if (!a.length || !b.length) return 0;
-  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
-  for (let row = 1; row <= a.length; row += 1) {
-    const current = [row];
-    for (let column = 1; column <= b.length; column += 1) {
-      current[column] = Math.min(
-        (current[column - 1] ?? 0) + 1,
-        (previous[column] ?? 0) + 1,
-        (previous[column - 1] ?? 0) + (a[row - 1] === b[column - 1] ? 0 : 1),
-      );
-    }
-    previous = current;
-  }
-  const distance = previous[b.length] ?? Math.max(a.length, b.length);
-  return Number((1 - distance / Math.max(a.length, b.length)).toFixed(4));
-}
+const modelIdentity = {
+  id: MOSS_TTS_MANIFEST.id,
+  revision: MOSS_TTS_MANIFEST.revision,
+  license: MOSS_TTS_MANIFEST.license,
+  totalBytes: MOSS_TTS_MANIFEST.files.reduce((sum, file) => sum + file.bytes, 0),
+  files: MOSS_TTS_MANIFEST.files.map(
+    ({ path, repository, revision, bytes, sha256: digest }) => ({
+      path,
+      repository,
+      revision,
+      bytes,
+      sha256: digest,
+    }),
+  ),
+};
 
 const service = createMossTtsService({
   modelsDir: join(cacheRoot, "models"),
@@ -81,7 +87,7 @@ try {
   });
   const synthesisElapsedMs = Math.round(performance.now() - started);
   const wav = await service.readOutput(synthesized.handle, synthesized.operation.operationId);
-  if (sha256(wav) !== synthesized.handle.digest || wav.length !== synthesized.handle.bytes) {
+  if (mossRealSha256(wav) !== synthesized.handle.digest || wav.length !== synthesized.handle.bytes) {
     throw new Error("MOSS opaque output digest mismatch");
   }
   const decoded = decodeWavPcm16(wav);
@@ -89,20 +95,84 @@ try {
     decoded.pcm.reduce((sum, sample) => sum + sample * sample, 0) /
       decoded.pcm.length,
   );
+  const synthesisEvidence = {
+    outputSha256: synthesized.handle.digest,
+    outputBytes: synthesized.handle.bytes,
+    durationMs: decoded.durationMs,
+    codec: "wav-pcm16-48khz-stereo",
+    firstChunkLatencyMs: synthesized.operation.firstChunkLatencyMs,
+    elapsedMs: synthesisElapsedMs,
+    realtimeFactor: Number((synthesisElapsedMs / decoded.durationMs).toFixed(4)),
+    rmsEnergy: Number.isFinite(energy) ? Number(energy.toFixed(2)) : energy,
+  };
   if (!Number.isFinite(energy) || energy < 100) {
-    throw new Error("MOSS output has no audible waveform");
+    retainMossRealPredicateFailure(
+      "MOSS output has no audible waveform",
+      buildMossRealFailEvidence({
+        target: `${process.platform}-${process.arch}`,
+        runtime: runtimeIdentity,
+        model: modelIdentity,
+        fixture: {
+          id: FIXTURE.id,
+          inputTextSha256: finalDigest,
+          voiceId: FIXTURE.voiceId,
+        },
+        synthesis: synthesisEvidence,
+        predicates: [
+          evaluateMossRealAudiblePredicate(energy),
+          unevaluatedMossRealPredicate("nonemptySpeech", true),
+          unevaluatedMossRealPredicate("noSpeech", false),
+          unevaluatedMossRealPredicate("language", "zh"),
+          unevaluatedMossRealPredicate("similarity", 0.5),
+        ],
+      }),
+    );
   }
 
   asrEngine = new SherpaSenseVoiceEngine(await asrManager.requireReady());
   const asrStarted = performance.now();
   const transcript = await asrEngine.transcribe(decoded.pcm, decoded.sampleRate);
   const asrElapsedMs = Math.round(performance.now() - asrStarted);
-  const roundtripSimilarity = similarity(FIXTURE.text, transcript.text);
+  const roundtripSimilarity = mossRealSimilarity(FIXTURE.text, transcript.text);
   if (
     transcript.noSpeech || !transcript.text.trim() ||
     transcript.language !== "zh" || roundtripSimilarity < 0.5
   ) {
-    throw new Error("MOSS to SenseVoice semantic round-trip failed");
+    retainMossRealPredicateFailure(
+      "MOSS to SenseVoice semantic round-trip failed",
+      buildMossRealFailEvidence({
+        target: `${process.platform}-${process.arch}`,
+        runtime: runtimeIdentity,
+        model: modelIdentity,
+        fixture: {
+          id: FIXTURE.id,
+          inputTextSha256: finalDigest,
+          voiceId: FIXTURE.voiceId,
+        },
+        synthesis: synthesisEvidence,
+        roundtrip: {
+          engine: "sherpa-onnx",
+          engineVersion: asrEngine.runtime.packageVersion,
+          modelRevision: SENSEVOICE_MANIFEST.revision,
+          transcriptSha256: mossRealSha256(transcript.text.trim()),
+          language: transcript.language ?? null,
+          noSpeech: Boolean(transcript.noSpeech),
+          transcriptNonEmpty: Boolean(transcript.text.trim()),
+          similarity: roundtripSimilarity,
+          elapsedMs: asrElapsedMs,
+          realtimeFactor: Number((asrElapsedMs / decoded.durationMs).toFixed(4)),
+        },
+        predicates: [
+          evaluateMossRealAudiblePredicate(energy),
+          ...evaluateMossRealSemanticPredicates({
+            text: transcript.text,
+            language: transcript.language,
+            noSpeech: transcript.noSpeech,
+            similarity: roundtripSimilarity,
+          }),
+        ],
+      }),
+    );
   }
   await service.releaseOutput(synthesized.handle.id);
 
@@ -134,29 +204,8 @@ try {
     assertion: "R50-VOICE-MOSS-REAL",
     status: "PASS",
     target: `${process.platform}-${process.arch}`,
-    runtime: {
-      engine: "onnxruntime-node",
-      engineVersion: "1.23.2",
-      tokenizer: "sentencepiece-js",
-      tokenizerVersion: "1.1.0",
-      modifiedRuntimeSha256:
-        "b49d214bbe9ba9849d48e1588c66a70173eee76c211bb4f473b5eadf7bce038c",
-    },
-    model: {
-      id: MOSS_TTS_MANIFEST.id,
-      revision: MOSS_TTS_MANIFEST.revision,
-      license: MOSS_TTS_MANIFEST.license,
-      totalBytes: MOSS_TTS_MANIFEST.files.reduce((sum, file) => sum + file.bytes, 0),
-      files: MOSS_TTS_MANIFEST.files.map(
-        ({ path, repository, revision, bytes, sha256: digest }) => ({
-          path,
-          repository,
-          revision,
-          bytes,
-          sha256: digest,
-        }),
-      ),
-    },
+    runtime: runtimeIdentity,
+    model: modelIdentity,
     fixture: {
       id: FIXTURE.id,
       inputTextSha256: finalDigest,
@@ -176,7 +225,7 @@ try {
       engine: "sherpa-onnx",
       engineVersion: asrEngine.runtime.packageVersion,
       modelRevision: SENSEVOICE_MANIFEST.revision,
-      transcriptSha256: sha256(transcript.text.trim()),
+      transcriptSha256: mossRealSha256(transcript.text.trim()),
       language: transcript.language,
       noSpeech: false,
       similarity: roundtripSimilarity,
@@ -200,8 +249,15 @@ try {
 } catch (error) {
   const reason = error instanceof Error ? error.message : String(error);
   const incomplete = /ENOTFOUND|fetch|network|not installed|model|timeout|ECONN|certificate/i.test(reason);
-  const manifest = finishEvidenceRun(run, incomplete ? "INCOMPLETE" : "FAIL", reason);
-  console.error(JSON.stringify({ verdict: manifest.verdict, command: "verify:moss-real", reason, dir: run.dir }));
+  const extra = mossRealCatchExtra(error);
+  const manifest = finishEvidenceRun(run, incomplete ? "INCOMPLETE" : "FAIL", reason, extra);
+  console.error(JSON.stringify({
+    verdict: manifest.verdict,
+    command: "verify:moss-real",
+    reason,
+    dir: run.dir,
+    ...(manifest.evidence ? { evidence: manifest.evidence } : {}),
+  }));
   process.exitCode = EXIT_BY_VERDICT[manifest.verdict] ?? 1;
 } finally {
   await asrEngine?.dispose();
