@@ -744,13 +744,15 @@ test("fresh catalog and profile keep every optional Penglai plugin disabled", ()
       new RegExp(`id: ${short}\\n\\s+name: ["']${id.replace("/", "\\/")}["']\\n\\s+disabled: true`),
     );
   }
-  assert.match(patch, /id: directory-picker\n\s+name: "@deepseek-ai\/dsh-host-directory-picker-browse"/);
   assert.match(
     patch,
-    /id: ui-directory-picker\n\s+name: "@deepseek-ai\/dsh-client-ui-directory-picker-browse"/,
+    /id: directory-picker\n\s+name: "@deepseek-ai\/dsh-host-directory-picker-auto"\n\s+disabled: true/,
   );
-  assert.doesNotMatch(patch, /id: directory-picker\n\s+name: "@deepseek-ai\/dsh-host-directory-picker-auto"/);
-  assert.doesNotMatch(patch, /id: directory-picker\n\s+name: "@deepseek-ai\/dsh-host-directory-picker-native"/);
+  assert.match(patch, /id: penglai-directory-picker\n\s+name: "@deepseek-ai\/dsh-host-directory-picker-browse"/);
+  assert.match(
+    patch,
+    /id: penglai-directory-picker-ui\n\s+name: "@deepseek-ai\/dsh-client-ui-directory-picker-browse"/,
+  );
 });
 
 test("0.5.5 merges the legacy Context profile plugin into Memory without deleting source indexes", () => {

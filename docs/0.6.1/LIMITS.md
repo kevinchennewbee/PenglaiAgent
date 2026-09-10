@@ -27,10 +27,10 @@ OOXML visual renderer.
 
 ## Workspace directory chooser
 
-Penglai does not use the Darwin `osascript choose folder` native backend for
-Add workspace or new-conversation workspace selection. That dialog is owned by
-a DSH Node child, not Penglai.app. The product overlay pins official in-app
-browse. Actual GUI acceptance of the browse dialog remains manager-owned.
+Penglai disables official directory-picker auto by matching identity and
+inserts a distinct in-app browse host/client pair. Darwin `osascript choose
+folder` is not the product interaction. Actual GUI acceptance of the browse
+dialog remains manager-owned.
 
 ## Windows supervisor identity
 

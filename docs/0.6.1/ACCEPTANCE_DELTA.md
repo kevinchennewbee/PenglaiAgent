@@ -33,11 +33,11 @@ in `docs/0.6.1/` and is not a public download claim.
   assets; UOS Node closure identity and dependency/preflight truth; signed
   catalog identity+digest plugin preservation; official `deepseek-flash`
   onboarding without model-id exceptions.
-- Desktop workspace directory selection uses the official DSH browse
-  interaction (`dsh-host-directory-picker-browse` plus
-  `dsh-client-ui-directory-picker-browse`) pinned in the product web overlay.
-  Auto would mount Darwin `osascript choose folder` from the embedded DSH Node
-  child with a renderless client face. Browse keeps Add workspace and the
+- Desktop workspace directory selection disables official
+  `directory-picker` auto by matching id+name, then inserts product-owned
+  browse host and browse client entries. Official include patches treat
+  `name` as an identity guard, so renaming auto to browse is skipped and
+  leaves native plus a duplicate client. Browse keeps Add workspace and the
   new-conversation flow visible and cancelable inside Penglai, on official
   workspace adoption/permission. The wizard Owner folder picker stays
   wizard-only. Cohort bytes stay exact; no upstream patch or parallel picker.

@@ -25,19 +25,15 @@
     - id: penglai-plugin-reference
       name: "@penglai/plugin-reference"
       disabled: true
+    - id: penglai-directory-picker
+      name: "@deepseek-ai/dsh-host-directory-picker-browse"
+    - id: penglai-directory-picker-ui
+      name: "@deepseek-ai/dsh-client-ui-directory-picker-browse"
 - id: session-persistence-jsonl
   name: "@deepseek-ai/dsh-session-persistence-jsonl"
   config:
     root: !!js dshHomePath('sessions')
     compression: none
-
-# Official web-app comment: mount -native or -browse in an overlay to pin the
-# interaction. Auto selects Darwin osascript `choose folder` from the embedded
-# DSH Node child; that dialog is not owned by Penglai.app and the client face
-# is renderless. Pin the official in-app browse pair so Add workspace and the
-# new-conversation flow stay visible, cancelable, and on the adoption seam.
 - id: directory-picker
-  name: "@deepseek-ai/dsh-host-directory-picker-browse"
-- insert:
-    - id: ui-directory-picker
-      name: "@deepseek-ai/dsh-client-ui-directory-picker-browse"
+  name: "@deepseek-ai/dsh-host-directory-picker-auto"
+  disabled: true

@@ -77,6 +77,17 @@ import {
 } from "./dsh-web-auth.js";
 import { evaluateInventory, type InventoryProof } from "./inventory-proof.js";
 import { convergePrivatePosixModes } from "./private-mode.js";
+import {
+  OFFICIAL_DIRECTORY_PICKER_AUTO,
+  OFFICIAL_DIRECTORY_PICKER_HOST,
+  OFFICIAL_DIRECTORY_PICKER_ID,
+  OFFICIAL_DIRECTORY_PICKER_NATIVE_CLIENT,
+  OFFICIAL_DIRECTORY_PICKER_NATIVE_HOST,
+  OFFICIAL_DIRECTORY_PICKER_SURFACE,
+  PENGLAI_DIRECTORY_PICKER_HOST_ID,
+  PENGLAI_DIRECTORY_PICKER_SURFACE_ID,
+  pinOfficialBrowseDirectoryPickerPatch,
+} from "./directory-picker-overlay.js";
 export * from "./layout.js";
 export * from "./permissions.js";
 export * from "./arch-guard.js";
@@ -808,43 +819,17 @@ export function mergeLegacyContextIntoMemory(user: UserLayout): {
   };
 }
 
-export const OFFICIAL_DIRECTORY_PICKER_HOST = "@deepseek-ai/dsh-host-directory-picker-browse";
-export const OFFICIAL_DIRECTORY_PICKER_SURFACE = "@deepseek-ai/dsh-client-ui-directory-picker-browse";
-
-const DIRECTORY_PICKER_HOST_ROW = `- id: directory-picker\n  name: "${OFFICIAL_DIRECTORY_PICKER_HOST}"\n`;
-const DIRECTORY_PICKER_SURFACE_INSERT = `- insert:\n    - id: ui-directory-picker\n      name: "${OFFICIAL_DIRECTORY_PICKER_SURFACE}"\n`;
-
-function hasDirectoryPickerName(text: string, pluginId: string, packageName: string): boolean {
-  const escaped = packageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(String.raw`id:\s*${pluginId}\s*\n\s+name:\s*["']${escaped}["']`).test(text);
-}
-
-/**
- * Pin official in-app browse on the directory-picker overlay. Auto would mount
- * Darwin osascript from the embedded DSH Node child; browse keeps selection
- * visible in the Penglai window and on the official workspace adoption seam.
- */
-export function pinOfficialBrowseDirectoryPickerPatch(text: string): { text: string; changed: boolean } {
-  const original = text.replace(/\r\n/g, "\n");
-  let next = original.endsWith("\n") || original.length === 0 ? original : `${original}\n`;
-  if (
-    /id:\s*directory-picker\s*\n\s+name:\s*["']@deepseek-ai\/dsh-host-directory-picker-(?:auto|native)["']/.test(
-      next,
-    )
-  ) {
-    next = next.replace(
-      /(id:\s*directory-picker\s*\n\s+name:\s*)["']@deepseek-ai\/dsh-host-directory-picker-(?:auto|native)["']/,
-      `$1"${OFFICIAL_DIRECTORY_PICKER_HOST}"`,
-    );
-  }
-  if (!hasDirectoryPickerName(next, "directory-picker", OFFICIAL_DIRECTORY_PICKER_HOST)) {
-    next += DIRECTORY_PICKER_HOST_ROW;
-  }
-  if (!hasDirectoryPickerName(next, "ui-directory-picker", OFFICIAL_DIRECTORY_PICKER_SURFACE)) {
-    next += DIRECTORY_PICKER_SURFACE_INSERT;
-  }
-  return { text: next, changed: next !== original };
-}
+export {
+  OFFICIAL_DIRECTORY_PICKER_AUTO,
+  OFFICIAL_DIRECTORY_PICKER_HOST,
+  OFFICIAL_DIRECTORY_PICKER_NATIVE_CLIENT,
+  OFFICIAL_DIRECTORY_PICKER_NATIVE_HOST,
+  OFFICIAL_DIRECTORY_PICKER_SURFACE,
+  OFFICIAL_DIRECTORY_PICKER_ID,
+  PENGLAI_DIRECTORY_PICKER_HOST_ID,
+  PENGLAI_DIRECTORY_PICKER_SURFACE_ID,
+  pinOfficialBrowseDirectoryPickerPatch,
+};
 
 export function pinOfficialBrowseDirectoryPicker(user: UserLayout): boolean {
   const patchPath = join(user.profileWeb, "cordis.patch.yml");
