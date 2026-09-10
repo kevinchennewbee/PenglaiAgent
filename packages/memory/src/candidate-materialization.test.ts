@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -370,7 +370,11 @@ test("pinned Mnemon rejects a failed native write then accepts a fresh Owner ret
     if (decided.decision !== "approved") throw new Error("expected receipt");
     const wsDir = workspaceDataDir(root, "ws-fail");
     mkdirSync(wsDir, { recursive: true, mode: 0o700 });
-    chmodSync(wsDir, 0o555);
+    // chmod(dir, 0555) does not make an owner-writable Windows directory fail.
+    // Mnemon creates data/<store>/mnemon.db; a regular file at data/ is a
+    // portable obstruction that the native write cannot mkdir through.
+    const nestedStore = join(wsDir, "data");
+    writeFileSync(nestedStore, "obstruct nested mnemon store\n", { mode: 0o600 });
     let nativeFailure: { message: string } | undefined;
     try {
       await svc.acceptCandidate({
@@ -383,7 +387,7 @@ test("pinned Mnemon rejects a failed native write then accepts a fresh Owner ret
       nativeFailure = { message: error instanceof Error ? error.message : String(error) };
       assert.match(nativeFailure.message, /mnemon remember failed|DSH_UNAVAILABLE/);
     } finally {
-      chmodSync(wsDir, 0o700);
+      rmSync(nestedStore, { force: true });
     }
     assert.equal(svc.memoryV2.getCandidate(pending.candidateId)?.status, "pending");
     assert.equal(svc.memoryV2.getCandidate(pending.candidateId)?.kind, "project_fact");

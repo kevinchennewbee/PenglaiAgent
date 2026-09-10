@@ -588,16 +588,44 @@ test("embedded supervisor restarts a live process whose official HTTP route hang
     writeFileSync(modePath, "healthy\n");
     await supervisor.start(user);
     assert.equal(supervisor.restarts, 0, "an explicit start begins a new recovery budget");
+    const budgetChild = supervisor.child;
+    assert.ok(budgetChild, "owned child handle must exist before the hang");
+    assert.equal(budgetChild.exitCode, null);
+    assert.equal(budgetChild.signalCode, null);
+    const observedExit = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("owned child did not emit exit")), 3_000);
+      budgetChild.once("exit", (code, signal) => {
+        clearTimeout(timer);
+        resolve({ code, signal });
+      });
+      budgetChild.once("error", (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+    });
     writeFileSync(modePath, "hang\n");
+    const observed = await observedExit;
     await waitUntil(() => supervisor.recovery.status === "manual-action-required", 8_000);
     assert.equal(supervisor.state, "crashed");
     assert.equal(supervisor.restarts, 3);
+    if (observed.code === null) {
+      assert.ok(
+        observed.signal === "SIGTERM" || observed.signal === "SIGKILL" || budgetChild.killed === true,
+        "null exit code must come from a real child exit or kill",
+      );
+    } else {
+      assert.equal(Number.isInteger(observed.code), true);
+    }
+    if (process.platform !== "win32") {
+      assert.equal(observed.code, 0);
+      assert.equal(observed.signal, null);
+    }
     assert.deepEqual(supervisor.recovery, {
       status: "manual-action-required",
       reason: "restart-budget-exhausted",
       attempt: 3,
       maxAttempts: 3,
-      exitCode: process.platform === "win32" ? 1 : 0,
+      exitCode: observed.code,
       trigger: "health-check-failed",
       lastFailure: "restart-start-failed",
     });

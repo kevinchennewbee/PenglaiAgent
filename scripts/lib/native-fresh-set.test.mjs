@@ -312,10 +312,20 @@ test("current 0.6.1 native workflow does not fetch previous installers", () => {
   assert.doesNotMatch(fetch.stderr, /"verdict":"PASS"/);
 });
 
+function normalizeNewlines(text) {
+  return String(text ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
+function lineEndingFixtures(text) {
+  const lf = normalizeNewlines(text);
+  return { lf, crlf: lf.replaceAll("\n", "\r\n") };
+}
+
 function nativeWorkflowJob(text, name) {
-  const jobsAt = text.indexOf("\njobs:\n");
-  assert.ok(jobsAt >= 0, "native workflow is missing jobs");
-  const jobs = text.slice(jobsAt);
+  const normalized = normalizeNewlines(text);
+  const match = /(?:^|\n)jobs:[ \t]*\n/.exec(normalized);
+  assert.ok(match, "native workflow is missing jobs");
+  const jobs = normalized.slice(match.index);
   const matches = [...jobs.matchAll(/^  ([A-Za-z0-9_-]+):/gm)];
   const index = matches.findIndex((row) => row[1] === name);
   assert.ok(index >= 0, `missing native job ${name}`);
@@ -339,4 +349,67 @@ test("native Mac and Windows jobs fetch pinned Mnemon before source unit gates",
     assert.equal((body.match(/pnpm fetch:mnemon-assets\b/g) ?? []).length, 1);
   }
   assert.doesNotMatch(workflow, /fetch-upgrade-sources/);
+});
+
+test("native workflow job parser treats LF and CRLF checkouts as equivalent", () => {
+  const { lf, crlf } = lineEndingFixtures(
+    readFileSync(join(ROOT, ".github/workflows/native-release-candidate.yml"), "utf8"),
+  );
+  assert.equal(lf.includes("\r"), false);
+  assert.match(crlf, /\r\njobs:\r\n/);
+  assert.equal(crlf.includes("\njobs:\n"), false);
+  assert.deepEqual(lineEndingFixtures(crlf), { lf, crlf });
+  for (const job of ["macos", "windows"]) {
+    const fromLf = nativeWorkflowJob(lf, job);
+    const fromCrlf = nativeWorkflowJob(crlf, job);
+    assert.equal(fromCrlf, fromLf);
+    const fetchAt = fromCrlf.search(/pnpm fetch:mnemon-assets\b/);
+    const unitAt = fromCrlf.search(/pnpm test:unit\b/);
+    assert.ok(fetchAt >= 0, `${job} must fetch the pinned native Mnemon binary`);
+    assert.ok(unitAt >= 0, `${job} must run test:unit`);
+    assert.ok(fetchAt < unitAt, `${job} must fetch pinned Mnemon before test:unit`);
+    assert.equal((fromCrlf.match(/pnpm fetch:mnemon-assets\b/g) ?? []).length, 1);
+  }
+});
+
+test("source-ci Windows focused regression fetches pinned Mnemon before the four files", () => {
+  const { lf, crlf } = lineEndingFixtures(
+    readFileSync(join(ROOT, ".github/workflows/source-ci.yml"), "utf8"),
+  );
+  assert.match(lf, /name: Full source gates/);
+  assert.match(lf, /pnpm test:unit/);
+  assert.match(lf, /pnpm verify:clean-clone/);
+  assert.equal(lf.includes("\r"), false);
+  assert.match(crlf, /\r\njobs:\r\n/);
+  assert.equal(crlf.includes("\njobs:\n"), false);
+  assert.deepEqual(lineEndingFixtures(crlf), { lf, crlf });
+  const body = nativeWorkflowJob(lf, "windows-source-regression");
+  assert.equal(nativeWorkflowJob(crlf, "windows-source-regression"), body);
+  assert.match(body, /github\.event\.pull_request\.head\.sha \|\| github\.sha/);
+  assert.match(body, /pnpm rebuild:fs-ext/);
+  assert.match(body, /pnpm build:windows-host/);
+  const fetchAt = body.search(/pnpm fetch:mnemon-assets\b/);
+  const buildAt = body.search(/pnpm build(?:\s|$)/);
+  const testAt = body.search(/node --import tsx --test/);
+  const memoryAt = body.search(/packages\/memory\/src\/candidate-materialization\.test\.ts/);
+  const runtimeAt = body.search(/packages\/runtime\/src\/runtime\.test\.ts/);
+  const freshAt = body.search(/scripts\/lib\/native-fresh-set\.test\.mjs/);
+  const lifeAt = body.search(/scripts\/lib\/native-lifecycle-proof\.test\.mjs/);
+  assert.ok(fetchAt >= 0, "Windows focused job must fetch the pinned native Mnemon binary");
+  assert.ok(buildAt >= 0, "Windows focused job must compile workspace JS");
+  assert.ok(testAt >= 0, "Windows focused job must run the four files");
+  assert.ok(buildAt < testAt, "Windows focused job must build workspace JS before tests");
+  assert.ok(memoryAt > buildAt);
+  assert.ok(runtimeAt > buildAt);
+  assert.ok(freshAt > buildAt);
+  assert.ok(lifeAt > buildAt);
+  assert.ok(memoryAt > fetchAt);
+  assert.ok(runtimeAt > fetchAt);
+  assert.ok(freshAt > fetchAt);
+  assert.ok(lifeAt > fetchAt);
+  assert.equal((body.match(/pnpm fetch:mnemon-assets\b/g) ?? []).length, 1);
+  assert.equal((body.match(/pnpm build(?:\s|$)/g) ?? []).length, 1);
+  assert.doesNotMatch(body, /fetch-upgrade-sources/);
+  assert.doesNotMatch(body, /DisableRealtimeMonitoring/);
+  assert.doesNotMatch(body, /pnpm test:unit/);
 });

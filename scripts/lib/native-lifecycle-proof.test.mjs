@@ -164,6 +164,36 @@ test("forced stopChild termination is not a graceful application shutdown", asyn
 });
 
 test("posix SIGTERM close of a cooperative child is classified graceful on Mac only", async (context) => {
+  const cooperative = {
+    graceful: true,
+    forced: false,
+    requestedClose: true,
+    method: "posix-sigterm",
+    exitCode: 0,
+    signal: null,
+  };
+  assert.equal(classifyApplicationShutdown(cooperative, "darwin-aarch64").graceful, true);
+  assert.equal(classifyApplicationShutdown(cooperative, "darwin-x86_64").graceful, true);
+  assert.equal(classifyApplicationShutdown(cooperative, "win32-x86_64").graceful, false);
+
+  if (process.platform === "win32") {
+    assert.equal(
+      classifyApplicationShutdown(
+        { graceful: true, forced: false, requestedClose: true, method: "node-sigterm-windows", exitCode: 1, signal: null },
+        "win32-x86_64",
+      ).graceful,
+      false,
+    );
+    assert.equal(
+      classifyApplicationShutdown(
+        { graceful: true, forced: true, requestedClose: true, method: "taskkill-force", exitCode: 1, signal: null },
+        "win32-x86_64",
+      ).graceful,
+      false,
+    );
+    return;
+  }
+
   const child = spawn(
     process.execPath,
     ["-e", "process.on('SIGTERM',()=>process.exit(0));process.stdout.write('READY\\n');setInterval(()=>{},1000);"],
