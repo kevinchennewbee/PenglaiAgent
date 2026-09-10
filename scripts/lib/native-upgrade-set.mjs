@@ -3,6 +3,36 @@ export function expectedUpgradeSourceVersions(upgradeSources) {
   return upgradeSources.sources.map((row) => String(row.version ?? "")).filter(Boolean).sort();
 }
 
+/** Current-version native workflow scope. Historical sources[] stay immutable pins. */
+export function currentNativeLifecycleScope(upgradeSources) {
+  const workflow = upgradeSources?.currentWorkflow;
+  if (!workflow || typeof workflow !== "object") {
+    return {
+      fetchPreviousInstallers: true,
+      olderInstalledUpgradeStatus: "REQUIRED",
+      requiredLifecycleGate: "verify:upgrade-uninstall",
+      nativeUosStatus: null,
+      twoHourSoak: null,
+    };
+  }
+  return {
+    fetchPreviousInstallers: workflow.fetchPreviousInstallers === true,
+    olderInstalledUpgradeStatus: String(workflow.olderInstalledUpgradeStatus ?? "OWNER_EXCLUDED"),
+    requiredLifecycleGate: String(workflow.requiredLifecycleGate ?? "verify:fresh-install-uninstall"),
+    nativeUosStatus: workflow.nativeUosStatus == null ? "OWNER_POST_RELEASE" : String(workflow.nativeUosStatus),
+    twoHourSoak: workflow.twoHourSoak == null ? "OWNER_EXCLUDED" : String(workflow.twoHourSoak),
+  };
+}
+
+export function currentWorkflowFetchesPreviousInstallers(upgradeSources) {
+  return currentNativeLifecycleScope(upgradeSources).fetchPreviousInstallers === true;
+}
+
+export function currentWorkflowRequiresNativeUpgradePaths(upgradeSources) {
+  const scope = currentNativeLifecycleScope(upgradeSources);
+  return scope.olderInstalledUpgradeStatus !== "OWNER_EXCLUDED" && currentWorkflowFetchesPreviousInstallers(upgradeSources);
+}
+
 export function upgradeUninstallEvidenceMatches(record, { sourceSha, installerSha256, expectedVersions }) {
   const versions = [...(record?.previousVersions ?? [])].sort();
   if (JSON.stringify(versions) !== JSON.stringify(expectedVersions)) return false;

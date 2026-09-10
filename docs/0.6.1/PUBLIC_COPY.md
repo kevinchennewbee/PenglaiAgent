@@ -17,6 +17,9 @@ Fresh install uses the official DeepSeek catalog, including
 `deepseek-flash` (DeepSeek-V41-Flash) with text and image input. Existing
 explicit model choices stay in official settings. Four installers must come
 from one clean `main` SHA. Linux amd64 and Windows ARM are not targets.
+Current native lifecycle is fresh install, restart, and default uninstall
+on Mac/Windows. Old-version installed upgrade is not a 0.6.1 acceptance
+gate.
 
 UOS 20 old-world remains the fourth packaged target. Native install,
 startup, and function on a physical UOS host are `OWNER_POST_RELEASE`:
@@ -33,7 +36,8 @@ Intel Mac、Windows x64 与统信 UOS 20 龙芯。DSH 仍是唯一 Agent 核心�
 
 全新安装使用官方 DeepSeek 目录，含 `deepseek-flash`（DeepSeek-V41-Flash）的
 文本与图片输入。用户已经明确选过的模型保留在官方设置里。四个安装包必须来自
-同一个干净的 `main` SHA。Linux amd64 与 Windows ARM 不是目标。
+同一个干净的 `main` SHA。Linux amd64 与 Windows ARM 不是目标。当前原生生命周期是
+Mac/Windows 全新安装、重启与默认卸载。旧版本已安装升级不是 0.6.1 验收门。
 
 UOS 20 旧世界仍是第四个打包目标。0.6.1 真机安装/启动/功能为
 `OWNER_POST_RELEASE`：Owner 在发布后测试安装包。不得用源码或交叉编译冒充

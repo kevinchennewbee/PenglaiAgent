@@ -159,12 +159,26 @@ export const RELEASE_TARGETS = [
 
 export type ReleaseTargetKey = (typeof RELEASE_TARGETS)[number]["key"];
 
-/** Mac/Windows native install/lifecycle gates. linux-loong64 host evidence remains unrun, not a 0.6.1 PASS. */
+/** Mac/Windows native install/lifecycle gates. linux-loong64 host evidence remains OWNER_POST_RELEASE, not a 0.6.1 PASS. */
 export const NATIVE_INSTALLED_TARGET_KEYS = [
   "darwin-aarch64",
   "darwin-x86_64",
   "win32-x86_64",
 ] as const satisfies readonly ReleaseTargetKey[];
+
+/** Current 0.6.1 native lifecycle: fresh install/restart/default uninstall. Old-version upgrade is excluded. */
+export const CURRENT_NATIVE_LIFECYCLE = Object.freeze({
+  requiredGate: "verify:fresh-install-uninstall",
+  olderInstalledUpgradeStatus: "OWNER_EXCLUDED",
+  nativeUosStatus: "OWNER_POST_RELEASE",
+  twoHourSoak: "OWNER_EXCLUDED",
+  fetchPreviousInstallers: false,
+  requiredTargets: NATIVE_INSTALLED_TARGET_KEYS,
+});
+
+export const OWNER_EXCLUDED_SUBGATES = [
+  { name: "verify:upgrade-uninstall", kind: "installed-upgrade", status: "OWNER_EXCLUDED" },
+] as const;
 
 /** Vendor archive names stay as published (darwin-x64, win-x64). Selection uses RELEASE_TARGETS.key only. */
 export const RUNTIME_INPUTS = [
@@ -261,7 +275,7 @@ export const HARD_SUBGATES = [
   { name: "verify:fuses", kind: "fuses", mode: "evidence" },
   { name: "verify:signing", kind: "signing", mode: "evidence" },
   { name: "verify:installed", kind: "installed", mode: "evidence" },
-  { name: "verify:upgrade-uninstall", kind: "installed-lifecycle", mode: "evidence" },
+  { name: "verify:fresh-install-uninstall", kind: "installed-lifecycle", mode: "evidence" },
   { name: "verify:public-export", kind: "public-export", mode: "evidence" },
   { name: "audit:secrets", kind: "secret", mode: "run" },
 ] as const;

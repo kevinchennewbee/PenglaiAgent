@@ -28,15 +28,22 @@ test("PASS leftover names include Uninstall.exe and leftover symlinks", () => {
   assert.equal(onlyUninstaller.payloadRemoved, true);
   assert.deepEqual(onlyUninstaller.uninstallerOnly.sort(), ["Uninstall.exe", "uninstall.log"]);
   const upgrade = readFileSync(join(root, "scripts/verify-upgrade-uninstall.mjs"), "utf8");
+  const fresh = readFileSync(join(root, "scripts/verify-fresh-install-uninstall.mjs"), "utf8");
   assert.match(upgrade, /uninstallLeftoverNames/);
   assert.match(upgrade, /leftover: uninstallLeftoverNames/);
+  assert.match(fresh, /uninstallLeftoverNames/);
+  assert.match(fresh, /leftover: uninstallLeftoverNames/);
 });
 
 test("upgrade-uninstall evidence must not delete the whole INSTDIR to manufacture PASS", () => {
   const upgrade = readFileSync(join(root, "scripts/verify-upgrade-uninstall.mjs"), "utf8");
+  const fresh = readFileSync(join(root, "scripts/verify-fresh-install-uninstall.mjs"), "utf8");
   const helper = readFileSync(join(root, "scripts/lib/installed-app.mjs"), "utf8");
   assert.match(upgrade, /classifyUninstallResidue/);
   assert.doesNotMatch(upgrade, /removeTreeNoFollow\(app\)/);
+  assert.match(fresh, /classifyUninstallResidue/);
+  assert.doesNotMatch(fresh, /removeTreeNoFollow\(app\)/);
+  assert.match(fresh, /wholeInstdirDeletedToManufacturePass: false/);
   assert.match(helper, /classifyUninstallResidue/);
   const cleanup = helper.slice(helper.indexOf("export function cleanupRegisteredWindowsInstallerFixture"));
   assert.match(cleanup, /windowsFixtureUninstallFollowUp/);

@@ -1,6 +1,14 @@
 {
-  "schema": 1,
+  "schema": 2,
   "repository": "kevinchennewbee/PenglaiAgent",
+  "currentWorkflow": {
+    "fetchPreviousInstallers": false,
+    "requiredNativeUpgradePaths": [],
+    "olderInstalledUpgradeStatus": "OWNER_EXCLUDED",
+    "requiredLifecycleGate": "verify:fresh-install-uninstall",
+    "nativeUosStatus": "OWNER_POST_RELEASE",
+    "twoHourSoak": "OWNER_EXCLUDED"
+  },
   "sources": [
     {
       "version": "0.5.8",

@@ -2,6 +2,7 @@ import { PenglaiError } from "@penglai/contracts";
 import {
   CANDIDATE_KIND,
   HARD_SUBGATES,
+  OWNER_EXCLUDED_SUBGATES,
   REQUIRED_SUBGATE_KINDS,
 } from "./pins.js";
 import type { VerifierVerdict } from "./exit.js";
@@ -68,6 +69,7 @@ export const ARM64_DEFERRED_GATES = [
   "verify:profile",
   "verify:artifact",
   "verify:installed",
+  "verify:fresh-install-uninstall",
   "verify:public-export",
 ] as const;
 
@@ -134,6 +136,12 @@ export function evaluateReleaseAggregation(opts: {
       failReasons.push(`${r.name} illegal ${r.verdict}`);
     } else if (r.verdict === "FAIL" || (r.exit !== 0 && r.exit !== 2 && r.exit !== 3 && r.exit !== 4)) {
       failReasons.push(`${r.name} exit ${r.exit}`);
+    }
+  }
+  for (const excluded of OWNER_EXCLUDED_SUBGATES) {
+    const hit = opts.records.find((r) => r.name === excluded.name);
+    if (hit && (hit.verdict === "PASS" || hit.verdict === "WAIVED" || hit.verdict === "SKIP")) {
+      failReasons.push(`${excluded.name} claimed ${hit.verdict} while ${excluded.status}`);
     }
   }
 

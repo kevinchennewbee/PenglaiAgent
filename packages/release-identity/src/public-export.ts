@@ -179,6 +179,7 @@ export const REQUIRED_PUBLIC_DOCS = [
   "docs/0.6.0/UPGRADE_SOURCES.json",
   "docs/0.6.1/ACCEPTANCE_DELTA.md",
   "docs/0.6.1/UPGRADE_SOURCES.json",
+  "docs/0.6.1/NATIVE_LIFECYCLE.md",
 ] as const;
 
 export interface ExportFile {

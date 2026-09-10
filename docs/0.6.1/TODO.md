@@ -16,8 +16,14 @@ Status: source phase. `[x]` requires implementation plus captured evidence.
       catalog consumption.
 - [x] Deterministic source gates on the rc.1 graph (source unit/contract/e2e
       plus identity/contracts; live/native/UOS host remain later phases).
+- [x] Wire current 0.6.1 native lifecycle: fresh install/restart/default
+      uninstall as the hard `installed-lifecycle` gate; keep historical
+      upgrade verifier; do not fetch previous installers; record UOS native
+      as `OWNER_POST_RELEASE` without PASS.
 - [ ] Local candidate commit and representative Apple Silicon package.
-- [ ] Remaining manager phases: PR/main freeze, four-target natives,
-      immutable publication, public-byte readback. UOS native
+- [ ] Remaining manager phases: PR/main freeze, four-target natives
+      executing `verify:fresh-install-uninstall` on Mac/Windows, UOS
+      package/ABI, immutable publication, public-byte readback. UOS native
       install/startup/function is `OWNER_POST_RELEASE` (Owner tests the
-      published installer); not a 0.6.1 native PASS.
+      published installer); not a 0.6.1 native PASS. Old-version installed
+      upgrade remains `OWNER_EXCLUDED`.

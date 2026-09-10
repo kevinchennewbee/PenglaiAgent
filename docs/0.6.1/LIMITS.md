@@ -13,8 +13,10 @@ are `OWNER_POST_RELEASE`: the Owner will test the published installer.
 That is not a native PASS and not an unavailable-host waiver that skips
 the fourth artifact.
 
-Old-version installed upgrade acceptance is excluded. Fresh install,
-normal restart, and uninstall remain. No two-hour soak.
+Old-version installed upgrade acceptance is `OWNER_EXCLUDED`. The current
+workflow does not fetch previous installers and does not relabel unrun
+upgrades PASS. Fresh install, normal restart, and default uninstall remain
+the Mac/Windows native lifecycle gate. No two-hour soak.
 
 ## Office preview
 

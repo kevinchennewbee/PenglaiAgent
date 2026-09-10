@@ -24,8 +24,10 @@ import {
 } from "./stale.js";
 import { assertProductPathClean, assertUserCatalogAllowlist, historicalClassification } from "./product-path.js";
 import {
+  CURRENT_NATIVE_LIFECYCLE,
   GITHUB_ACTIONS_STATUS,
   HARD_SUBGATES,
+  OWNER_EXCLUDED_SUBGATES,
   PRODUCT_VERSION,
   REQUIRED_SUBGATE_KINDS,
   SUPPLEMENTAL_ACCEPTANCE_SUBGATES,
@@ -108,7 +110,16 @@ test("R50-TRUTH-007 / R50-E2E-008 aggregator lists all hard kinds and propagates
   assert.equal(listedSubgateNames().includes("verify:live"), false);
   assert.equal(listedSubgateNames().includes("verify:soak"), false);
   assert.equal(listedSubgateNames().includes("verify:evidence"), false);
-  assert.equal(listedSubgateNames().includes("verify:upgrade-uninstall"), true);
+  assert.equal(listedSubgateNames().includes("verify:fresh-install-uninstall"), true);
+  assert.equal(listedSubgateNames().includes("verify:upgrade-uninstall"), false);
+  assert.equal(CURRENT_NATIVE_LIFECYCLE.requiredGate, "verify:fresh-install-uninstall");
+  assert.equal(CURRENT_NATIVE_LIFECYCLE.olderInstalledUpgradeStatus, "OWNER_EXCLUDED");
+  assert.equal(CURRENT_NATIVE_LIFECYCLE.fetchPreviousInstallers, false);
+  assert.equal(CURRENT_NATIVE_LIFECYCLE.nativeUosStatus, "OWNER_POST_RELEASE");
+  assert.deepEqual(
+    OWNER_EXCLUDED_SUBGATES.map((gate) => gate.name),
+    ["verify:upgrade-uninstall"],
+  );
   assert.deepEqual(
     SUPPLEMENTAL_ACCEPTANCE_SUBGATES.map((gate) => gate.name),
     ["verify:live", "verify:evidence"],
@@ -165,6 +176,7 @@ test("R50-TRUTH-007 / R50-E2E-008 aggregator lists all hard kinds and propagates
   // but a domain PASS never masks an incomplete hard release gate.
   assert.equal(applicable.verdict, "PASS");
   assert.ok(applicable.deferred.includes("verify:installed"));
+  assert.ok(applicable.deferred.includes("verify:fresh-install-uninstall"));
   const masked = releaseVerdictFrom(applicable, {
     verdict: "INCOMPLETE",
     exitCode: EXIT_BY_VERDICT.INCOMPLETE,
@@ -215,6 +227,17 @@ test("INCOMPLETE exit contract is non-zero unless --report", () => {
   assert.equal(exitCodeForVerdict("STALE"), 3);
   assert.equal(exitCodeForVerdict("BLOCKED"), 4);
   assert.equal(exitCodeForVerdict("INCOMPLETE", true), 0);
+});
+
+test("OWNER_EXCLUDED older upgrade PASS cannot masquerade as current release evidence", () => {
+  const injectedUpgradePass = evaluateReleaseAggregation({
+    records: [
+      ...HARD_SUBGATES.map((gate) => ({ name: gate.name, exit: 0, verdict: "PASS" })),
+      { name: "verify:upgrade-uninstall", exit: 0, verdict: "PASS" },
+    ],
+  });
+  assert.equal(injectedUpgradePass.verdict, "FAIL");
+  assert.ok(injectedUpgradePass.failReasons.some((row) => row.includes("OWNER_EXCLUDED")));
 });
 
 test("community-verified cannot Waive missing notary into PASS", () => {

@@ -90,12 +90,10 @@ jobs:
             target: darwin-aarch64
             package: package:dmg:arm
             installer: Penglai_0.6.1_macos_aarch64.dmg
-            previous: Penglai_0.5.12_macos_aarch64.dmg
           - runner: macos-15-intel
             target: darwin-x86_64
             package: package:dmg:intel
             installer: Penglai_0.6.1_macos_x64.dmg
-            previous: Penglai_0.5.12_macos_x64.dmg
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 300
     steps:
@@ -171,16 +169,11 @@ jobs:
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
         run: pnpm verify:installed
-      - name: Download verified immutable published upgrade sources
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          node scripts/fetch-upgrade-sources.mjs --target "${{ matrix.target }}"
-      - name: Prove pinned native upgrade paths and default uninstall
+      - name: Prove fresh install, restart, and default uninstall
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
           PENGLAI_LIFECYCLE_ALLOW_NATIVE: "1"
-        run: pnpm verify:upgrade-uninstall
+        run: pnpm verify:fresh-install-uninstall
       - name: Upload installer and target evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -197,7 +190,7 @@ jobs:
             evidence/generated/verify-profile-${{ matrix.target }}.json
             evidence/generated/installed-e2e-${{ matrix.target }}.json
             evidence/generated/verify-installed-${{ matrix.target }}.json
-            evidence/generated/verify-upgrade-uninstall-${{ matrix.target }}.json
+            evidence/generated/verify-fresh-install-uninstall-${{ matrix.target }}.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json
             evidence/generated/u3-welcome-smoke-${{ matrix.target }}.json
@@ -354,18 +347,12 @@ jobs:
         env:
           PENGLAI_TARGET: win32-x86_64
         run: pnpm verify:installed
-      - name: Download verified immutable published upgrade sources
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          node scripts/fetch-upgrade-sources.mjs --target win32-x86_64
-      - name: Prove pinned native upgrade paths and default uninstall
+      - name: Prove fresh install, restart, and default uninstall
         shell: pwsh
         env:
           PENGLAI_TARGET: win32-x86_64
           PENGLAI_LIFECYCLE_ALLOW_NATIVE: "1"
-        run: pnpm verify:upgrade-uninstall
+        run: pnpm verify:fresh-install-uninstall
       - name: Upload installer and target evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -382,7 +369,7 @@ jobs:
             evidence/generated/verify-profile-win32-x86_64.json
             evidence/generated/installed-e2e-win32-x86_64.json
             evidence/generated/verify-installed-win32-x86_64.json
-            evidence/generated/verify-upgrade-uninstall-win32-x86_64.json
+            evidence/generated/verify-fresh-install-uninstall-win32-x86_64.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json
             evidence/generated/u3-welcome-smoke-win32-x86_64.json
@@ -430,8 +417,10 @@ jobs:
           PENGLAI_PACK_TARGET: linux-loong64
         run: |
           # Fail-closed: a missing old-world payload is not a packaged .deb.
-          # Native UOS install/startup/function remain OWNER_POST_RELEASE
+          # This job is packaging/ABI evidence only. Native UOS
+          # install/startup/function remain OWNER_POST_RELEASE
           # (Owner tests the published installer; not a native PASS).
+          # Do not run Mac/Windows fresh-install or historical upgrade gates here.
           pnpm stage:linux-loong64
           pnpm package:linux-deb -- --target linux-loong64
       - name: Upload linux-loong64 installer and packaging evidence
@@ -503,7 +492,7 @@ jobs:
           pnpm verify:native-set -- --command verify:signing
           pnpm verify:native-set -- --command verify:profile
           pnpm verify:installed -- --aggregate
-          pnpm verify:native-set -- --command verify:upgrade-uninstall
+          pnpm verify:native-set -- --command verify:fresh-install-uninstall
           pnpm aggregate:supply-chain
       - name: Verify source export and complete release aggregate
         run: |

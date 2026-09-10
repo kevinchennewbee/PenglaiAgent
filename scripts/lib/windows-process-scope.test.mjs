@@ -51,10 +51,12 @@ test("Windows process stop matches ExecutablePath under the target root only", (
 test("NSIS and upgrade verifier must not kill every Penglai.exe by image name", () => {
   const nsis = readFileSync(join(root, "scripts/nsis/Penglai.nsi"), "utf8");
   const upgrade = readFileSync(join(root, "scripts/verify-upgrade-uninstall.mjs"), "utf8");
+  const fresh = readFileSync(join(root, "scripts/verify-fresh-install-uninstall.mjs"), "utf8");
   const helper = readFileSync(join(root, "scripts/lib/installed-app.mjs"), "utf8");
   assert.deepEqual(nsisScopedStopContract(nsis), []);
   for (const [label, text] of [
     ["upgrade", upgrade],
+    ["fresh", fresh],
     ["helper", helper],
   ]) {
     assert.doesNotMatch(text, /\/IM\s+Penglai\.exe/i, label);

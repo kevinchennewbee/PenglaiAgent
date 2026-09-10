@@ -5,12 +5,14 @@ This delta is for Penglai **0.6.1**. It does not replace
 **v0.5.10**, **v0.5.11**, **v0.5.12**, and **v0.6.0** tags and assets stay
 immutable.
 
-Owner authorization: 2026-09-10. Codex is PM and GUI acceptance operator and
-independently accepts consequential evidence. Grok 4.6 xhigh owns product
-implementation, source technical review, and ordinary repair. This phase ends
-at READY_FOR_REVIEW of source plus a representative Apple Silicon package.
-Later manager-reviewed phases own PR/main freeze, the exact four-target native
-set, immutable publication, and public-byte readback.
+Owner authorization: 2026-09-10, reaffirmed for the full 0.6.1 publication
+workflow. Codex is PM and GUI acceptance operator and independently accepts
+consequential evidence. Grok 4.6 xhigh owns product implementation, source
+technical review, and ordinary repair. This worker phase ends at local source
+plus the current native-lifecycle contract. Later manager-reviewed phases own
+PR/main freeze, the exact four-target native set, immutable publication, and
+public-byte readback. Per-phase source-only limits are sequencing, not a new
+authorization question.
 
 Public README and website download tables remain on immutable `v0.6.0` until
 immutable `v0.6.1` GitHub Release bytes exist. Staged 0.6.1 public copy lives
@@ -34,10 +36,18 @@ in `docs/0.6.1/` and is not a public download claim.
 - Four targets remain `darwin-aarch64`, `darwin-x86_64`, `win32-x86_64`,
   `linux-loong64` UOS 20 old-world. Deterministic `test:soak` remains required.
   Two-hour installed soak remains excluded. Old-version installed upgrade
-  acceptance is excluded. UOS native install/startup/function is
-  `OWNER_POST_RELEASE`: Owner will test the published installer. The 0.6.0
-  UOS `OWNER_POST_RELEASE` record is not a 0.6.1 native PASS and is not a
-  blanket future exception. Four exact targets remain required.
+  acceptance is `OWNER_EXCLUDED`; the current workflow does not fetch previous
+  installers and must not relabel unrun upgrades PASS. Current Mac/Windows
+  native lifecycle is `verify:fresh-install-uninstall`: exact candidate
+  installer SHA, clean source SHA, isolated dedicated destination, fresh boot,
+  restart/resume, process cleanup, default NSIS/Mac uninstall, and independent
+  owner-data preservation. UOS native install/startup/function is
+  `OWNER_POST_RELEASE`: Owner will test the published installer. Package/ABI
+  evidence is distinct and still required. The 0.6.0 UOS `OWNER_POST_RELEASE`
+  record is not a 0.6.1 native PASS and is not a blanket future exception.
+  Four exact targets remain required. Credential-free wizard-to-API-boundary
+  evidence needs no personal account credentials; real provider-account
+  acceptance stays supplemental per `docs/ACCEPTANCE.md`.
 
 ## Out of scope for this source phase
 

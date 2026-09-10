@@ -5,11 +5,25 @@ import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 import { parseTargetArg } from "./lib/release-targets.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
+import { currentNativeLifecycleScope } from "./lib/native-upgrade-set.mjs";
 
+const pins = JSON.parse(readFileSync(join(ROOT, `docs/${PRODUCT_VERSION}/UPGRADE_SOURCES.json`), "utf8"));
+const scope = currentNativeLifecycleScope(pins);
+if (!scope.fetchPreviousInstallers && !process.argv.includes("--historical")) {
+  const rec = {
+    command: "fetch-upgrade-sources",
+    verdict: "INCOMPLETE",
+    reason: "current workflow does not fetch previous installers; older installed upgrade is OWNER_EXCLUDED",
+    olderInstalledUpgradeStatus: scope.olderInstalledUpgradeStatus,
+    requiredLifecycleGate: scope.requiredLifecycleGate,
+    fetchPreviousInstallers: false,
+  };
+  console.error(JSON.stringify(rec));
+  process.exit(2);
+}
 const target = parseTargetArg();
 const suffix = { "darwin-aarch64": "macos_aarch64.dmg", "darwin-x86_64": "macos_x64.dmg", "win32-x86_64": "windows_x64_setup.exe" }[target];
 if (!suffix) throw new Error("unsupported upgrade source target");
-const pins = JSON.parse(readFileSync(join(ROOT, `docs/${PRODUCT_VERSION}/UPGRADE_SOURCES.json`), "utf8"));
 for (const source of pins.sources) {
   const name = `Penglai_${source.version}_${suffix}`;
   const pinned = source.assets.find((asset) => asset.name === name);

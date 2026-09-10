@@ -57,10 +57,11 @@
 - Do not claim installed, native, live, Windows, Intel, notarized, Authenticode,
   or public-release evidence from source tests or cross-build output.
 - 0.6.1 identity, native and publication work lands through `codex/0.6.1`
-  onto later manager-reviewed `main` freeze. This source phase does not
-  create a PR, merge, tag, or public download claim. Do not change an
-  existing release tag/asset, publish preview bytes, or deploy a public
-  download claim before public bytes exist.
+  onto later manager-reviewed `main` freeze. The Owner authorized the full
+  0.6.1 workflow; per-phase source-only limits are sequencing. This worker
+  phase does not create a PR, merge, tag, or public download claim. Do not
+  change an existing release tag/asset, publish preview bytes, or deploy a
+  public download claim before public bytes exist.
 
 ## Verification and release
 
@@ -73,8 +74,10 @@
   profile, closure, clean-clone, Office-real, and Memory-real gates as applicable.
 - The onboarding wizard must never strand a user. Verify fresh install, restart,
   Back/retry, invalid folder rejection, credential failure recovery, first official
-  message, upgrade, and uninstall on Apple Silicon, Intel Mac, Windows x64, and
-  Loongson UnionTech UOS.
+  message, and default uninstall on Apple Silicon, Intel Mac, and Windows x64.
+  Old-version installed upgrade is `OWNER_EXCLUDED` for 0.6.1. UOS native
+  install/startup/function is `OWNER_POST_RELEASE` and must not be labeled PASS;
+  the UOS package/ABI/closure still require verification.
 - Native artifacts for all four targets must come from one clean `main` SHA.
   Follow the current version contract and acceptance delta; publish only the
   exact asset set in `release-contract.json`, then verify immutable public bytes.
@@ -129,10 +132,13 @@
 - 禁止提交 API Key、Token、私钥、个人路径、聊天媒体、本地配置或含隐私截图。
 - 源码测试不等于已安装、原生、在线、Windows、Intel、公证或公开发布证据。
 - 0.6.1 身份、原生与发布工作经 `codex/0.6.1` 进入后续 manager 审查的 `main`
-  冻结。本源码阶段不创建 PR、不合并、不打 tag、不部署公开下载声明；不得改写
-  既有发布 tag/附件，也不得在公网字节存在前部署 0.6.1 下载声明。
-- 四端安装引导必须完整验证全新安装、重启续跑、返回/重试、非法目录、凭据失败
-  恢复、首条官方消息、升级和卸载；四个安装包必须来自同一个干净 main SHA。
-  可行性备忘、交叉编译或三端集合不能冒充四端完成。
+  冻结。Owner 已授权完整 0.6.1 发布流程；分阶段源码限制只是排序。本 worker
+  阶段不创建 PR、不合并、不打 tag、不部署公开下载声明；不得改写既有发布
+  tag/附件，也不得在公网字节存在前部署 0.6.1 下载声明。
+- Mac/Windows 安装引导必须验证全新安装、重启续跑、返回/重试、非法目录、凭据
+  失败恢复、首条官方消息和默认卸载。0.6.1 排除旧版本已安装升级验收。UOS 真机
+  安装/启动/功能为 `OWNER_POST_RELEASE`，不得标 PASS；UOS 包/ABI/闭包仍须验证。
+  四个安装包必须来自同一个干净 main SHA。可行性备忘、交叉编译或三端集合不能
+  冒充四端完成。
 - 发布严格执行当前版本契约与验收增量，README、官网、发行说明与用户
   文档均为英文优先、中文随后，并如实写出限制。

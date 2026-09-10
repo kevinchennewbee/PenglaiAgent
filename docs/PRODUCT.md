@@ -31,7 +31,9 @@ interface. Published 0.5.10, 0.5.11, and 0.5.12 remain immutable.
 The app contains its target Electron, Node, DSH closure, profile seed, bundled
 plugins, licenses, and integrity metadata. It never falls back to a system Node,
 pnpm, Python, ffmpeg, or DSH installation. Every support claim requires a build
-and installed test on the matching native platform. UOS native
+and installed test on the matching native platform. Current 0.6.1 native
+lifecycle is fresh install, restart, and default uninstall on Mac/Windows.
+Old-version installed upgrade is `OWNER_EXCLUDED`. UOS native
 install/startup/function for 0.6.1 is `OWNER_POST_RELEASE`: the Owner tests
 the published installer. That is not a native PASS.
 
@@ -194,7 +196,9 @@ v0.6.1 附件回读前保持已发布的 0.6.0。0.6.1 开发树消费官方 DSH
 （279 包），目标为 Apple 芯片、Intel Mac、Windows x64，以及统信 UOS 20
 `linux-loong64`（`Penglai_0.6.1_uos_loong64.deb`）。用户自备模型密钥，
 选择 official 模型和 Workspace，收到第一条真实 DSH 回复后进入 official
-DSH Web。已发布的 0.5.10、0.5.11 与 0.5.12 保持不可变。
+DSH Web。0.6.1 当前原生生命周期是 Mac/Windows 全新安装、重启与默认卸载；
+旧版本已安装升级为 `OWNER_EXCLUDED`。UOS 真机安装/启动/功能为
+`OWNER_POST_RELEASE`。已发布的 0.5.10、0.5.11 与 0.5.12 保持不可变。
 
 ### 2. 全新安装
 

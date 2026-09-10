@@ -20,7 +20,9 @@ default-on. Optional plugins stay default-off.
 - Session list follows rc.1: one list of all visible sessions; `nextCursor` is
   not a public list seam. Cold-session inspect recovery remains.
 - Four packaged targets remain Apple Silicon, Intel Mac, Windows x64, and
-  UnionTech UOS 20 LoongArch. UOS native install/startup/function for 0.6.1 is
+  UnionTech UOS 20 LoongArch. Current native lifecycle is fresh install,
+  restart, and default uninstall on Mac/Windows. Old-version installed upgrade
+  is not a 0.6.1 acceptance gate. UOS native install/startup/function for 0.6.1 is
   `OWNER_POST_RELEASE`: the Owner will test the published installer. The 0.6.0
   `OWNER_POST_RELEASE` record is not a 0.6.1 PASS.
 - Official generic right-sidebar preview is plain text for DOCX and may report
@@ -29,4 +31,4 @@ default-on. Optional plugins stay default-off.
 
 ## 中文
 
-这不是公开下载声明。公开下载仍是不可变 [`v0.6.0`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0)，直到 `v0.6.1` GitHub Release 字节存在。0.6.1 源码使用官方 DSH `0.1.5-rc.1`（279 包）。办公和记忆默认开启。UOS 真机安装/启动/功能为 `OWNER_POST_RELEASE`，由 Owner 在发布后测试安装包。官方通用侧栏对 DOCX 只提供纯文本预览。
+这不是公开下载声明。公开下载仍是不可变 [`v0.6.0`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0)，直到 `v0.6.1` GitHub Release 字节存在。0.6.1 源码使用官方 DSH `0.1.5-rc.1`（279 包）。办公和记忆默认开启。当前原生生命周期是 Mac/Windows 全新安装、重启与默认卸载；旧版本已安装升级不是 0.6.1 验收门。UOS 真机安装/启动/功能为 `OWNER_POST_RELEASE`，由 Owner 在发布后测试安装包。官方通用侧栏对 DOCX 只提供纯文本预览。
