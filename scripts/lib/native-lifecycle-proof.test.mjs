@@ -41,7 +41,7 @@ test("NSIS default INSTDIR and fresh Windows fixture path stay the same contract
   assert.ok(windowsFreshLifecyclePathContract({ nsis, freshGate: customFresh, helper, proofHelper }).length > 0);
 });
 
-test("forced SIGKILL from stopChild is not a graceful application shutdown", async (context) => {
+test("forced stopChild termination is not a graceful application shutdown", async (context) => {
   const child = spawn(process.execPath, ["-e", 'process.on("SIGTERM",()=>{});process.stdout.write("READY\\n");setInterval(()=>{},1000);'], {
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -57,32 +57,60 @@ test("forced SIGKILL from stopChild is not a graceful application shutdown", asy
     child.once("error", reject);
   });
   const observed = await observeStopChild(child, 50);
-  assert.equal(observed.signal, "SIGKILL");
+  const windowsHost = process.platform === "win32";
   assert.equal(observed.forced, true);
-  assert.equal(observed.method, "sigkill");
-  const classified = classifyApplicationShutdown(
-    {
-      graceful: true,
-      forced: observed.forced,
-      requestedClose: true,
-      method: "posix-sigterm",
-      exitCode: observed.code,
-      signal: observed.signal,
-    },
-    "darwin-aarch64",
+  if (windowsHost) {
+    assert.ok(observed.method === "node-sigterm-windows" || observed.method === "taskkill-force");
+  } else {
+    assert.equal(observed.signal, "SIGKILL");
+    assert.equal(observed.method, "sigkill");
+  }
+  const liveTarget = windowsHost ? "win32-x86_64" : "darwin-aarch64";
+  assert.equal(
+    classifyApplicationShutdown(
+      {
+        graceful: true,
+        forced: observed.forced,
+        requestedClose: true,
+        method: observed.method,
+        exitCode: observed.code,
+        signal: observed.signal,
+      },
+      liveTarget,
+    ).graceful,
+    false,
   );
-  assert.equal(classified.graceful, false);
+  if (!windowsHost) {
+    assert.equal(
+      classifyApplicationShutdown(
+        {
+          graceful: true,
+          forced: observed.forced,
+          requestedClose: true,
+          method: "posix-sigterm",
+          exitCode: observed.code,
+          signal: observed.signal,
+        },
+        "darwin-aarch64",
+      ).graceful,
+      false,
+    );
+  }
   const receipt = {
     schema: FRESH_LIFECYCLE_SCHEMA,
     command: "verify:fresh-install-uninstall",
     kind: "installed-lifecycle",
     scope: "fresh-install-restart-default-uninstall",
     verdict: "PASS",
-    target: "darwin-aarch64",
+    target: liveTarget,
     sourceSha: "a".repeat(40),
-    installer: "Penglai_0.6.1_macos_aarch64.dmg",
+    installer: windowsHost ? "Penglai_0.6.1_windows_x64_setup.exe" : "Penglai_0.6.1_macos_aarch64.dmg",
     installerSha256: "b".repeat(64),
-    host: { platform: "darwin", arch: "arm64" },
+    host: windowsHost ? { platform: "win32", arch: "x64" } : { platform: "darwin", arch: "arm64" },
+    destination: windowsHost ? "C:\\Users\\runner\\AppData\\Local\\Penglai\\app\\0.5" : "/tmp/Penglai.app",
+    windowsInstall: windowsHost
+      ? { path: "C:\\Users\\runner\\AppData\\Local\\Penglai\\app\\0.5", customDestination: false, payloadDeletedByHarness: false }
+      : undefined,
     boot: {
       freshReadiness: true,
       profileIdentity: { inventorySha256: "e".repeat(64), dshHomePresent: true },
@@ -90,7 +118,7 @@ test("forced SIGKILL from stopChild is not a graceful application shutdown", asy
         graceful: true,
         forced: observed.forced,
         requestedClose: true,
-        method: "posix-sigterm",
+        method: windowsHost ? observed.method : "posix-sigterm",
         exitCode: observed.code,
         signal: observed.signal,
       },
@@ -103,20 +131,24 @@ test("forced SIGKILL from stopChild is not a graceful application shutdown", asy
         graceful: true,
         forced: false,
         requestedClose: true,
-        method: "posix-sigterm",
+        method: windowsHost ? "windows-wm-close" : "posix-sigterm",
         exitCode: 0,
         signal: null,
       },
     },
     processCleanup: { afterBoot: true, afterRestart: true, afterUninstall: true },
-    uninstall: { method: "dedicated-app-removal", uninstallRemovedApp: true, wholeInstdirDeletedToManufacturePass: false },
+    uninstall: {
+      method: windowsHost ? "nsis-uninstaller" : "dedicated-app-removal",
+      uninstallRemovedApp: true,
+      wholeInstdirDeletedToManufacturePass: false,
+    },
     ownerData: {
       sentinelPreservedAfterBoot: true,
       sentinelPreservedAfterRestart: true,
       sentinelPreservedAfterUninstall: true,
       sentinelUnchanged: true,
       sentinelSha256: "c".repeat(64),
-      scope: "task-created-user-data",
+      scope: windowsHost ? "localappdata-penglai-0.5-excluding-update-cache" : "task-created-user-data",
     },
   };
   const expected = { sourceSha: receipt.sourceSha, installerSha256: receipt.installerSha256, target: receipt.target };

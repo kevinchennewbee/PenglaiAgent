@@ -127,6 +127,8 @@ jobs:
           cp evidence/generated/licenses.json evidence/generated/licenses-${{ matrix.target }}.json
           cp evidence/generated/sbom.json evidence/generated/sbom-${{ matrix.target }}.json
           cp evidence/generated/THIRD_PARTY_NOTICES.txt evidence/generated/THIRD_PARTY_NOTICES-${{ matrix.target }}.txt
+      - name: Fetch and verify the pinned native Mnemon binary
+        run: pnpm fetch:mnemon-assets
       - name: Source and onboarding regression gates
         shell: bash
         run: |
@@ -134,8 +136,6 @@ jobs:
           pnpm test:contract
           pnpm test:security
           pnpm verify:contracts
-      - name: Fetch and verify the pinned native Mnemon binary
-        run: pnpm fetch:mnemon-assets
       - name: Build exact native installer
         run: pnpm ${{ matrix.package }}
       - name: Verify native closure, artifact, fuses, and signing contract
@@ -292,6 +292,8 @@ jobs:
         run: |
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           pnpm build:windows-host
+      - name: Fetch and verify the pinned native Mnemon binary
+        run: pnpm fetch:mnemon-assets
       - name: Source and onboarding regression gates
         shell: bash
         run: |
@@ -299,8 +301,6 @@ jobs:
           pnpm test:contract
           pnpm test:security
           pnpm verify:contracts
-      - name: Fetch and verify the pinned native Mnemon binary
-        run: pnpm fetch:mnemon-assets
       - name: Build exact native installer with MSVC
         shell: cmd
         run: |
