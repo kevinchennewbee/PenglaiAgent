@@ -119,6 +119,8 @@ jobs:
           pnpm build:windows-host
       - name: Fetch and verify the pinned native Mnemon binary
         run: pnpm fetch:mnemon-assets
+      - name: Build source from the clean checkout
+        run: pnpm build
       - name: Focused Windows native regression files
         shell: bash
         run: |
