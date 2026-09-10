@@ -4,12 +4,11 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { FIXTURE_MARKER } from "../../../scripts/lib/secret-scan.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 function productAdmZipCall(text: string): boolean {
-  return /(?:from\s+['"]adm-zip['"]|require\(\s*['"]adm-zip['"]\s*\)|import\(\s*['"]adm-zip['"]\s*\))/.test(
+  return /(?:from\s+['"]adm-zip['"]|require\s*\(\s*['"]adm-zip['"]\s*\)|import\s*\(\s*['"]adm-zip['"]\s*\)|import\s+['"]adm-zip['"])/.test(
     text,
   );
 }
@@ -23,7 +22,7 @@ function isTestOrFixtureSource(relative: string): boolean {
 
 function productionAdmZipCall(relative: string, text: string): boolean {
   if (isTestOrFixtureSource(relative)) return false;
-  return text.split(/\r?\n/).some((line) => !FIXTURE_MARKER.test(line) && productAdmZipCall(line));
+  return productAdmZipCall(text);
 }
 
 test("adm-zip call detection keeps product and build sources and ignores tests/fixtures", () => {
@@ -47,9 +46,38 @@ test("adm-zip call detection keeps product and build sources and ignores tests/f
   assert.equal(productionAdmZipCall("scripts/lib/secret-scan.test.mjs", requireCall), false);
   assert.equal(productionAdmZipCall("packages/runtime/testdata/probe.ts", requireCall), false);
   assert.equal(
-    productionAdmZipCall("packages/moss-tts/src/engine.ts", `${requireCall}; // penglai-test-fixture`),
+    productionAdmZipCall("packages/moss-tts/src/onnx-install-boundary.test.ts", requireCall),
     false,
   );
+});
+
+test("adm-zip detector matches multiline and common product import forms", () => {
+  const multilineRequire = 'const zip = require(\n  "adm-zip"\n);';
+  const multilineDynamic = 'const zip = await import(\n "adm-zip"\n);';
+  const markedProduct = 'const zip = require("adm-zip"); // penglai-test-fixture';
+
+  assert.equal(productAdmZipCall(multilineRequire), true);
+  assert.equal(productAdmZipCall(multilineDynamic), true);
+  assert.equal(productAdmZipCall(markedProduct), true);
+  assert.equal(productionAdmZipCall("packages/moss-tts/src/engine.ts", multilineRequire), true);
+  assert.equal(productionAdmZipCall("scripts/pack-plugins.mjs", multilineDynamic), true);
+  assert.equal(productionAdmZipCall("packages/moss-tts/src/engine.ts", markedProduct), true);
+
+  assert.equal(productAdmZipCall('import "adm-zip"'), true);
+  assert.equal(productAdmZipCall("import 'adm-zip'"), true);
+  assert.equal(productAdmZipCall('import * as zip from "adm-zip"'), true);
+  assert.equal(productAdmZipCall("import zip from 'adm-zip'"), true);
+  assert.equal(productAdmZipCall('const zip = require ( "adm-zip" )'), true);
+  assert.equal(productAdmZipCall("const zip = require('adm-zip')"), true);
+  assert.equal(productAdmZipCall('const zip = await import ( "adm-zip" )'), true);
+
+  assert.equal(
+    productionAdmZipCall("packages/moss-tts/src/onnx-install-boundary.test.ts", multilineRequire),
+    false,
+  );
+  assert.equal(productionAdmZipCall("packages/moss-tts/src/engine.test.ts", multilineDynamic), false);
+  assert.equal(productionAdmZipCall("packages/runtime/testdata/probe.ts", markedProduct), false);
+  assert.equal(productionAdmZipCall("packages/office/fixtures/sample.js", 'import "adm-zip"'), false);
 });
 
 test("adm-zip destination-symlink extraction is not a product or authorized-build call path", () => {
