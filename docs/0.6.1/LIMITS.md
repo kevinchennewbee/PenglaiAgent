@@ -25,6 +25,13 @@ DOCX and reports a non-text file. Structured Office inspect/preview and
 the saved Office bytes remain the product path. This is not a universal
 OOXML visual renderer.
 
+## Workspace directory chooser
+
+Penglai does not use the Darwin `osascript choose folder` native backend for
+Add workspace or new-conversation workspace selection. That dialog is owned by
+a DSH Node child, not Penglai.app. The product overlay pins official in-app
+browse. Actual GUI acceptance of the browse dialog remains manager-owned.
+
 ## Windows supervisor identity
 
 Windows snapshot `dshPid` versus supervisor identity is a later native
