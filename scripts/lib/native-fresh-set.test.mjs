@@ -311,3 +311,32 @@ test("current 0.6.1 native workflow does not fetch previous installers", () => {
   assert.match(fetch.stderr, /OWNER_EXCLUDED/);
   assert.doesNotMatch(fetch.stderr, /"verdict":"PASS"/);
 });
+
+function nativeWorkflowJob(text, name) {
+  const jobsAt = text.indexOf("\njobs:\n");
+  assert.ok(jobsAt >= 0, "native workflow is missing jobs");
+  const jobs = text.slice(jobsAt);
+  const matches = [...jobs.matchAll(/^  ([A-Za-z0-9_-]+):/gm)];
+  const index = matches.findIndex((row) => row[1] === name);
+  assert.ok(index >= 0, `missing native job ${name}`);
+  const start = matches[index].index;
+  const end = index + 1 < matches.length ? matches[index + 1].index : jobs.length;
+  return jobs.slice(start, end);
+}
+
+test("native Mac and Windows jobs fetch pinned Mnemon before source unit gates", () => {
+  const workflow = readFileSync(join(ROOT, ".github/workflows/native-release-candidate.yml"), "utf8");
+  const scripts = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).scripts;
+  assert.match(String(scripts["fetch:mnemon-assets"]), /--host-only/);
+  assert.match(String(scripts["test:unit"]), /packages\/memory\/src\/\*\.test\.ts/);
+  for (const job of ["macos", "windows"]) {
+    const body = nativeWorkflowJob(workflow, job);
+    const fetchAt = body.search(/pnpm fetch:mnemon-assets\b/);
+    const unitAt = body.search(/pnpm test:unit\b/);
+    assert.ok(fetchAt >= 0, `${job} must fetch the pinned native Mnemon binary`);
+    assert.ok(unitAt >= 0, `${job} must run test:unit`);
+    assert.ok(fetchAt < unitAt, `${job} must fetch pinned Mnemon before test:unit`);
+    assert.equal((body.match(/pnpm fetch:mnemon-assets\b/g) ?? []).length, 1);
+  }
+  assert.doesNotMatch(workflow, /fetch-upgrade-sources/);
+});
