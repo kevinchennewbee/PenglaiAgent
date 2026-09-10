@@ -365,6 +365,23 @@ export async function persistAppearanceToOfficialSettings(
   return true;
 }
 
+/** Read the locale/theme completeAppearance persisted through official settings. */
+export function readAppearanceFromOfficialSettings(
+  described: ReadonlyArray<{ ns?: string; value?: unknown }> | undefined,
+): { locale?: "zh" | "en"; theme?: "light" | "dark" | "system" } {
+  if (!Array.isArray(described)) return {};
+  const preference = (ns: string): unknown => {
+    const rec = asRecord(described.find((item) => item?.ns === ns)?.value);
+    return rec?.[OFFICIAL_SETTINGS_PREFERENCE_FIELD];
+  };
+  const locale = preference(OFFICIAL_LOCALE_SETTINGS_NS);
+  const theme = preference(OFFICIAL_THEME_SETTINGS_NS);
+  return {
+    ...(locale === "zh" || locale === "en" ? { locale } : {}),
+    ...(theme === "light" || theme === "dark" || theme === "system" ? { theme } : {}),
+  };
+}
+
 export async function persistWelcomeAckToOfficialSettings(ctx: OfficialUsableCtx): Promise<boolean> {
   if (!ctx.settings?.mutate) return false;
   await ctx.settings.mutate(OFFICIAL_WELCOME_SETTINGS_NS, [
@@ -654,6 +671,8 @@ export interface OnboardingHost {
     catalogError?: string;
     selection?: { provider: string; model: string };
     workspaceId?: string;
+    locale?: "zh" | "en";
+    theme?: "light" | "dark" | "system";
   };
   advance(id: OnboardingStepId, evidence?: StepEvidence): OnboardingState;
   rewind(id: ReconfigurableOnboardingStep): OnboardingState;

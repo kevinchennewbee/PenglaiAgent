@@ -16,6 +16,7 @@ import {
   persistAppearanceToOfficialSettings,
   persistOfficialDefaultModel,
   persistWelcomeAckToOfficialSettings,
+  readAppearanceFromOfficialSettings,
   runOfficialNonceTurn,
   runOfficialFirstConversation,
   onboardingApiTestCwd,
@@ -90,6 +91,17 @@ export function createPenglaiOnboardingRemoteImpl(opts: {
   };
   return {
     ...host,
+    status() {
+      const base = host.status();
+      try {
+        return {
+          ...base,
+          ...readAppearanceFromOfficialSettings(opts.agents?.settings?.describe?.()),
+        };
+      } catch {
+        return base;
+      }
+    },
     rewindOnboarding(input) {
       return host.rewind(input.step);
     },
