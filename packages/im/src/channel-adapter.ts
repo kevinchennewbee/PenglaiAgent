@@ -81,6 +81,7 @@ export interface ChannelAdapter {
   onInbound(handler: (event: InboundChannelEvent) => void | Promise<void>): void;
   capabilityEvidence(): ChannelManifestV1["capabilityEvidence"];
   peekQr?(operationId: string): { verificationUrl?: string; qrPayload?: string; qrImageRef?: string; expiresAt?: number } | undefined;
+  inspectPermissions?(): Promise<{ platform: string; database: string; automation: string }>;
   react?(input: {
     vendorTarget: string;
     vendorMessageId: string;

@@ -38,7 +38,10 @@ interface AlphaSessionEvent {
 }
 
 interface AlphaSessionController {
-  list(request: { cursor?: string }, signal: AbortSignal): Promise<{ items: readonly AlphaSessionSummary[] }>;
+  /** Official SessionListRequest.cursor is reserved; list returns every visible row. */
+  list(request: { cursor?: string }, signal: AbortSignal): Promise<{
+    items: readonly AlphaSessionSummary[];
+  }>;
   create(request: { workspaceId?: string; cwd?: string; sessionId?: string; agentPreset?: string }): Promise<{ sessionId: string }>;
   inspect(sessionId: string, signal?: AbortSignal): Promise<{ events: readonly AlphaSessionEvent[] }>;
   modelCatalog(): Promise<{
@@ -127,6 +130,30 @@ function requiredController(ctx: Alpha2CordisLike): AlphaSessionController {
   return ctx.sessionController;
 }
 
+function isSessionNotFound(error: unknown): boolean {
+  const err = error && typeof error === "object" ? (error as { name?: unknown; message?: unknown }) : undefined;
+  return err?.name === "ApiSessionNotFound" || /session ".*?" not found/i.test(String(err?.message ?? error ?? ""));
+}
+
+async function listOfficialSessions(
+  controller: AlphaSessionController,
+): Promise<{ items: AlphaSessionSummary[]; projectionError?: unknown }> {
+  try {
+    const result = await controller.list({}, new AbortController().signal);
+    const items: AlphaSessionSummary[] = [];
+    const seenIds = new Set<string>();
+    for (const item of result.items ?? []) {
+      if (!item?.sessionId || seenIds.has(item.sessionId)) continue;
+      seenIds.add(item.sessionId);
+      items.push(item);
+    }
+    return { items };
+  } catch (error) {
+    if (error instanceof PenglaiError) throw error;
+    return { items: [], projectionError: error };
+  }
+}
+
 export function hostFromAlpha2Cordis(ctx: Alpha2CordisLike, version: string): DshHost {
   const handles = new Map<string, { agent?: DshAgentLike; dispose?: () => Promise<void> }>();
   return {
@@ -160,15 +187,32 @@ export function hostFromAlpha2Cordis(ctx: Alpha2CordisLike, version: string): Ds
       }));
     },
     async listSessions() {
-      const controller = requiredController(ctx);
-      const result = await controller.list({}, new AbortController().signal);
-      return result.items.map((item) => {
+      const listed = await listOfficialSessions(requiredController(ctx));
+      if (listed.projectionError && listed.items.length === 0) {
+        throw new PenglaiError("DSH_UNAVAILABLE", "official session list projection failed");
+      }
+      return listed.items.map((item) => {
         const projected = item.projections?.values?.title;
         return {
           id: item.sessionId,
           ...(typeof projected === "string" ? { title: projected } : {}),
         };
       });
+    },
+    async inspectSession(sessionId: string) {
+      const controller = requiredController(ctx);
+      try {
+        const inspected = await controller.inspect(sessionId, new AbortController().signal);
+        return { events: inspected.events ?? [] };
+      } catch (error) {
+        if (isSessionNotFound(error)) return undefined;
+        if (isSessionAlreadyOwned(error)) {
+          const live = ctx.agents?.get(sessionId) as DshAgentLike | undefined;
+          if (live?.session) return { events: [...live.session.snapshotEvents()] };
+          throw new PenglaiError("DSH_UNAVAILABLE", "session is already owned by another handle");
+        }
+        throw error;
+      }
     },
     async createSession(workspaceIdentity: string, title?: string) {
       const controller = requiredController(ctx);
@@ -178,28 +222,42 @@ export function hostFromAlpha2Cordis(ctx: Alpha2CordisLike, version: string): Ds
     },
     async describeSessionModels(sessionId: string) {
       const controller = requiredController(ctx);
-      const [catalog, listed] = await Promise.all([
-        controller.modelCatalog(),
-        controller.list({}, new AbortController().signal),
-      ]);
-      const summary = listed.items.find((item) => item.sessionId === sessionId);
+      const catalog = await controller.modelCatalog();
+      const groups = catalog.groups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        models: group.models.map((entry) => ({ id: entry.id, name: entry.name })),
+      }));
+      const directory = (current: DshModelSelection, sessionExists: boolean, routable: boolean) => ({
+        current,
+        routable,
+        sessionExists,
+        groups,
+      });
+      const listed = await listOfficialSessions(controller);
+      if (listed.projectionError && listed.items.length === 0) {
+        throw new PenglaiError("DSH_UNAVAILABLE", "official session list projection failed");
+      }
+      let summary = listed.items.find((item) => item.sessionId === sessionId);
+      if (!summary) {
+        try {
+          await controller.inspect(sessionId, new AbortController().signal);
+        } catch (error) {
+          if (isSessionNotFound(error)) {
+            return directory(catalog.default, false, false);
+          }
+          throw new PenglaiError("DSH_UNAVAILABLE", "official session inspect failed while proving existence");
+        }
+      }
       const projection = summary?.projections?.values?.modelSelection;
       const projected = projection && typeof projection === "object"
         ? modelSelection((projection as Record<string, unknown>).next)
           ?? modelSelection((projection as Record<string, unknown>).lastUsed)
         : undefined;
       const current = projected ?? catalog.default;
-      const groups = catalog.groups.map((group) => ({
-        id: group.id,
-        name: group.name,
-        models: group.models.map((entry) => ({ id: entry.id, name: entry.name })),
-      }));
-      return {
-        current,
-        routable: catalog.routableProviders.includes(current.provider) &&
-          groups.some((group) => group.id === current.provider && group.models.some((entry) => entry.id === current.model)),
-        groups,
-      };
+      const routable = catalog.routableProviders.includes(current.provider) &&
+        groups.some((group) => group.id === current.provider && group.models.some((entry) => entry.id === current.model));
+      return directory(current, true, routable);
     },
     async selectSessionModel(sessionId, selection) {
       const result = await requiredController(ctx).selectModel({ sessionId, ...selection });

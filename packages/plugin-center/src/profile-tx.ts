@@ -21,6 +21,7 @@ import {
   extractTarGz,
   inspectTarGz,
   sha256File,
+  writeInstalledOverlay,
   type PluginCatalogEntry,
 } from "@penglai/runtime/plugin-host";
 import {
@@ -721,6 +722,11 @@ export async function runProfileTransaction(opts: {
       );
       rmSync(scoped, { recursive: true, force: true });
       copyDir(packageRoot, scoped);
+      writeInstalledOverlay(scoped, {
+        version: opts.entry.version,
+        sha256: opts.entry.sha256,
+        dshExact: opts.entry.dsh.exact,
+      });
       await verifyExtractedPackage(scoped, opts.entry, true, archiveFiles);
     } else if (opts.action === "enable") {
       const packageFile = join(opts.pluginsDir, opts.entry.packageFile);

@@ -1,6 +1,6 @@
 {
   "name": "@penglai/contracts",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "type": "module",
   "exports": {
@@ -10,11 +10,11 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/dsh-typert-protocol": "0.1.5-alpha.1"
+    "@deepseek-ai/dsh-typert-protocol": "0.1.5-rc.1"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.2",
-    "@deepseek-ai/dsh-api-gateway": "0.1.5-alpha.1",
-    "@deepseek-ai/dsh-typert-registry": "0.1.5-alpha.1"
+    "@deepseek-ai/dsh-api-gateway": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-typert-registry": "0.1.5-rc.1"
   }
 }

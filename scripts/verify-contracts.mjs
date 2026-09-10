@@ -29,7 +29,7 @@ if (publishedCohort.version !== "0.1.3-alpha.2" || publishedCohort.rootTarballSh
   console.error("published 0.5.12 DSH npm cohort must stay the immutable 0.1.3-alpha.2 identity");
   process.exit(1);
 }
-const cohortBytes = readFileSync(join(ROOT, "docs/0.6.0/DSH_NPM_COHORT.json"));
+const cohortBytes = readFileSync(join(ROOT, "docs/0.6.1/DSH_NPM_COHORT.json"));
 const cohort = JSON.parse(cohortBytes.toString("utf8"));
 if (
   cohort.version !== PINNED_DSH ||
@@ -37,7 +37,7 @@ if (
   cohort.rootTarballSha256 !== PINNED_DSH_TARBALL_SHA256 ||
   createHash("sha256").update(cohortBytes).digest("hex") !== PINNED_DSH_CLOSURE_MANIFEST_SHA256
 ) {
-  console.error("0.6.0 DSH npm cohort is missing the current source or registry identity");
+  console.error("0.6.1 DSH npm cohort is missing the current source or registry identity");
   process.exit(1);
 }
 const historicalAdr = readFileSync(join(ROOT, "docs/adr/0033-dsh-011-rc1-three-targets.md"), "utf8");
@@ -105,6 +105,15 @@ try {
   contractMod.assertReleaseContract(readJson("release-contract.json"));
 } catch (err) {
   console.error("release-contract invalid", err);
+  process.exit(1);
+}
+const dshWorkflowMod = await import(
+  pathToFileURL(join(ROOT, "packages/release-identity/src/dsh-workflow-checkout.ts")).href,
+);
+try {
+  dshWorkflowMod.assertActiveOfficialDshWorkflowCheckouts(ROOT);
+} catch (err) {
+  console.error("official DSH workflow checkout drifted from the current source contract", err);
   process.exit(1);
 }
 const deployWorkflow = readFileSync(join(ROOT, ".github/workflows/deploy-website.yml"), "utf8");

@@ -42,6 +42,7 @@ import {
   nativeBlocked,
   parseTargetArg,
 } from "./lib/release-targets.mjs";
+import { currentNativeLifecycleScope, expectedUpgradeSourceVersions } from "./lib/native-upgrade-set.mjs";
 
 const versionIndex = process.argv.indexOf("--previous-version");
 const previousVersion = versionIndex < 0 ? undefined : process.argv[versionIndex + 1];
@@ -230,6 +231,23 @@ if (!source.ok) {
   });
 }
 const target = parseTargetArg();
+if (!previousVersion) {
+  const scope = currentNativeLifecycleScope(upgradeSources);
+  if (scope.olderInstalledUpgradeStatus === "OWNER_EXCLUDED") {
+    finish("INCOMPLETE", {
+      command: "verify:upgrade-uninstall",
+      reason: "older installed upgrade is OWNER_EXCLUDED for this version; unrun upgrade paths are not PASS",
+      target,
+      sourceSha: source.git.head,
+      olderInstalledUpgradeStatus: "OWNER_EXCLUDED",
+      requiredLifecycleGate: scope.requiredLifecycleGate,
+      fetchPreviousInstallers: scope.fetchPreviousInstallers,
+      previousVersions: expectedUpgradeSourceVersions(upgradeSources),
+      upgradePaths: [],
+      claimedPass: false,
+    });
+  }
+}
 const blocked = nativeBlocked("verify:upgrade-uninstall", target);
 if (blocked) finish("BLOCKED", { command: "verify:upgrade-uninstall", ...blocked });
 if (!hostMatchesTarget(target)) fail("upgrade/uninstall must run on its matching native host");

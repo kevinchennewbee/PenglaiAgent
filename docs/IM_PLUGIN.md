@@ -1,10 +1,12 @@
 # `@penglai/im` 完整产品与协议合同
 
-> 0.5.12 用户只看到一个「消息连接」插件。0.6.0 development pins official DSH `0.1.5-alpha.1`. 八个平台都有真实连接入口，不再把新增渠道
-> 显示为路线图。manifest 的 `live` 是历史兼容字段，表示 0.5.10 包含真实 adapter
+> 0.5.12 用户只看到一个「消息连接」插件。0.6.1 development pins official DSH `0.1.5-rc.1`. 既有八个平台都有真实连接入口，不再把新增渠道
+> 显示为路线图。0.6.1 另增加可选 Darwin-only iMessage 私聊文本入口，默认关闭，
+> Windows/UOS 为不支持。manifest 的 `live` 是历史兼容字段，表示 0.5.10 包含真实 adapter
 > 实现，不表示当前用户已启用或已通过 live-account 验收。没有
 > 对应 live evidence 时，不得把该平台写入 README/官网/Release 的“全部支持”
-> 声明，也不得把图片/文件/音频/Markdown/线程/群聊标为 `true`。Slack、Telegram、
+> 声明，也不得把图片/文件/音频/Markdown/线程/群聊标为 `true`。iMessage native/live
+> 记 `LIVE_NOT_RUN`。Slack、Telegram、
 > Discord 禁止伪装扫码。WhatsApp 在 0.5.10 中不展示、不支持、不列为规划，也不捆绑
 > 运行时。下文微信/
 > 飞书合同继续约束已有 live 路径；新渠道只有通过 adapter、health、send-reject
@@ -29,7 +31,7 @@
 
 ## 3. UI 结构
 
-UI 通过 official DSH Web 的设置 section 提供消息连接页面，不另建窗口或第二套设置引擎。`@penglai/im` 使用 official `settings.section` 与保留的 `penglai-*` section id 注册自己的页面；固定的 DSH `0.1.5-alpha.1` 使用未经修改的官方 npm 字节，页面通过官方 client slots、connection generation 与 typed Remote 组合，不再应用旧版 settings renderer overlay。停用 IM 只移除 active 页面与相关 host 资源，不影响 DSH 或其他蓬莱插件。首次启用后，Center 明示状态并应用内 reload client roster，随后子菜单出现“消息连接”，其微信/飞书页只提供厂商真实支持的连接流程。
+UI 通过 official DSH Web 的设置 section 提供消息连接页面，不另建窗口或第二套设置引擎。`@penglai/im` 使用 official `settings.section` 与保留的 `penglai-*` section id 注册自己的页面；固定的 DSH `0.1.5-rc.1` 使用未经修改的官方 npm 字节，页面通过官方 client slots、connection generation 与 typed Remote 组合，不再应用旧版 settings renderer overlay。停用 IM 只移除 active 页面与相关 host 资源，不影响 DSH 或其他蓬莱插件。首次启用后，Center 明示状态并应用内 reload client roster，随后子菜单出现“消息连接”，其微信/飞书页只提供厂商真实支持的连接流程。
 
 “绑定”页必须为每个真实 binding 提供可视化 `inputMode`、`replyMode` 与 MOSS `voiceId` 控件；它们与 `/语音`、`/声音` 写入同一个 IM core 持久策略。ASR/TTS 未安装或模型未 ready 时显示实际能力状态并安全降级，不能显示假开关。微信原生语音必须先从该页发送 live probe，再由用户确认客户端里确实出现可播放气泡；仅 API 成功不自动启用。
 
@@ -56,6 +58,16 @@ UI 通过 official DSH Web 的设置 section 提供消息连接页面，不另�
 - 用户 OAuth Device Flow（`/oauth/v1/device_authorization`）不是基础连接。
 - 手动 App ID/Secret 与企业向导只作扫码不可用时的后备；App Secret write-only，保存后只显示“已配置”。
 - connected 后提供 disconnect、重新扫码、logout/delete credential。
+
+### iMessage（可选，仅 macOS）
+
+- 默认关闭。Windows 与 UOS 显示不支持，不调用 macOS helper。
+- 用户必须先授予完全磁盘访问和 Messages 自动化，再点“检查权限并启用”。
+- 未启用时不得读取 Messages 数据库或发送 AppleEvent。
+- 身份是显式的 `macos-messages`，禁止 `imessage-default`。
+- 仅私聊文本。群聊、图片、文件不支持。首次启用从最新消息游标开始，不回放历史。
+- 回复带持久 `🤖 Penglai` 标记，重启后仍能识别，避免自回环。
+- 真机 live 记 `LIVE_NOT_RUN`。源码夹具不是原生消息证据。
 
 ### 绑定
 

@@ -4,7 +4,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./repo.mjs";
 import { PRODUCT_VERSION } from "./product.mjs";
-import { expectedUpgradeSourceVersions, upgradeUninstallEvidenceMatches } from "./native-upgrade-set.mjs";
+import {
+  currentNativeLifecycleScope,
+  currentWorkflowFetchesPreviousInstallers,
+  currentWorkflowRequiresNativeUpgradePaths,
+  expectedUpgradeSourceVersions,
+  upgradeUninstallEvidenceMatches,
+} from "./native-upgrade-set.mjs";
 
 const sources = JSON.parse(readFileSync(join(ROOT, "docs", PRODUCT_VERSION, "UPGRADE_SOURCES.json"), "utf8"));
 
@@ -19,6 +25,20 @@ function passingPath(version, sourceSha, installerSha256) {
     uninstallRemovedApp: true,
   };
 }
+
+test("current 0.6.1 workflow excludes previous-installer fetch and native upgrade paths", () => {
+  const scope = currentNativeLifecycleScope(sources);
+  assert.equal(scope.fetchPreviousInstallers, false);
+  assert.equal(scope.olderInstalledUpgradeStatus, "OWNER_EXCLUDED");
+  assert.equal(scope.requiredLifecycleGate, "verify:fresh-install-uninstall");
+  assert.equal(scope.nativeUosStatus, "OWNER_POST_RELEASE");
+  assert.equal(currentWorkflowFetchesPreviousInstallers(sources), false);
+  assert.equal(currentWorkflowRequiresNativeUpgradePaths(sources), false);
+  const historical = currentNativeLifecycleScope({ sources: sources.sources });
+  assert.equal(historical.fetchPreviousInstallers, true);
+  assert.equal(historical.olderInstalledUpgradeStatus, "REQUIRED");
+  assert.equal(historical.requiredLifecycleGate, "verify:upgrade-uninstall");
+});
 
 test("native upgrade set follows every pinned previous version, not a hardcoded pair", () => {
   const expected = expectedUpgradeSourceVersions(sources);

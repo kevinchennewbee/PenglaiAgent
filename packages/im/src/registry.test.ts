@@ -17,7 +17,7 @@ import { createRuntime } from "./index.js";
 import { CredentialsServiceVault } from "./credentials-vault.js";
 import { PenglaiImHost } from "./host.js";
 
-test("R58-IM-001 registry lists exactly eight supported connectors", () => {
+test("R58-IM-001 registry lists nine first-party connectors including optional iMessage", () => {
   assert.deepEqual([...CHANNEL_IDS], [
     "weixin",
     "feishu",
@@ -27,6 +27,7 @@ test("R58-IM-001 registry lists exactly eight supported connectors", () => {
     "slack",
     "telegram",
     "discord",
+    "imessage",
   ]);
   assert.deepEqual([...NATIVE_CHANNEL_IDS], ["weixin", "feishu"]);
   assert.equal(CHANNEL_MANIFESTS.weixin.adapterMode, "native");
@@ -44,6 +45,12 @@ test("R58-IM-001 registry lists exactly eight supported connectors", () => {
   }
   assert.equal(CHANNEL_MANIFESTS.telegram.connectionMethods.includes("qr"), false);
   assert.equal(CHANNEL_MANIFESTS.discord.connectionMethods.includes("qr"), false);
+  assert.equal(CHANNEL_MANIFESTS.imessage.connectionMethods.includes("qr"), false);
+  assert.equal(CHANNEL_MANIFESTS.imessage.connectionMethods.includes("manual-fallback"), true);
+  assert.equal(CHANNEL_MANIFESTS.imessage.defaultEnabled, false);
+  assert.equal(CHANNEL_MANIFESTS.imessage.capabilityEvidence.file, "not-supported");
+  assert.equal(CHANNEL_MANIFESTS.imessage.capabilityEvidence.image, "not-supported");
+  assert.match(CHANNEL_MANIFESTS.imessage.connectionHint.en, /macOS only/i);
   assert.equal(CHANNEL_MANIFESTS.slack.capabilityEvidence.image, "not-supported");
   assert.equal(CHANNEL_MANIFESTS.slack.capabilityEvidence.reconnect, "source-tested");
   assert.equal(CHANNEL_MANIFESTS.dingtalk.connectionMethods.includes("qr"), true);
@@ -73,7 +80,7 @@ test("R58-IM-001 registry lists exactly eight supported connectors", () => {
 test("unsupported legacy bot rows stay stored but cannot re-enter the active registry", () => {
   const rt = createRuntime({
     dbPath: ":memory:",
-    host: { version: "0.1.5-alpha.1", getAgent: () => undefined, listWorkspaces: () => [] },
+    host: { version: "0.1.5-rc.1", getAgent: () => undefined, listWorkspaces: () => [] },
   });
   const bots = new ImBotStore(rt.store.db);
   rt.store.db
@@ -91,6 +98,8 @@ test("R56-IM-003 Slack/Telegram/Discord refuse a fake QR connection", () => {
   assert.throws(() => refuseFakeQr("slack", "qr"), /CHANNEL_NO_QR/);
   assert.throws(() => beginGuidedConnection({ channel: "telegram", method: "qr" }), /CHANNEL_NO_QR/);
   assert.throws(() => beginGuidedConnection({ channel: "discord", method: "qr" }), /CHANNEL_NO_QR/);
+  assert.throws(() => beginGuidedConnection({ channel: "imessage", method: "qr" }), /CHANNEL_NO_QR/);
+  assert.equal(beginGuidedConnection({ channel: "imessage", method: "manual-fallback" }).channel, "imessage");
   const slack = beginGuidedConnection({ channel: "slack", method: "oauth" });
   assert.equal(slack.qr, false);
   assert.equal(slack.connection, "not_configured");
@@ -101,7 +110,7 @@ test("R57-IM-002 host begins a real Slack token connection without QR", async ()
   const rt = createRuntime({
     dbPath: join(dir, "im.sqlite"),
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -128,7 +137,7 @@ test("R57-IM-002 host begins a real Slack token connection without QR", async ()
     { status: "idle", setupRequired: true } as never,
     vault,
     { running: false, start: async () => undefined, stop: () => undefined } as never,
-    { version: "0.1.5-alpha.1", getAgent: () => undefined, listWorkspaces: () => [] },
+    { version: "0.1.5-rc.1", getAgent: () => undefined, listWorkspaces: () => [] },
   );
   const slackCreds: Record<string, { botToken: string; appToken?: string }> = {};
   host.attachSecretHydrator((id, serialized) => {
@@ -167,7 +176,7 @@ test("R57-IM-002 host begins a real Slack token connection without QR", async ()
 test("sidecar credential writes require an owner receipt when the broker is attached", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
-    host: { version: "0.1.5-alpha.1", getAgent: () => undefined, listWorkspaces: () => [] },
+    host: { version: "0.1.5-rc.1", getAgent: () => undefined, listWorkspaces: () => [] },
   });
   const host = new PenglaiImHost(
     rt.store,
@@ -176,7 +185,7 @@ test("sidecar credential writes require an owner receipt when the broker is atta
     { status: "idle", setupRequired: true } as never,
     new CredentialsServiceVault(undefined),
     { running: false, start: async () => undefined, stop: () => undefined } as never,
-    { version: "0.1.5-alpha.1", getAgent: () => undefined, listWorkspaces: () => [] },
+    { version: "0.1.5-rc.1", getAgent: () => undefined, listWorkspaces: () => [] },
   );
   const root = mkdtempSync(join(tmpdir(), "penglai-im-secret-owner-"));
   host.attachOwner(new OwnerApprovalBroker(root, { dialog: async () => "approved" }));
@@ -192,7 +201,7 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -204,12 +213,12 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
     { status: "idle", setupRequired: true } as never,
     new CredentialsServiceVault(undefined),
     { running: false, start: async () => undefined, stop: () => undefined } as never,
-    { version: "0.1.5-alpha.1", getAgent: () => undefined, listWorkspaces: () => [] },
+    { version: "0.1.5-rc.1", getAgent: () => undefined, listWorkspaces: () => [] },
   );
   host.createBot({ channelId: "slack", displayName: "docs" });
   const overview = await host.getOverview();
-  assert.equal(overview.channels.length, 8);
-  assert.equal(overview.manifests.length, 8);
+  assert.equal(overview.channels.length, 9);
+  assert.equal(overview.manifests.length, 9);
   for (const state of overview.channels) {
     assert.equal("live" in state, false);
     assert.equal(state.entryAvailable, true);
@@ -221,7 +230,7 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
     assert.equal(typeof state.capabilityEvidence.recovery, "string");
     assert.ok(state.connectionHint.en.length > 0);
   }
-  assert.equal(rt.store.schemaVersion(), 12);
+  assert.equal(rt.store.schemaVersion(), 13);
   assert.equal(host.listBindings().some((row) => row.channel === "weixin" && row.accountId === "docs"), false);
   assert.throws(
     () =>
@@ -237,7 +246,7 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
   rt.store.close();
 });
 
-test("R58-IM-002 IM client lists eight connect actions without a compatibility card", () => {
+test("R58-IM-002 IM client lists connect actions without a compatibility card", () => {
   const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   assert.match(client, /data-penglai-im-platforms/);
   assert.match(client, /data-penglai-im-platform/);
@@ -271,6 +280,10 @@ test("R58-IM-002 IM client lists eight connect actions without a compatibility c
   assert.doesNotMatch(client, /仅列入后续计划/);
   assert.doesNotMatch(client, /data-penglai-im-planned/);
   assert.doesNotMatch(client, /slackQr|telegramQr|discordQr|beginSlackQr|beginTelegramQr/);
+  assert.match(client, /data-penglai-im-imessage-enable/);
+  assert.match(client, /setBotAlias/);
+  assert.match(client, /inspectIMessagePermissions/);
+  assert.doesNotMatch(client, /wecom-app/);
   assert.match(client, /data-penglai-im-goto-weixin/);
   assert.match(client, /data-penglai-im-goto-feishu/);
   assert.match(client, /beginWeixinQr/);

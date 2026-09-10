@@ -54,7 +54,7 @@ test("alpha.2 adapter uses the official sessionController for list, create, rena
       },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.5-alpha.1");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.5-rc.1");
   assert.deepEqual(await host.listSessions?.(), [{ id: "session-1", title: "Official title" }]);
   assert.deepEqual(await host.createSession?.("workspace-1", "Penglai"), { id: "session-2" });
   const directory = await host.describeSessionModels?.("session-1");
@@ -118,7 +118,7 @@ test("alpha.2 listSessions trusts title projections and does not inspect cold lo
       async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.5-alpha.1");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.5-rc.1");
   assert.deepEqual(await host.listSessions?.(), [
     { id: "session-1", title: "Projected" },
     { id: "session-2" },
@@ -153,7 +153,7 @@ test("alpha.2 listSessions trusts the official title projection and does not ins
       async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.5-alpha.1");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.5-rc.1");
   assert.deepEqual(await host.listSessions?.(), [{ id: "session-1", title: "Old" }]);
   assert.equal(inspected, 0);
   assert.equal(foldAlpha2Title([
@@ -196,7 +196,7 @@ test("alpha.2 adapter uses list model projections and does not inspect cold logs
       async rename(request: { title: string }) { return { title: request.title, seq: 1 }; },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.5-alpha.1");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.5-rc.1");
   assert.deepEqual((await host.describeSessionModels?.("session-1"))?.current, {
     provider: "deepseek",
     model: "projected",
@@ -226,7 +226,7 @@ test("alpha.2 resume reuses an in-process live Agent on SessionAlreadyOwnedError
       async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.5-alpha.1");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.5-rc.1");
   assert.equal(await host.resumeAgent("session-1"), live);
 });
 
@@ -251,7 +251,7 @@ test("alpha.2 resume fails closed when SessionAlreadyOwnedError has no live Agen
       async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.5-alpha.1");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.5-rc.1");
   await assert.rejects(() => host.resumeAgent("session-1"), /already owned by another handle/);
 });
 
@@ -301,6 +301,78 @@ test("owner adapter admits V3 catalog event types and still refuses assistant/ch
   );
 });
 
+test("describeSessionModels does not make a missing session routable via the global default", async () => {
+  const ctx = {
+    on() {},
+    agents: { get() { return undefined; } },
+    workspaceRegistry: { list: () => [] },
+    sessionController: {
+      async list() {
+        return { items: [{ sessionId: "real-session", projections: { values: {}, asOfSeq: 0 } }] };
+      },
+      async inspect(sessionId: string) {
+        if (sessionId === "real-session") return { events: [] };
+        const error = new Error(`session "${sessionId}" not found`);
+        error.name = "ApiSessionNotFound";
+        throw error;
+      },
+      async modelCatalog() {
+        return {
+          default: { provider: "deepseek", model: "deepseek-flash" },
+          routableProviders: ["deepseek"],
+          groups: [{ id: "deepseek", name: "DeepSeek", models: [{ id: "deepseek-flash", name: "DeepSeek-V41-Flash" }] }],
+        };
+      },
+      async create() { return { sessionId: "unused" }; },
+      async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
+      async rename(request: { title: string }) { return { title: request.title, seq: 1 }; },
+    },
+  };
+  const host = hostFromAlpha2Cordis(ctx, "0.1.5-rc.1");
+  const missing = await host.describeSessionModels?.("no-such-session");
+  assert.equal(missing?.sessionExists, false);
+  assert.equal(missing?.routable, false);
+  const present = await host.describeSessionModels?.("real-session");
+  assert.equal(present?.sessionExists, true);
+  assert.equal(present?.current.model, "deepseek-flash");
+  assert.equal(present?.routable, true);
+});
+
+test("listSessions uses the reserved empty list request and returns every visible row once", async () => {
+  const requests: unknown[] = [];
+  const ctx = {
+    on() {},
+    agents: { get() { return undefined; } },
+    workspaceRegistry: { list: () => [] },
+    sessionController: {
+      async list(request: { cursor?: string }) {
+        requests.push(request);
+        return {
+          items: [
+            { sessionId: "s1", projections: { values: { title: "One" }, asOfSeq: 0 } },
+            { sessionId: "s2", projections: { values: { title: "Two" }, asOfSeq: 0 } },
+            { sessionId: "s1", projections: { values: { title: "Dup" }, asOfSeq: 1 } },
+          ],
+          nextCursor: "search-provider-seam-must-be-ignored",
+        };
+      },
+      async inspect() { return { events: [] }; },
+      async modelCatalog() {
+        return { default: { provider: "deepseek", model: "deepseek-flash" }, routableProviders: ["deepseek"], groups: [] };
+      },
+      async create() { return { sessionId: "unused" }; },
+      async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
+      async rename(request: { title: string }) { return { title: request.title, seq: 1 }; },
+    },
+  };
+  const host = hostFromAlpha2Cordis(ctx, "0.1.5-rc.1");
+  assert.deepEqual(await host.listSessions?.(), [
+    { id: "s1", title: "One" },
+    { id: "s2", title: "Two" },
+  ]);
+  assert.deepEqual(requests, [{}]);
+});
+
 test("alpha.2 adapter has no apiProxy access path", () => {
   const ctx = new Proxy(
     { on() {}, agents: { get() { return undefined; } }, workspaceRegistry: { list: () => [] } },
@@ -309,5 +381,5 @@ test("alpha.2 adapter has no apiProxy access path", () => {
       return Reflect.get(target, property, receiver);
     } },
   );
-  assert.doesNotThrow(() => hostFromAlpha2Cordis(ctx, "0.1.5-alpha.1"));
+  assert.doesNotThrow(() => hostFromAlpha2Cordis(ctx, "0.1.5-rc.1"));
 });

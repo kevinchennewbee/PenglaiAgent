@@ -2,8 +2,8 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 
-const PRODUCT_VERSION = "0.6.0";
-const DSH_VERSION = "0.1.5-alpha.1";
+const PRODUCT_VERSION = "0.6.1";
+const DSH_VERSION = "0.1.5-rc.1";
 const VENDOR_VERSIONS = Object.freeze({
   "@deepseek-ai/cordis": "4.0.2",
   "@deepseek-ai/cordis-plugin-group": "1.0.2",

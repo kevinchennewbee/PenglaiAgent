@@ -176,7 +176,7 @@ if (dshVersion !== PINNED_DSH) {
   console.error(`workspace DSH closure must be pinned to ${PINNED_DSH}, got ${dshVersion || "missing"}`);
   process.exit(1);
 }
-const cohortPath = join(ROOT, "docs", "0.6.0", "DSH_NPM_COHORT.json");
+const cohortPath = join(ROOT, "docs", "0.6.1", "DSH_NPM_COHORT.json");
 const cohortBytes = readFileSync(cohortPath);
 const cohort = JSON.parse(cohortBytes.toString("utf8"));
 try {
@@ -369,7 +369,7 @@ writeClosureCredential(staging, {
   target,
   manifestSha256: closureSha256File(manifestPath),
   dsh: PINNED_DSH,
-  node: PINNED_NODE,
+  node: target === "linux-loong64" ? PINNED_NODE_LINUX_LOONG64 : PINNED_NODE,
   probe: dshVersionProbe,
   nativeProbed: target === host,
   completedAt: new Date().toISOString(),

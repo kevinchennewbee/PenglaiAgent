@@ -37,6 +37,7 @@ test("guided channels refuse unavailable send and never mint a fake QR", async (
   assert.throws(() => refuseFakeQr("slack", "qr"), /CHANNEL_NO_QR/);
   assert.throws(() => refuseFakeQr("telegram", "qr"), /CHANNEL_NO_QR/);
   assert.throws(() => refuseFakeQr("discord", "qr"), /CHANNEL_NO_QR/);
+  assert.throws(() => refuseFakeQr("imessage", "qr"), /CHANNEL_NO_QR/);
   const dingtalk = guidedAdapter("dingtalk");
   const qr = await dingtalk.beginConnection({ method: "qr" });
   assert.equal(qr.kind, "qr");
@@ -53,7 +54,7 @@ test("IM host registers guided adapters and refuses unavailable outbound text", 
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -70,7 +71,7 @@ test("IM host registers guided adapters and refuses unavailable outbound text", 
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -98,7 +99,7 @@ test("IM connection waits until real sidecar adapters finish bootstrap", async (
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -115,7 +116,7 @@ test("IM connection waits until real sidecar adapters finish bootstrap", async (
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -150,7 +151,7 @@ test("restore applies persisted Telegram offset before reconnect", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -167,7 +168,7 @@ test("restore applies persisted Telegram offset before reconnect", async () => {
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },

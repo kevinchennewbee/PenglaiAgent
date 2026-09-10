@@ -32,6 +32,8 @@ const PNG = Buffer.from(
 
 test("official pinned dsh-llm-deepseek advertises the vision model", () => {
   assert.equal(pkg.version, PINNED_DSH);
+  assert.match(deepseekLib, /id:\s*"deepseek-flash"/);
+  assert.match(deepseekLib, /name:\s*"DeepSeek-V41-Flash"/);
   assert.match(deepseekLib, /id:\s*"deepseek-v4-flash-vision-exp"/);
   assert.match(deepseekLib, /name:\s*"DeepSeek-V4-Flash-Vision-Exp"/);
   assert.match(deepseekLib, /inputModalities:\s*\[\s*"text",\s*"image"\s*\]/);
@@ -57,6 +59,10 @@ test("official adapter listModels exposes vision exact id and text,image modalit
     resolveUserId: () => "vision-list",
   });
   const models = await adapter.listModels("deepseek-official");
+  const flash = models.find((row) => row.id === "deepseek-flash");
+  assert.ok(flash, "deepseek-flash missing from official adapter catalog");
+  assert.equal(flash?.name, "DeepSeek-V41-Flash");
+  assert.deepEqual(flash?.inputModalities, ["text", "image"]);
   const vision = models.find((row) => row.id === VISION_ID);
   assert.ok(
     vision,
@@ -223,6 +229,10 @@ test("onboarding selectModel saves deepseek-v4-flash-vision-exp from the officia
     }),
     officialWelcomeAck: () => true,
     agents: {
+      settings: {
+        mutate: async () => {},
+        describe: () => [],
+      },
       llm: {
         listProviders: () => [{ id: "deepseek-official", name: "DeepSeek" }],
         listModels: async (provider: string) => [

@@ -63,13 +63,6 @@ export function classifyLicense(name, declaredLicense, version = "") {
       rationale: "Official DSH attachment support redistributes the separately replaceable sharp/libvips runtime with license and corresponding-source offer",
     };
   }
-  if (/^@img\/sharp-libvips-/.test(name) && version === "1.3.2" && /^LGPL-/.test(license)) {
-    return {
-      effectiveLicense: license,
-      disposition: "excluded-from-release",
-      rationale: "Penglai Office disables PPT image probing and does not package its sharp 0.35.3/libvips 1.3.2 closure",
-    };
-  }
   if (/\b(?:AGPL|GPL|LGPL)-/i.test(license)) {
     throw new Error(`unapproved copyleft production dependency: ${name} (${license})`);
   }

@@ -14,6 +14,16 @@ import {
   supervisorRestartAllowed,
 } from "./supervisor-policy.js";
 
+test("owned DSH terminate signals the ChildProcess even when ps identity matching is unavailable", () => {
+  const src = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+  assert.match(src, /child\.kill\("SIGTERM"\)/);
+  assert.match(src, /child\.kill\("SIGKILL"\)/);
+  assert.match(src, /Always signal the live ChildProcess handle/);
+  const terminateUnhealthy = src.slice(src.indexOf("terminateUnhealthyChild"));
+  assert.match(terminateUnhealthy, /child\.kill\("SIGTERM"\)/);
+  assert.match(terminateUnhealthy, /child\.kill\("SIGKILL"\)/);
+});
+
 test("R56-CORE-006/007/008 supervisor restart budget and boot phases are explicit", () => {
   assert.deepEqual([...BOOT_PHASES], [
     "boot",
@@ -196,7 +206,7 @@ test("supervisor restart preserves required child paths and stop cancels restart
   assert.match(src, /this\.start\(user, restartEnv, restartPort\)/);
   assert.match(src, /reusableSupervisorPort\(preferredPort\) \?\? await freePort\(\)/);
   assert.match(src, /scheduleHealthProbe\(user, generation\)/);
-  assert.match(src, /nextSupervisorHealthDecision\(this\.healthFailures, healthy\)/);
+  assert.match(src, /nextSupervisorHealthDecision\(this\.healthFailures, fullyHealthy\)/);
   assert.match(src, /terminateUnhealthyChild\(generation\)/);
   assert.match(src, /healthProbeAbort\?\.abort\(\)/);
   assert.match(src, /if \(this\.state === "stopping" \|\| this\.state === "stopped"\) return/);

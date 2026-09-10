@@ -77,7 +77,8 @@ export const OFFICIAL_THEME_SETTINGS_NS = "ui-theme" as const;
 export const OFFICIAL_SETTINGS_PREFERENCE_FIELD = "preference" as const;
 export const OFFICIAL_WELCOME_SETTINGS_NS = "ui-onboarding" as const;
 export const OFFICIAL_WELCOME_ACK_FIELD = "welcomeNoticeVersion" as const;
-/** Exact acknowledgement version exported by the fixed DSH 0.1.5-alpha.1 source. */
+export const AGENT_DEFAULT_MODEL_SETTINGS_NS = "agent-default-model" as const;
+/** Exact acknowledgement version exported by the fixed DSH 0.1.5-rc.1 source. */
 export const DSH_WELCOME_NOTICE_VERSION = "2026-08-13.1" as const;
 
 export const ONBOARDING_STEPS = [
@@ -368,6 +369,40 @@ export async function persistWelcomeAckToOfficialSettings(ctx: OfficialUsableCtx
   if (!ctx.settings?.mutate) return false;
   await ctx.settings.mutate(OFFICIAL_WELCOME_SETTINGS_NS, [
     { op: "set", path: [OFFICIAL_WELCOME_ACK_FIELD], value: DSH_WELCOME_NOTICE_VERSION },
+  ]);
+  return true;
+}
+
+export function readOfficialDefaultModel(
+  described: ReadonlyArray<{ ns?: string; value?: unknown }> | undefined,
+): { provider: string; model: string; reasoningEffort?: string } | undefined {
+  const row = Array.isArray(described)
+    ? described.find((item) => item?.ns === AGENT_DEFAULT_MODEL_SETTINGS_NS)
+    : undefined;
+  const rec = asRecord(row?.value);
+  if (!rec || typeof rec.provider !== "string" || typeof rec.model !== "string") return undefined;
+  if (!rec.provider.trim() || !rec.model.trim()) return undefined;
+  return {
+    provider: rec.provider,
+    model: rec.model,
+    ...(typeof rec.reasoningEffort === "string" && rec.reasoningEffort
+      ? { reasoningEffort: rec.reasoningEffort }
+      : {}),
+  };
+}
+
+/** Persist the wizard's explicit model choice onto the official default-model settings seam. */
+export async function persistOfficialDefaultModel(
+  ctx: OfficialUsableCtx,
+  selection: { provider: string; model: string },
+): Promise<boolean> {
+  if (!ctx.settings?.mutate) return false;
+  const provider = selection.provider.trim();
+  const model = selection.model.trim();
+  if (!provider || !model) throw new PenglaiError("INVALID_INPUT", "provider and model selection required");
+  await ctx.settings.mutate(AGENT_DEFAULT_MODEL_SETTINGS_NS, [
+    { op: "set", path: ["provider"], value: provider },
+    { op: "set", path: ["model"], value: model },
   ]);
   return true;
 }

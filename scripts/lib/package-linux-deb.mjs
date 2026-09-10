@@ -19,6 +19,7 @@ import { execFileSync } from "node:child_process";
 import { basename, join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { deterministicGzip } from "./deterministic-gzip.mjs";
+import { PRODUCT_VERSION, uosDebName } from "./product.mjs";
 import { ROOT } from "./repo.mjs";
 import { assertUos20OldWorldAddonFiles } from "./uos20-oldworld-addons.mjs";
 import { mnemonAssetForPluginTarget } from "../../packages/release-identity/src/mnemon-assets.js";
@@ -31,9 +32,9 @@ import { mnemonAssetForPluginTarget } from "../../packages/release-identity/src/
 // new-world ld-linux-loongarch-lp64d.so.1. Never --no-sandbox.
 export const LINUX_LOONG64_TARGET = "linux-loong64";
 export const UOS_DEB_ARCHITECTURE = "loongarch64";
-export const UOS_DEB_INSTALLER_NAME = "Penglai_0.6.0_uos_loong64.deb";
+export const UOS_DEB_INSTALLER_NAME = uosDebName();
 export const UOS_DEB_PACKAGE_NAME = "penglai";
-export const UOS_DEB_VERSION = "0.6.0";
+export const UOS_DEB_VERSION = PRODUCT_VERSION;
 export const LINUX_INSTALL_PREFIX = "/opt/Penglai";
 export const REQUIRED_BUILTIN_PLUGIN_IDS = Object.freeze([
   "@penglai/office",
@@ -93,7 +94,8 @@ export function renderDebControl({
     "Priority: optional",
     "Maintainer: Penglai Agent <noreply@users.noreply.github.com>",
     `Installed-Size: ${size}`,
-    "Depends: libgtk-3-0, libnss3, libxss1, libasound2, xdg-utils",
+    "Depends: libgtk-3-0, libnss3, libxss1, libasound2, xdg-utils, libatomic1",
+    "Recommends: bubblewrap",
     "Homepage: https://github.com/kevinchennewbee/PenglaiAgent",
     `X-Penglai-Target: ${LINUX_LOONG64_TARGET}`,
     "Description: Penglai desktop (linux-loong64 / UOS loongarch64)",

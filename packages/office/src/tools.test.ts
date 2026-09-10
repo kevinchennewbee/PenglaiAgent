@@ -188,10 +188,18 @@ test("office job tools reject another Session and Workspace before reads or acti
   ) as { id: string };
   for (const sessionId of ["sess-2", "sess-3"]) {
     for (const name of ["preview", "plan", "accept", "discard", "commit", "undo", "return_to_channel"]) {
-      await assert.rejects(async () => tools.get(`penglai_office_${name}`)!.execute({
-        job_id: created.id, filename: "stolen.docx",
-        operation: { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "overwritten" },
-      }, { agent: { id: sessionId } }), /not bound to this Workspace and Session/);
+      const args = name === "commit"
+        ? { job_id: created.id, filename: "stolen.docx" }
+        : name === "plan"
+          ? {
+              job_id: created.id,
+              operation: { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "overwritten" },
+            }
+          : { job_id: created.id };
+      await assert.rejects(
+        async () => tools.get(`penglai_office_${name}`)!.execute(args, { agent: { id: sessionId } }),
+        /not bound to this Workspace and Session/,
+      );
     }
   }
   assert.equal(approvals, 0);

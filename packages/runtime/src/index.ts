@@ -35,16 +35,27 @@ import {
   assertPluginPackageManifest,
   FIRST_PARTY_PLUGIN_METADATA,
   loadPluginCatalog,
+  PINNED_PLUGIN_DSH,
   runtimePluginTarget,
 } from "./plugin-catalog.js";
 import { extractTarGz } from "./safe-tar.js";
 import { applyWindowsCredentialAcl, readOwnedWindowsJobReport, spawnOwnedDshProcess, windowsNativeHostStatus } from "./windows-host.js";
 import { writeFileAtomic } from "./permissions.js";
-import { compareSemver } from "./update.js";
-import { readInstalledOverlay, shouldPreserveInstalledPlugin, writeInstalledOverlay } from "./plugin-resolution.js";
+import {
+  comparePluginVersion,
+  firstPartyRetentionDecision,
+  installedPluginManifest,
+  installedPluginMatchesVerifiedArtifact,
+  isolateUntrustedPluginInstall,
+  loadVerifiedSignedPluginCatalog,
+  readInstalledOverlay,
+  signedArtifactIdentity,
+  writeInstalledOverlay,
+} from "./plugin-resolution.js";
 import {
   IDLE_SUPERVISOR_RECOVERY,
   nextSupervisorHealthDecision,
+  SUPERVISOR_INVENTORY_RELOAD_GRACE,
   redactSupervisorLog,
   reusableSupervisorPort,
   shouldRestartAfterExit,
@@ -66,6 +77,17 @@ import {
 } from "./dsh-web-auth.js";
 import { evaluateInventory, type InventoryProof } from "./inventory-proof.js";
 import { convergePrivatePosixModes } from "./private-mode.js";
+import {
+  OFFICIAL_DIRECTORY_PICKER_AUTO,
+  OFFICIAL_DIRECTORY_PICKER_HOST,
+  OFFICIAL_DIRECTORY_PICKER_ID,
+  OFFICIAL_DIRECTORY_PICKER_NATIVE_CLIENT,
+  OFFICIAL_DIRECTORY_PICKER_NATIVE_HOST,
+  OFFICIAL_DIRECTORY_PICKER_SURFACE,
+  PENGLAI_DIRECTORY_PICKER_HOST_ID,
+  PENGLAI_DIRECTORY_PICKER_SURFACE_ID,
+  pinOfficialBrowseDirectoryPickerPatch,
+} from "./directory-picker-overlay.js";
 export * from "./layout.js";
 export * from "./permissions.js";
 export * from "./arch-guard.js";
@@ -84,7 +106,7 @@ export * from "./dsh-web-auth.js";
 export const PENGLAI_VERSION = RELEASE;
 /** Official DSH `startup` freeze: no live HMR. Internals probing is optional. */
 export const PRODUCT_WEB_PATCH_RELOAD = "startup";
-export const PINNED_DSH = "0.1.5-alpha.1";
+export const PINNED_DSH = "0.1.5-rc.1";
 export const PINNED_NODE = "22.23.2";
 export const PINNED_ELECTRON = "43.6.0";
 export const NODE_TARBALL_SHA256 = "61130f394c1630d211dd50aecc4353d379480f36d3ac913cd85dbba1aed585c6";
@@ -539,6 +561,7 @@ export function installFirstPartyPlugins(
   destProfile: string,
   txDir: string,
   requestedIds: readonly string[] = [],
+  userDataRoot?: string,
 ): void {
   if (!existsSync(layout.pluginsDir)) {
     throw new PenglaiError("DSH_UNAVAILABLE", "bundled plugin directory missing");
@@ -548,6 +571,7 @@ export function installFirstPartyPlugins(
     runtimePluginTarget(),
     true,
   );
+  const signedCatalog = loadVerifiedSignedPluginCatalog(userDataRoot);
   const requested = new Set(requestedIds);
   for (const id of requested) {
     if (!catalog.entries.some((entry) => entry.id === id)) {
@@ -561,31 +585,48 @@ export function installFirstPartyPlugins(
   for (const entry of catalog.entries) {
     const short = entry.id.replace("@penglai/", "");
     const dest = join(nm, short);
-    if (existsSync(join(dest, "package.json"))) {
-      try {
-        const installed = JSON.parse(readFileSync(join(dest, "package.json"), "utf8")) as { version?: string };
-        const overlay = readInstalledOverlay(dest);
-        if (
-          shouldPreserveInstalledPlugin({
-            bundledVersion: entry.version,
-            ...(overlay?.version ?? installed.version
-              ? { installedVersion: overlay?.version ?? installed.version }
-              : {}),
-            ...(overlay?.sha256 ? { installedSha256: overlay.sha256 } : {}),
-            ...(entry.sha256 ? { bundledSha256: entry.sha256 } : {}),
-          })
-        ) {
-          continue;
-        }
-        if (typeof installed.version === "string" && compareSemver(installed.version, entry.version) > 0) continue;
-      } catch {
-        /* invalid installed manifest is replaced by the bundled catalog entry */
+    const hadInstall = existsSync(join(dest, "package.json")) || existsSync(dest);
+    if (hadInstall) {
+      const installed = installedPluginManifest(dest);
+      const overlay = readInstalledOverlay(dest);
+      const signed = signedCatalog ? signedArtifactIdentity(signedCatalog, entry.id, entry.target) : undefined;
+      if (
+        installed &&
+        signed &&
+        firstPartyRetentionDecision({
+          pluginId: entry.id,
+          bundledVersion: entry.version,
+          bundledSha256: entry.sha256,
+          installed: {
+            id: installed.id,
+            version: installed.version,
+            ...(overlay?.sha256 ? { overlaySha256: overlay.sha256 } : {}),
+            ...(installed.dshExact ? { dshExact: installed.dshExact } : {}),
+          },
+          signed,
+        }) &&
+        installedPluginMatchesVerifiedArtifact({
+          dest,
+          pluginId: entry.id,
+          signed,
+          hostTarget: entry.target,
+          ...(userDataRoot ? { userDataRoot } : {}),
+        })
+      ) {
+        continue;
       }
+      const claimsNewer = Boolean(installed && comparePluginVersion(installed.version, entry.version) > 0);
+      const overlayMatchesBundled = overlay?.sha256 === entry.sha256;
+      const uncertain =
+        !installed ||
+        claimsNewer ||
+        (Boolean(overlay?.sha256) && !overlayMatchesBundled);
+      if (uncertain && existsSync(dest)) isolateUntrustedPluginInstall(dest, txDir, entry.id);
     }
     const shouldInstall =
       entry.defaultEnabled ||
       requested.has(entry.id) ||
-      existsSync(dest) ||
+      hadInstall ||
       profilePluginEnabled(patchText, entry.id);
     if (!shouldInstall) continue;
     const tmp = join(txDir, `pkg-${entry.packageFile}`);
@@ -600,9 +641,9 @@ export function installFirstPartyPlugins(
       throw new PenglaiError("SECURITY_POLICY", `forbidden product package ${id}`);
     }
     assertPluginJsClosure(inner, id);
-    rmSync(dest, { recursive: true, force: true });
+    if (existsSync(dest)) rmSync(dest, { recursive: true, force: true });
     copyDir(inner, dest);
-    writeInstalledOverlay(dest, { version: entry.version, sha256: entry.sha256 });
+    writeInstalledOverlay(dest, { version: entry.version, sha256: entry.sha256, dshExact: PINNED_PLUGIN_DSH });
     rmSync(tmp, { recursive: true, force: true });
   }
 }
@@ -778,6 +819,28 @@ export function mergeLegacyContextIntoMemory(user: UserLayout): {
   };
 }
 
+export {
+  OFFICIAL_DIRECTORY_PICKER_AUTO,
+  OFFICIAL_DIRECTORY_PICKER_HOST,
+  OFFICIAL_DIRECTORY_PICKER_NATIVE_CLIENT,
+  OFFICIAL_DIRECTORY_PICKER_NATIVE_HOST,
+  OFFICIAL_DIRECTORY_PICKER_SURFACE,
+  OFFICIAL_DIRECTORY_PICKER_ID,
+  PENGLAI_DIRECTORY_PICKER_HOST_ID,
+  PENGLAI_DIRECTORY_PICKER_SURFACE_ID,
+  pinOfficialBrowseDirectoryPickerPatch,
+};
+
+export function pinOfficialBrowseDirectoryPicker(user: UserLayout): boolean {
+  const patchPath = join(user.profileWeb, "cordis.patch.yml");
+  const current = readRegularFileNoFollow(patchPath, "utf8");
+  if (current === undefined) return false;
+  const next = pinOfficialBrowseDirectoryPickerPatch(current);
+  if (!next.changed) return false;
+  writeFileAtomic(patchPath, next.text.endsWith("\n") ? next.text : `${next.text}\n`, 0o600);
+  return true;
+}
+
 export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout): void {
   const marker = join(user.profileWeb, "package.json");
   if (!existsSync(marker)) {
@@ -788,7 +851,7 @@ export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout):
     rmSync(staging, { recursive: true, force: true });
     rmSync(backup, { recursive: true, force: true });
     seedWebProfile(layout.profileSeed, staging);
-    installFirstPartyPlugins(layout, staging, user.transactions);
+    installFirstPartyPlugins(layout, staging, user.transactions, [], user.root);
     linkOfficialDeepseek(layout, staging);
     writeJournal(user, { id, phase: "activating", staging, backup });
     let movedCurrent = false;
@@ -809,8 +872,9 @@ export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout):
     }
   } else {
     mergeLegacyContextIntoMemory(user);
-    installFirstPartyPlugins(layout, user.profileWeb, user.transactions);
+    installFirstPartyPlugins(layout, user.profileWeb, user.transactions, [], user.root);
   }
+  pinOfficialBrowseDirectoryPicker(user);
   linkOfficialDeepseek(layout, user.profileWeb);
   pinProductWebPatchReload(user.profileWeb);
   seedFreshSettings(user);
@@ -1322,6 +1386,7 @@ export interface EmbeddedDshSupervisorOptions {
   unhealthyKillGraceMs?: number;
   startupHttpTimeoutMs?: number;
   inventoryTimeoutMs?: number;
+  portTimeoutMs?: number;
   restartBackoffMs?: number;
   onRecoveryStateChange?: (snapshot: Readonly<SupervisorRecoverySnapshot>) => void;
 }
@@ -1346,7 +1411,9 @@ export class EmbeddedDshSupervisor {
   private unhealthyKillTimer: ReturnType<typeof setTimeout> | undefined;
   private healthProbeAbort: AbortController | undefined;
   private healthFailures = 0;
+  private inventoryMisses = 0;
   private lifecycleGeneration = 0;
+  private launchNonce: string | undefined;
   private lastHealthyInventory: InventoryProof | undefined;
   #webSession: DshWebSession | undefined;
   health:
@@ -1446,12 +1513,28 @@ export class EmbeddedDshSupervisor {
       if (this.healthProbeAbort === controller) this.healthProbeAbort = undefined;
     }
     if (generation !== this.lifecycleGeneration || controller.signal.aborted) return;
-    const decision = nextSupervisorHealthDecision(this.healthFailures, healthy);
+    const expected = this.launchNonce && this.identity?.pid
+      ? { launchNonce: this.launchNonce, dshPid: this.identity.pid }
+      : undefined;
+    const inventory = expected ? readInventorySnapshot(user, expected) : undefined;
+    const inventoryOk = Boolean(inventory?.ok);
+    if (healthy && !inventoryOk) {
+      this.inventoryMisses += 1;
+      if (this.inventoryMisses < SUPERVISOR_INVENTORY_RELOAD_GRACE) {
+        this.scheduleHealthProbe(user, generation);
+        return;
+      }
+    } else if (healthy && inventoryOk) {
+      this.inventoryMisses = 0;
+    }
+    const fullyHealthy = healthy && inventoryOk;
+    const decision = nextSupervisorHealthDecision(this.healthFailures, fullyHealthy);
     this.healthFailures = decision.consecutiveFailures;
     this.setState(decision.state);
-    if (healthy && this.lastHealthyInventory) {
-      this.health = { http: 200, inventory: this.lastHealthyInventory };
-    } else if (!healthy) {
+    if (fullyHealthy && inventory) {
+      this.health = { http: 200, inventory };
+      this.lastHealthyInventory = inventory;
+    } else {
       this.health = undefined;
     }
     if (!decision.restart) {
@@ -1475,17 +1558,24 @@ export class EmbeddedDshSupervisor {
     if (generation !== this.lifecycleGeneration || this.state !== "degraded") return;
     const child = this.child;
     const identity = this.identity;
-    if (identity) killIdentity(identity, "SIGTERM");
-    else if (child?.pid) killProcessTree(child.pid, "SIGTERM");
-    else {
+    if (child?.pid) {
+      try { child.kill("SIGTERM"); } catch { /* already gone */ }
+      killProcessTree(child.pid, "SIGTERM");
+    } else if (identity) {
+      killIdentity(identity, "SIGTERM");
+    } else {
       this.scheduleRestartAfterExit(false, "health-check-failed", null);
       return;
     }
     this.unhealthyKillTimer = setTimeout(() => {
       this.unhealthyKillTimer = undefined;
       if (generation !== this.lifecycleGeneration || this.state !== "degraded" || this.child !== child) return;
-      if (identity) killIdentity(identity, "SIGKILL");
-      else if (child?.pid) killProcessTree(child.pid, "SIGKILL");
+      if (child?.pid) {
+        try { child.kill("SIGKILL"); } catch { /* already gone */ }
+        killProcessTree(child.pid, "SIGKILL");
+      } else if (identity) {
+        killIdentity(identity, "SIGKILL");
+      }
     }, this.boundedOption(this.options.unhealthyKillGraceMs, SUPERVISOR_UNHEALTHY_KILL_GRACE_MS));
     this.unhealthyKillTimer.unref?.();
   }
@@ -1570,11 +1660,21 @@ export class EmbeddedDshSupervisor {
   private async terminateOwnedChild(user: UserLayout | undefined): Promise<void> {
     const child = this.child;
     const identity = this.identity;
-    if (identity) killIdentity(identity, "SIGTERM");
-    else if (child?.pid) killProcessTree(child.pid, "SIGTERM");
+    // Always signal the live ChildProcess handle. processStillMatches/ps can
+    // be unavailable (EPERM) and must not leave the owned DSH running.
+    if (child?.pid) {
+      try { child.kill("SIGTERM"); } catch { /* already gone */ }
+      killProcessTree(child.pid, "SIGTERM");
+    } else if (identity) {
+      killIdentity(identity, "SIGTERM");
+    }
     if (child) await waitChildExit(child, 3000);
-    if (identity) killIdentity(identity, "SIGKILL");
-    else if (child?.pid) killProcessTree(child.pid, "SIGKILL");
+    if (child?.pid) {
+      try { child.kill("SIGKILL"); } catch { /* already gone */ }
+      killProcessTree(child.pid, "SIGKILL");
+    } else if (identity) {
+      killIdentity(identity, "SIGKILL");
+    }
     if (child) await waitChildExit(child, 1000);
     reapDshOrphans(this.layout, undefined, user);
     if (user) clearIdentity(user);
@@ -1617,9 +1717,11 @@ export class EmbeddedDshSupervisor {
     this.health = undefined;
     this.identity = undefined;
     this.lastHealthyInventory = undefined;
+    this.inventoryMisses = 0;
     rmSync(inventorySnapshotPath(user), { force: true });
     this.port = reusableSupervisorPort(preferredPort) ?? await freePort();
     const launchNonce = randomUUID();
+    this.launchNonce = launchNonce;
     const previousWebCookie = this.#webSession?.cookie;
     const stdoutCapture = new DshWebOutputCapture(this.port);
     const stderrCapture = new DshWebOutputCapture(this.port);
@@ -1727,7 +1829,13 @@ export class EmbeddedDshSupervisor {
       this.scheduleRestartAfterExit(intentional, failure, code);
     });
     try {
-      await waitPort(this.port, 25_000);
+      await waitPort(
+        this.port,
+        this.boundedOption(
+          this.options.portTimeoutMs ?? this.options.startupHttpTimeoutMs,
+          25_000,
+        ),
+      );
       const [webSession, inventory] = await Promise.all([
         establishDshWebSession({
           origin: `http://127.0.0.1:${this.port}/`,

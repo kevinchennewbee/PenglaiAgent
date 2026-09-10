@@ -14,6 +14,7 @@ import {
   ensureOfficialProviderRoute,
   describeOfficialCredential,
   persistAppearanceToOfficialSettings,
+  persistOfficialDefaultModel,
   persistWelcomeAckToOfficialSettings,
   runOfficialNonceTurn,
   runOfficialFirstConversation,
@@ -271,6 +272,13 @@ export function createPenglaiOnboardingRemoteImpl(opts: {
           "INVALID_INPUT",
           "official model resolution identity mismatch",
         );
+      }
+      const persisted = await persistOfficialDefaultModel(services, {
+        provider: input.provider,
+        model: input.model,
+      });
+      if (!persisted) {
+        throw new PenglaiError("DSH_UNAVAILABLE", "official default model persistence failed");
       }
       host.saveFacts({
         selection: { provider: input.provider, model: input.model },

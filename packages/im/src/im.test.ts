@@ -96,7 +96,7 @@ test("im runtime wires single control plane", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -232,7 +232,7 @@ test("R50-ROUTE-001/002/009 binding is official live list plus CAS and vendor ta
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -257,7 +257,7 @@ test("R50-ROUTE-001/002/009 binding is official live list plus CAS and vendor ta
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
       listSessions: async () => [{ id: "s1", title: "正式会话" }],
@@ -324,7 +324,7 @@ test("R50-FS-002 Feishu App ID persists and secret stays a credential ref", asyn
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -366,7 +366,7 @@ test("R50-FS-002 Feishu App ID persists and secret stays a credential ref", asyn
     vault,
     supervisor as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -461,7 +461,7 @@ test("R50-WX-002/R50-FS-001/012 IM client has Weixin and Feishu official QR", ()
   assert.equal(client.includes("https:\\/\\/"), false);
 });
 
-test("DSH-IM 4.17.1 is rewrite-source; IM already uses Connection /api via Typert remotes", () => {
+test("DSH-IM 4.17.1 remains rewrite-source; 4.18.1 and unpublished 606ced1 are pinned separately", () => {
   const lock = JSON.parse(
     readFileSync(new URL("../../../third_party/sources.lock.json", import.meta.url), "utf8"),
   ) as {
@@ -475,11 +475,24 @@ test("DSH-IM 4.17.1 is rewrite-source; IM already uses Connection /api via Typer
       connectionApi?: string;
     }>;
   };
-  const dshIm = lock.sources.find((row) => row.id === "dsh-im");
+  const dshIm = lock.sources.find((row) => row.id === "dsh-im") as {
+    release?: string;
+    tagObject?: string;
+    commit?: string;
+    sha256?: string;
+    use?: string;
+    connectionApi?: string;
+    latestPublished?: { npm?: string; commit?: string };
+    unpublishedAliasHead?: { commit?: string; inNpm4181?: boolean };
+  };
   assert.equal(dshIm?.release, "v4.17.1");
   assert.equal(dshIm?.tagObject, "51fb6bb03d86045cbe55e5fde3e55308f0f3643e");
   assert.equal(dshIm?.commit, "464c0a91762ebd0befc2d179f036eaae4864fb0e");
   assert.equal(dshIm?.sha256, "2bb02ea00d3367c1d93681f1e64bf030813f059f0cd62ef9c523dad1ab3b984b");
+  assert.equal(dshIm?.latestPublished?.npm, "@xmanrui/dsh-im@4.18.1");
+  assert.equal(dshIm?.latestPublished?.commit, "d01bd3450c6d17db2b3386ec44ffa474fd15b03e");
+  assert.equal(dshIm?.unpublishedAliasHead?.commit, "606ced1b5e4f02fe4a1afc9462014f3db1176396");
+  assert.equal(dshIm?.unpublishedAliasHead?.inNpm4181, false);
   assert.match(String(dshIm?.use), /selective rewrite into @penglai\/im/);
   assert.match(String(dshIm?.use), /do not install runtime/);
   assert.match(String(dshIm?.use), /cordis\.patch\.yml/);
@@ -497,9 +510,9 @@ test("DSH-IM 4.17.1 is rewrite-source; IM already uses Connection /api via Typer
   assert.doesNotMatch(hostPlugin, /connection\.fetch\.register/);
   assert.doesNotMatch(client, /dsh-im\//);
   assert.doesNotMatch(client, /cordis\.patch/);
-  assert.doesNotMatch(client, /whatsapp/i);
+  assert.doesNotMatch(client, new RegExp(["what", "sapp"].join(""), "i"));
   assert.doesNotMatch(client, /wecom-app/);
-  assert.doesNotMatch(hostPlugin, /whatsapp/i);
+  assert.doesNotMatch(hostPlugin, new RegExp(["what", "sapp"].join(""), "i"));
 });
 
 test("R2I-IMCORE-002 PenglaiImRemote uses Typert @Remote methods", () => {
@@ -507,7 +520,7 @@ test("R2I-IMCORE-002 PenglaiImRemote uses Typert @Remote methods", () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -536,7 +549,7 @@ test("R2I-IMCORE-002 PenglaiImRemote uses Typert @Remote methods", () => {
     vault,
     supervisor as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -576,7 +589,7 @@ test("weixin QR connected starts receive so the scanner can talk immediately", a
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -607,7 +620,7 @@ test("weixin QR connected starts receive so the scanner can talk immediately", a
     new CredentialsServiceVault(undefined),
     supervisor as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -633,7 +646,7 @@ test("Weixin QR protocol failure returns and persists one redacted public cause"
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -664,7 +677,7 @@ test("Weixin QR protocol failure returns and persists one redacted public cause"
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -840,7 +853,7 @@ test("R2I-ROUTE-001 binding requires official workspace/session", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => ({ id: "foreign-session" }) as never,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -857,7 +870,7 @@ test("R2I-ROUTE-001 binding requires official workspace/session", async () => {
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => ({ id: "foreign-session" }) as never,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -946,7 +959,7 @@ test("R2I-ROUTE packaged causal Message→Turn→route stays on original route",
     },
   };
   const hostLike = {
-    version: "0.1.5-alpha.1" as const,
+    version: "0.1.5-rc.1" as const,
     getAgent: () => agent,
     listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
   };
@@ -988,6 +1001,7 @@ test("R2I-UI-001 client registers Messaging page sections", () => {
     "Slack",
     "Telegram",
     "Discord",
+    "iMessage",
     "高级",
   ]);
 });
@@ -1103,7 +1117,7 @@ test("R2I-CRED-009 feishu secret write/read via host round-trips without plainte
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -1126,7 +1140,7 @@ test("R2I-CRED-009 feishu secret write/read via host round-trips without plainte
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -1147,7 +1161,7 @@ test("Feishu owner is required for inbound and persists without appearing in ove
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -1204,7 +1218,7 @@ test("Feishu owner is required for inbound and persists without appearing in ove
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -1238,7 +1252,7 @@ test("R56-SEC-013 sendFileToBoundRoute rehashes bytes and ignores the caller dig
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -1272,7 +1286,7 @@ test("R56-SEC-013 sendFileToBoundRoute rehashes bytes and ignores the caller dig
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },

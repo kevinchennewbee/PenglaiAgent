@@ -16,6 +16,7 @@
     { "path": "packages/channel-slack" },
     { "path": "packages/channel-telegram" },
     { "path": "packages/channel-discord" },
+    { "path": "packages/channel-imessage" },
     { "path": "packages/dsh-bridge" },
     { "path": "packages/local-control" },
     { "path": "packages/runtime" },

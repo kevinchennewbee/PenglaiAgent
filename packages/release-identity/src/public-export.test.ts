@@ -275,10 +275,14 @@ test("R50-PREP-005 required public docs are enumerated", () => {
       "docs/0.5.12/UPGRADE_SOURCES.json",
       "docs/0.6.0/ACCEPTANCE_DELTA.md",
       "docs/0.6.0/UPGRADE_SOURCES.json",
+      "docs/0.6.1/ACCEPTANCE_DELTA.md",
+      "docs/0.6.1/UPGRADE_SOURCES.json",
+      "docs/0.6.1/NATIVE_LIFECYCLE.md",
     ]),
   );
   assert.equal(REQUIRED_PUBLIC_DOCS.includes(`docs/${PRODUCT_VERSION}/UPGRADE_SOURCES.json`), true);
   assert.equal(REQUIRED_PUBLIC_DOCS.includes(`docs/${PRODUCT_VERSION}/ACCEPTANCE_DELTA.md`), true);
+  assert.equal(REQUIRED_PUBLIC_DOCS.includes(`docs/${PRODUCT_VERSION}/NATIVE_LIFECYCLE.md`), true);
   recordAssertion({
     acceptanceId: "R50-PREP-005",
     runnerId: "docs",

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { PINNED_DSH, PRODUCT_VERSION } from "./product.mjs";
+import { PINNED_DSH, PINNED_NODE, PINNED_NODE_LINUX_LOONG64, PRODUCT_VERSION } from "./product.mjs";
 
 export const CLOSURE_CREDENTIAL_SCHEMA = 1;
 
@@ -67,6 +67,13 @@ export function inspectClosureCredential({ staging, candidateSha, expectedTarget
   }
   if (manifest.target !== expectedTarget || manifest.release !== PRODUCT_VERSION || manifest.dsh !== PINNED_DSH) {
     return { verdict: "FAIL", reason: "runtime manifest identity mismatch" };
+  }
+  const expectedNode = expectedTarget === "linux-loong64" ? PINNED_NODE_LINUX_LOONG64 : PINNED_NODE;
+  if (manifest.node !== expectedNode) {
+    return { verdict: "FAIL", reason: `runtime manifest node ${manifest.node ?? "missing"} != ${expectedNode}` };
+  }
+  if (marker.node != null && marker.node !== expectedNode) {
+    return { verdict: "FAIL", reason: `closure credential node ${marker.node} != ${expectedNode}` };
   }
   if (!Array.isArray(manifest.files) || manifest.files.length === 0) {
     return { verdict: "FAIL", reason: "runtime manifest has no closure files" };

@@ -16,6 +16,8 @@ import { PenglaiError } from "./errors.js";
 export * from "./i18n.js";
 export * from "./typert.js";
 export * from "./errors.js";
+export * from "./official-remote.js";
+export * from "./inbound-media-receipt.js";
 export * from "./bounded-http.js";
 export * from "./closed-enum.js";
 export * from "./safe-https.js";
@@ -23,8 +25,8 @@ export * from "./session-snapshot.js";
 export * from "./center-journal.js";
 export * from "./usage-projection.js";
 
-export const SCHEMA_VERSION = 12;
-export const RELEASE = "0.6.0";
+export const SCHEMA_VERSION = 13;
+export const RELEASE = "0.6.1";
 
 export const CONFIG = Object.freeze({
   pairingTtlMs: 5 * 60_000,
@@ -86,6 +88,7 @@ export const ADAPTER_NAMES = [
   "slack",
   "telegram",
   "discord",
+  "imessage",
 ] as const;
 export type AdapterName = (typeof ADAPTER_NAMES)[number];
 
@@ -123,7 +126,7 @@ export type OutboxState =
   | "delivered"
   | "dead";
 
-export type BodyKind = "text" | "voice" | "control";
+export type BodyKind = "text" | "voice" | "control" | "media";
 
 export type VoiceInputMode = "text-and-voice" | "text-only";
 export type VoiceReplyMode = "text" | "voice" | "text-and-voice" | "mirror-input";
@@ -238,12 +241,85 @@ export interface OfficialImageRef {
   name?: string;
 }
 
+/** Durable official DSH `FileAttachmentRef`. `attachmentId` is `sha256:<hex>` of the exact bytes. */
+export interface OfficialFileRef {
+  attachmentId: string;
+  name: string;
+  bytes: number;
+}
+
+export const MEDIA_FILE_MAX_BYTES = 8 * 1024 * 1024;
+const OFFICIAL_FILE_ID = /^sha256:([a-f0-9]{64})$/;
+
 export interface ImageAdmission {
   saveImage(input: {
     data: Uint8Array;
     mediaType: OfficialImageMediaType;
     name?: string;
   }): Promise<OfficialImageRef>;
+}
+
+export interface FileAdmission {
+  saveFile(input: {
+    data: Uint8Array;
+    name?: string;
+  }): Promise<OfficialFileRef>;
+}
+
+function stripTrailingAsciiDotsAndSpaces(value: string): string {
+  let end = value.length;
+  while (end > 0) {
+    const code = value.charCodeAt(end - 1);
+    if (code !== 0x20 && code !== 0x2e) break;
+    end -= 1;
+  }
+  return value.slice(0, end);
+}
+
+export function sanitizeOfficialFileName(value: string | undefined): string {
+  if (value === undefined) return "file";
+  const leaf = value.slice(Math.max(value.lastIndexOf("/"), value.lastIndexOf("\\")) + 1);
+  let clean = stripTrailingAsciiDotsAndSpaces(
+    leaf
+      .replace(/[\u0000-\u001f\u007f]/g, "")
+      .replace(/[<>:"|?*]/g, "_")
+      .trim(),
+  );
+  if (/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.[^.]+)?$/iu.test(clean)) clean = `_${clean}`;
+  if (Buffer.byteLength(clean) > 255) {
+    let bytes = 0;
+    let prefix = "";
+    for (const character of clean) {
+      const size = Buffer.byteLength(character);
+      if (bytes + size > 255) break;
+      prefix += character;
+      bytes += size;
+    }
+    clean = stripTrailingAsciiDotsAndSpaces(prefix);
+  }
+  return clean === "" || clean === "." || clean === ".." ? "file" : clean;
+}
+
+export function officialFileDigest(bytes: Buffer | Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+export function assertOfficialFileRef(ref: OfficialFileRef, bytes: Buffer | Uint8Array): OfficialFileRef {
+  const name = sanitizeOfficialFileName(ref.name);
+  const match = OFFICIAL_FILE_ID.exec(ref.attachmentId);
+  const digest = officialFileDigest(bytes);
+  if (
+    !match?.[1] ||
+    match[1] !== digest ||
+    /[/\\]/.test(ref.attachmentId) ||
+    /[/\\]/.test(name) ||
+    name !== ref.name ||
+    !Number.isSafeInteger(ref.bytes) ||
+    ref.bytes !== bytes.byteLength
+  ) {
+    throw new PenglaiError("SECURITY_POLICY", "official file receipt rejected");
+  }
+  return { attachmentId: ref.attachmentId, name, bytes: ref.bytes };
 }
 
 export interface ObjectBind {
@@ -264,6 +340,7 @@ export interface MediaEnvelope {
   opaqueHandle: string;
   durationMs?: number;
   officialImage?: OfficialImageRef;
+  officialFile?: OfficialFileRef;
   officeHandle?: string;
   audioHandle?: string;
 }
@@ -515,8 +592,9 @@ export function readExactRegularFile(path: string, maxBytes = Number.POSITIVE_IN
 export async function attachDownloadedMedia(opts: {
   store: MediaStore;
   bytes: Buffer;
-  base: Omit<MediaEnvelope, "size" | "sha256" | "opaqueHandle" | "officialImage" | "officeHandle" | "audioHandle">;
+  base: Omit<MediaEnvelope, "size" | "sha256" | "opaqueHandle" | "officialImage" | "officialFile" | "officeHandle" | "audioHandle">;
   imageAdmission?: ImageAdmission;
+  fileAdmission?: FileAdmission;
   objectStore?: ObjectStore;
 }): Promise<MediaEnvelope> {
   const kind = classifyMedia({
@@ -537,6 +615,17 @@ export async function attachDownloadedMedia(opts: {
       mediaType,
       ...(opts.base.filename ? { name: opts.base.filename.replace(/^.*[/\\]/, "").slice(0, 80) } : {}),
     });
+  }
+  if (kind === "file" || kind === "office" || kind === "pdf") {
+    if (opts.bytes.length > MEDIA_FILE_MAX_BYTES) {
+      throw new PenglaiError("SECURITY_POLICY", "file exceeds byte limit");
+    }
+    if (!opts.fileAdmission) {
+      throw new PenglaiError("DSH_UNAVAILABLE", "official DSH attachments.saveFile is required for files");
+    }
+    const name = sanitizeOfficialFileName(opts.base.filename);
+    const saved = await opts.fileAdmission.saveFile({ data: opts.bytes, name });
+    env.officialFile = assertOfficialFileRef(saved, opts.bytes);
   }
   if ((kind === "office" || kind === "pdf") && opts.objectStore) {
     env.officeHandle = opts.objectStore.put(opts.bytes, { kind, mime }).handle;
@@ -569,6 +658,7 @@ export interface ModelInput {
   mode: "followup" | "steer";
   recovery?: true;
   images?: OfficialImageRef[];
+  files?: OfficialFileRef[];
   officeHandle?: string;
   audioHandle?: string;
 }

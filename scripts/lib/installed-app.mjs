@@ -72,19 +72,48 @@ export function leftoversUnderInstallRoot(appDir, dataRoot) {
   return selectProcessesForInstance(collectWindowsProcesses(), { installRoot: appDir, dataRoot });
 }
 
-export async function reapWindowsInstallTree(appDir, timeoutMs = 30_000, dataRoot) {
-  if (process.platform !== "win32") return { ok: true, leftover: [] };
+export async function waitOwnedWindowsProcessesGone(
+  appDir,
+  dataRoot,
+  {
+    timeoutMs = 30_000,
+    listProcesses = collectWindowsProcesses,
+    now = Date.now,
+    sleep = (ms) => new Promise((resolveDelay) => setTimeout(resolveDelay, ms)),
+  } = {},
+) {
+  const deadline = now() + timeoutMs;
+  let leftover = selectProcessesForInstance(listProcesses(), { installRoot: appDir, dataRoot });
+  while (now() < deadline && leftover.length) {
+    await sleep(250);
+    leftover = selectProcessesForInstance(listProcesses(), { installRoot: appDir, dataRoot });
+  }
+  return { ok: leftover.length === 0, leftover, forced: false, timedOut: leftover.length > 0 };
+}
+
+export async function reapWindowsInstallTree(
+  appDir,
+  timeoutMs = 30_000,
+  dataRoot,
+  { listProcesses = collectWindowsProcesses, kill } = {},
+) {
+  if (process.platform !== "win32" && !kill) return { ok: true, leftover: [] };
   const deadline = Date.now() + timeoutMs;
-  let leftover = leftoversUnderInstallRoot(appDir, dataRoot);
-  while (Date.now() < deadline) {
-    leftover = leftoversUnderInstallRoot(appDir, dataRoot);
-    if (leftover.length === 0) return { ok: true, leftover: [] };
-    for (const row of leftover) {
-      spawnSync("taskkill.exe", ["/PID", String(row.pid), "/T", "/F"], { windowsHide: true, timeout: 15_000 });
+  const stop = (pid) => {
+    if (kill) {
+      kill(pid);
+      return;
     }
+    spawnSync("taskkill.exe", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, timeout: 15_000 });
+  };
+  let leftover = selectProcessesForInstance(listProcesses(), { installRoot: appDir, dataRoot });
+  while (Date.now() < deadline) {
+    leftover = selectProcessesForInstance(listProcesses(), { installRoot: appDir, dataRoot });
+    if (leftover.length === 0) return { ok: true, leftover: [] };
+    for (const row of leftover) stop(row.pid);
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
   }
-  leftover = leftoversUnderInstallRoot(appDir, dataRoot);
+  leftover = selectProcessesForInstance(listProcesses(), { installRoot: appDir, dataRoot });
   return { ok: leftover.length === 0, leftover };
 }
 
@@ -156,6 +185,10 @@ export function removeTreeNoFollow(path) {
 const WINDOWS_PRODUCT_KEY = "HKCU\\Software\\Penglai\\0.5";
 const WINDOWS_UNINSTALL_KEY =
   "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Penglai.DSH.0.5";
+
+export function windowsRegisteredInstallDir() {
+  return queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir");
+}
 
 function queryWindowsRegistryValue(key, name) {
   const queried = spawnSync("reg.exe", ["query", key, "/v", name], {
@@ -465,9 +498,9 @@ export async function waitForFile(path, ms) {
   return false;
 }
 
-export function launchPackaged(exe, resources, userData, extraArgs = [], extraEnv = {}) {
+export function launchPackaged(exe, resources, userData, extraArgs = [], extraEnv = {}, options = {}) {
   const child = spawn(exe, ["--disable-gpu", "--in-process-gpu", ...extraArgs], {
-    env: installedHarnessEnvironment(resources, userData, extraEnv),
+    env: installedHarnessEnvironment(resources, userData, extraEnv, process.platform, process.env, options),
     stdio: ["ignore", "pipe", "pipe"],
   });
   let output = "";
@@ -486,7 +519,17 @@ export function installedHarnessEnvironment(
   extraEnv = {},
   platform = process.platform,
   sourceEnv = process.env,
+  options = {},
 ) {
+  if (platform === "win32" && options.isolateUserData === false) {
+    return {
+      ...sourceEnv,
+      NODE_PATH: "",
+      PENGLAI_RESOURCES: resources,
+      PENGLAI_PLUGINS_DIR: join(resources, "plugins"),
+      ...extraEnv,
+    };
+  }
   const common = {
     NODE_PATH: "",
     HOME: userData,
@@ -624,21 +667,14 @@ export async function requestBrowserClose(session, timeoutMs = 5_000) {
   }
 }
 
-export async function stopChild(child, timeoutMs = 8_000) {
-  if (child.exitCode !== null || child.signalCode) return [child.exitCode, child.signalCode];
-  const closed = new Promise((resolveClose) =>
-    child.once("close", (code, signal) => resolveClose([code, signal])),
-  );
-  try {
-    child.kill("SIGTERM");
-  } catch {
-    /* already gone */
+export async function forceStopChild(child) {
+  const method = process.platform === "win32" ? "taskkill-force" : "sigkill";
+  if (child.exitCode !== null || child.signalCode) {
+    return { code: child.exitCode, signal: child.signalCode, forced: true, method };
   }
-  const graceful = await Promise.race([
-    closed.then((value) => ({ exited: true, value })),
-    new Promise((resolveTimeout) => setTimeout(() => resolveTimeout({ exited: false }), timeoutMs)),
-  ]);
-  if (graceful.exited) return graceful.value;
+  const closed = new Promise((resolveClose) =>
+    child.once("close", (code, signal) => resolveClose({ code, signal })),
+  );
   if (process.platform === "win32" && Number.isSafeInteger(child.pid) && child.pid > 0) {
     spawnSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"], {
       encoding: "utf8",
@@ -658,7 +694,39 @@ export async function stopChild(child, timeoutMs = 8_000) {
   ]);
   if (!forced.exited) throw new Error(`child ${child.pid ?? "unknown"} did not exit after SIGKILL`);
   await new Promise((resolveDelay) => setTimeout(resolveDelay, 300));
-  return forced.value;
+  return { ...forced.value, forced: true, method };
+}
+
+export async function observeStopChild(child, timeoutMs = 8_000) {
+  if (child.exitCode !== null || child.signalCode) {
+    return { code: child.exitCode, signal: child.signalCode, forced: false, method: "already-exited" };
+  }
+  const closed = new Promise((resolveClose) =>
+    child.once("close", (code, signal) => resolveClose({ code, signal })),
+  );
+  try {
+    child.kill("SIGTERM");
+  } catch {
+    /* already gone */
+  }
+  const first = await Promise.race([
+    closed.then((value) => ({ exited: true, value })),
+    new Promise((resolveTimeout) => setTimeout(() => resolveTimeout({ exited: false }), timeoutMs)),
+  ]);
+  if (first.exited) {
+    const windowsTerminate = process.platform === "win32";
+    return {
+      ...first.value,
+      forced: windowsTerminate,
+      method: windowsTerminate ? "node-sigterm-windows" : "posix-sigterm",
+    };
+  }
+  return forceStopChild(child);
+}
+
+export async function stopChild(child, timeoutMs = 8_000) {
+  const observed = await observeStopChild(child, timeoutMs);
+  return [observed.code, observed.signal];
 }
 
 export function signalPid(pid, signal, windowsHelper) {

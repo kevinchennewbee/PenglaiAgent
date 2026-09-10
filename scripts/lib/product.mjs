@@ -13,6 +13,7 @@ export const PINNED_DSH_TARBALL_SHA256 = pins.PINNED_DSH_TARBALL_SHA256;
 export const PINNED_DSH_CLOSURE_MANIFEST_SHA256 = pins.PINNED_DSH_CLOSURE_MANIFEST_SHA256;
 export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = pins.PINNED_DSH_CLOSURE_PACKAGE_COUNT;
 export const PINNED_NODE = pins.PINNED_NODE;
+export const PINNED_NODE_LINUX_LOONG64 = pins.PINNED_NODE_LINUX_LOONG64;
 export const PINNED_ELECTRON = pins.PINNED_ELECTRON;
 export const PINNED_PNPM = pins.PINNED_PNPM;
 export const TRUST_TIER = pins.TRUST_TIER;
@@ -34,6 +35,10 @@ export function macosX64DmgName(version = PRODUCT_VERSION) {
 
 export function windowsSetupName(version = PRODUCT_VERSION) {
   return `Penglai_${version}_windows_x64_setup.exe`;
+}
+
+export function uosDebName(version = PRODUCT_VERSION) {
+  return `Penglai_${version}_uos_loong64.deb`;
 }
 
 export function stagedAppDir(arch, version = PRODUCT_VERSION) {

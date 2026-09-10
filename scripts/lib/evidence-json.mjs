@@ -61,6 +61,9 @@ export function sanitizeEvidenceValue(value, depth = 0, seen = new WeakSet(), ke
 }
 
 export function writeEvidenceJson(path, value) {
+  if (value === null || typeof value !== "object" || Buffer.isBuffer(value) || ArrayBuffer.isView(value)) {
+    throw new Error("evidence JSON only writes local structured records");
+  }
   const payload = `${JSON.stringify(sanitizeEvidenceValue(value), null, 2)}\n`;
   writeFileSync(path, payload, { mode: 0o600 });
 }

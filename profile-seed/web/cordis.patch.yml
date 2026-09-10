@@ -25,8 +25,15 @@
     - id: penglai-plugin-reference
       name: "@penglai/plugin-reference"
       disabled: true
+    - id: penglai-directory-picker
+      name: "@deepseek-ai/dsh-host-directory-picker-browse"
+    - id: penglai-directory-picker-ui
+      name: "@deepseek-ai/dsh-client-ui-directory-picker-browse"
 - id: session-persistence-jsonl
   name: "@deepseek-ai/dsh-session-persistence-jsonl"
   config:
     root: !!js dshHomePath('sessions')
     compression: none
+- id: directory-picker
+  name: "@deepseek-ai/dsh-host-directory-picker-auto"
+  disabled: true

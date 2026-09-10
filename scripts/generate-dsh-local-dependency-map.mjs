@@ -17,7 +17,7 @@ const stringifyManifest = (value) => `${JSON.stringify(value, null, 2)}\n`;
 const rootPackagePath = join(ROOT, "package.json");
 const rootPackage = JSON.parse(readFileSync(rootPackagePath, "utf8"));
 const preservedOverrides = {
-  "@liustack/pptfast>sharp": "0.35.3",
+  "@liustack/pptfast>sharp": "0.35.4",
   "exceljs>uuid": "11.1.1",
   "exceljs>unzipper": "0.12.5",
   "pptxgenjs>image-size": "workspace:*",

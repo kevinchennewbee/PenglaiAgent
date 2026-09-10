@@ -46,8 +46,8 @@ const authenticatedGithubApiFetch = async (input, init = {}) => {
 };
 const shared = {
   ...pluginDistributionStatePaths(userDataRoot),
-  penglaiVersion: "0.6.0",
-  dshExact: "0.1.5-alpha.1",
+  penglaiVersion: "0.6.1",
+  dshExact: "0.1.5-rc.1",
   target: "darwin-aarch64",
   fetchImpl: authenticatedGithubApiFetch,
 };
@@ -66,7 +66,7 @@ try {
     (row) => row.id === retiredPlugin,
   );
 
-  const profileDir = join(userDataRoot, "dsh-homes", "dsh-v0.1.5-alpha.1", "profiles", "web");
+  const profileDir = join(userDataRoot, "dsh-homes", "dsh-v0.1.5-rc.1", "profiles", "web");
   const packageDir = join(
     profileDir,
     "node_modules",

@@ -498,7 +498,7 @@ test("embedded supervisor restarts a live process whose official HTTP route hang
     'const plugins = join(root, "plugins");',
     'mkdirSync(plugins, { recursive: true });',
     'const inventory = { entries: [',
-    '  { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.5-alpha.1" },',
+    '  { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.5-rc.1" },',
     '  { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active", version: "0.5.12" },',
     '  { moduleName: "@penglai/office", enabled: true, fiberPhase: "active", version: "0.5.12" },',
     '  { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active", version: "0.5.12" }',
@@ -744,6 +744,15 @@ test("fresh catalog and profile keep every optional Penglai plugin disabled", ()
       new RegExp(`id: ${short}\\n\\s+name: ["']${id.replace("/", "\\/")}["']\\n\\s+disabled: true`),
     );
   }
+  assert.match(
+    patch,
+    /id: directory-picker\n\s+name: "@deepseek-ai\/dsh-host-directory-picker-auto"\n\s+disabled: true/,
+  );
+  assert.match(patch, /id: penglai-directory-picker\n\s+name: "@deepseek-ai\/dsh-host-directory-picker-browse"/);
+  assert.match(
+    patch,
+    /id: penglai-directory-picker-ui\n\s+name: "@deepseek-ai\/dsh-client-ui-directory-picker-browse"/,
+  );
 });
 
 test("0.5.5 merges the legacy Context profile plugin into Memory without deleting source indexes", () => {

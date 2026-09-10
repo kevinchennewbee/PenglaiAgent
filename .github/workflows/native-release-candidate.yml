@@ -1,4 +1,4 @@
-name: Native 0.6.0 release candidate
+name: Native 0.6.1 release candidate
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: native-0.6.0-${{ inputs.mode }}-${{ github.ref }}
+  group: native-0.6.1-${{ inputs.mode }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -29,11 +29,11 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - name: Check out immutable official DSH 0.1.5-alpha.1 source
+      - name: Check out immutable official DSH 0.1.5-rc.1 source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: deepseek-ai/DeepSeek-Harness
-          ref: 5dda764ed3aa172535a7967b06ff95d9cbfe536a
+          ref: 183f08e9c6dde7e36cd2318eaee70b0da08fb35e
           path: upstream-dsh
           fetch-depth: 1
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -45,7 +45,7 @@ jobs:
           corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
           pnpm rebuild:fs-ext
-      - name: Verify the immutable 0.1.5-alpha.1 registry cohort
+      - name: Verify the immutable 0.1.5-rc.1 registry cohort
         env:
           PENGLAI_DSH_UPSTREAM: ${{ github.workspace }}/upstream-dsh
         run: |
@@ -89,13 +89,11 @@ jobs:
           - runner: macos-15
             target: darwin-aarch64
             package: package:dmg:arm
-            installer: Penglai_0.6.0_macos_aarch64.dmg
-            previous: Penglai_0.5.12_macos_aarch64.dmg
+            installer: Penglai_0.6.1_macos_aarch64.dmg
           - runner: macos-15-intel
             target: darwin-x86_64
             package: package:dmg:intel
-            installer: Penglai_0.6.0_macos_x64.dmg
-            previous: Penglai_0.5.12_macos_x64.dmg
+            installer: Penglai_0.6.1_macos_x64.dmg
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 300
     steps:
@@ -129,6 +127,8 @@ jobs:
           cp evidence/generated/licenses.json evidence/generated/licenses-${{ matrix.target }}.json
           cp evidence/generated/sbom.json evidence/generated/sbom-${{ matrix.target }}.json
           cp evidence/generated/THIRD_PARTY_NOTICES.txt evidence/generated/THIRD_PARTY_NOTICES-${{ matrix.target }}.txt
+      - name: Fetch and verify the pinned native Mnemon binary
+        run: pnpm fetch:mnemon-assets
       - name: Source and onboarding regression gates
         shell: bash
         run: |
@@ -136,8 +136,6 @@ jobs:
           pnpm test:contract
           pnpm test:security
           pnpm verify:contracts
-      - name: Fetch and verify the pinned native Mnemon binary
-        run: pnpm fetch:mnemon-assets
       - name: Build exact native installer
         run: pnpm ${{ matrix.package }}
       - name: Verify native closure, artifact, fuses, and signing contract
@@ -171,20 +169,15 @@ jobs:
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
         run: pnpm verify:installed
-      - name: Download verified immutable published upgrade sources
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          node scripts/fetch-upgrade-sources.mjs --target "${{ matrix.target }}"
-      - name: Prove pinned native upgrade paths and default uninstall
+      - name: Prove fresh install, restart, and default uninstall
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
           PENGLAI_LIFECYCLE_ALLOW_NATIVE: "1"
-        run: pnpm verify:upgrade-uninstall
+        run: pnpm verify:fresh-install-uninstall
       - name: Upload installer and target evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.6.0-${{ matrix.target }}
+          name: penglai-0.6.1-${{ matrix.target }}
           if-no-files-found: error
           retention-days: 14
           path: |
@@ -197,7 +190,7 @@ jobs:
             evidence/generated/verify-profile-${{ matrix.target }}.json
             evidence/generated/installed-e2e-${{ matrix.target }}.json
             evidence/generated/verify-installed-${{ matrix.target }}.json
-            evidence/generated/verify-upgrade-uninstall-${{ matrix.target }}.json
+            evidence/generated/verify-fresh-install-uninstall-${{ matrix.target }}.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json
             evidence/generated/u3-welcome-smoke-${{ matrix.target }}.json
@@ -299,6 +292,8 @@ jobs:
         run: |
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           pnpm build:windows-host
+      - name: Fetch and verify the pinned native Mnemon binary
+        run: pnpm fetch:mnemon-assets
       - name: Source and onboarding regression gates
         shell: bash
         run: |
@@ -306,8 +301,6 @@ jobs:
           pnpm test:contract
           pnpm test:security
           pnpm verify:contracts
-      - name: Fetch and verify the pinned native Mnemon binary
-        run: pnpm fetch:mnemon-assets
       - name: Build exact native installer with MSVC
         shell: cmd
         run: |
@@ -329,7 +322,7 @@ jobs:
         shell: pwsh
         run: >-
           ./scripts/windows-installer-ui-proof.ps1
-          -Installer ./dist/Penglai_0.6.0_windows_x64_setup.exe
+          -Installer ./dist/Penglai_0.6.1_windows_x64_setup.exe
           -OutDir ./evidence/generated
       - name: Full installed product and onboarding suite
         shell: pwsh
@@ -354,26 +347,20 @@ jobs:
         env:
           PENGLAI_TARGET: win32-x86_64
         run: pnpm verify:installed
-      - name: Download verified immutable published upgrade sources
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          node scripts/fetch-upgrade-sources.mjs --target win32-x86_64
-      - name: Prove pinned native upgrade paths and default uninstall
+      - name: Prove fresh install, restart, and default uninstall
         shell: pwsh
         env:
           PENGLAI_TARGET: win32-x86_64
           PENGLAI_LIFECYCLE_ALLOW_NATIVE: "1"
-        run: pnpm verify:upgrade-uninstall
+        run: pnpm verify:fresh-install-uninstall
       - name: Upload installer and target evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.6.0-win32-x86_64
+          name: penglai-0.6.1-win32-x86_64
           if-no-files-found: error
           retention-days: 14
           path: |
-            dist/Penglai_0.6.0_windows_x64_setup.exe
+            dist/Penglai_0.6.1_windows_x64_setup.exe
             evidence/generated/local-installer-win32-x86_64.json
             evidence/generated/verify-closure-win32-x86_64.json
             evidence/generated/verify-artifact-win32-x86_64.json
@@ -382,7 +369,7 @@ jobs:
             evidence/generated/verify-profile-win32-x86_64.json
             evidence/generated/installed-e2e-win32-x86_64.json
             evidence/generated/verify-installed-win32-x86_64.json
-            evidence/generated/verify-upgrade-uninstall-win32-x86_64.json
+            evidence/generated/verify-fresh-install-uninstall-win32-x86_64.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json
             evidence/generated/u3-welcome-smoke-win32-x86_64.json
@@ -430,17 +417,20 @@ jobs:
           PENGLAI_PACK_TARGET: linux-loong64
         run: |
           # Fail-closed: a missing old-world payload is not a packaged .deb.
-          # Native UOS install/startup/function remain OWNER_POST_RELEASE.
+          # This job is packaging/ABI evidence only. Native UOS
+          # install/startup/function remain OWNER_POST_RELEASE
+          # (Owner tests the published installer; not a native PASS).
+          # Do not run Mac/Windows fresh-install or historical upgrade gates here.
           pnpm stage:linux-loong64
           pnpm package:linux-deb -- --target linux-loong64
       - name: Upload linux-loong64 installer and packaging evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.6.0-linux-loong64
+          name: penglai-0.6.1-linux-loong64
           if-no-files-found: error
           retention-days: 14
           path: |
-            dist/Penglai_0.6.0_uos_loong64.deb
+            dist/Penglai_0.6.1_uos_loong64.deb
             evidence/generated/local-installer-linux-loong64.json
             evidence/generated/public-export.json
 
@@ -472,31 +462,28 @@ jobs:
           pnpm build
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.6.0-darwin-aarch64
+          name: penglai-0.6.1-darwin-aarch64
           path: .native/darwin-aarch64
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.6.0-darwin-x86_64
+          name: penglai-0.6.1-darwin-x86_64
           path: .native/darwin-x86_64
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.6.0-win32-x86_64
+          name: penglai-0.6.1-win32-x86_64
           path: .native/win32-x86_64
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.6.0-linux-loong64
+          name: penglai-0.6.1-linux-loong64
           path: .native/linux-loong64
       - name: Collect only target-bound evidence
         shell: bash
         run: |
           mkdir -p evidence/generated dist
           find .native -type f \( -name '*-darwin-aarch64.json' -o -name '*-darwin-x86_64.json' -o -name '*-win32-x86_64.json' -o -name '*-linux-loong64.json' \) -exec cp {} evidence/generated/ \;
-          # Target uploads preserve a dist/ prefix. Collect the .deb from anywhere
-          # under the linux-loong64 artifact rather than requiring a flattened name.
-          deb=$(find .native/linux-loong64 -type f -name 'Penglai_0.6.0_uos_loong64.deb' | head -n 1)
-          test -n "$deb"
-          test -s "$deb"
-          cp "$deb" dist/Penglai_0.6.0_uos_loong64.deb
+          # Target uploads preserve a dist/ prefix. Collect every contract
+          # installer from its artifact tree rather than a flattened name.
+          node scripts/collect-native-installers.mjs
       - name: Verify complete native evidence set
         run: |
           pnpm verify:native-set -- --command verify:closure
@@ -505,7 +492,7 @@ jobs:
           pnpm verify:native-set -- --command verify:signing
           pnpm verify:native-set -- --command verify:profile
           pnpm verify:installed -- --aggregate
-          pnpm verify:native-set -- --command verify:upgrade-uninstall
+          pnpm verify:native-set -- --command verify:fresh-install-uninstall
           pnpm aggregate:supply-chain
       - name: Verify source export and complete release aggregate
         run: |
@@ -515,7 +502,7 @@ jobs:
       - name: Upload consolidated native evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.6.0-native-evidence-set
+          name: penglai-0.6.1-native-evidence-set
           if-no-files-found: error
           retention-days: 14
           path: |

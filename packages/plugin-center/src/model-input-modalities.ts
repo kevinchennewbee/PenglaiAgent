@@ -7,13 +7,8 @@ export const DEFAULT_IMAGE_MAX_BYTES = 1_048_576;
 
 export type CatalogModelDraft = {
   id: string;
-  name?: string;
-  description?: string;
-  contextWindow?: number;
-  maxTokens?: number;
   inputModalities: string[];
-  imagePixelBudget?: number | "low";
-  imageMaxBytes?: number;
+  [key: string]: unknown;
 };
 
 export function modalitiesAcceptImage(modalities: readonly string[] | undefined): boolean {
@@ -40,32 +35,27 @@ export function catalogModelFromUnknown(value: unknown): CatalogModelDraft | und
     : ["text"];
   const inputModalities = modalities.length > 0 ? [...new Set(modalities)] : ["text"];
   const image = modalitiesAcceptImage(inputModalities);
-  return {
+  const next: CatalogModelDraft = {
+    ...rec,
     id,
-    ...(typeof rec.name === "string" && rec.name ? { name: rec.name } : {}),
-    ...(typeof rec.description === "string" && rec.description ? { description: rec.description } : {}),
-    ...(typeof rec.contextWindow === "number" && Number.isInteger(rec.contextWindow) && rec.contextWindow > 0
-      ? { contextWindow: rec.contextWindow }
-      : {}),
-    ...(typeof rec.maxTokens === "number" && Number.isInteger(rec.maxTokens) && rec.maxTokens > 0
-      ? { maxTokens: rec.maxTokens }
-      : {}),
     inputModalities,
-    ...(image
-      ? {
-          imagePixelBudget:
-            rec.imagePixelBudget === "low"
-              ? "low"
-              : typeof rec.imagePixelBudget === "number" && rec.imagePixelBudget > 0
-                ? rec.imagePixelBudget
-                : DEFAULT_IMAGE_PIXEL_BUDGET,
-          imageMaxBytes:
-            typeof rec.imageMaxBytes === "number" && rec.imageMaxBytes > 0
-              ? rec.imageMaxBytes
-              : DEFAULT_IMAGE_MAX_BYTES,
-        }
-      : {}),
   };
+  if (image) {
+    next.imagePixelBudget =
+      rec.imagePixelBudget === "low"
+        ? "low"
+        : typeof rec.imagePixelBudget === "number" && rec.imagePixelBudget > 0
+          ? rec.imagePixelBudget
+          : DEFAULT_IMAGE_PIXEL_BUDGET;
+    next.imageMaxBytes =
+      typeof rec.imageMaxBytes === "number" && rec.imageMaxBytes > 0
+        ? rec.imageMaxBytes
+        : DEFAULT_IMAGE_MAX_BYTES;
+  } else {
+    delete next.imagePixelBudget;
+    delete next.imageMaxBytes;
+  }
+  return next;
 }
 
 export function catalogModelsFromSettingsValue(value: unknown): CatalogModelDraft[] {
@@ -104,6 +94,34 @@ export function applyImageInputToCatalog(
   });
 }
 
+const CATALOG_MODEL_KEYS = [
+  "id",
+  "name",
+  "description",
+  "contextWindow",
+  "maxTokens",
+  "inputModalities",
+  "imagePixelBudget",
+  "imageMaxBytes",
+  "systemPromptUpdate",
+] as const;
+
+function catalogSeedFromResolvedInfo(info: Record<string, unknown>, id: string): Record<string, unknown> {
+  const context = asRecord(info.context);
+  const seed: Record<string, unknown> = { id };
+  for (const key of CATALOG_MODEL_KEYS) {
+    if (key === "id") continue;
+    if (info[key] !== undefined) seed[key] = info[key];
+  }
+  if (seed.contextWindow === undefined && typeof context?.contextWindow === "number") {
+    seed.contextWindow = context.contextWindow;
+  }
+  if (seed.maxTokens === undefined && typeof info.defaultMaxTokens === "number") {
+    seed.maxTokens = info.defaultMaxTokens;
+  }
+  return seed;
+}
+
 export async function listOfficialDeepSeekCatalog(official: OfficialUsableCtx): Promise<CatalogModelDraft[]> {
   const described = official.settings?.describe?.() ?? [];
   const ns = described.find((row) => row.ns === DEEPSEEK_SETTINGS_NS);
@@ -117,28 +135,17 @@ export async function listOfficialDeepSeekCatalog(official: OfficialUsableCtx): 
   for (const entry of listed) {
     const id = typeof entry?.id === "string" ? entry.id : "";
     if (!id) continue;
-    let modalities = ["text"];
+    let extra: Record<string, unknown> = asRecord(entry) ?? {};
     if (official.llm.resolveModelInfo) {
       try {
-        const info = (await official.llm.resolveModelInfo("deepseek-official", id)) as {
-          inputModalities?: string[];
-        };
-        if (Array.isArray(info.inputModalities) && info.inputModalities.length > 0) {
-          modalities = info.inputModalities.filter((row) => row === "text" || row === "image");
-        }
+        const info = asRecord(await official.llm.resolveModelInfo("deepseek-official", id)) ?? {};
+        extra = { ...catalogSeedFromResolvedInfo(info, id) };
       } catch {
-        modalities = ["text"];
+        extra = asRecord(entry) ?? {};
       }
     }
-    const image = modalitiesAcceptImage(modalities);
-    rows.push({
-      id,
-      ...(typeof entry.name === "string" && entry.name ? { name: entry.name } : {}),
-      inputModalities: modalities.length > 0 ? modalities : ["text"],
-      ...(image
-        ? { imagePixelBudget: DEFAULT_IMAGE_PIXEL_BUDGET, imageMaxBytes: DEFAULT_IMAGE_MAX_BYTES }
-        : {}),
-    });
+    const rebuilt = catalogModelFromUnknown({ ...extra, id });
+    if (rebuilt) rows.push(rebuilt);
   }
   return rows;
 }

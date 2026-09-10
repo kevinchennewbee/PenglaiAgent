@@ -3,13 +3,17 @@ import test from "node:test";
 import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import {
   MediaStore,
   ObjectStore,
+  assertOfficialFileRef,
   attachDownloadedMedia,
   imageMediaTypeFromBytes,
   isDiagnosticMediaCaption,
+  officialFileDigest,
   readExactRegularFile,
+  sanitizeOfficialFileName,
   userFacingMediaPrompt,
 } from "./index.js";
 
@@ -107,4 +111,154 @@ test("attachDownloadedMedia requires saveImage for images", async () => {
   });
   assert.equal(env.officialImage?.attachmentId, "att-x");
   assert.match(userFacingMediaPrompt(env), /图片/);
+});
+
+test("PDF and DOCX admit through official saveFile and keep office handles", async () => {
+  const store = new MediaStore();
+  const objects = new ObjectStore();
+  const pdf = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
+  const env = await attachDownloadedMedia({
+    store,
+    bytes: pdf,
+    base: {
+      kind: "pdf",
+      source: "weixin",
+      sourceMessageId: "m",
+      sourceResourceId: "r",
+      mime: "application/pdf",
+      filename: "C:\\\\Users\\\\x\\\\report.pdf",
+    },
+    objectStore: objects,
+    fileAdmission: {
+      async saveFile(input) {
+        return {
+          attachmentId: `sha256:${officialFileDigest(Buffer.from(input.data))}`,
+          name: sanitizeOfficialFileName(input.name),
+          bytes: input.data.byteLength,
+        };
+      },
+    },
+  });
+  assert.equal(env.officialImage, undefined);
+  assert.equal(env.officialFile?.name, "report.pdf");
+  assert.equal(env.officialFile?.bytes, pdf.length);
+  assert.match(env.officialFile?.attachmentId ?? "", /^sha256:[a-f0-9]{64}$/);
+  assert.ok(env.officeHandle);
+  assert.match(userFacingMediaPrompt(env), /文档/);
+});
+
+test("official file names stay path-leaf bounded and strip trailing dots or spaces linearly", () => {
+  assert.equal(sanitizeOfficialFileName(undefined), "file");
+  assert.equal(sanitizeOfficialFileName(""), "file");
+  assert.equal(sanitizeOfficialFileName("."), "file");
+  assert.equal(sanitizeOfficialFileName(".."), "file");
+  assert.equal(sanitizeOfficialFileName("C:\\\\Users\\\\x\\\\report.pdf"), "report.pdf");
+  assert.equal(sanitizeOfficialFileName("/tmp/nested/note.txt"), "note.txt");
+  assert.equal(sanitizeOfficialFileName("a\u0000b\u0007c.txt"), "abc.txt");
+  assert.equal(sanitizeOfficialFileName("bad<>:\"|?*.bin"), "bad_______.bin");
+  assert.equal(sanitizeOfficialFileName("con"), "_con");
+  assert.equal(sanitizeOfficialFileName("COM1.dat"), "_COM1.dat");
+  assert.equal(sanitizeOfficialFileName("lpt9.txt"), "_lpt9.txt");
+  assert.equal(sanitizeOfficialFileName("con."), "_con");
+  assert.equal(sanitizeOfficialFileName("report.pdf..."), "report.pdf");
+  assert.equal(sanitizeOfficialFileName("report.pdf. . "), "report.pdf");
+  assert.equal(sanitizeOfficialFileName("keep" + ".".repeat(80_000)), "keep");
+  assert.equal(sanitizeOfficialFileName("keep.pdf" + ".".repeat(80_000)), "keep.pdf");
+  assert.equal(sanitizeOfficialFileName("keep" + " ".repeat(80_000)), "keep");
+  assert.equal(sanitizeOfficialFileName("draft . 1.bin"), "draft . 1.bin");
+  assert.equal(sanitizeOfficialFileName(`keep${" .".repeat(80_000)}end.bin`), "keep");
+  assert.equal(sanitizeOfficialFileName(`note${".".repeat(80_000)}x.pdf`), "note");
+  assert.equal(sanitizeOfficialFileName(`file${" ".repeat(80_000)}x`), "file");
+  const spacesThenName = `${" ".repeat(80_000)}end.bin`;
+  assert.equal(sanitizeOfficialFileName(spacesThenName), "end.bin");
+  const longUtf8 = `${"你".repeat(70)}done.bin`;
+  const truncated = sanitizeOfficialFileName(`${"你".repeat(200)}.pdf`);
+  assert.ok(Buffer.byteLength(truncated) <= 255);
+  assert.equal(truncated.includes("\uFFFD"), false);
+  assert.match(truncated, /^你+/);
+  assert.doesNotMatch(truncated, /[. ]$/);
+  assert.equal(sanitizeOfficialFileName(longUtf8), longUtf8);
+  assert.equal(sanitizeOfficialFileName(`${"n".repeat(253)}...extra`), "n".repeat(253));
+  const src = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(src, /\[\. \]\+\$\/u/);
+});
+
+test("official file receipts keep digest ownership after name sanitation", () => {
+  const bytes = Buffer.from("receipt-bytes");
+  const name = sanitizeOfficialFileName("C:\\\\inbox\\\\coral.txt...");
+  const ref = {
+    attachmentId: `sha256:${officialFileDigest(bytes)}`,
+    name,
+    bytes: bytes.byteLength,
+  };
+  assert.deepEqual(assertOfficialFileRef(ref, bytes), ref);
+  assert.throws(
+    () => assertOfficialFileRef({ ...ref, name: "coral.txt..." }, bytes),
+    /official file receipt rejected|SECURITY_POLICY/,
+  );
+});
+
+test("neutral binary files require an official FileBlock receipt and reject a missing or tampered receipt", async () => {
+  const store = new MediaStore();
+  const bytes = Buffer.from("hello-bin");
+  await assert.rejects(
+    () =>
+      attachDownloadedMedia({
+        store,
+        bytes,
+        base: {
+          kind: "file",
+          source: "feishu",
+          sourceMessageId: "m",
+          sourceResourceId: "r",
+          mime: "application/octet-stream",
+          filename: "a.bin",
+        },
+      }),
+    /saveFile|DSH_UNAVAILABLE/,
+  );
+  await assert.rejects(
+    () =>
+      attachDownloadedMedia({
+        store,
+        bytes,
+        base: {
+          kind: "file",
+          source: "feishu",
+          sourceMessageId: "m2",
+          sourceResourceId: "r2",
+          mime: "application/octet-stream",
+          filename: "a.bin",
+        },
+        fileAdmission: {
+          async saveFile() {
+            return { attachmentId: "sha256:" + "0".repeat(64), name: "a.bin", bytes: bytes.length };
+          },
+        },
+      }),
+    /official file receipt rejected|SECURITY_POLICY/,
+  );
+  const env = await attachDownloadedMedia({
+    store,
+    bytes,
+    base: {
+      kind: "file",
+      source: "feishu",
+      sourceMessageId: "m3",
+      sourceResourceId: "r3",
+      mime: "application/octet-stream",
+      filename: "a.bin",
+    },
+    fileAdmission: {
+      async saveFile(input) {
+        return {
+          attachmentId: `sha256:${createHash("sha256").update(input.data).digest("hex")}`,
+          name: "a.bin",
+          bytes: input.data.byteLength,
+        };
+      },
+    },
+  });
+  assert.equal(env.officialFile?.name, "a.bin");
+  assert.equal(env.officeHandle, undefined);
 });

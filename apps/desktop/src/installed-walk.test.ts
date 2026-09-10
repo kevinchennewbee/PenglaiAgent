@@ -284,14 +284,20 @@ test("native release workflow proves bundled optional plugins across restart", (
     true,
   );
   assert.match(windowsWorkflow, /actualSize -eq \$expectedSize -and \$actual -eq \$expected/);
-  assert.match(macosWorkflow, /Penglai_0\.6\.0_macos_aarch64\.dmg/);
-  assert.match(macosWorkflow, /Penglai_0\.6\.0_macos_x64\.dmg/);
-  assert.match(windowsWorkflow, /Penglai_0\.6\.0_windows_x64_setup\.exe/);
+  assert.match(macosWorkflow, /Penglai_0\.6\.1_macos_aarch64\.dmg/);
+  assert.match(macosWorkflow, /Penglai_0\.6\.1_macos_x64\.dmg/);
+  assert.match(windowsWorkflow, /Penglai_0\.6\.1_windows_x64_setup\.exe/);
   assert.match(linuxWorkflow, /package:linux-deb/);
   assert.match(linuxWorkflow, /OWNER_POST_RELEASE/);
-  assert.match(linuxWorkflow, /Penglai_0\.6\.0_uos_loong64\.deb/);
+  assert.match(linuxWorkflow, /Penglai_0\.6\.1_uos_loong64\.deb/);
   assert.doesNotMatch(linuxWorkflow, /test:e2e:installed/);
   assert.doesNotMatch(linuxWorkflow, /verify:upgrade-uninstall/);
+  assert.doesNotMatch(linuxWorkflow, /verify:fresh-install-uninstall/);
+  assert.match(macosWorkflow, /verify:fresh-install-uninstall/);
+  assert.match(windowsWorkflow, /verify:fresh-install-uninstall/);
+  assert.doesNotMatch(workflow, /fetch-upgrade-sources/);
+  assert.doesNotMatch(workflow, /previous: Penglai_/);
+  assert.doesNotMatch(workflow, /pnpm verify:upgrade-uninstall/);
   assert.match(workflow, /needs: \[macos, windows, linux\]/);
   assert.match(workflow, /pnpm test:u3:plugins/g);
   assert.match(workflow, /u3-first-party-plugins\.json/g);
@@ -381,29 +387,53 @@ test("installed restart requests the product lifecycle before signal fallback", 
   assert.equal(closed, true);
 
   const compat = readFileSync(join(root, "scripts/u3-first-party-plugins.mjs"), "utf8");
+  const fresh = readFileSync(join(root, "scripts/verify-fresh-install-uninstall.mjs"), "utf8");
   assert.match(compat, /requestBrowserClose\(cdpSession\)/);
   assert.match(compat, /stopChild\(launched\.child(?:,\s*[\d_]+)?\)/);
   assert.ok(
     compat.indexOf("requestBrowserClose(cdpSession)") < compat.indexOf("stopChild(launched.child"),
   );
+  assert.match(fresh, /requestNativeApplicationClose/);
+  assert.match(fresh, /waitForChildExitNoKill/);
+  assert.match(fresh, /forced process termination; that is not a graceful application shutdown/);
+  assert.ok(fresh.indexOf("requestNativeApplicationClose") < fresh.indexOf("forceStopChild(child)"));
 });
 
 test("Windows child shutdown kills the process tree so NSIS upgrade is not blocked", () => {
   const helper = readFileSync(join(root, "scripts/lib/installed-app.mjs"), "utf8");
   const upgrade = readFileSync(join(root, "scripts/verify-upgrade-uninstall.mjs"), "utf8");
+  const fresh = readFileSync(join(root, "scripts/verify-fresh-install-uninstall.mjs"), "utf8");
+  const force = helper.indexOf("export async function forceStopChild");
   const stop = helper.indexOf("export async function stopChild");
-  const taskkill = helper.indexOf('spawnSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"]', stop);
-  const posixKill = helper.indexOf('child.kill("SIGKILL")', stop);
-  assert.ok(stop >= 0 && taskkill > stop, "stopChild must tree-kill Windows descendants");
+  const taskkill = helper.indexOf('spawnSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"]', force);
+  const posixKill = helper.indexOf('child.kill("SIGKILL")', force);
+  assert.ok(force >= 0 && taskkill > force, "forceStopChild must tree-kill Windows descendants");
   assert.ok(posixKill > taskkill, "POSIX SIGKILL remains the non-Windows fallback");
+  assert.ok(stop > force, "stopChild must reuse the forced tree-kill path");
+  assert.match(helper, /return forceStopChild\(child\)/);
   assert.match(upgrade, /leftoversByCommand|windows-process-scope/);
   assert.match(upgrade, /reapWindowsInstallTree/);
   assert.match(upgrade, /windows-uninstall-residue/);
   assert.doesNotMatch(upgrade, /\/IM", "Penglai\.exe"/);
   assert.match(upgrade, /timeout:\s*20 \* 60_000/);
+  assert.match(fresh, /reapWindowsInstallTree/);
+  assert.match(fresh, /windows-uninstall-residue/);
+  assert.doesNotMatch(fresh, /\/IM", "Penglai\.exe"/);
+  assert.match(fresh, /timeout:\s*20 \* 60_000/);
+  assert.match(fresh, /classifyUninstallResidue/);
+  assert.doesNotMatch(fresh, /removeTreeNoFollow\(app\)/);
+  assert.match(fresh, /function installWindowsDefault/);
+  assert.match(fresh, /isolateUserData: false/);
+  assert.match(fresh, /windowsFreshProfilePreflight/);
+  assert.match(fresh, /waitOwnedWindowsProcessesGone/);
+  const cleanupFn = fresh.slice(fresh.indexOf("async function cleanupProcesses"), fresh.indexOf("function launchFreshApp"));
+  assert.ok(cleanupFn.indexOf("waitOwnedWindowsProcessesGone") < cleanupFn.indexOf("reapWindowsInstallTree"));
+  assert.ok(fresh.indexOf("windowsFreshProfilePreflight") < fresh.indexOf("writeFileSync(sentinelPath"));
+  assert.doesNotMatch(fresh.slice(fresh.indexOf("function installWindowsDefault"), fresh.indexOf("async function shutdownFresh")), /\/D=/);
   assert.match(helper, /export async function reapWindowsInstallTree/);
   assert.match(helper, /windows-process-scope/);
   assert.match(upgrade, /`_\?=\$\{app\}`/);
+  assert.match(fresh, /`_\?=\$\{app\}`/);
   const nsis = readFileSync(join(root, "scripts/nsis/Penglai.nsi"), "utf8");
   assert.match(nsis, /\/SD IDOK/);
   assert.match(nsis, /upgrade_rename_live/);
@@ -419,7 +449,9 @@ test("Windows child shutdown kills the process tree so NSIS upgrade is not block
   assert.match(nsis, /upgrade_abort_keep_live/);
   assert.match(nsis, /uninstall_rmdir_retry/);
   assert.match(upgrade, /observeWindowsDefender/);
+  assert.match(fresh, /observeWindowsDefender/);
   assert.doesNotMatch(upgrade, /DisableRealtimeMonitoring \$true/);
+  assert.doesNotMatch(fresh, /DisableRealtimeMonitoring \$true/);
   assert.match(upgrade, /runner baseline realtime monitoring already disabled/);
   assert.match(upgrade, /I02 default-OS remains unproven/);
   assert.doesNotMatch(

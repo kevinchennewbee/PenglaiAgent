@@ -101,7 +101,7 @@ const layout = resolveRuntimeLayout(resources);
 const officeUser = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-bundled-office-")));
 ensurePrivateHome(officeUser);
 activatePrivateProfile(layout, officeUser);
-installFirstPartyPlugins(layout, officeUser.profileWeb, officeUser.transactions, ["@penglai/office"]);
+installFirstPartyPlugins(layout, officeUser.profileWeb, officeUser.transactions, ["@penglai/office"], officeUser.root);
 const officeMod = await import(
   pathToFileURL(join(officeUser.profileWeb, "node_modules", "@penglai", "office", "dist", "index.js")).href
 );
@@ -151,7 +151,7 @@ activatePrivateProfile(layout, failOpenUser);
 installFirstPartyPlugins(layout, failOpenUser.profileWeb, failOpenUser.transactions, [
   "@penglai/office",
   "@penglai/memory",
-]);
+], failOpenUser.root);
 const emptyApp = mkdtempSync(join(tmpdir(), "penglai-empty-app-"));
 mkdirSync(join(emptyApp, "mnemon"), { recursive: true });
 const supervisor = new EmbeddedDshSupervisor(layout);

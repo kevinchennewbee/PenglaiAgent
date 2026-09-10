@@ -112,6 +112,8 @@ if (steps.at(-1).status === 0 && String(steps.at(-1).tail).trim()) {
     dirty: steps.at(-1).tail,
   });
 }
+const fetchMnemon = pnpmProcess(["fetch:mnemon-assets"]);
+if (steps.at(-1).status === 0) steps.push(run(fetchMnemon.command, fetchMnemon.args, "fetch:mnemon-assets"));
 const unit = pnpmProcess(["test:unit"]);
 if (steps.at(-1).status === 0) steps.push(run(unit.command, unit.args, "test:unit"));
 

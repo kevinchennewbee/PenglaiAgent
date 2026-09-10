@@ -93,7 +93,7 @@ for (const mode of modes) {
     ensurePrivateHome(user, layout.appRoot);
     activatePrivateProfile(layout, user);
     configurePluginMode(user.profileWeb, mode);
-    installFirstPartyPlugins(layout, user.profileWeb, user.transactions, selectedPlugins(mode));
+    installFirstPartyPlugins(layout, user.profileWeb, user.transactions, selectedPlugins(mode), user.root);
     const { port } = await supervisor.start(user, { PENGLAI_PLUGINS_DIR: layout.pluginsDir });
     if (supervisor.state !== "healthy" || !supervisor.health) {
       throw new Error("supervisor not healthy after HTTP+inventory wait");
@@ -117,7 +117,7 @@ for (const mode of modes) {
       userRoot,
       plan: homePlan,
       validation: {
-        dshVersion: "0.1.5-alpha.1",
+        dshVersion: "0.1.5-rc.1",
         officialDocument: true,
         dshHealthy: true,
         profileReady: true,

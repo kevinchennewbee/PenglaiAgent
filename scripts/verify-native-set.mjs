@@ -4,7 +4,16 @@ import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { evidenceName, installerForTarget, NATIVE_INSTALLED_TARGETS } from "./lib/release-targets.mjs";
-import { expectedUpgradeSourceVersions, upgradeUninstallEvidenceMatches } from "./lib/native-upgrade-set.mjs";
+import {
+  currentNativeLifecycleScope,
+  expectedUpgradeSourceVersions,
+  upgradeUninstallEvidenceMatches,
+} from "./lib/native-upgrade-set.mjs";
+import {
+  FRESH_LIFECYCLE_COMMAND,
+  freshInstallUninstallEvidenceProblems,
+  worstFreshLifecycleVerdict,
+} from "./lib/native-fresh-set.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
 
 const allowed = new Set([
@@ -15,6 +24,7 @@ const allowed = new Set([
   "verify:profile",
   "verify:signing",
   "verify:upgrade-uninstall",
+  FRESH_LIFECYCLE_COMMAND,
 ]);
 const index = process.argv.indexOf("--command");
 const command = index >= 0 ? process.argv[index + 1] : "";
@@ -24,6 +34,21 @@ if (!allowed.has(command)) {
 
 const source = requireCleanCandidateSource();
 if (!source.ok) finish("STALE", { command: "verify:native-set", gate: command, reason: source.reason, ...source.git });
+
+if (command === "verify:upgrade-uninstall") {
+  const upgradeSources = JSON.parse(readFileSync(join(ROOT, "docs", PRODUCT_VERSION, "UPGRADE_SOURCES.json"), "utf8"));
+  const scope = currentNativeLifecycleScope(upgradeSources);
+  if (scope.olderInstalledUpgradeStatus === "OWNER_EXCLUDED") {
+    finish("INCOMPLETE", {
+      command: "verify:native-set",
+      gate: command,
+      reason: "older installed upgrade is OWNER_EXCLUDED; unrun upgrade paths are not PASS",
+      olderInstalledUpgradeStatus: "OWNER_EXCLUDED",
+      requiredLifecycleGate: scope.requiredLifecycleGate,
+      fetchPreviousInstallers: false,
+    });
+  }
+}
 
 const basename = command.replaceAll(":", "-");
 const records = [];
@@ -90,6 +115,22 @@ for (const target of targets) {
       });
     }
   }
+  if (command === FRESH_LIFECYCLE_COMMAND) {
+    const problems = freshInstallUninstallEvidenceProblems(record, {
+      sourceSha: source.git.head,
+      installerSha256: installerEvidence.sha256,
+      target,
+    });
+    if (problems.length) {
+      finish(worstFreshLifecycleVerdict(problems), {
+        command: "verify:native-set",
+        gate: command,
+        reason: problems.join("; "),
+        problems,
+        target,
+      });
+    }
+  }
   if (command === "verify:profile") {
     const modes = new Set(Array.isArray(record.modes) ? record.modes.map((row) => row?.mode) : []);
     const required = ["fresh", "im-only", "im-asr", "im-tts", "full"];
@@ -102,7 +143,7 @@ for (const target of targets) {
       });
     }
   }
-  const gateInstallerSha = command === "verify:installed"
+  const gateInstallerSha = command === "verify:installed" || command === FRESH_LIFECYCLE_COMMAND
     ? record.installerSha256
     : command === "verify:upgrade-uninstall"
       ? record.current?.installerSha256

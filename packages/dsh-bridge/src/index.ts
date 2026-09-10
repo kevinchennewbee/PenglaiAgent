@@ -11,13 +11,14 @@ import {
   type PenglaiAsrLanguage,
   type PenglaiImSource,
   type OfficialImageRef,
+  type OfficialFileRef,
 } from "@penglai/contracts";
 import type { AgentCallOptions, AgentPort, DirectoryPort } from "@penglai/routing-core";
 import { BridgeOperationGate, type BridgeCallOptions } from "./operations.js";
 import type { DshAgentLike, DshHost } from "./owner-ports.js";
 
-export const PINNED_DSH = "0.1.5-alpha.1";
-export const PINNED_DSH_COMMIT = "5dda764ed3aa172535a7967b06ff95d9cbfe536a";
+export const PINNED_DSH = "0.1.5-rc.1";
+export const PINNED_DSH_COMMIT = "183f08e9c6dde7e36cd2318eaee70b0da08fb35e";
 
 const ASR_LANGUAGES = new Set<PenglaiAsrLanguage>(["zh", "en", "ja", "ko", "yue", "auto"]);
 const ASR_EMOTIONS = new Set<PenglaiAsrEmotion>([
@@ -181,10 +182,13 @@ export function textFromAssistantMessage(message: { content?: { type?: string; t
 export { unwrapAgent, isAgentHandle, finalAssistantText, DURABLE_SESSION_EVENT, type OfficialAgentHandle as AgentHandle } from "./contracts.js";
 export { BridgeOperationGate, BRIDGE_DEFAULT_DEADLINE_MS, type BridgeCallOptions } from "./operations.js";
 
-function officialUserContent(
-  input: ModelInput,
-): Array<{ type: "text"; text: string } | { type: "image"; attachment: OfficialImageRef }> {
-  const blocks: Array<{ type: "text"; text: string } | { type: "image"; attachment: OfficialImageRef }> = [];
+export type OfficialUserContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; attachment: OfficialImageRef }
+  | { type: "file"; attachment: OfficialFileRef };
+
+function officialUserContent(input: ModelInput): OfficialUserContentPart[] {
+  const blocks: OfficialUserContentPart[] = [];
   if (input.text.trim()) blocks.push({ type: "text", text: input.text });
   if (input.officeHandle) {
     blocks.push({
@@ -194,6 +198,9 @@ function officialUserContent(
   }
   for (const attachment of input.images ?? []) {
     blocks.push({ type: "image", attachment });
+  }
+  for (const attachment of input.files ?? []) {
+    blocks.push({ type: "file", attachment });
   }
   if (blocks.length === 0) blocks.push({ type: "text", text: "" });
   return blocks;
@@ -285,6 +292,9 @@ export class DshBridge implements AgentPort, DirectoryPort {
   private async ensureSessionModelRoute(sessionId: string): Promise<void> {
     if (!this.host.describeSessionModels) return;
     const directory = await this.host.describeSessionModels(sessionId);
+    if (directory.sessionExists === false) {
+      throw new PenglaiError("INVALID_INPUT", "session does not exist");
+    }
     if (!directory.current.provider || !directory.current.model || !directory.routable) {
       throw new PenglaiError(
         "DSH_UNAVAILABLE",

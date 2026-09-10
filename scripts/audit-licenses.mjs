@@ -62,10 +62,10 @@ function packageJsonFor(packageName, resolver = mossReq, fromDir) {
 
 const licenses = [
   { name: "penglaiagent", license: "MIT" },
-  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.5-alpha.1" },
-  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.5-alpha.1" },
-  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.5-alpha.1" },
-  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.5-alpha.1" },
+  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.5-rc.1" },
+  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.5-rc.1" },
+  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.5-rc.1" },
+  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.5-rc.1" },
   { name: "Tencent openclaw-weixin protocol reference", license: "MIT", commit: "cef0bfc390393f716903e16d50408118047f87e0" },
   { name: "typescript", license: "Apache-2.0" },
   { name: "tsx", license: "MIT" },
@@ -424,8 +424,10 @@ if (
 ) {
   throw new Error("retired channel runtime absence boundary drift");
 }
-const officeSharpRows = productionInventory.filter(
-  (row) => /^@img\/sharp-libvips-/.test(row.name) && row.version === "1.3.2",
+const leftoverOfficeSharpRows = productionInventory.filter(
+  (row) =>
+    row.version === "1.3.2" &&
+    (/^@img\/sharp-libvips-/.test(row.name) || row.name === "sharp" || /^@img\/sharp-/.test(row.name)),
 );
 const dshSharpRows = productionInventory.filter(
   (row) =>
@@ -439,7 +441,7 @@ for (const [path, expectedSha256] of SHARP_LEGAL_FILES) {
   }
 }
 if (
-  officeSharpRows.some((row) => row.disposition !== "excluded-from-release") ||
+  leftoverOfficeSharpRows.length !== 0 ||
   dshSharpRows.length === 0 ||
   dshSharpRows.some((row) => row.disposition !== "lgpl-runtime-source-offer-required") ||
   !packScript.includes("penglai-office-disabled-image") ||
@@ -463,11 +465,11 @@ const result = {
   completeInstalled: completeInstalledInventory,
   policyDecisions: [
     {
-      component: "sharp@0.35.3 and platform libvips 1.3.2 packages",
-      source: "https://github.com/lovell/sharp",
-      license: "Apache-2.0 and LGPL-3.0-or-later",
-      integrity: "lockfile-pinned; exact platform integrity appears in the production inventory",
-      use: "PPT image path disabled; neither sharp nor libvips is packaged in the Office plugin",
+      component: "Penglai Office PPT image path",
+      source: "https://github.com/liustack/pptfast",
+      license: "MIT; sharp/libvips remain unbundled",
+      integrity: "pack-plugins disables image-size and sharp and refuses a packed require(\"sharp\")",
+      use: "PPT image path disabled; neither sharp nor libvips is packaged in the Office plugin. The Office transitive sharp override resolves the same 0.35.4 graph as official DSH and is not a second runtime.",
     },
     {
       component: "sharp@0.35.4 and platform libvips 1.3.3 packages",

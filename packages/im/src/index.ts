@@ -6,6 +6,7 @@ import {
   PenglaiError,
   ObjectStore,
   type ImageAdmission,
+  type FileAdmission,
   type PenglaiAsrClient,
   type PenglaiMossTtsClient,
 } from "@penglai/contracts";
@@ -27,9 +28,11 @@ import { QqAdapter } from "@penglai/channel-qq";
 import { SlackAdapter } from "@penglai/channel-slack";
 import { TelegramAdapter } from "@penglai/channel-telegram";
 import { DiscordAdapter } from "@penglai/channel-discord";
+import { IMessageAdapter } from "@penglai/channel-imessage";
 import {
   dingtalkChannelAdapter,
   discordChannelAdapter,
+  imessageChannelAdapter,
   qqChannelAdapter,
   slackChannelAdapter,
   telegramChannelAdapter,
@@ -69,7 +72,12 @@ export function createRuntime(opts: {
     new CryptoIds(),
     bridge,
     bridge,
-    opts.objects ? { bind: (handle, bind) => opts.objects!.bind(handle, bind) } : undefined,
+    opts.objects
+      ? {
+          bind: (handle, bind) => opts.objects!.bind(handle, bind),
+          peek: (handle) => opts.objects!.peek(handle),
+        }
+      : undefined,
   );
   plane.recoverAfterCrash();
   return { store, plane, token: opts.token ?? new CryptoIds().token() };
@@ -122,7 +130,7 @@ export function apply(ctx: Alpha2CordisLike): ReturnType<typeof createRuntime> &
   mkdirSync(dirname(dbPath), { recursive: true, mode: 0o700 });
   const dsh = hostFromAlpha2Cordis(ctx, process.env.PENGLAI_DSH_PIN ?? PINNED_DSH);
   const objects = new ObjectStore(join(userData, "objects"));
-  const attachments = (ctx as Alpha2CordisLike & { attachments?: ImageAdmission }).attachments;
+  const attachments = (ctx as Alpha2CordisLike & { attachments?: ImageAdmission & FileAdmission }).attachments;
   const rt = createRuntime({
     dbPath,
     host: dsh,
@@ -170,6 +178,8 @@ export function apply(ctx: Alpha2CordisLike): ReturnType<typeof createRuntime> &
   if (attachments) {
     weixin.imageAdmission = attachments;
     feishu.imageAdmission = attachments;
+    weixin.fileAdmission = attachments;
+    feishu.fileAdmission = attachments;
   }
   weixin.objectStore = objects;
   feishu.objectStore = objects;
@@ -302,6 +312,9 @@ export function apply(ctx: Alpha2CordisLike): ReturnType<typeof createRuntime> &
       wrapOpts("discord"),
     ),
   );
+  const imessageNative = new IMessageAdapter();
+  host.attachChannelAdapter(imessageChannelAdapter(imessageNative, wrapOpts("imessage")));
+  imessageNative.setPersist(() => host.snapshotAdapter("imessage"));
   host.deferSidecarOutbox();
   void (async () => {
     await Promise.all([
@@ -414,6 +427,8 @@ export type {
   InboundChannelEvent,
 } from "./channel-adapter.js";
 export { ImBotStore, ensureImV2Tables } from "./bots.js";
+export { validateBotAlias, MAX_BOT_ALIAS_LENGTH } from "./bot-alias.js";
+export { officialRemoteFailure } from "./message-failure.js";
 export { beginGuidedConnection } from "./guided.js";
 export { classifyMessageFailure, publicMessageFailure } from "./message-failure.js";
 export {

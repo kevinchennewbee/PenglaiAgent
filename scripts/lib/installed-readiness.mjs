@@ -21,3 +21,34 @@ export async function observeFreshInstalledBoot(userData, launch, timeoutMs = 12
   }
   return { launched, gateway, inventory, freshReadiness: false };
 }
+
+/** Restart must keep persisted profile identity; only the live gateway marker is cleared. */
+export async function observeInstalledRestart(userData, launch, previousIdentity, timeoutMs = 120_000) {
+  const gatewayPath = join(userData, "gateway.port");
+  rmSync(gatewayPath, { force: true });
+  const launched = launch();
+  const deadline = Date.now() + timeoutMs;
+  let gateway = false;
+  while (Date.now() < deadline) {
+    const alive = launched.child.exitCode === null && !launched.child.signalCode;
+    if (!alive) break;
+    gateway = existsSync(gatewayPath);
+    if (gateway) {
+      return {
+        launched,
+        gateway,
+        inventory: existsSync(join(userData, "plugins", "inventory-snapshot.json")),
+        freshReadiness: true,
+        previousIdentity,
+      };
+    }
+    await delay(100);
+  }
+  return {
+    launched,
+    gateway,
+    inventory: existsSync(join(userData, "plugins", "inventory-snapshot.json")),
+    freshReadiness: false,
+    previousIdentity,
+  };
+}

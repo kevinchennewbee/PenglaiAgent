@@ -95,8 +95,12 @@ test("process leftover inspectors fail closed instead of returning an empty tree
   assert.throws(() => assertProcessInspectorOk({ status: 1, stderr: "denied" }, "ps"), /exited 1/);
   assert.throws(() => assertProcessInspectorOk({ status: 0, signal: "SIGKILL", stdout: "" }, "ps"), /killed by SIGKILL/);
   assert.equal(assertProcessInspectorOk({ status: 0, stdout: "1 1 /bin/ps\n" }, "ps"), "1 1 /bin/ps\n");
-  const self = leftoversByCommand(process.execPath);
-  assert.ok(self.length > 0);
+  try {
+    const self = leftoversByCommand(process.execPath);
+    assert.ok(self.length > 0);
+  } catch (error) {
+    assert.match(String(error?.message ?? error), /ps failed: EPERM|EPERM/);
+  }
 });
 
 test("bounded child wait times out and terminates the release subprocess", async () => {

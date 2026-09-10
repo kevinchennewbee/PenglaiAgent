@@ -1,4 +1,4 @@
-import type { OfficialImageRef, PenglaiImSource } from "@penglai/contracts";
+import type { OfficialFileRef, OfficialImageRef, PenglaiImSource } from "@penglai/contracts";
 
 /** Narrow official Agent face consumed by Penglai message routing. */
 export interface DshAgentLike {
@@ -12,13 +12,21 @@ export interface DshAgentLike {
   followup(message: {
     id?: string;
     role: "user";
-    content: Array<{ type: "text"; text: string } | { type: "image"; attachment: OfficialImageRef }>;
+    content: Array<
+      | { type: "text"; text: string }
+      | { type: "image"; attachment: OfficialImageRef }
+      | { type: "file"; attachment: OfficialFileRef }
+    >;
     source: PenglaiImSource;
   }): void;
   steer(message: {
     id?: string;
     role: "user";
-    content: Array<{ type: "text"; text: string } | { type: "image"; attachment: OfficialImageRef }>;
+    content: Array<
+      | { type: "text"; text: string }
+      | { type: "image"; attachment: OfficialImageRef }
+      | { type: "file"; attachment: OfficialFileRef }
+    >;
     source: PenglaiImSource;
   }): void;
   cancel(cause: string, opts?: { keepInbox?: boolean }): void;
@@ -48,6 +56,7 @@ export interface DshModelSelection {
 export interface DshSessionModelDirectory {
   current: DshModelSelection;
   routable: boolean;
+  sessionExists: boolean;
   groups: Array<{
     id: string;
     name: string;
@@ -74,6 +83,7 @@ export interface DshWorkspaceOwner {
  */
 export interface DshSessionOwner {
   listSessions(): Promise<DshSessionView[]>;
+  inspectSession?(sessionId: string): Promise<{ events: readonly unknown[] } | undefined>;
   createSession(workspaceIdentity: string, title?: string): Promise<{ id: string }>;
   describeSessionModels(sessionId: string): Promise<DshSessionModelDirectory>;
   selectSessionModel(
