@@ -23,9 +23,47 @@ test("route unique by adapter+peer", () => {
   store.close();
 });
 
-test("schema 12 keeps Weixin/Feishu routes and refuses duplicate vendor messages", () => {
+test("schema 13 persists a validated inbound media receipt and rejects a tampered digest", () => {
   const store = new Store(":memory:");
-  assert.equal(store.schemaVersion(), 12);
+  assert.equal(store.schemaVersion(), 13);
+  store.upsertRoute({ routeId: "r1", adapter: "weixin", accountRef: "acct", peerRef: "peer", status: "active" });
+  store.insertInbound(
+    {
+      inboundId: "in-1",
+      adapterMessageKey: "k1",
+      routeId: "r1",
+      bindingRevision: 1,
+      bodyKind: "media",
+      redactedDigest: "d",
+      state: "queued",
+    },
+    "caption",
+    1,
+  );
+  store.putInboundMediaReceipt(
+    "in-1",
+    {
+      schema: 1,
+      kind: "file",
+      workspaceIdentity: "ws",
+      sessionId: "sess",
+      routeId: "r1",
+      accountRef: "acct",
+      bindingRevision: 1,
+      officialFile: { attachmentId: `sha256:${"ab".repeat(32)}`, name: "a.bin", bytes: 4 },
+    },
+    1,
+  );
+  const receipt = store.getInboundMediaReceipt("in-1");
+  assert.equal(receipt?.officialFile?.name, "a.bin");
+  store.db.prepare("UPDATE inbound_media_receipts SET receipt_digest=? WHERE inbound_id=?").run("00".repeat(32), "in-1");
+  assert.throws(() => store.getInboundMediaReceipt("in-1"), /media receipt digest rejected/);
+  store.close();
+});
+
+test("schema 13 keeps Weixin/Feishu routes and refuses duplicate vendor messages", () => {
+  const store = new Store(":memory:");
+  assert.equal(store.schemaVersion(), 13);
   store.upsertRoute({ routeId: "wx1", adapter: "weixin", accountRef: "a", peerRef: "p", status: "active" });
   const first = store.claimInboundOperation({
     operationId: "op-1",
@@ -77,7 +115,7 @@ test("cursor persist and event dedupe refuse tenant mismatch", () => {
 
 test("schema 6 exposes guards, sending recovery, and durable dispatch mode", () => {
   const store = new Store(":memory:");
-  assert.equal(store.schemaVersion(), 12);
+  assert.equal(store.schemaVersion(), 13);
   store.upsertRoute({ routeId: "r1", adapter: "mock", accountRef: "a", peerRef: "p", status: "active" });
   store.putGuard("r1", { pairingAttempts: 2, pairingLockedUntil: 9, rateWindowStart: 1, rateCount: 3 });
   assert.equal(store.getGuard("r1").pairingAttempts, 2);
@@ -149,7 +187,7 @@ test("schema 5 persists binding voice policy and resumable opaque voice jobs", (
 
 test("schema 8 persists pending IM menus and expires them", () => {
   const store = new Store(":memory:");
-  assert.equal(store.schemaVersion(), 12);
+  assert.equal(store.schemaVersion(), 13);
   store.upsertRoute({ routeId: "r1", adapter: "mock", accountRef: "a", peerRef: "p", status: "active" });
   store.putPendingMenu("r1", {
     kind: "projects",
@@ -167,7 +205,7 @@ test("schema 8 persists pending IM menus and expires them", () => {
 
 test("schema 7 lets WeChat and Feishu share one official default session", () => {
   const store = new Store(":memory:");
-  assert.equal(store.schemaVersion(), 12);
+  assert.equal(store.schemaVersion(), 13);
   const unique = store.db
     .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='bindings_active_session'")
     .get() as { name?: string } | undefined;

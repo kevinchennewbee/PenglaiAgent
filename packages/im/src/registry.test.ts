@@ -230,7 +230,7 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
     assert.equal(typeof state.capabilityEvidence.recovery, "string");
     assert.ok(state.connectionHint.en.length > 0);
   }
-  assert.equal(rt.store.schemaVersion(), 12);
+  assert.equal(rt.store.schemaVersion(), 13);
   assert.equal(host.listBindings().some((row) => row.channel === "weixin" && row.accountId === "docs"), false);
   assert.throws(
     () =>

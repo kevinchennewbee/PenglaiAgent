@@ -72,7 +72,12 @@ export function createRuntime(opts: {
     new CryptoIds(),
     bridge,
     bridge,
-    opts.objects ? { bind: (handle, bind) => opts.objects!.bind(handle, bind) } : undefined,
+    opts.objects
+      ? {
+          bind: (handle, bind) => opts.objects!.bind(handle, bind),
+          peek: (handle) => opts.objects!.peek(handle),
+        }
+      : undefined,
   );
   plane.recoverAfterCrash();
   return { store, plane, token: opts.token ?? new CryptoIds().token() };

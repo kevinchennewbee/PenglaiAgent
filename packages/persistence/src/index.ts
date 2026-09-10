@@ -9,9 +9,13 @@ import {
   ADAPTER_NAMES,
   SCHEMA_VERSION,
   parseClosedEnum,
+  canonicalizeInboundMediaReceipt,
+  inboundMediaReceiptDigest,
+  parseInboundMediaReceipt,
   type Binding,
   type BindingVoicePolicy,
   type Inbound,
+  type InboundMediaReceipt,
   type InboundState,
   type OutboxItem,
   type OutboxState,
@@ -36,7 +40,7 @@ const INBOUND_STATES = [
   "dead",
 ] as const;
 const OUTBOX_STATES = ["pending", "claimed", "sending", "retryable", "uncertain", "delivered", "dead"] as const;
-const BODY_KINDS = ["text", "voice", "control"] as const;
+const BODY_KINDS = ["text", "voice", "control", "media"] as const;
 const PAYLOAD_KINDS = ["text", "voice", "text-and-voice"] as const;
 const DISPATCH_MODES = ["followup", "steer"] as const;
 const VOICE_ADAPTERS = ["weixin", "feishu"] as const;
@@ -270,6 +274,23 @@ const MIGRATIONS: string[] = [
   INSERT OR IGNORE INTO im_last_good(snapshot_id, created_at, schema_version, note)
     VALUES ('v11-weixin-feishu', 0, 11, '0.5.6 weixin/feishu last-good marker');
   UPDATE schema_meta SET version = 12;
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS inbound_media_receipts (
+    inbound_id TEXT PRIMARY KEY,
+    schema_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    workspace_identity TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    route_id TEXT NOT NULL,
+    account_ref TEXT NOT NULL,
+    binding_revision INTEGER NOT NULL,
+    receipt_json TEXT NOT NULL,
+    receipt_digest TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY(inbound_id) REFERENCES inbounds(inbound_id)
+  );
+  UPDATE schema_meta SET version = 13;
   `,
 ];
 
@@ -905,6 +926,45 @@ export class Store {
     return row?.payload_text ?? undefined;
   }
 
+  putInboundMediaReceipt(inboundId: string, receipt: InboundMediaReceipt, createdAt: number): void {
+    const canonical = canonicalizeInboundMediaReceipt(receipt);
+    const digest = inboundMediaReceiptDigest(canonical);
+    this.db
+      .prepare(
+        `INSERT INTO inbound_media_receipts(
+           inbound_id, schema_id, kind, workspace_identity, session_id, route_id,
+           account_ref, binding_revision, receipt_json, receipt_digest, created_at
+         ) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      )
+      .run(
+        inboundId,
+        receipt.schema,
+        receipt.kind,
+        receipt.workspaceIdentity,
+        receipt.sessionId,
+        receipt.routeId,
+        receipt.accountRef,
+        receipt.bindingRevision,
+        canonical,
+        digest,
+        createdAt,
+      );
+  }
+
+  getInboundMediaReceipt(inboundId: string): InboundMediaReceipt | undefined {
+    const row = this.db
+      .prepare(
+        "SELECT receipt_json, receipt_digest FROM inbound_media_receipts WHERE inbound_id=?",
+      )
+      .get(inboundId) as { receipt_json: string; receipt_digest: string } | undefined;
+    if (!row) return undefined;
+    return parseInboundMediaReceipt(row.receipt_json, row.receipt_digest);
+  }
+
+  deleteInboundMediaReceipt(inboundId: string): void {
+    this.db.prepare("DELETE FROM inbound_media_receipts WHERE inbound_id=?").run(inboundId);
+  }
+
   inboundByDshMessage(dshMessageId: string): Inbound | undefined {
     const row = this.db.prepare("SELECT * FROM inbounds WHERE dsh_message_id=?").get(dshMessageId) as
       | Record<string, string | number | null>
@@ -1201,6 +1261,13 @@ export class Store {
       .prepare(
         `UPDATE inbounds SET payload_text=NULL
          WHERE created_at < ? AND payload_text IS NOT NULL AND payload_text != ''`,
+      )
+      .run(cutoff);
+    this.db
+      .prepare(
+        `DELETE FROM inbound_media_receipts WHERE inbound_id IN (
+           SELECT inbound_id FROM inbounds WHERE created_at < ?
+         )`,
       )
       .run(cutoff);
     const outbox = this.db

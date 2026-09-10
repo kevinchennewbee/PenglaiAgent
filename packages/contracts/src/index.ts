@@ -16,6 +16,8 @@ import { PenglaiError } from "./errors.js";
 export * from "./i18n.js";
 export * from "./typert.js";
 export * from "./errors.js";
+export * from "./official-remote.js";
+export * from "./inbound-media-receipt.js";
 export * from "./bounded-http.js";
 export * from "./closed-enum.js";
 export * from "./safe-https.js";
@@ -23,7 +25,7 @@ export * from "./session-snapshot.js";
 export * from "./center-journal.js";
 export * from "./usage-projection.js";
 
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 13;
 export const RELEASE = "0.6.1";
 
 export const CONFIG = Object.freeze({
@@ -124,7 +126,7 @@ export type OutboxState =
   | "delivered"
   | "dead";
 
-export type BodyKind = "text" | "voice" | "control";
+export type BodyKind = "text" | "voice" | "control" | "media";
 
 export type VoiceInputMode = "text-and-voice" | "text-only";
 export type VoiceReplyMode = "text" | "voice" | "text-and-voice" | "mirror-input";

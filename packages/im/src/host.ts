@@ -1486,7 +1486,7 @@ export class PenglaiImHost {
     const adapter = this.adapters.get(event.channel);
     if (adapter) this.startStatusReaction(adapter, event, routeId);
     try {
-      await this.plane.submitInbound({
+      const reply = await this.plane.submitInbound({
         adapter: event.channel,
         adapterMessageKey: event.idempotencyKey,
         accountRef: event.accountRef,
@@ -1497,6 +1497,12 @@ export class PenglaiImHost {
         text: event.text,
         receivedAt,
       });
+      if (reply.failureCode === "PRESET_UNAVAILABLE") {
+        this.recordChannelFailure(event.channel, channelConfigAccountId(event.channel), {
+          isDSHRemoteError: true,
+          code: "agent-preset/unavailable",
+        });
+      }
       if (adapter) this.persistAdapterState(event.channel, adapter);
     } catch (error) {
       this.statusReactions.get(inboundOperationKey(routeId, event.idempotencyKey))?.error();

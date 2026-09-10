@@ -141,13 +141,13 @@ test("image and file inbound are accepted into the bound session", async () => {
         size: 32,
         sha256: "b".repeat(64),
         opaqueHandle: "media-doc",
-        officeHandle: "obj-officehandle00000001",
+        officeHandle: "obj-0123456789abcdef01234567",
         officialFile,
       },
     }),
   );
   assert.equal(office.kind, "accepted");
-  assert.equal(h.inputs.at(-1)?.officeHandle, "obj-officehandle00000001");
+  assert.equal(h.inputs.at(-1)?.officeHandle, "obj-0123456789abcdef01234567");
   assert.deepEqual(h.inputs.at(-1)?.files, [officialFile]);
   assert.equal(h.inputs.at(-1)?.text.includes("penglai-media"), false);
   const missingReceipt = await h.plane.submitInbound(

@@ -55,6 +55,21 @@ test("official isDSHRemoteError and failure.code classify slash-separated preset
   assert.notEqual(unknownOfficial.code, "CHANNEL_DELIVERY");
 });
 
+test("official RemoteError on Error.cause is classified as PRESET_UNAVAILABLE", () => {
+  const failure = classifyMessageFailure(
+    new Error("gateway/internal", {
+      cause: {
+        isDSHRemoteError: true,
+        code: "agent-preset/not-found",
+        message: "preset missing",
+      },
+    }),
+  );
+  assert.equal(failure.code, "PRESET_UNAVAILABLE");
+  assert.equal(failure.reason, "agent-preset/not-found");
+  assert.doesNotMatch(JSON.stringify(failure), /preset missing|gateway\/internal/);
+});
+
 test("missing-session official codes are not classified here", () => {
   const missing = classifyMessageFailure({
     isDSHRemoteError: true,

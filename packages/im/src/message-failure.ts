@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
 import {
+  officialRemoteFailure as readOfficialRemoteFailure,
+  isAgentPresetRemoteCode,
+  presetUnavailableCopy,
+} from "@penglai/contracts";
+import {
   WeixinIlinkResponseError,
   type WeixinIlinkFailureKind,
 } from "@penglai/channel-weixin";
@@ -66,10 +71,7 @@ const COPY: Record<MessageFailureCode, { zh: string; en: string }> = {
     zh: "这个平台没有官方扫码捷径。请按官方 Token / Manifest 步骤连接。",
     en: "This platform has no official QR shortcut. Use the official token or manifest steps.",
   },
-  PRESET_UNAVAILABLE: {
-    zh: "当前 Agent Preset 无法使用。请发送 /项目 选择工作区，再发送 /新建 创建新会话。如需继续原会话，请在官方 DSH 设置中恢复原 Preset。",
-    en: "The current agent preset is unavailable. Send /projects to choose a workspace, then /new to start a new session. To keep the original session, restore the preset in official DSH settings.",
-  },
+  PRESET_UNAVAILABLE: presetUnavailableCopy(),
   INPUT_INVALID: {
     zh: "这条消息缺少必要字段，已被拒绝。",
     en: "This message is missing required fields and was rejected.",
@@ -99,31 +101,13 @@ export function newReferenceId(): string {
 }
 
 export function officialRemoteFailure(error: unknown): { code: string; message?: string } | undefined {
-  if (!error || typeof error !== "object") return undefined;
-  const rec = error as Record<string, unknown>;
-  const wrapped = rec.failure;
-  if (wrapped && typeof wrapped === "object") {
-    const failure = wrapped as Record<string, unknown>;
-    if (typeof failure.code === "string" && failure.code) {
-      return {
-        code: failure.code,
-        ...(typeof failure.message === "string" ? { message: failure.message } : {}),
-      };
-    }
-  }
-  if (rec.isDSHRemoteError === true && typeof rec.code === "string" && rec.code) {
-    return {
-      code: rec.code,
-      ...(typeof rec.message === "string" ? { message: rec.message } : {}),
-    };
-  }
-  return undefined;
+  return readOfficialRemoteFailure(error);
 }
 
 export function classifyMessageFailure(error: unknown): MessageFailure {
   const official = officialRemoteFailure(error);
   if (official) {
-    const code: MessageFailureCode = /^agent-preset[-/]/u.test(official.code)
+    const code: MessageFailureCode = isAgentPresetRemoteCode(official.code)
       ? "PRESET_UNAVAILABLE"
       : "INTERNAL_UNKNOWN";
     return {
