@@ -396,6 +396,9 @@ export class Store {
   }
 
   tx<T>(fn: () => T): T {
+    if (this.db.isTransaction) {
+      return fn();
+    }
     this.db.exec("BEGIN IMMEDIATE");
     try {
       const out = fn();

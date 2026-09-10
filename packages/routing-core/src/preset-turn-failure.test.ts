@@ -418,3 +418,165 @@ test("recovery preserves transient retry, session-not-found ownership, and unkno
   assert.equal(inputs.at(-1)?.text, "hello");
   store.close();
 });
+
+test("preset notice and no_delivery are all-or-none across an injected state-write failure and reopen", async () => {
+  const path = tmpDb();
+  const bytes = Buffer.from("CORAL-061-ATOMIC");
+  const file = {
+    attachmentId: `sha256:${officialFileDigest(bytes)}`,
+    name: sanitizeOfficialFileName("coral.txt"),
+    bytes: bytes.byteLength,
+  };
+  let store = new Store(path);
+  let current = makePlane(store, {
+    async followup() {
+      throw new Error("temporary offline");
+    },
+    async steer() {
+      return { dshMessageId: "unused" };
+    },
+    async cancelCurrent() {},
+    async removeInbox() {},
+  });
+  await bind(current);
+  await current.submitInbound(
+    env({
+      adapterMessageKey: "atomic-file",
+      bodyKind: "media",
+      text: "read this file",
+      media: {
+        kind: "file",
+        source: "weixin",
+        sourceMessageId: "atomic-file",
+        sourceResourceId: "atomic-resource",
+        mime: "text/plain",
+        filename: file.name,
+        size: file.bytes,
+        sha256: file.attachmentId.slice(7),
+        opaqueHandle: "media-atomic-admitted-fixture",
+        officialFile: file,
+      },
+    }),
+  );
+  const routeId = store.findRoute("weixin", "acct", "peer")!.routeId;
+  const pending = store.queuedWithoutDshId().map((row) => row.inboundId);
+  assert.equal(pending.length, 1);
+  store.close();
+
+  store = new Store(path);
+  const originalSet = store.setInboundState.bind(store);
+  store.setInboundState = ((inboundId: string, state: string, dshMessageId?: string) => {
+    if (state === "no_delivery") {
+      throw new Error("injected crash after outbox persistence before terminal state");
+    }
+    return originalSet(inboundId, state as Parameters<typeof originalSet>[1], dshMessageId);
+  }) as typeof store.setInboundState;
+  current = makePlane(store, {
+    async followup() {
+      throw new Error("neutral wrapper", { cause: remoteError("agent-preset/not-found", "neutral preset disappeared") });
+    },
+    async steer() {
+      return { dshMessageId: "unused" };
+    },
+    async cancelCurrent() {},
+    async removeInbox() {},
+  });
+  await assert.rejects(
+    () => current.recoverQueuedInbounds(),
+    /injected crash after outbox persistence before terminal state/,
+  );
+  assert.equal(
+    store.pendingOutbox(routeId).filter((row) => row.payloadText === presetUnavailableUserText()).length,
+    0,
+  );
+  assert.equal(store.getInbound(pending[0]!)?.state, "queued");
+  assert.equal(
+    store.listAudit().some((row) => row.event === "inbound_preset_unavailable"),
+    false,
+  );
+  store.close();
+
+  store = new Store(path);
+  assert.equal(
+    store.pendingOutbox(routeId).filter((row) => row.payloadText === presetUnavailableUserText()).length,
+    0,
+  );
+  assert.equal(store.getInbound(pending[0]!)?.state, "queued");
+  current = makePlane(store, {
+    async followup() {
+      throw new Error("neutral wrapper", { cause: remoteError("agent-preset/not-found", "neutral preset disappeared") });
+    },
+    async steer() {
+      return { dshMessageId: "unused" };
+    },
+    async cancelCurrent() {},
+    async removeInbox() {},
+  });
+  const recovered = await current.recoverQueuedInbounds();
+  assert.equal(recovered.rejected, 1);
+  assert.equal(recovered.failed, 0);
+  assert.equal(recovered.dispatched, 0);
+  const notices = store.pendingOutbox(routeId).filter((row) => row.payloadText === presetUnavailableUserText());
+  assert.equal(notices.length, 1);
+  assertSafePresetNotice(notices[0]!.payloadText!);
+  assert.equal(store.getInbound(pending[0]!)?.state, "no_delivery");
+  assert.equal(store.getInbound(pending[0]!)?.dshMessageId, undefined);
+  const again = await current.recoverQueuedInbounds();
+  assert.equal(again.dispatched, 0);
+  assert.equal(
+    store.pendingOutbox(routeId).filter((row) => row.payloadText === presetUnavailableUserText()).length,
+    1,
+  );
+  store.close();
+
+  store = new Store(path);
+  let acceptedAfterNotice = 0;
+  current = makePlane(store, {
+    async followup() {
+      acceptedAfterNotice += 1;
+      return { dshMessageId: "must-not-dispatch" };
+    },
+    async steer() {
+      return { dshMessageId: "unused" };
+    },
+    async cancelCurrent() {},
+    async removeInbox() {},
+  });
+  const afterReopen = await current.recoverQueuedInbounds();
+  assert.equal(afterReopen.dispatched, 0);
+  assert.equal(acceptedAfterNotice, 0);
+  assert.equal(
+    store.pendingOutbox(routeId).filter((row) => row.payloadText === presetUnavailableUserText()).length,
+    1,
+  );
+  assert.equal(store.getInbound(pending[0]!)?.state, "no_delivery");
+  store.close();
+});
+
+test("missing vendor target fail-closes the outbox and still terminals the inbound atomically", async () => {
+  const store = new Store(":memory:");
+  const control = makePlane(store, {
+    async followup() {
+      throw remoteError("agent-preset/not-found");
+    },
+    async steer() {
+      return { dshMessageId: "x" };
+    },
+    async cancelCurrent() {},
+    async removeInbox() {},
+  });
+  const { token } = control.createPairing({ workspaceIdentity: "ws", sessionId: "sess", adapter: "weixin" });
+  await control.submitInbound(env({ adapterMessageKey: "bind", text: `/绑定 ${token}`, vendorTarget: undefined }));
+  const reply = await control.submitInbound(env({ adapterMessageKey: "m-novendor", text: "hello", vendorTarget: undefined }));
+  assert.equal(reply.failureCode, "PRESET_UNAVAILABLE");
+  const routeId = store.findRoute("weixin", "acct", "peer")!.routeId;
+  assert.equal(store.getVendorReplyTarget(routeId), undefined);
+  assert.equal(
+    store.pendingOutbox(routeId).filter((row) => row.payloadText === presetUnavailableUserText()).length,
+    0,
+  );
+  assert.equal(store.queuedWithoutDshId().length, 0);
+  const inbound = store.listAudit().find((row) => row.event === "inbound_preset_unavailable");
+  assert.ok(inbound);
+  store.close();
+});

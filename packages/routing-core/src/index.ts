@@ -365,13 +365,15 @@ export class RoutingControlPlane {
     const official = officialRemoteFailure(error);
     if (!official || !isAgentPresetRemoteCode(official.code)) return undefined;
     const text = presetUnavailableUserText();
-    this.enqueueControlReply(routeId, inboundId, text);
-    this.store.setInboundState(inboundId, "no_delivery");
-    this.store.audit(
-      "inbound_preset_unavailable",
-      { inboundId, routeId, code: official.code.slice(0, 64) },
-      this.clock.now(),
-    );
+    this.store.tx(() => {
+      this.enqueueControlReply(routeId, inboundId, text);
+      this.store.setInboundState(inboundId, "no_delivery");
+      this.store.audit(
+        "inbound_preset_unavailable",
+        { inboundId, routeId, code: official.code.slice(0, 64) },
+        this.clock.now(),
+      );
+    });
     return { kind: "control", text, failureCode: "PRESET_UNAVAILABLE" };
   }
 

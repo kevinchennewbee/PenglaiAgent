@@ -447,3 +447,39 @@ test("R56-SEC-012 IM body older than 24h is redacted from inbound and outbox", (
   assert.equal(store.getOutbox("out-old")?.payloadText, "");
   store.close();
 });
+
+test("nested store.tx joins the outer transaction and rolls back together after reopen", () => {
+  const path = tmpDb();
+  const store = new Store(path);
+  store.upsertRoute({ routeId: "r1", adapter: "weixin", accountRef: "acct", peerRef: "peer", status: "active" });
+  assert.throws(() => {
+    store.tx(() => {
+      store.upsertRoute({
+        routeId: "r2",
+        adapter: "weixin",
+        accountRef: "acct2",
+        peerRef: "peer2",
+        status: "active",
+      });
+      store.tx(() => {
+        store.upsertRoute({
+          routeId: "r3",
+          adapter: "weixin",
+          accountRef: "acct3",
+          peerRef: "peer3",
+          status: "active",
+        });
+      });
+      throw new Error("outer failed after nested write");
+    });
+  }, /outer failed after nested write/);
+  assert.equal(store.findRoute("weixin", "acct2", "peer2"), undefined);
+  assert.equal(store.findRoute("weixin", "acct3", "peer3"), undefined);
+  assert.equal(store.findRoute("weixin", "acct", "peer")?.routeId, "r1");
+  store.close();
+  const reopened = new Store(path);
+  assert.equal(reopened.findRoute("weixin", "acct2", "peer2"), undefined);
+  assert.equal(reopened.findRoute("weixin", "acct3", "peer3"), undefined);
+  assert.equal(reopened.findRoute("weixin", "acct", "peer")?.routeId, "r1");
+  reopened.close();
+});
