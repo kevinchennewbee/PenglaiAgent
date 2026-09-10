@@ -106,6 +106,12 @@ function assertObjectHandle(value: unknown, label: string): string {
   return value;
 }
 
+function requireInboundMediaReceiptSchema(value: unknown): asserts value is typeof INBOUND_MEDIA_RECEIPT_SCHEMA {
+  if (typeof value !== "number" || !Number.isInteger(value) || value !== INBOUND_MEDIA_RECEIPT_SCHEMA) {
+    throw new PenglaiError("SECURITY_POLICY", "media receipt schema rejected");
+  }
+}
+
 export function canonicalizeInboundMediaReceipt(receipt: InboundMediaReceipt): string {
   return JSON.stringify({
     schema: INBOUND_MEDIA_RECEIPT_SCHEMA,
@@ -183,6 +189,7 @@ export function parseInboundMediaReceipt(rawJson: string, expectedDigest: string
     throw new PenglaiError("SECURITY_POLICY", "media receipt payload rejected");
   }
   const rec = parsed as Record<string, unknown>;
+  requireInboundMediaReceiptSchema(rec.schema);
   const receipt = buildInboundMediaReceipt({
     kind: rec.kind as MediaKind,
     workspaceIdentity: rec.workspaceIdentity as string,

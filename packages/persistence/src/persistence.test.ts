@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  buildInboundMediaReceipt,
+  canonicalizeInboundMediaReceipt,
+  inboundMediaReceiptDigest,
+} from "@penglai/contracts";
 import { tmpDb } from "@penglai/testkit";
 import { Store } from "./index.js";
 
@@ -58,6 +63,44 @@ test("schema 13 persists a validated inbound media receipt and rejects a tampere
   assert.equal(receipt?.officialFile?.name, "a.bin");
   store.db.prepare("UPDATE inbound_media_receipts SET receipt_digest=? WHERE inbound_id=?").run("00".repeat(32), "in-1");
   assert.throws(() => store.getInboundMediaReceipt("in-1"), /media receipt digest rejected/);
+  store.close();
+});
+
+test("schema 13 rejects a schema99 receipt whose digest still matches schema1 canonical bytes", () => {
+  const store = new Store(":memory:");
+  store.upsertRoute({ routeId: "r1", adapter: "weixin", accountRef: "acct", peerRef: "peer", status: "active" });
+  store.insertInbound(
+    {
+      inboundId: "in-schema",
+      adapterMessageKey: "k-schema",
+      routeId: "r1",
+      bindingRevision: 1,
+      bodyKind: "media",
+      redactedDigest: "d",
+      state: "queued",
+    },
+    "caption",
+    1,
+  );
+  const receipt = buildInboundMediaReceipt({
+    kind: "file",
+    workspaceIdentity: "ws",
+    sessionId: "sess",
+    routeId: "r1",
+    accountRef: "acct",
+    bindingRevision: 1,
+    officialFile: { attachmentId: `sha256:${"cd".repeat(32)}`, name: "b.bin", bytes: 8 },
+  });
+  const canonical = canonicalizeInboundMediaReceipt(receipt);
+  const digest = inboundMediaReceiptDigest(canonical);
+  store.putInboundMediaReceipt("in-schema", receipt, 1);
+  assert.equal(store.getInboundMediaReceipt("in-schema")?.schema, 1);
+  const mutated = JSON.stringify({ ...(JSON.parse(canonical) as Record<string, unknown>), schema: 99 });
+  store.db
+    .prepare("UPDATE inbound_media_receipts SET receipt_json=? WHERE inbound_id=?")
+    .run(mutated, "in-schema");
+  assert.equal(inboundMediaReceiptDigest(canonical), digest);
+  assert.throws(() => store.getInboundMediaReceipt("in-schema"), /media receipt schema rejected/);
   store.close();
 });
 

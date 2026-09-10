@@ -510,7 +510,12 @@ export class RoutingControlPlane {
           { inboundId: inbound.inboundId, routeId: inbound.routeId, mode: inbound.dispatchMode ?? "followup" },
           this.clock.now(),
         );
-      } catch {
+      } catch (err: unknown) {
+        const preset = this.deliverPresetTurnFailure(inbound.routeId, inbound.inboundId, err);
+        if (preset) {
+          result.rejected += 1;
+          return;
+        }
         this.store.audit(
           "inbound_recovery_deferred",
           { inboundId: inbound.inboundId, routeId: inbound.routeId },
