@@ -156,47 +156,20 @@ export const OFFICE_CREATE_SPEC_SCHEMA: JsonSchemaNode = {
 };
 
 export const OFFICE_CREATE_PARAMETERS_SCHEMA: JsonSchemaNode = {
+  type: "object",
+  additionalProperties: false,
   description:
-    "Exactly one create pathway: format+text, template_id, or structured spec. Do not send body aliases. format inside spec is the discriminator for structured create.",
-  oneOf: [
-    {
-      title: "Plain text",
-      description: "Create from format and text only. Do not send spec or template_id.",
-      type: "object",
-      additionalProperties: false,
-      required: ["format", "text"],
-      properties: {
-        format: formatSchema,
-        text: { type: "string", description: "1-4000 characters of document text." },
-      },
+    "Provider-facing object root. Exactly one create pathway is valid at runtime: format+text, template_id, or structured spec. Do not send body aliases. spec.format is the discriminator for structured create. Nested spec remains a closed typed union.",
+  properties: {
+    format: formatSchema,
+    text: { type: "string", description: "1-4000 characters of document text. Valid only with format, without template_id or spec." },
+    template_id: {
+      type: "string",
+      enum: [...OFFICE_TEMPLATE_IDS],
+      description: "Built-in template id. Valid alone, without format, text, or spec.",
     },
-    {
-      title: "Built-in template",
-      description: "Create from a built-in template_id only.",
-      type: "object",
-      additionalProperties: false,
-      required: ["template_id"],
-      properties: {
-        template_id: {
-          type: "string",
-          enum: [...OFFICE_TEMPLATE_IDS],
-          description: "Built-in template id.",
-        },
-      },
-    },
-    {
-      title: "Structured spec",
-      description:
-        "Create from a closed typed spec. spec.format is required. An optional sibling format must equal spec.format. Do not send text or template_id.",
-      type: "object",
-      additionalProperties: false,
-      required: ["spec"],
-      properties: {
-        format: formatSchema,
-        spec: OFFICE_CREATE_SPEC_SCHEMA,
-      },
-    },
-  ],
+    spec: OFFICE_CREATE_SPEC_SCHEMA,
+  },
 };
 
 const operationBranches: JsonSchemaNode[] = [
@@ -324,24 +297,19 @@ export const OFFICE_OPERATION_SCHEMA: JsonSchemaNode = {
 const jobId: JsonSchemaNode = { type: "string", description: "Session-bound office job id." };
 const handle: JsonSchemaNode = { type: "string", description: "Session-bound office handle." };
 
+export const OFFICE_PLAN_INPUT_KEYS = ["job_id", "handle", "operation"] as const;
+
 export const OFFICE_PLAN_PARAMETERS_SCHEMA: JsonSchemaNode = {
-  description: "Apply one closed typed operation to a job_id or an attached handle, not both.",
-  oneOf: [
-    {
-      title: "Plan from job",
-      type: "object",
-      additionalProperties: false,
-      required: ["job_id", "operation"],
-      properties: { job_id: jobId, operation: OFFICE_OPERATION_SCHEMA },
-    },
-    {
-      title: "Plan from handle",
-      type: "object",
-      additionalProperties: false,
-      required: ["handle", "operation"],
-      properties: { handle, operation: OFFICE_OPERATION_SCHEMA },
-    },
-  ],
+  type: "object",
+  additionalProperties: false,
+  required: ["operation"],
+  description:
+    "Provider-facing object root. Apply one closed typed operation to exactly one of job_id or handle. operation.kind selects the remaining operation fields.",
+  properties: {
+    job_id: jobId,
+    handle,
+    operation: OFFICE_OPERATION_SCHEMA,
+  },
 };
 
 export function extraFieldNames(value: Record<string, unknown>, allowed: readonly string[]): string[] {

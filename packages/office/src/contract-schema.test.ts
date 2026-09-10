@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import test from "node:test";
-import { assertSupportedJsonSchema, validateJsonSchemaValue } from "@deepseek-ai/dsh-tools";
+import {
+  assertObjectJsonSchema,
+  assertSupportedJsonSchema,
+  validateJsonSchemaValue,
+} from "@deepseek-ai/dsh-tools";
 import {
   OFFICE_CREATE_PARAMETERS_SCHEMA,
   OFFICE_CREATE_SPEC_SCHEMA,
@@ -8,9 +14,11 @@ import {
   OFFICE_PLAN_PARAMETERS_SCHEMA,
   OFFICE_TEMPLATE_IDS,
 } from "./contract-schema.js";
-import { parseOfficeOperation } from "./operations.js";
+import { parseOfficeOperation, parseOfficePlanInput } from "./operations.js";
 import { parseOfficeCreateInput, parseOfficeCreateSpec } from "./specs.js";
 import { registerOfficeTools } from "./tools.js";
+
+const require = createRequire(import.meta.url);
 
 function schemaErrors(schema: Parameters<typeof validateJsonSchemaValue>[0], value: unknown): string[] {
   return validateJsonSchemaValue(schema, value, "value");
@@ -20,20 +28,36 @@ function schemaAccepts(schema: Parameters<typeof validateJsonSchemaValue>[0], va
   return schemaErrors(schema, value).length === 0;
 }
 
-function advertisedCreateSchema(): unknown {
-  const captured: unknown[] = [];
+function advertisedOfficeTools(): Map<string, { description?: string; parameters: unknown }> {
+  const captured = new Map<string, { description?: string; parameters: unknown }>();
   registerOfficeTools(
     {
       tools: {
         register(def: Record<string, unknown>) {
-          if (def.name === "penglai_office_create") captured.push(def.parameters);
+          captured.set(String(def.name), {
+            description: typeof def.description === "string" ? def.description : undefined,
+            parameters: def.parameters,
+          });
         },
       },
       workspaceRegistry: { list: () => [] },
     },
     {} as never,
   );
-  return captured[0];
+  return captured;
+}
+
+function officialAdapterFunctionTools(
+  tools: Array<{ name: string; description: string; parameters: unknown }>,
+): Array<{ type: string; function: { name: string; description: string; parameters: unknown } }> {
+  return tools.map((tool) => ({
+    type: "function",
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+    },
+  }));
 }
 
 const validSpecs = {
@@ -69,7 +93,46 @@ test("advertised office schemas are official DSH JSON Schema subset and match pa
   assertSupportedJsonSchema(OFFICE_CREATE_PARAMETERS_SCHEMA);
   assertSupportedJsonSchema(OFFICE_OPERATION_SCHEMA);
   assertSupportedJsonSchema(OFFICE_PLAN_PARAMETERS_SCHEMA);
-  assert.equal(advertisedCreateSchema(), OFFICE_CREATE_PARAMETERS_SCHEMA);
+  assertObjectJsonSchema(OFFICE_CREATE_PARAMETERS_SCHEMA);
+  assertObjectJsonSchema(OFFICE_PLAN_PARAMETERS_SCHEMA);
+  const advertised = advertisedOfficeTools();
+  assert.equal(advertised.get("penglai_office_create")?.parameters, OFFICE_CREATE_PARAMETERS_SCHEMA);
+  assert.equal(advertised.get("penglai_office_plan")?.parameters, OFFICE_PLAN_PARAMETERS_SCHEMA);
+});
+
+test("provider-facing office parameter roots are object-typed through the official DeepSeek adapter copy", () => {
+  const adapterSrc = readFileSync(require.resolve("@deepseek-ai/dsh-llm-deepseek"), "utf8");
+  assert.match(adapterSrc, /parameters: tool\.parameters/);
+  const advertised = advertisedOfficeTools();
+  assert.ok(advertised.has("penglai_office_create"));
+  assert.ok(advertised.has("penglai_office_plan"));
+  for (const [name, def] of advertised) {
+    const schema = def.parameters as { type?: unknown };
+    assert.equal(schema?.type, "object", `${name} parameters.type`);
+  }
+  for (const name of ["penglai_office_create", "penglai_office_plan"]) {
+    const schema = advertised.get(name)?.parameters as { type?: unknown; oneOf?: unknown };
+    assert.equal(schema?.oneOf, undefined, `${name} provider root must not be oneOf; DSH subset forbids type+oneOf`);
+    assertObjectJsonSchema(schema);
+  }
+  const wire = officialAdapterFunctionTools([
+    {
+      name: "penglai_office_create",
+      description: advertised.get("penglai_office_create")!.description ?? "office create",
+      parameters: OFFICE_CREATE_PARAMETERS_SCHEMA,
+    },
+    {
+      name: "penglai_office_plan",
+      description: advertised.get("penglai_office_plan")!.description ?? "office plan",
+      parameters: OFFICE_PLAN_PARAMETERS_SCHEMA,
+    },
+  ]);
+  for (const tool of wire) {
+    const parameters = tool.function.parameters as { type?: unknown };
+    assert.equal(tool.type, "function");
+    assert.equal(parameters.type, "object");
+    assert.notEqual(parameters.type, null);
+  }
 });
 
 test("office create schema and parser accept every format pathway", () => {
@@ -118,7 +181,11 @@ test("office create schema and parser reject extra, missing, and mixed discrimin
   );
   assert.throws(() => parseOfficeCreateSpec({ format: "xlsx", sheets: [{ name: "A", rows: [] }], title: "no" }), /extra fields: title/);
   assert.throws(() => parseOfficeCreateInput({ format: "docx", text: "x", spec: validSpecs.docx }), /exactly one/);
-  assert.equal(schemaAccepts(OFFICE_CREATE_PARAMETERS_SCHEMA, { format: "docx", text: "x", spec: validSpecs.docx }), false);
+  assert.equal(
+    schemaAccepts(OFFICE_CREATE_PARAMETERS_SCHEMA, { format: "docx", text: "x", spec: validSpecs.docx }),
+    true,
+    "object-root schema lists every pathway key; exclusive pathways stay parser-authoritative because DSH forbids type+oneOf",
+  );
   assert.throws(() => parseOfficeCreateInput({ template_id: "report", text: "no" }), /exactly one/);
   assert.throws(
     () => parseOfficeCreateInput({ format: "xlsx", spec: validSpecs.docx }),
@@ -133,6 +200,8 @@ test("office operation schema and parser accept every closed kind and reject ext
     assert.equal(parseOfficeOperation(operation).kind, kind);
     assert.equal(schemaAccepts(OFFICE_PLAN_PARAMETERS_SCHEMA, { job_id: "job-123456", operation }), true);
     assert.equal(schemaAccepts(OFFICE_PLAN_PARAMETERS_SCHEMA, { handle: "handle-1", operation }), true);
+    assert.deepEqual(parseOfficePlanInput({ job_id: "job-123456", operation }).jobId, "job-123456");
+    assert.equal(parseOfficePlanInput({ handle: "handle-1", operation }).handle, "handle-1");
   }
   assert.throws(
     () => parseOfficeOperation({ kind: "docx.replaceParagraph", paragraphIndex: 0, text: "x", note: "no" }),
@@ -151,5 +220,17 @@ test("office operation schema and parser accept every closed kind and reject ext
   assert.equal(schemaAccepts(OFFICE_OPERATION_SCHEMA, { kind: "docx.replaceParagraph", text: "no-index" }), false);
   assert.throws(() => parseOfficeOperation({ kind: "docx.magic", text: "x" }), /not in the closed typed set/);
   assert.throws(() => parseOfficeOperation({ paragraphIndex: 0, text: "x" }), /missing required discriminator kind/);
-  assert.equal(schemaAccepts(OFFICE_PLAN_PARAMETERS_SCHEMA, { job_id: "job-123456", handle: "h", operation: validOperations["pdf.rotate"] }), false);
+  assert.throws(
+    () => parseOfficePlanInput({ job_id: "job-123456", handle: "h", operation: validOperations["pdf.rotate"] }),
+    /exactly one of job_id or handle/,
+  );
+  assert.equal(
+    schemaAccepts(OFFICE_PLAN_PARAMETERS_SCHEMA, {
+      job_id: "job-123456",
+      handle: "h",
+      operation: validOperations["pdf.rotate"],
+    }),
+    true,
+    "object-root schema lists job_id and handle; exclusive targeting stays parser-authoritative",
+  );
 });

@@ -1,5 +1,10 @@
 import { PenglaiError } from "@penglai/contracts";
-import { OFFICE_OPERATION_KIND_KEYS, extraFieldNames, extraFieldsError } from "./contract-schema.js";
+import {
+  OFFICE_OPERATION_KIND_KEYS,
+  OFFICE_PLAN_INPUT_KEYS,
+  extraFieldNames,
+  extraFieldsError,
+} from "./contract-schema.js";
 import type { OfficeFormat } from "./formats.js";
 import type { OfficeScalar } from "./specs.js";
 
@@ -133,6 +138,31 @@ export function parseOfficeOperation(value: unknown): OfficeOperation {
     return { kind: "pdf.rotate", degrees: raw.degrees };
   }
   throw new PenglaiError("INVALID_INPUT", "office operation is not in the closed typed set");
+}
+
+export function parseOfficePlanInput(value: unknown): {
+  jobId?: string;
+  handle?: string;
+  operation: OfficeOperation;
+} {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    rejectOperation("office plan required");
+  }
+  const raw = value as Record<string, unknown>;
+  const extra = extraFieldNames(raw, OFFICE_PLAN_INPUT_KEYS);
+  if (extra.length > 0) rejectOperation(extraFieldsError("office plan", extra, OFFICE_PLAN_INPUT_KEYS));
+  const hasJob = raw.job_id !== undefined;
+  const hasHandle = raw.handle !== undefined;
+  if (hasJob === hasHandle) {
+    rejectOperation("office plan requires exactly one of job_id or handle");
+  }
+  if (hasJob && (typeof raw.job_id !== "string" || !raw.job_id)) rejectOperation("office plan job_id rejected");
+  if (hasHandle && (typeof raw.handle !== "string" || !raw.handle)) rejectOperation("office plan handle rejected");
+  return {
+    ...(hasJob ? { jobId: String(raw.job_id) } : {}),
+    ...(hasHandle ? { handle: String(raw.handle) } : {}),
+    operation: parseOfficeOperation(raw.operation),
+  };
 }
 
 function parseCellMatrix(value: unknown): OfficeScalar[][] {

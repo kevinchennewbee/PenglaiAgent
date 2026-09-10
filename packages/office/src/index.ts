@@ -13,7 +13,7 @@ export const inject: string[] = ["tools", "workspaceRegistry"];
 export const version = RELEASE;
 export { createOfficeService, inspect, createDocument, createStructuredDocument, edit, commit, copyCommittedOfficeBytes, detect } from "./service.js";
 export type { OfficeFormat, DocumentInventory, OfficeJob, OfficeOperation } from "./service.js";
-export { OFFICE_LIMITS, parseOfficeOperation } from "./operations.js";
+export { OFFICE_LIMITS, parseOfficeOperation, parseOfficePlanInput } from "./operations.js";
 export { parseOfficeCreateSpec, parseOfficeCreateInput } from "./specs.js";
 export type { OfficeCreateSpec, OfficeCreateInput } from "./specs.js";
 export {

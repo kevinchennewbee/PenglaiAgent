@@ -4,7 +4,7 @@ import {
   OFFICE_CREATE_PARAMETERS_SCHEMA,
   OFFICE_PLAN_PARAMETERS_SCHEMA,
 } from "./contract-schema.js";
-import { parseOfficeOperation } from "./operations.js";
+import { parseOfficePlanInput } from "./operations.js";
 import { isPngRaster, previewPdfPages, publicPdfPreview } from "./pdf-preview.js";
 import { scopedJobFields, type OfficeJob, type OfficeService } from "./service.js";
 import { parseOfficeCreateInput } from "./specs.js";
@@ -169,10 +169,10 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     parameters: OFFICE_PLAN_PARAMETERS_SCHEMA,
     output: jsonOutput("office plan"),
     async execute(args: unknown, exec?: unknown) {
-      const input = args as { job_id?: string; handle?: string; operation?: unknown };
+      const input = parseOfficePlanInput(args);
       const ws = boundWorkspace(ctx, exec);
       const scope = { workspaceId: ws.id, sessionId: ws.sessionId };
-      const op = parseOfficeOperation(input.operation);
+      const op = input.operation;
       if (input.handle) {
         const attached = await svc.inspectAttached(input.handle, ws.sessionId);
         const attachedRecord = svc.job(attached.id);
@@ -183,8 +183,8 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
           ...(attachedRecord.artifactId ? { parentArtifactId: attachedRecord.artifactId } : {}),
         }));
       }
-      if (!input.job_id) throw new PenglaiError("INVALID_INPUT", "office plan requires job_id or handle");
-      const source = boundJob(ctx, svc, exec, input.job_id);
+      if (!input.jobId) throw new PenglaiError("INVALID_INPUT", "office plan requires job_id or handle");
+      const source = boundJob(ctx, svc, exec, input.jobId);
       return publicJob(await svc.edit(source.bytes, op, {
         ...scope,
         ...(source.artifactId
