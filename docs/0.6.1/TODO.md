@@ -14,6 +14,8 @@ Status: source phase. `[x]` requires implementation plus captured evidence.
       generation-bound inventory, four-target publication input, UOS Node
       credential and Depends, signed overlay preservation, official Flash
       catalog consumption.
+- [x] IM 0.6.1 current-dsh-im adaptation in this isolated checkout: inbound
+      FileBlock, bot aliases, RemoteError/preset, optional Darwin iMessage.
 - [x] Deterministic source gates on the rc.1 graph (source unit/contract/e2e
       plus identity/contracts; live/native/UOS host remain later phases).
 - [ ] Local candidate commit and representative Apple Silicon package.

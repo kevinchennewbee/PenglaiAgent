@@ -29,6 +29,7 @@
     "@penglai/channel-dingtalk": "workspace:*",
     "@penglai/channel-discord": "workspace:*",
     "@penglai/channel-feishu": "workspace:*",
+    "@penglai/channel-imessage": "workspace:*",
     "@penglai/channel-qq": "workspace:*",
     "@penglai/channel-slack": "workspace:*",
     "@penglai/channel-telegram": "workspace:*",

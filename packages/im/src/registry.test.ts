@@ -17,7 +17,7 @@ import { createRuntime } from "./index.js";
 import { CredentialsServiceVault } from "./credentials-vault.js";
 import { PenglaiImHost } from "./host.js";
 
-test("R58-IM-001 registry lists exactly eight supported connectors", () => {
+test("R58-IM-001 registry lists nine first-party connectors including optional iMessage", () => {
   assert.deepEqual([...CHANNEL_IDS], [
     "weixin",
     "feishu",
@@ -27,6 +27,7 @@ test("R58-IM-001 registry lists exactly eight supported connectors", () => {
     "slack",
     "telegram",
     "discord",
+    "imessage",
   ]);
   assert.deepEqual([...NATIVE_CHANNEL_IDS], ["weixin", "feishu"]);
   assert.equal(CHANNEL_MANIFESTS.weixin.adapterMode, "native");
@@ -44,6 +45,12 @@ test("R58-IM-001 registry lists exactly eight supported connectors", () => {
   }
   assert.equal(CHANNEL_MANIFESTS.telegram.connectionMethods.includes("qr"), false);
   assert.equal(CHANNEL_MANIFESTS.discord.connectionMethods.includes("qr"), false);
+  assert.equal(CHANNEL_MANIFESTS.imessage.connectionMethods.includes("qr"), false);
+  assert.equal(CHANNEL_MANIFESTS.imessage.connectionMethods.includes("manual-fallback"), true);
+  assert.equal(CHANNEL_MANIFESTS.imessage.defaultEnabled, false);
+  assert.equal(CHANNEL_MANIFESTS.imessage.capabilityEvidence.file, "not-supported");
+  assert.equal(CHANNEL_MANIFESTS.imessage.capabilityEvidence.image, "not-supported");
+  assert.match(CHANNEL_MANIFESTS.imessage.connectionHint.en, /macOS only/i);
   assert.equal(CHANNEL_MANIFESTS.slack.capabilityEvidence.image, "not-supported");
   assert.equal(CHANNEL_MANIFESTS.slack.capabilityEvidence.reconnect, "source-tested");
   assert.equal(CHANNEL_MANIFESTS.dingtalk.connectionMethods.includes("qr"), true);
@@ -91,6 +98,8 @@ test("R56-IM-003 Slack/Telegram/Discord refuse a fake QR connection", () => {
   assert.throws(() => refuseFakeQr("slack", "qr"), /CHANNEL_NO_QR/);
   assert.throws(() => beginGuidedConnection({ channel: "telegram", method: "qr" }), /CHANNEL_NO_QR/);
   assert.throws(() => beginGuidedConnection({ channel: "discord", method: "qr" }), /CHANNEL_NO_QR/);
+  assert.throws(() => beginGuidedConnection({ channel: "imessage", method: "qr" }), /CHANNEL_NO_QR/);
+  assert.equal(beginGuidedConnection({ channel: "imessage", method: "manual-fallback" }).channel, "imessage");
   const slack = beginGuidedConnection({ channel: "slack", method: "oauth" });
   assert.equal(slack.qr, false);
   assert.equal(slack.connection, "not_configured");
@@ -208,8 +217,8 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
   );
   host.createBot({ channelId: "slack", displayName: "docs" });
   const overview = await host.getOverview();
-  assert.equal(overview.channels.length, 8);
-  assert.equal(overview.manifests.length, 8);
+  assert.equal(overview.channels.length, 9);
+  assert.equal(overview.manifests.length, 9);
   for (const state of overview.channels) {
     assert.equal("live" in state, false);
     assert.equal(state.entryAvailable, true);
@@ -237,7 +246,7 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
   rt.store.close();
 });
 
-test("R58-IM-002 IM client lists eight connect actions without a compatibility card", () => {
+test("R58-IM-002 IM client lists connect actions without a compatibility card", () => {
   const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   assert.match(client, /data-penglai-im-platforms/);
   assert.match(client, /data-penglai-im-platform/);
@@ -271,6 +280,10 @@ test("R58-IM-002 IM client lists eight connect actions without a compatibility c
   assert.doesNotMatch(client, /仅列入后续计划/);
   assert.doesNotMatch(client, /data-penglai-im-planned/);
   assert.doesNotMatch(client, /slackQr|telegramQr|discordQr|beginSlackQr|beginTelegramQr/);
+  assert.match(client, /data-penglai-im-imessage-enable/);
+  assert.match(client, /setBotAlias/);
+  assert.match(client, /inspectIMessagePermissions/);
+  assert.doesNotMatch(client, /wecom-app/);
   assert.match(client, /data-penglai-im-goto-weixin/);
   assert.match(client, /data-penglai-im-goto-feishu/);
   assert.match(client, /beginWeixinQr/);

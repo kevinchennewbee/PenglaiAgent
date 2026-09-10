@@ -5,6 +5,7 @@ import { QqAdapter } from "@penglai/channel-qq";
 import { SlackAdapter } from "@penglai/channel-slack";
 import { TelegramAdapter } from "@penglai/channel-telegram";
 import { DiscordAdapter } from "@penglai/channel-discord";
+import { IMessageAdapter } from "@penglai/channel-imessage";
 import { getChannelManifest, type ChannelId } from "../registry.js";
 import {
   type ChannelAdapter,
@@ -29,11 +30,12 @@ export interface NativeWrapOpts {
 type NativeLike = {
   accountRef?: string | undefined;
   beginConnection(input: { method?: string; credentialRef?: string }): Promise<{
-    kind: "qr" | "token" | "manifest" | "device-link";
+    kind: "qr" | "token" | "manifest" | "device-link" | "manual-fallback";
     connection: string;
     operationId: string;
     expiresAt?: number;
   }>;
+  inspectPermissions?(): Promise<{ platform: string; database: string; automation: string }>;
   pollConnection(operationId?: string): Promise<{ status: string }>;
   health(): { channel: ChannelId; runtimeBundled: true; enabled?: boolean; connection: string };
   sendText(input: { text: string; peerRef?: string }): Promise<{ delivered: true }>;
@@ -98,6 +100,9 @@ export function wrapNative(
       }
       if (begun.kind === "device-link") return { kind: "device-link", connection: "connecting", operationId: begun.operationId };
       if (begun.kind === "manifest") return { kind: "manifest", connection: "connecting", operationId: begun.operationId };
+      if (begun.kind === "manual-fallback") {
+        return { kind: "manual-fallback", connection: "connecting", operationId: begun.operationId };
+      }
       return { kind: "token", connection: "connecting", operationId: begun.operationId };
     },
     async pollConnection(operationId) {
@@ -116,11 +121,16 @@ export function wrapNative(
     },
     async health(): Promise<ChannelHealth> {
       const row = adapter.health();
+      const connection = row.connection === "blocked"
+        ? "blocked"
+        : enabled
+          ? (row.connection as ConnectionState)
+          : "disabled";
       return {
         channel: id,
         runtimeBundled: manifest.runtimeBundled,
-        enabled,
-        connection: enabled ? (row.connection as ConnectionState) : "disabled",
+        enabled: connection === "blocked" ? false : enabled,
+        connection,
       };
     },
     accountIdentity: () => adapter.accountRef,
@@ -149,6 +159,9 @@ export function wrapNative(
     peekQr(operationId: string) {
       return adapter.peekQr?.(operationId);
     },
+    ...(adapter.inspectPermissions
+      ? { inspectPermissions: () => adapter.inspectPermissions!() }
+      : {}),
     ...(adapter.react
       ? {
           react: (input: {
@@ -191,4 +204,8 @@ export function telegramChannelAdapter(adapter: TelegramAdapter, opts: NativeWra
 
 export function discordChannelAdapter(adapter: DiscordAdapter, opts: NativeWrapOpts): ChannelAdapter {
   return wrapNative("discord", adapter as unknown as NativeLike, opts);
+}
+
+export function imessageChannelAdapter(adapter: IMessageAdapter, opts: NativeWrapOpts): ChannelAdapter {
+  return wrapNative("imessage", adapter as unknown as NativeLike, opts);
 }

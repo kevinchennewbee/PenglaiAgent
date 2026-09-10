@@ -85,6 +85,20 @@
       "npmTarballSha256": "607a775b29e1355ab3f2953e45fb217f1102685202e0eca9f121d59abb138fec",
       "use": "selective rewrite into @penglai/im; do not install runtime; do not copy lib/, bin/, or cordis.patch.yml",
       "connectionApi": "already equivalent: Typert penglaiIm remotes on unmodified DSH Connection /api; do not add fetch.register IM core",
+      "latestPublished": {
+        "npm": "@xmanrui/dsh-im@4.18.1",
+        "release": "v4.18.1",
+        "commit": "d01bd3450c6d17db2b3386ec44ffa474fd15b03e",
+        "npmIntegrity": "sha512-M684m3qaFcA9pdrwG+fHcnBliuCLxx3EgJYMfJ+0GY1peEYxoZGNb7C/uN0CoPBn4p44A4+jJ1CuSt9s0O7FAg==",
+        "npmTarballSha256": "b20eaf483c00afa42fe790d992b6e9b375e2a5a4f3dc354fd4eb095465eab680",
+        "note": "tracked current published identity; not installed as runtime"
+      },
+      "unpublishedAliasHead": {
+        "commit": "606ced1b5e4f02fe4a1afc9462014f3db1176396",
+        "subject": "feat: add bot aliases without reconnecting (#188)",
+        "inNpm4181": false,
+        "note": "alias reference only; not v4.18.1 release bytes"
+      },
       "supersedes": "v3.0.5 / 64587b3b6162fa34f1c3ddb335a254d4154c9175",
       "historical": [
         "v3.0.6 / c93f42f1cc1cdc8292f9803c378dc0fa520be4d2",

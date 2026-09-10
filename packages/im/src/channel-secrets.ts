@@ -29,6 +29,7 @@ export function parseSlackSecret(secret: string): { botToken: string; appToken: 
 }
 
 export function serializeChannelSecret(id: ChannelId, secret: string): string {
+  if (id === "imessage") throw new PenglaiError("INVALID_INPUT", "IMESSAGE_HAS_NO_TOKEN_SECRET");
   const trimmed = secret.trim();
   if (id === "slack") return JSON.stringify(parseSlackSecret(trimmed));
   if (trimmed.startsWith("{")) return trimmed;

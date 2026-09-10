@@ -13,6 +13,7 @@ export const MESSAGE_FAILURE_CODES = [
   "CHANNEL_AUTH",
   "CHANNEL_PROTOCOL",
   "CHANNEL_NO_QR",
+  "PRESET_UNAVAILABLE",
   "INPUT_INVALID",
   "INTERNAL_UNKNOWN",
 ] as const;
@@ -65,6 +66,10 @@ const COPY: Record<MessageFailureCode, { zh: string; en: string }> = {
     zh: "这个平台没有官方扫码捷径。请按官方 Token / Manifest 步骤连接。",
     en: "This platform has no official QR shortcut. Use the official token or manifest steps.",
   },
+  PRESET_UNAVAILABLE: {
+    zh: "当前 Agent Preset 无法使用。请发送 /项目 选择工作区，再发送 /新建 创建新会话。如需继续原会话，请在官方 DSH 设置中恢复原 Preset。",
+    en: "The current agent preset is unavailable. Send /projects to choose a workspace, then /new to start a new session. To keep the original session, restore the preset in official DSH settings.",
+  },
   INPUT_INVALID: {
     zh: "这条消息缺少必要字段，已被拒绝。",
     en: "This message is missing required fields and was rejected.",
@@ -93,7 +98,42 @@ export function newReferenceId(): string {
   return `MF-${randomUUID().slice(0, 8).toUpperCase()}`;
 }
 
+export function officialRemoteFailure(error: unknown): { code: string; message?: string } | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  const rec = error as Record<string, unknown>;
+  const wrapped = rec.failure;
+  if (wrapped && typeof wrapped === "object") {
+    const failure = wrapped as Record<string, unknown>;
+    if (typeof failure.code === "string" && failure.code) {
+      return {
+        code: failure.code,
+        ...(typeof failure.message === "string" ? { message: failure.message } : {}),
+      };
+    }
+  }
+  if (rec.isDSHRemoteError === true && typeof rec.code === "string" && rec.code) {
+    return {
+      code: rec.code,
+      ...(typeof rec.message === "string" ? { message: rec.message } : {}),
+    };
+  }
+  return undefined;
+}
+
 export function classifyMessageFailure(error: unknown): MessageFailure {
+  const official = officialRemoteFailure(error);
+  if (official) {
+    const code: MessageFailureCode = /^agent-preset[-/]/u.test(official.code)
+      ? "PRESET_UNAVAILABLE"
+      : "INTERNAL_UNKNOWN";
+    return {
+      code,
+      reason: official.code.slice(0, 64),
+      message: COPY[code],
+      referenceId: newReferenceId(),
+      at: Date.now(),
+    };
+  }
   const text = error instanceof Error ? `${error.name}:${error.message}` : String(error ?? "");
   const typedIlinkCode: MessageFailureCode | undefined =
     error instanceof WeixinIlinkResponseError
@@ -146,6 +186,7 @@ export const RECOVERY_ACTION_BY_CODE: Record<MessageFailureCode, string> = {
   CHANNEL_AUTH: "reconnect",
   CHANNEL_PROTOCOL: "check_network_retry",
   CHANNEL_NO_QR: "use_official_token",
+  PRESET_UNAVAILABLE: "select_project_new_session",
   INPUT_INVALID: "fix_input",
   INTERNAL_UNKNOWN: "retry",
 };

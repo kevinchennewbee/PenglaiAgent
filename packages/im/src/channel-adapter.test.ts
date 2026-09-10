@@ -37,6 +37,7 @@ test("guided channels refuse unavailable send and never mint a fake QR", async (
   assert.throws(() => refuseFakeQr("slack", "qr"), /CHANNEL_NO_QR/);
   assert.throws(() => refuseFakeQr("telegram", "qr"), /CHANNEL_NO_QR/);
   assert.throws(() => refuseFakeQr("discord", "qr"), /CHANNEL_NO_QR/);
+  assert.throws(() => refuseFakeQr("imessage", "qr"), /CHANNEL_NO_QR/);
   const dingtalk = guidedAdapter("dingtalk");
   const qr = await dingtalk.beginConnection({ method: "qr" });
   assert.equal(qr.kind, "qr");

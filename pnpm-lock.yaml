@@ -461,6 +461,12 @@ importers:
         specifier: 1.5.5
         version: 1.5.5
 
+  packages/channel-imessage:
+    dependencies:
+      '@penglai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
   packages/channel-mock:
     dependencies:
       '@penglai/contracts':
@@ -683,6 +689,9 @@ importers:
       '@penglai/channel-feishu':
         specifier: workspace:*
         version: link:../channel-feishu
+      '@penglai/channel-imessage':
+        specifier: workspace:*
+        version: link:../channel-imessage
       '@penglai/channel-qq':
         specifier: workspace:*
         version: link:../channel-qq

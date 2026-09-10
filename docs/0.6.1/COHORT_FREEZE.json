@@ -41,8 +41,26 @@
     }
   },
   "dshIm": {
-    "npm": "@xmanrui/dsh-im@4.17.1",
-    "use": "selective rewrite into @penglai/im; do not install runtime; do not copy lib/, bin/, or cordis.patch.yml from dsh-im"
+    "adoptedRewriteSource": {
+      "npm": "@xmanrui/dsh-im@4.17.1",
+      "release": "v4.17.1",
+      "commit": "464c0a91762ebd0befc2d179f036eaae4864fb0e",
+      "tagObject": "51fb6bb03d86045cbe55e5fde3e55308f0f3643e",
+      "tagSigned": false
+    },
+    "latestPublished": {
+      "npm": "@xmanrui/dsh-im@4.18.1",
+      "release": "v4.18.1",
+      "commit": "d01bd3450c6d17db2b3386ec44ffa474fd15b03e",
+      "npmIntegrity": "sha512-M684m3qaFcA9pdrwG+fHcnBliuCLxx3EgJYMfJ+0GY1peEYxoZGNb7C/uN0CoPBn4p44A4+jJ1CuSt9s0O7FAg==",
+      "npmTarballSha256": "b20eaf483c00afa42fe790d992b6e9b375e2a5a4f3dc354fd4eb095465eab680"
+    },
+    "unpublishedAliasHead": {
+      "commit": "606ced1b5e4f02fe4a1afc9462014f3db1176396",
+      "subject": "feat: add bot aliases without reconnecting (#188)",
+      "inNpm4181": false
+    },
+    "use": "selective rewrite into @penglai/im; do not install runtime; do not copy lib/, bin/, or cordis.patch.yml from dsh-im; 606ced1 is not v4.18.1 bytes"
   },
   "runtime": {
     "node": "22.23.2",

@@ -182,6 +182,16 @@ export class PenglaiImRemote extends TypertRemoteService {
   }
 
   @PenglaiRemote
+  setBotAlias(input: Parameters<PenglaiImHost["setBotAlias"]>[0]) {
+    return this.host.setBotAlias(input);
+  }
+
+  @PenglaiRemote
+  inspectIMessagePermissions() {
+    return this.host.inspectIMessagePermissions();
+  }
+
+  @PenglaiRemote
   removeBot(input: Parameters<PenglaiImHost["removeBot"]>[0]) {
     return this.host.removeBot(input);
   }
@@ -259,6 +269,8 @@ export const TYPERT_REMOTE = {
     "beginGuidedConnection",
     "createBot",
     "listBots",
+    "setBotAlias",
+    "inspectIMessagePermissions",
     "removeBot",
     "storeChannelSecret",
     "beginChannelConnection",

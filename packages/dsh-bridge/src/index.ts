@@ -11,6 +11,7 @@ import {
   type PenglaiAsrLanguage,
   type PenglaiImSource,
   type OfficialImageRef,
+  type OfficialFileRef,
 } from "@penglai/contracts";
 import type { AgentCallOptions, AgentPort, DirectoryPort } from "@penglai/routing-core";
 import { BridgeOperationGate, type BridgeCallOptions } from "./operations.js";
@@ -181,10 +182,13 @@ export function textFromAssistantMessage(message: { content?: { type?: string; t
 export { unwrapAgent, isAgentHandle, finalAssistantText, DURABLE_SESSION_EVENT, type OfficialAgentHandle as AgentHandle } from "./contracts.js";
 export { BridgeOperationGate, BRIDGE_DEFAULT_DEADLINE_MS, type BridgeCallOptions } from "./operations.js";
 
-function officialUserContent(
-  input: ModelInput,
-): Array<{ type: "text"; text: string } | { type: "image"; attachment: OfficialImageRef }> {
-  const blocks: Array<{ type: "text"; text: string } | { type: "image"; attachment: OfficialImageRef }> = [];
+export type OfficialUserContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; attachment: OfficialImageRef }
+  | { type: "file"; attachment: OfficialFileRef };
+
+function officialUserContent(input: ModelInput): OfficialUserContentPart[] {
+  const blocks: OfficialUserContentPart[] = [];
   if (input.text.trim()) blocks.push({ type: "text", text: input.text });
   if (input.officeHandle) {
     blocks.push({
@@ -194,6 +198,9 @@ function officialUserContent(
   }
   for (const attachment of input.images ?? []) {
     blocks.push({ type: "image", attachment });
+  }
+  for (const attachment of input.files ?? []) {
+    blocks.push({ type: "file", attachment });
   }
   if (blocks.length === 0) blocks.push({ type: "text", text: "" });
   return blocks;

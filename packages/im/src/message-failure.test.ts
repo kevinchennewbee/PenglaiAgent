@@ -26,6 +26,45 @@ test("bounded HTTP response failures become a closed public protocol cause", () 
   assert.equal(JSON.stringify(failure).includes("BOUNDED_HTTP_MIME"), false);
 });
 
+test("official isDSHRemoteError and failure.code classify slash-separated preset errors", () => {
+  const preset = classifyMessageFailure({
+    isDSHRemoteError: true,
+    code: "agent-preset/unavailable",
+    message: "preset missing",
+  });
+  assert.equal(preset.code, "PRESET_UNAVAILABLE");
+  assert.equal(preset.reason, "agent-preset/unavailable");
+  assert.match(preset.message.en, /\/projects/);
+  assert.match(preset.message.en, /\/new/);
+  assert.match(preset.message.zh, /\/项目/);
+  assert.match(preset.message.zh, /\/新建/);
+  assert.doesNotMatch(preset.message.en, /presetlist/);
+  const hyphen = classifyMessageFailure({
+    failure: { code: "agent-preset-unavailable", message: "gone" },
+  });
+  assert.equal(hyphen.code, "PRESET_UNAVAILABLE");
+  const unknownOfficial = classifyMessageFailure({
+    isDSHRemoteError: true,
+    code: "gateway/internal",
+    message: "secret=sk-live-do-not-leak stack=Error: boom",
+  });
+  assert.equal(unknownOfficial.code, "INTERNAL_UNKNOWN");
+  const published = publicMessageFailure(unknownOfficial);
+  assert.equal(JSON.stringify(published).includes("sk-live"), false);
+  assert.equal(JSON.stringify(published).includes("stack"), false);
+  assert.notEqual(unknownOfficial.code, "CHANNEL_DELIVERY");
+});
+
+test("missing-session official codes are not classified here", () => {
+  const missing = classifyMessageFailure({
+    isDSHRemoteError: true,
+    code: "session-not-found",
+    message: "gone",
+  });
+  assert.equal(missing.code, "INTERNAL_UNKNOWN");
+  assert.notEqual(missing.code, "PRESET_UNAVAILABLE");
+});
+
 test("typed iLink response classes take precedence over error-message parsing", () => {
   const observation = {
     phase: "qr-poll" as const,

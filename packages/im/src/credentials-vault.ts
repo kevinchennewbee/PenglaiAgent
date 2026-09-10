@@ -12,6 +12,7 @@ export const CHANNEL_CREDENTIAL_REFS = {
   slack: "PENGLAI_SLACK_BOT",
   telegram: "PENGLAI_TELEGRAM_TOKEN",
   discord: "PENGLAI_DISCORD_TOKEN",
+  imessage: "PENGLAI_IMESSAGE_NATIVE",
 } as const;
 
 // Mirrors the official dsh-credentials REF_PATTERN; kept local so an invalid

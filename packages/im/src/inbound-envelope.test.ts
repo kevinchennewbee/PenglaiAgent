@@ -45,6 +45,26 @@ test("inbound envelope rejects missing unknown and group chatType", () => {
   );
 });
 
+test("inbound envelope rejects the unscoped iMessage default account", () => {
+  assert.equal(isForbiddenDefaultAccount("imessage", "imessage-default"), true);
+  assert.equal(isForbiddenDefaultAccount("imessage", "macos-messages"), false);
+  assert.deepEqual(
+    tryParseInboundEnvelope(
+      "imessage",
+      {
+        messageId: "1",
+        senderId: "a@example.com",
+        chatId: "any;-;a@example.com",
+        botId: "imessage-default",
+        chatType: "private",
+        text: "hi",
+      },
+      hashPeer,
+    ),
+    { reject: "LEGACY_DEFAULT_ACCOUNT" },
+  );
+});
+
 test("inbound envelope rejects missing accountRef and the legacy default identity", () => {
   assert.deepEqual(
     tryParseInboundEnvelope(

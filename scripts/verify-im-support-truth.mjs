@@ -22,7 +22,7 @@ const host = read("packages/im/src/host.ts");
 const client = read("packages/im/src/dsh-client.js");
 const adapter = read("packages/im/src/channel-adapter.ts");
 const bridge = read("packages/im/src/adapters/channel-bridge.ts");
-const sidecars = ["dingtalk", "wecom", "qq", "slack", "telegram", "discord"].map((id) => [
+const sidecars = ["dingtalk", "wecom", "qq", "slack", "telegram", "discord", "imessage"].map((id) => [
   `channel-${id}`,
   read(`packages/channel-${id}/src/index.ts`),
 ]);
@@ -88,7 +88,7 @@ console.log(JSON.stringify({
   schema: 1,
   gate: "Penglai-IM-support-truth",
   result: "PASS",
-  channels: 8,
+  channels: 9,
   nativeChannels: 2,
   releaseEvidence: "source-only",
   capabilityEvidence: ["source-tested", "not-proven", "not-supported"],

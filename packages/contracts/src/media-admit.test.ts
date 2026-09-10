@@ -3,13 +3,16 @@ import test from "node:test";
 import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import {
   MediaStore,
   ObjectStore,
   attachDownloadedMedia,
   imageMediaTypeFromBytes,
   isDiagnosticMediaCaption,
+  officialFileDigest,
   readExactRegularFile,
+  sanitizeOfficialFileName,
   userFacingMediaPrompt,
 } from "./index.js";
 
@@ -107,4 +110,103 @@ test("attachDownloadedMedia requires saveImage for images", async () => {
   });
   assert.equal(env.officialImage?.attachmentId, "att-x");
   assert.match(userFacingMediaPrompt(env), /图片/);
+});
+
+test("PDF and DOCX admit through official saveFile and keep office handles", async () => {
+  const store = new MediaStore();
+  const objects = new ObjectStore();
+  const pdf = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
+  const env = await attachDownloadedMedia({
+    store,
+    bytes: pdf,
+    base: {
+      kind: "pdf",
+      source: "weixin",
+      sourceMessageId: "m",
+      sourceResourceId: "r",
+      mime: "application/pdf",
+      filename: "C:\\\\Users\\\\x\\\\report.pdf",
+    },
+    objectStore: objects,
+    fileAdmission: {
+      async saveFile(input) {
+        return {
+          attachmentId: `sha256:${officialFileDigest(Buffer.from(input.data))}`,
+          name: sanitizeOfficialFileName(input.name),
+          bytes: input.data.byteLength,
+        };
+      },
+    },
+  });
+  assert.equal(env.officialImage, undefined);
+  assert.equal(env.officialFile?.name, "report.pdf");
+  assert.equal(env.officialFile?.bytes, pdf.length);
+  assert.match(env.officialFile?.attachmentId ?? "", /^sha256:[a-f0-9]{64}$/);
+  assert.ok(env.officeHandle);
+  assert.match(userFacingMediaPrompt(env), /文档/);
+});
+
+test("neutral binary files require an official FileBlock receipt and reject a missing or tampered receipt", async () => {
+  const store = new MediaStore();
+  const bytes = Buffer.from("hello-bin");
+  await assert.rejects(
+    () =>
+      attachDownloadedMedia({
+        store,
+        bytes,
+        base: {
+          kind: "file",
+          source: "feishu",
+          sourceMessageId: "m",
+          sourceResourceId: "r",
+          mime: "application/octet-stream",
+          filename: "a.bin",
+        },
+      }),
+    /saveFile|DSH_UNAVAILABLE/,
+  );
+  await assert.rejects(
+    () =>
+      attachDownloadedMedia({
+        store,
+        bytes,
+        base: {
+          kind: "file",
+          source: "feishu",
+          sourceMessageId: "m2",
+          sourceResourceId: "r2",
+          mime: "application/octet-stream",
+          filename: "a.bin",
+        },
+        fileAdmission: {
+          async saveFile() {
+            return { attachmentId: "sha256:" + "0".repeat(64), name: "a.bin", bytes: bytes.length };
+          },
+        },
+      }),
+    /official file receipt rejected|SECURITY_POLICY/,
+  );
+  const env = await attachDownloadedMedia({
+    store,
+    bytes,
+    base: {
+      kind: "file",
+      source: "feishu",
+      sourceMessageId: "m3",
+      sourceResourceId: "r3",
+      mime: "application/octet-stream",
+      filename: "a.bin",
+    },
+    fileAdmission: {
+      async saveFile(input) {
+        return {
+          attachmentId: `sha256:${createHash("sha256").update(input.data).digest("hex")}`,
+          name: "a.bin",
+          bytes: input.data.byteLength,
+        };
+      },
+    },
+  });
+  assert.equal(env.officialFile?.name, "a.bin");
+  assert.equal(env.officeHandle, undefined);
 });

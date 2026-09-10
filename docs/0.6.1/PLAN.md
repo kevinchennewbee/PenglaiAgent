@@ -21,7 +21,11 @@ and UOS native PASS.
 1. Pin the discovered 279-package npm cohort and rewrite identity atomically.
 2. Repair IM cold recovery, session existence, inventory liveness, publication
    input, UOS Node/Depends, signed plugin preservation, and `deepseek-flash`
-   onboarding.
+   onboarding. A separate writer owns Office schema, Memory execution context,
+   durable cold IM recovery, and missing-session classification.
+3. Adapt current dsh-im 4.18.1 / unpublished 606ced1 inside `@penglai/im`:
+   official inbound FileBlock, bot aliases, RemoteError/preset copy, optional
+   Darwin iMessage. Do not install the community runtime.
 3. Keep Office action confirmation and Workspace isolation.
 4. Stage 0.6.1 public copy under `docs/0.6.1/`; do not claim public bytes.
 5. Run source gates and package a representative darwin-arm64 app from a local

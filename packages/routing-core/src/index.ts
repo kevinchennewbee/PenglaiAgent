@@ -22,6 +22,7 @@ import {
   type PenglaiImSource,
   type PenglaiVoiceMetadata,
   type OfficialImageRef,
+  type OfficialFileRef,
   type ObjectBind,
   isDiagnosticMediaCaption,
   userFacingMediaPrompt,
@@ -247,6 +248,7 @@ export class RoutingControlPlane {
     text: string,
   ): ModelInput {
     const images: OfficialImageRef[] = env.media?.officialImage ? [env.media.officialImage] : [];
+    const files: OfficialFileRef[] = env.media?.officialFile ? [env.media.officialFile] : [];
     return {
       sessionId: binding.sessionId,
       inboundId,
@@ -255,6 +257,7 @@ export class RoutingControlPlane {
       source,
       mode: "followup",
       ...(images.length ? { images } : {}),
+      ...(files.length ? { files } : {}),
       ...(env.media?.officeHandle ? { officeHandle: env.media.officeHandle } : {}),
       ...(env.media?.audioHandle ? { audioHandle: env.media.audioHandle } : {}),
     };
@@ -821,6 +824,13 @@ export class RoutingControlPlane {
     }
     if (env.bodyKind === "media" && env.media?.kind === "image" && !env.media.officialImage) {
       return this.reject("DSH_UNAVAILABLE", "image requires official DSH attachments.saveImage");
+    }
+    if (
+      env.bodyKind === "media" &&
+      (env.media?.kind === "file" || env.media?.kind === "office" || env.media?.kind === "pdf") &&
+      !env.media.officialFile
+    ) {
+      return this.reject("DSH_UNAVAILABLE", "file requires official DSH attachments.saveFile");
     }
     if (
       env.bodyKind === "media" &&

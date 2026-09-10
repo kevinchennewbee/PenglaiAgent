@@ -89,6 +89,8 @@ window.__ModuleLoader__.load({
       "beginGuidedConnection",
       "createBot",
       "listBots",
+      "setBotAlias",
+      "inspectIMessagePermissions",
       "removeBot",
       "storeChannelSecret",
       "beginChannelConnection",
@@ -135,6 +137,8 @@ window.__ModuleLoader__.load({
         "beginGuidedConnection",
         "createBot",
         "listBots",
+        "setBotAlias",
+        "inspectIMessagePermissions",
         "removeBot",
         "storeChannelSecret",
         "beginChannelConnection",
@@ -182,6 +186,19 @@ window.__ModuleLoader__.load({
         statusDegraded: "降级",
         statusExpired: "已过期",
         statusFailed: "失败",
+        statusUnsupported: "当前系统不支持",
+        botAlias: "显示名",
+        botOriginal: "原名",
+        saveAlias: "保存显示名",
+        aliasHint: "显示名只影响本机列表，不会重连或改凭据。留空恢复原名。",
+        imessageTitle: "iMessage（仅 Mac）",
+        imessagePermissions: "检查本机权限",
+        imessageEnable: "检查权限并启用",
+        imessageDisabled: "未启用。启用前不会读取 Messages 或控制 Messages.app。",
+        imessageUnsupported: "当前系统不是 macOS，iMessage 不可用，也不会调用 macOS 助手。",
+        imessageLimit: "首版仅私聊文本。需要完全磁盘访问和 Messages 自动化。默认关闭。",
+        databasePermission: "完全磁盘访问",
+        automationPermission: "Messages 自动化",
         connectionFailed: "连接失败。请刷新状态后重试。",
         lastError: "最近错误",
         referenceId: "参考号",
@@ -312,6 +329,19 @@ window.__ModuleLoader__.load({
         statusDegraded: "Degraded",
         statusExpired: "Expired",
         statusFailed: "Failed",
+        statusUnsupported: "Unsupported on this OS",
+        botAlias: "Display name",
+        botOriginal: "Original name",
+        saveAlias: "Save display name",
+        aliasHint: "The display name is local only. It does not reconnect or change credentials. Empty restores the original name.",
+        imessageTitle: "iMessage (Mac only)",
+        imessagePermissions: "Check local permissions",
+        imessageEnable: "Check permissions and enable",
+        imessageDisabled: "Disabled. Penglai does not read Messages or control Messages.app until you enable this channel.",
+        imessageUnsupported: "This OS is not macOS. iMessage is unavailable and macOS helpers are not called.",
+        imessageLimit: "First version is private text only. Requires Full Disk Access and Messages automation. Default off.",
+        databasePermission: "Full Disk Access",
+        automationPermission: "Messages automation",
         connectionFailed: "Connection failed. Refresh the status and retry.",
         lastError: "Last error",
         referenceId: "Reference",
@@ -1569,7 +1599,8 @@ window.__ModuleLoader__.load({
       if (connection === "not_configured") return t.statusNotConfigured;
       if (connection === "degraded") return t.statusDegraded;
       if (connection === "expired") return t.statusExpired;
-      if (connection === "failed" || connection === "blocked") return t.statusFailed;
+      if (connection === "blocked") return t.statusUnsupported;
+      if (connection === "failed") return t.statusFailed;
       return t.statusDisconnected;
     }
 
@@ -1585,9 +1616,179 @@ window.__ModuleLoader__.load({
       const methods = channel.connectionMethods || [];
       if (methods.includes("qr")) return "qr";
       if (methods.includes("device-link")) return "device-link";
+      if (methods.includes("manual-fallback") && !methods.includes("token")) return "manual-fallback";
       if (methods.includes("token")) return "token";
       if (methods.includes("oauth")) return "oauth";
       return methods[0] || "token";
+    }
+
+    function IMessagePane({ remote, connection, channel, load, onClose }) {
+      const t = localeCopy();
+      const [error, setError] = React.useState("");
+      const [failure, setFailure] = React.useState(null);
+      const [permissions, setPermissions] = React.useState(null);
+      const blocked = channel.connection === "blocked";
+      const check = () => {
+        setError("");
+        setFailure(null);
+        imCall(remote, connection, "inspectIMessagePermissions")
+          .then((next) => setPermissions(next))
+          .catch(() => setError(connectionFailureText(null, t)));
+      };
+      const enable = () => {
+        setError("");
+        setFailure(null);
+        imCall(remote, connection, "beginChannelConnection", {
+          channel: "imessage",
+          method: "manual-fallback",
+        })
+          .then((started) => {
+            if (started.failure) {
+              setFailure(started.failure);
+              setError(connectionFailureText(started, t));
+            }
+            load();
+          })
+          .catch(() => setError(connectionFailureText(null, t)));
+      };
+      return jsx.jsxs("div", {
+        "data-penglai-im-connect-pane": "imessage",
+        "data-penglai-im-imessage": "1",
+        children: [
+          jsx.jsx("p", { children: t.imessageLimit }),
+          blocked
+            ? jsx.jsx("p", { "data-penglai-im-imessage-unsupported": "1", children: t.imessageUnsupported })
+            : jsx.jsx("p", { "data-penglai-im-imessage-disabled": "1", children: t.imessageDisabled }),
+          permissions
+            ? jsx.jsxs("p", {
+                "data-penglai-im-imessage-permissions": "1",
+                children: [
+                  t.databasePermission,
+                  ": ",
+                  String(permissions.database || ""),
+                  " · ",
+                  t.automationPermission,
+                  ": ",
+                  String(permissions.automation || ""),
+                ],
+              })
+            : null,
+          error
+            ? jsx.jsx("p", {
+                role: "alert",
+                "data-penglai-im-connect-error": "1",
+                "data-penglai-im-connect-error-code": failure?.code || "",
+                children: error,
+              })
+            : null,
+          blocked
+            ? null
+            : jsx.jsxs("div", {
+                children: [
+                  jsx.jsx("button", {
+                    type: "button",
+                    "data-penglai-im-imessage-check": "1",
+                    onClick: check,
+                    children: t.imessagePermissions,
+                  }),
+                  jsx.jsx("button", {
+                    type: "button",
+                    "data-penglai-im-imessage-enable": "1",
+                    "data-penglai-im-connect-submit": "imessage",
+                    onClick: enable,
+                    children: t.imessageEnable,
+                  }),
+                ],
+              }),
+          channel.connection === "connected"
+            ? jsx.jsx("button", {
+                type: "button",
+                onClick: () =>
+                  imCall(remote, connection, "disconnectChannel", { channel: "imessage" })
+                    .then(load)
+                    .catch(() => undefined),
+                children: t.disconnect,
+              })
+            : null,
+          blocked
+            ? null
+            : jsx.jsx("button", {
+                type: "button",
+                onClick: () =>
+                  ownerApprove(remote, connection, "im.logout", "imessage")
+                    .then((proof) =>
+                      imCall(remote, connection, "logoutChannel", {
+                        channel: "imessage",
+                        ownerActionId: proof.ownerActionId,
+                        receipt: proof.receipt,
+                      }),
+                    )
+                    .then(() => {
+                      onClose();
+                      load();
+                    })
+                    .catch(() => setError(connectionFailureText(null, t))),
+                children: t.logout,
+              }),
+        ],
+      });
+    }
+
+    function BotsPane({ remote, connection }) {
+      const t = localeCopy();
+      const [bots, setBots] = React.useState([]);
+      const [drafts, setDrafts] = React.useState({});
+      const [error, setError] = React.useState("");
+      const loadBots = React.useCallback(() => {
+        imCall(remote, connection, "listBots")
+          .then((rows) => setBots(Array.isArray(rows) ? rows : []))
+          .catch(() => setBots([]));
+      }, [remote, connection]);
+      React.useEffect(() => {
+        loadBots();
+      }, [loadBots]);
+      return jsx.jsxs("section", {
+        "data-penglai-im-bots": "1",
+        children: [
+          jsx.jsx("p", { children: t.aliasHint }),
+          error ? jsx.jsx("p", { role: "alert", children: error }) : null,
+          jsx.jsx("ul", {
+            children: bots.map((bot) =>
+              jsx.jsxs(
+                "li",
+                {
+                  "data-penglai-im-bot": bot.botId,
+                  children: [
+                    jsx.jsx("strong", { "data-penglai-im-bot-display": bot.botId, children: bot.displayName }),
+                    jsx.jsx("span", { children: ` · ${t.botOriginal}: ${bot.originalDisplayName || bot.displayName}` }),
+                    jsx.jsx("input", {
+                      "data-penglai-im-bot-alias": bot.botId,
+                      value: drafts[bot.botId] ?? bot.alias ?? "",
+                      onChange: (ev) => setDrafts((current) => ({ ...current, [bot.botId]: ev.target.value })),
+                    }),
+                    jsx.jsx("button", {
+                      type: "button",
+                      "data-penglai-im-bot-alias-save": bot.botId,
+                      onClick: () =>
+                        imCall(remote, connection, "setBotAlias", {
+                          botId: bot.botId,
+                          alias: drafts[bot.botId] ?? "",
+                        })
+                          .then(() => {
+                            setError("");
+                            loadBots();
+                          })
+                          .catch(() => setError(connectionFailureText(null, t))),
+                      children: t.saveAlias,
+                    }),
+                  ],
+                },
+                bot.botId,
+              ),
+            ),
+          }),
+        ],
+      });
     }
 
     function ChannelConnectPane({ remote, connection, channel, manifest, load, onClose }) {
@@ -2041,7 +2242,12 @@ window.__ModuleLoader__.load({
                                   ],
                                 })
                               : null,
-                            jsx.jsx("button", {
+                            c.connection === "blocked"
+                              ? jsx.jsx("p", {
+                                  "data-penglai-im-unsupported": c.channel,
+                                  children: t.statusUnsupported,
+                                })
+                              : jsx.jsx("button", {
                               type: "button",
                               "data-penglai-im-connect": c.channel,
                               ...(c.channel === "weixin" ? { "data-penglai-im-goto-weixin": "1" } : {}),
@@ -2080,6 +2286,14 @@ window.__ModuleLoader__.load({
                           ownerKnown: snap.overview?.feishuOwnerKnown === true,
                           kick: feishuKick,
                         })
+                      : selected === "imessage"
+                        ? jsx.jsx(IMessagePane, {
+                            remote,
+                            connection,
+                            channel: selectedChannel,
+                            load,
+                            onClose: () => setSelected(""),
+                          })
                       : jsx.jsx(ChannelConnectPane, {
                           remote,
                           connection,
@@ -2097,6 +2311,10 @@ window.__ModuleLoader__.load({
                 remote,
                 connection,
                 connectionGeneration,
+              }),
+              jsx.jsx(BotsPane, {
+                remote,
+                connection,
               }),
               jsx.jsx("p", { children: t.commandsHint }),
               jsx.jsx("p", { children: t.diagnosticsHint }),

@@ -8,6 +8,7 @@ import {
   MediaStore,
   attachDownloadedMedia,
   type ImageAdmission,
+  type FileAdmission,
   type ObjectStore,
   type InboundEnvelope,
   type PenglaiAsrClient,
@@ -300,6 +301,7 @@ export class WeixinAdapter {
     ...(process.env.PENGLAI_USER_DATA ? [join(process.env.PENGLAI_USER_DATA, "media", "weixin")] : []),
   );
   imageAdmission?: ImageAdmission;
+  fileAdmission?: FileAdmission;
   objectStore?: ObjectStore;
   onAdmittedBytes?: (input: {
     bytes: Buffer;
@@ -649,6 +651,7 @@ export class WeixinAdapter {
             ...(raw.file?.file_name ? { filename: raw.file.file_name } : {}),
           },
           ...(this.imageAdmission ? { imageAdmission: this.imageAdmission } : {}),
+          ...(this.fileAdmission ? { fileAdmission: this.fileAdmission } : {}),
           ...(this.objectStore ? { objectStore: this.objectStore } : {}),
         });
       } catch (error) {

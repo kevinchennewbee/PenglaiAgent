@@ -6,8 +6,9 @@ Official DSH pin: npm `0.1.5-rc.1` / `dsh-v0.1.5-rc.1` /
 | Surface | Decision | Reason |
 | --- | --- | --- |
 | Official DSH core | update | Complete registry cohort with integrity; no mixed generations. |
-| `@penglai/im` | keep rewrite | Faithful rewrite of reviewed dsh-im 4.17.1 into `@penglai/im`. No dsh-im runtime, no extra dsh-im `cordis.patch.yml`, no WhatsApp, no second Office. Recover completed turns through official inspect / SessionHandle, including cold sessions. |
-| Eight IM adapters | keep | Feishu/DingTalk/Weixin/WeCom/QQ/Slack/Telegram/Discord pins unchanged; no blind majors. |
+| `@penglai/im` | keep rewrite + 4.18.1/606ced1 delta | Faithful rewrite of reviewed dsh-im 4.17.1, plus current 4.18.1 and unpublished alias HEAD, into `@penglai/im`. No dsh-im runtime, no extra dsh-im `cordis.patch.yml`, no WhatsApp, no second Office, no second management HTTP. Recover completed turns through official inspect / SessionHandle remains the other writer's claim. |
+| Eight historical IM adapters | keep | Feishu/DingTalk/Weixin/WeCom/QQ/Slack/Telegram/Discord pins unchanged; no blind majors. Sidecar file/image stay not-supported except Weixin/Feishu native media. |
+| Optional iMessage | add Darwin-only | Private TEXT, default off, explicit `macos-messages` identity, user enable + OS permissions required. Windows/UOS unsupported. Native live `LIVE_NOT_RUN`. See ADR 0046. |
 | Office | keep + adapt | Required builtin. Action-specific confirmation unchanged. Helper `commit(OfficeJob)` only copies in-memory bytes; production writes still require owner receipt. |
 | Memory / Mnemon | keep | Mnemon `0.2.8`; linux-loong64 remains the architecture-built old-world engine. |
 | ASR / MOSS | keep | sherpa-onnx `1.13.7`; onnxruntime-node `1.23.2`. MOSS remains not enableable on UOS 20. |
