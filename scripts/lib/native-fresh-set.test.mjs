@@ -316,6 +316,11 @@ function normalizeNewlines(text) {
   return String(text ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 }
 
+function lineEndingFixtures(text) {
+  const lf = normalizeNewlines(text);
+  return { lf, crlf: lf.replaceAll("\n", "\r\n") };
+}
+
 function nativeWorkflowJob(text, name) {
   const normalized = normalizeNewlines(text);
   const match = /(?:^|\n)jobs:[ \t]*\n/.exec(normalized);
@@ -347,12 +352,13 @@ test("native Mac and Windows jobs fetch pinned Mnemon before source unit gates",
 });
 
 test("native workflow job parser treats LF and CRLF checkouts as equivalent", () => {
-  const lf = normalizeNewlines(
+  const { lf, crlf } = lineEndingFixtures(
     readFileSync(join(ROOT, ".github/workflows/native-release-candidate.yml"), "utf8"),
   );
-  const crlf = lf.replaceAll("\n", "\r\n");
+  assert.equal(lf.includes("\r"), false);
   assert.match(crlf, /\r\njobs:\r\n/);
   assert.equal(crlf.includes("\njobs:\n"), false);
+  assert.deepEqual(lineEndingFixtures(crlf), { lf, crlf });
   for (const job of ["macos", "windows"]) {
     const fromLf = nativeWorkflowJob(lf, job);
     const fromCrlf = nativeWorkflowJob(crlf, job);
@@ -367,12 +373,18 @@ test("native workflow job parser treats LF and CRLF checkouts as equivalent", ()
 });
 
 test("source-ci Windows focused regression fetches pinned Mnemon before the four files", () => {
-  const workflow = readFileSync(join(ROOT, ".github/workflows/source-ci.yml"), "utf8");
-  assert.match(workflow, /name: Full source gates/);
-  assert.match(workflow, /pnpm test:unit/);
-  assert.match(workflow, /pnpm verify:clean-clone/);
-  const body = nativeWorkflowJob(workflow, "windows-source-regression");
-  assert.equal(nativeWorkflowJob(workflow.replaceAll("\n", "\r\n"), "windows-source-regression"), body);
+  const { lf, crlf } = lineEndingFixtures(
+    readFileSync(join(ROOT, ".github/workflows/source-ci.yml"), "utf8"),
+  );
+  assert.match(lf, /name: Full source gates/);
+  assert.match(lf, /pnpm test:unit/);
+  assert.match(lf, /pnpm verify:clean-clone/);
+  assert.equal(lf.includes("\r"), false);
+  assert.match(crlf, /\r\njobs:\r\n/);
+  assert.equal(crlf.includes("\njobs:\n"), false);
+  assert.deepEqual(lineEndingFixtures(crlf), { lf, crlf });
+  const body = nativeWorkflowJob(lf, "windows-source-regression");
+  assert.equal(nativeWorkflowJob(crlf, "windows-source-regression"), body);
   assert.match(body, /github\.event\.pull_request\.head\.sha \|\| github\.sha/);
   assert.match(body, /pnpm rebuild:fs-ext/);
   assert.match(body, /pnpm build:windows-host/);
