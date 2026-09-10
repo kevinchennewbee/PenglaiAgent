@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 import { PenglaiError, RELEASE } from "@penglai/contracts";
 
 export const PLUGIN_CATALOG_SCHEMA = 3 as const;
-export const PINNED_PLUGIN_DSH = "0.1.5-alpha.1" as const;
+export const PINNED_PLUGIN_DSH = "0.1.5-rc.1" as const;
 export const PRODUCT_PLUGIN_TARGETS = [
   "darwin-arm64",
   "darwin-x64",

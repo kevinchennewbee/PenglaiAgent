@@ -1,4 +1,4 @@
-# Penglai 0.6.0 architecture
+# Penglai 0.6.1 architecture
 
 ## English
 
@@ -22,7 +22,7 @@ Penglai.app / Penglai.exe
       └─ companion / hidden budget control / hidden conformance fixture
 ```
 
-0.6.0 development pins official DSH `0.1.5-alpha.1`. Official DSH is the single runtime authority. Penglai does not own a second
+0.6.1 development pins official DSH `0.1.5-rc.1`. Official DSH is the single runtime authority. Penglai does not own a second
 provider registry, agent loop, Workspace/Session store, tool executor, approval
 system, or conversation renderer. The bootstrap wizard disappears after
 completion; the long-lived main window is official DSH Web with DSH client
@@ -122,17 +122,17 @@ after a real official DSH reply and a successful switch to official DSH Web.
 
 ### 5. Profile composition
 
-The complete official npm cohort contains 272 verified packages pinned to
-`dsh-v0.1.5-alpha.1` at `5dda764ed3aa172535a7967b06ff95d9cbfe536a`.
+The complete official npm cohort contains 279 verified packages pinned to
+`dsh-v0.1.5-rc.1` at `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`.
 Official DSH bytes are unmodified; Penglai composes official client slots.
-Session recovery consumers use `snapshotEvents()` and fail on missing capability.
-Previous Home generations are copied into `0.1.5-alpha.1` before a health-verified
+Session recovery consumers use official inspect / SessionHandle reads and fail on missing capability.
+Previous Home generations are copied into `0.1.5-rc.1` before a health-verified
 activation; rollback restores the previous pointer and preserves its data.
 Session V3 upgrades write a successor log and keep the original bytes.
 
 Fresh profile invariants:
 
-- official DSH `0.1.5-alpha.1` is pinned with exact npm integrity and source tag;
+- official DSH `0.1.5-rc.1` is pinned with exact npm integrity and source tag;
 - Plugin Center, Office, and Memory are installed and active;
 - IM, ASR, MOSS-TTS, and Companion are present in the installer but disabled;
 - the reference fixture and budget control are internal/hidden; and

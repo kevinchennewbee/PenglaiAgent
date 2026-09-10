@@ -71,6 +71,8 @@ export const PUBLIC_EXPORT_ALLOW = [
   "docs/PUBLICATION_MANIFEST_0.5.12.md",
   "docs/0.6.0",
   "docs/RELEASE_NOTES_0.6.0.md",
+  "docs/0.6.1",
+  "docs/RELEASE_NOTES_0.6.1.md",
   "docs/ACCEPTANCE.md",
   "docs/RELEASE_RUNBOOK.md",
   "docs/decisions.md",
@@ -175,6 +177,8 @@ export const REQUIRED_PUBLIC_DOCS = [
   "docs/0.5.12/UPGRADE_SOURCES.json",
   "docs/0.6.0/ACCEPTANCE_DELTA.md",
   "docs/0.6.0/UPGRADE_SOURCES.json",
+  "docs/0.6.1/ACCEPTANCE_DELTA.md",
+  "docs/0.6.1/UPGRADE_SOURCES.json",
 ] as const;
 
 export interface ExportFile {
@@ -329,7 +333,7 @@ export function buildPublicationDraft(input: {
       native: "pending",
     })),
     limitations: [
-      `${PRODUCT_VERSION} declares darwin-aarch64, darwin-x86_64, and win32-x86_64; native PASS requires a matching runner`,
+      `${PRODUCT_VERSION} declares darwin-aarch64, darwin-x86_64, win32-x86_64, and linux-loong64; native PASS requires a matching runner`,
       "community-verified: macOS ad-hoc/not notarized; Windows has no Authenticode",
       "0.5.0 to 0.5.1 is a manual overlay install on Apple Silicon; Intel/Windows are fresh installs",
       "0.5.1 to 0.5.7 uses signed assisted update after user confirmation; 0.5.0 remains manual",

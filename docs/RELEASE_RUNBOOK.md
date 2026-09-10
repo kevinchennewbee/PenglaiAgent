@@ -1,12 +1,10 @@
 # Penglai release runbook index
 
 The current executable runbook is
-[`docs/0.5.7/RELEASE_RUNBOOK.md`](0.5.7/RELEASE_RUNBOOK.md).
-
-Historical versioned runbooks remain beside their corresponding source and
-publication records. They do not override the current version, exact asset set,
-native targets, or authorization in `release-contract.json`, `AGENTS.md`, and
-the 0.5.7 runbook.
+[`docs/0.6.1/ACCEPTANCE_DELTA.md`](0.6.1/ACCEPTANCE_DELTA.md) together with
+`release-contract.json` and `AGENTS.md`. Historical versioned runbooks remain
+beside their corresponding source and publication records. They do not override
+the current version, exact asset set, native targets, or authorization.
 
 For every release, keep source, package, native, installed, live, and public
 evidence separate. A green source suite cannot prove an installed client, a

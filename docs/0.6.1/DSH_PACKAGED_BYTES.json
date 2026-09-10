@@ -1,0 +1,54 @@
+{
+  "schema": 2,
+  "dsh": "0.1.5-rc.1",
+  "source": {
+    "repository": "https://github.com/deepseek-ai/DeepSeek-Harness.git",
+    "tag": "dsh-v0.1.5-rc.1",
+    "commit": "183f08e9c6dde7e36cd2318eaee70b0da08fb35e",
+    "tree": "2ee1e68447427d0989f220203262285e4260661d",
+    "cohortManifest": "docs/0.6.1/DSH_NPM_COHORT.json"
+  },
+  "mode": "official-npm-cohort-no-source-patch",
+  "officialBytes": [
+    {
+      "id": "web-frontend-index",
+      "relative": "node_modules/@deepseek-ai/dsh-web-frontend/dist/index.html",
+      "sourcePackage": "@deepseek-ai/dsh-web-frontend@0.1.5-rc.1",
+      "integrity": "sha512-N6WnubGkuOt62OSFVs3XFybh9/VnDy2yMqaAivr1pIp3YtLsMv9QEyYrgqUhsYsuqu1Tfr5GAVmmcNI5OA7i/Q==",
+      "sha256": "1a66926a92d8a430a774cb77a7ff1199b7fc6fd72fc3115cc8bd21cd2747c3a1"
+    },
+    {
+      "id": "settings-models-client",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js",
+      "sourcePackage": "@deepseek-ai/dsh-client-ui-settings-models@0.1.5-rc.1",
+      "integrity": "sha512-qCzSHZLZoV5NLgzVGj+h/OAqEOUF9NaFxyD3bdZSpy1xL9ZTmBitpjdmllqiBiIbxRx4AxCiYfOQ38ZGMlyD4Q==",
+      "sha256": "a60fd86357f9fbc6f5276ed0393682f7f2223faedec4f30c719d66e99600b1bb"
+    },
+    {
+      "id": "conversation-client",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js",
+      "sourcePackage": "@deepseek-ai/dsh-client-ui-conversation@0.1.5-rc.1",
+      "integrity": "sha512-/A+lvO6mc+uTJWJerFyhZeBV+Ez9Sid8+wx7NbIrrg/mdt191IdHqHI9v2sGiIQ/1d+nI3S0YjhOxMH4hGka5A==",
+      "sha256": "81314dfd95864f2522f8edb812e3f8e08b04a8ef2141913e6e8cbdaae1ffc37f"
+    },
+    {
+      "id": "settings-general-client",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-general/lib/client.js",
+      "sourcePackage": "@deepseek-ai/dsh-client-ui-settings-general@0.1.5-rc.1",
+      "integrity": "sha512-oGzUbFGr27KnteXU7/82K5sI/MRB9b+B1sFiQTpUEix318uNfE6q3/o0mhpBcbQoSmpP0D++Bgn12vlgklvsog==",
+      "sha256": "c5995dba8c3b944a46ebae6bc860b35b8adacd4786105ca636b5b73b84ae396e"
+    }
+  ],
+  "brandAssets": [
+    {
+      "name": "logo-64.png",
+      "source": "overlays/dsh-0.1.1-rc.2/brand/logo-64.png",
+      "sha256": "aed9e69c65bc9bba802064f06851cb157283fef587b492223bc0e3b289fd5985"
+    },
+    {
+      "name": "logo-256.png",
+      "source": "overlays/dsh-0.1.1-rc.2/brand/logo-256.png",
+      "sha256": "c40f14d9409428248aa06733453e05d3c91c7f84efd95fa2a5c882d2092deda2"
+    }
+  ]
+}

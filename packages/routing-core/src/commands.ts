@@ -143,7 +143,7 @@ export const KNOWN_COMMANDS: readonly string[] = COMMANDS;
 export function versionText(): string {
   return [
     `Penglai ${RELEASE}`,
-    "DSH 0.1.5-alpha.1 dsh-v0.1.5-alpha.1 5dda764ed3aa172535a7967b06ff95d9cbfe536a",
+    "DSH 0.1.5-rc.1 dsh-v0.1.5-rc.1 183f08e9c6dde7e36cd2318eaee70b0da08fb35e",
     "DSH-IM reference v4.17.1 unsigned tag 51fb6bb03d86045cbe55e5fde3e55308f0f3643e peeled 464c0a91762ebd0befc2d179f036eaae4864fb0e",
   ].join("\n");
 }

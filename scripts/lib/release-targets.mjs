@@ -1,4 +1,4 @@
-import { macosAarch64DmgName, macosX64DmgName, windowsSetupName } from "./product.mjs";
+import { macosAarch64DmgName, macosX64DmgName, windowsSetupName, uosDebName } from "./product.mjs";
 
 export const RELEASE_TARGETS = Object.freeze([
   "darwin-aarch64",
@@ -18,7 +18,7 @@ export const TARGET_INSTALLERS = Object.freeze({
   "darwin-aarch64": macosAarch64DmgName(),
   "darwin-x86_64": macosX64DmgName(),
   "win32-x86_64": windowsSetupName(),
-  "linux-loong64": "Penglai_0.6.0_uos_loong64.deb",
+  "linux-loong64": uosDebName(),
 });
 
 export function assertReleaseTarget(target) {

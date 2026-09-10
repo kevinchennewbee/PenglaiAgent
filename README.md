@@ -8,10 +8,12 @@ Official DeepSeek Harness, installed on a personal computer.
 
 [English](#english) · [中文](#中文) · [Website](https://penglai.pages.dev) · [中文网站](https://penglai.pages.dev/zh/) · [Security](SECURITY.md)
 
-**Penglai 0.6.0** installs official DeepSeek Harness `0.1.5-alpha.1` (tag `dsh-v0.1.5-alpha.1`, commit `5dda764ed3aa172535a7967b06ff95d9cbfe536a`, 272 npm packages) on Apple Silicon, Intel Mac, Windows x64, and UnionTech UOS 20 LoongArch. DSH remains the only agent core. Office and Memory are enabled by default.
+**Penglai 0.6.0** is the current public download. It installs official DeepSeek Harness `0.1.5-alpha.1` (tag `dsh-v0.1.5-alpha.1`, commit `5dda764ed3aa172535a7967b06ff95d9cbfe536a`, 272 npm packages) on Apple Silicon, Intel Mac, Windows x64, and UnionTech UOS 20 LoongArch. DSH remains the only agent core. Office and Memory are enabled by default.
 
 Download the immutable release: [`v0.6.0`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0), built from source `7dd68b4ab08bbe4edf4dfac7f82abb6b164cb316`. Published v0.5.10, v0.5.11, and v0.5.12 tags stay immutable.
 [Release notes](docs/RELEASE_NOTES_0.6.0.md) · [Publication manifest](docs/PUBLICATION_MANIFEST_0.6.0.md)
+
+Source on this branch is **0.6.1** with official DSH `0.1.5-rc.1` (tag `dsh-v0.1.5-rc.1`, commit `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`, 279 packages). There is no public 0.6.1 download yet. Staged copy lives in [`docs/0.6.1/`](docs/0.6.1/).
 
 <p align="center">
   <img src="website/shots/0.5.5/welcome.png" width="78%" alt="Penglai first-run welcome: language, appearance, and a seven-step guide">
@@ -91,7 +93,7 @@ Use the matching file. Do not mix platforms. Check the downloaded installer agai
 
 292,702,128 bytes · SHA-256 `a541e9fa9b06626750b4a87859cc76ff3df51b5a0eb8960de08e8eba20cad430`
 
-The UOS package is published with that four-installer set. The project maintainer will test installation, startup, and functionality on a physical UOS machine after publication (`OWNER_POST_RELEASE`). The UOS runtime is Loongson Electron 31.7.7 (Chromium 126). That runtime is unmaintained. It does not provide the same security as Mac/Windows Electron 43 / Chromium 150.
+The UOS package is published with that four-installer set. For published 0.6.0, physical UOS install/startup/function remains the recorded `OWNER_POST_RELEASE` host check, not a later-version PASS. The UOS runtime is Loongson Electron 31.7.7 (Chromium 126). That runtime is unmaintained. It does not provide the same security as Mac/Windows Electron 43 / Chromium 150.
 
 ## Quick start
 
@@ -116,7 +118,7 @@ Upgrade with the same-platform installer as a manual overlay. Default uninstall 
 - Credentials are stored in app-private YAML through official DSH. That is not Keychain or hardware isolation.
 - macOS is ad-hoc signed and **not notarized**. Windows has **no Authenticode**. Do not disable system security to install.
 - Plugins share the local DSH process. Install only reviewed catalog entries and read their permissions.
-- UnionTech UOS 20 LoongArch is the fourth packaged target. The project maintainer will test installation, startup, and functionality on a physical UOS machine after publication (`OWNER_POST_RELEASE`).
+- UnionTech UOS 20 LoongArch is the fourth packaged target. The 0.6.0 UOS `OWNER_POST_RELEASE` record is historical for that release; it is not a 0.6.1 native PASS.
 - UOS Electron 31.7.7 / Chromium 126 is unmaintained. It does not provide the same security as Mac/Windows Electron 43 / Chromium 150.
 - Memory stays required and on for UOS, with the packed Mnemon engine. MOSS-TTS is not available on LoongArch and cannot be enabled there.
 - Source tests, packaged tests, native installed Mac/Windows tests, and live external-account tests are reported separately.
@@ -173,7 +175,9 @@ DSH 始终是唯一的 Agent 核心。Agent loop、模型、工具、审批、Wo
        → DeepSeek Harness（模型、工具、Workspace、Session、会话）
 ```
 
-**Penglai 0.6.0** 使用官方 DeepSeek Harness `0.1.5-alpha.1`（tag `dsh-v0.1.5-alpha.1`，commit `5dda764ed3aa172535a7967b06ff95d9cbfe536a`，272 包）。办公和记忆默认开启。四个安装包面向 Apple 芯片、Intel Mac、Windows x64 和统信 UOS 20 龙芯，来自源码 `7dd68b4ab08bbe4edf4dfac7f82abb6b164cb316`。正式下载见不可变发行版 [`v0.6.0`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0)。已发布的 v0.5.10、v0.5.11、v0.5.12 保持不可变。
+**Penglai 0.6.0** 是当前公开下载版本，使用官方 DeepSeek Harness `0.1.5-alpha.1`（tag `dsh-v0.1.5-alpha.1`，commit `5dda764ed3aa172535a7967b06ff95d9cbfe536a`，272 包）。办公和记忆默认开启。四个安装包面向 Apple 芯片、Intel Mac、Windows x64 和统信 UOS 20 龙芯，来自源码 `7dd68b4ab08bbe4edf4dfac7f82abb6b164cb316`。正式下载见不可变发行版 [`v0.6.0`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0)。已发布的 v0.5.10、v0.5.11、v0.5.12 保持不可变。
+
+本仓库源码是 **0.6.1**，固定官方 DSH `0.1.5-rc.1`（tag `dsh-v0.1.5-rc.1`，commit `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`，279 包）。公开 0.6.1 下载尚未发布。预写文案见 [`docs/0.6.1/`](docs/0.6.1/)。
 
 ## 怎么用
 
@@ -232,7 +236,7 @@ DSH 始终是唯一的 Agent 核心。Agent loop、模型、工具、审批、Wo
 
 292,702,128 字节 · SHA-256 `a541e9fa9b06626750b4a87859cc76ff3df51b5a0eb8960de08e8eba20cad430`
 
-UOS 安装包已随另外三个安装包一起发布。龙芯实机上的安装、启动和功能测试，将由项目维护者在发布后完成（`OWNER_POST_RELEASE`）。该端运行时是龙芯 Electron 31.7.7（Chromium 126），已经停止维护。其安全维护水平与 Mac/Windows 使用的 Electron 43 / Chromium 150 不同。
+UOS 安装包已随另外三个安装包一起发布。对已发布的 0.6.0，龙芯真机安装/启动/功能仍是当时记录的 `OWNER_POST_RELEASE`，不是后续版本的自动 PASS。该端运行时是龙芯 Electron 31.7.7（Chromium 126），已经停止维护。其安全维护水平与 Mac/Windows 使用的 Electron 43 / Chromium 150 不同。
 
 ## 快速开始
 
@@ -251,7 +255,7 @@ UOS 安装包已随另外三个安装包一起发布。龙芯实机上的安装�
 - 密钥写在官方 DSH 的应用私有 YAML 里。这不是钥匙串，也不是硬件隔离。
 - macOS 是 ad-hoc 签名、**未公证**；Windows **没有 Authenticode**。请不要为了安装而关闭系统安全功能。
 - 插件和 DSH 在同一本地进程中运行，只应安装经过审核的目录条目并阅读权限。
-- 统信 UOS 20 龙芯是第四个打包目标。龙芯实机上的安装、启动和功能测试，将由项目维护者在发布后完成（`OWNER_POST_RELEASE`）。
+- 统信 UOS 20 龙芯是第四个打包目标。0.6.0 的 UOS `OWNER_POST_RELEASE` 只记录那一次发布，不是 0.6.1 的原生 PASS。
 - UOS 的 Electron 31.7.7 / Chromium 126 已经停止维护。其安全维护水平与 Mac/Windows 使用的 Electron 43 / Chromium 150 不同。
 - UOS 上记忆必开，并带入 Mnemon 引擎。MOSS-TTS 在龙芯上不可用，也不能启用。
 - 源码测试、打包测试、Mac/Windows 原生安装测试、真实外部账号测试分别记录。

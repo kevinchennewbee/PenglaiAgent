@@ -177,6 +177,39 @@ export function recoverOfficialTurnDelivery(
   return { claimed, delivered, incomplete };
 }
 
+function isOwnedOrMissingSession(error: unknown): boolean {
+  const err = error && typeof error === "object" ? (error as { name?: unknown; message?: unknown }) : undefined;
+  const message = String(err?.message ?? error ?? "");
+  return (
+    err?.name === "SessionAlreadyOwnedError" ||
+    err?.name === "ApiSessionNotFound" ||
+    /already owned/i.test(message) ||
+    /session ".*?" not found/i.test(message)
+  );
+}
+
+async function officialRecoveryEvents(
+  host: DshHost,
+  sessionId: string,
+): Promise<{ events: readonly unknown[] | undefined; incomplete: boolean }> {
+  if (host.inspectSession) {
+    try {
+      const inspected = await host.inspectSession(sessionId);
+      if (inspected) return { events: inspected.events, incomplete: false };
+    } catch (error) {
+      if (isOwnedOrMissingSession(error)) {
+        const live = host.getAgent(sessionId);
+        if (live?.session) return { events: snapshotOfficialSession(live.session), incomplete: false };
+        return { events: undefined, incomplete: true };
+      }
+      throw error;
+    }
+  }
+  const agent = host.getAgent(sessionId);
+  if (agent?.session) return { events: snapshotOfficialSession(agent.session), incomplete: false };
+  return { events: undefined, incomplete: false };
+}
+
 export async function recoverOfficialDeliveriesFromHost(
   host: DshHost,
   plane: Pick<RoutingControlPlane, "onClaimed" | "onAssistantFinal">,
@@ -191,12 +224,15 @@ export async function recoverOfficialDeliveriesFromHost(
     throw error;
   }
   for (const session of sessions) {
-    const agent = host.getAgent(session.id);
-    if (!agent?.session) continue;
+    const recovered = await officialRecoveryEvents(host, session.id);
+    if (recovered.events === undefined) {
+      if (recovered.incomplete) totals.incomplete += 1;
+      continue;
+    }
     totals.sessions += 1;
     const result = recoverOfficialTurnDelivery(plane, {
       sessionId: session.id,
-      events: snapshotOfficialSession(agent.session),
+      events: recovered.events,
     });
     totals.claimed += result.claimed;
     totals.delivered += result.delivered;

@@ -243,8 +243,14 @@ export async function edit(
   return toPublic(job);
 }
 
-export function commit(job: OfficeJob): Buffer {
+/** Copy in-memory committed bytes. This is not a Workspace write and does not skip owner confirmation. */
+export function copyCommittedOfficeBytes(job: OfficeJob): Buffer {
   return Buffer.from(job.bytes);
+}
+
+/** @deprecated Use copyCommittedOfficeBytes; production writes go through createOfficeService().commit with an action receipt. */
+export function commit(job: OfficeJob): Buffer {
+  return copyCommittedOfficeBytes(job);
 }
 
 export function createOfficeService(opts?: {

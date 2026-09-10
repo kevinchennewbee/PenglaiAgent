@@ -508,6 +508,68 @@ test("R50-ONB-009 first conversation is a visible official Session and survives 
   assert.equal(resumed.status().current, "COMPLETE");
 });
 
+test("selectModel persists the explicit choice onto official agent-default-model settings", async () => {
+  const { createPenglaiOnboardingRemoteImpl } = await import("./onboarding-remote.js");
+  const { persistOfficialDefaultModel, readOfficialDefaultModel } = await import("./onboarding.js");
+  const ops: Array<{ ns: string; path: unknown; value?: unknown }> = [];
+  const impl = createPenglaiOnboardingRemoteImpl({
+    dir: mkdtempSync(join(tmpdir(), "penglai-onb-default-model-")),
+    officialCatalog: () => ({ providers: [{ id: "deepseek-official", protocol: "deepseek" }] }),
+    officialWelcomeAck: () => true,
+    agents: {
+      settings: {
+        mutate: async (ns: string, list: Array<{ op: string; path: string[]; value?: unknown }>) => {
+          for (const item of list) ops.push({ ns, path: item.path, value: item.value });
+        },
+        describe: () => [],
+      },
+      llm: {
+        listProviders: () => [{ id: "deepseek-official", name: "DeepSeek" }],
+        listModels: async (provider: string) => [{ provider, id: "deepseek-flash", name: "DeepSeek-V41-Flash" }],
+        resolveModelInfo: async (provider: string, model: string) => ({ provider, id: model, name: model }),
+      },
+    },
+  });
+  impl.advance("appearance-locale-v1", { locale: "zh", theme: "system" });
+  impl.advance("privacy-v1");
+  await impl.selectModel({ provider: "deepseek-official", model: "deepseek-flash" });
+  assert.deepEqual(
+    ops.filter((row) => row.ns === "agent-default-model"),
+    [
+      { ns: "agent-default-model", path: ["provider"], value: "deepseek-official" },
+      { ns: "agent-default-model", path: ["model"], value: "deepseek-flash" },
+    ],
+  );
+  assert.deepEqual(
+    readOfficialDefaultModel([
+      { ns: "agent-default-model", value: { provider: "deepseek-official", model: "deepseek-flash" } },
+    ]),
+    { provider: "deepseek-official", model: "deepseek-flash" },
+  );
+  const described: Array<{ ns: string; value: unknown }> = [];
+  await persistOfficialDefaultModel(
+    {
+      settings: {
+        mutate: async (ns, list) => {
+          const current = (described.find((row) => row.ns === ns)?.value as Record<string, unknown> | undefined) ?? {};
+          for (const item of list) {
+            if (item.op === "set" && item.path.length === 1) current[item.path[0]!] = item.value;
+          }
+          const idx = described.findIndex((row) => row.ns === ns);
+          if (idx >= 0) described[idx] = { ns, value: current };
+          else described.push({ ns, value: current });
+        },
+        describe: () => described,
+      },
+    },
+    { provider: "openai-compatible", model: "gpt-owner-choice" },
+  );
+  assert.deepEqual(readOfficialDefaultModel(described), {
+    provider: "openai-compatible",
+    model: "gpt-owner-choice",
+  });
+});
+
 test("R50-ONB-002 completeAppearance persists locale/theme through official settings", async () => {
   const { createPenglaiOnboardingRemoteImpl } = await import("./onboarding-remote.js");
   const ops: Array<{ ns: string; op: unknown; path: unknown; value?: unknown }> = [];
@@ -541,6 +603,10 @@ function officialFirehoseServices(opts: {
 }) {
   let listener: ((...args: unknown[]) => void) | undefined;
   return {
+    settings: {
+      mutate: async () => undefined,
+      describe: () => [],
+    },
     credentials: {
       describe: async () => ({ configured: true, source: "local", writable: true }),
       set: async () => undefined,

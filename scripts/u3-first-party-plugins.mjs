@@ -115,7 +115,7 @@ if (!harness) {
 }
 
 const resources = resourcesInside(installed.app, target);
-const alpha2Home = join(userData, "dsh-homes", "dsh-v0.1.5-alpha.1");
+const alpha2Home = join(userData, "dsh-homes", "dsh-v0.1.5-rc.1");
 const profilePatch = join(alpha2Home, "profiles", "web", "cordis.patch.yml");
 const inventoryPath = join(userData, "plugins", "inventory-snapshot.json");
 const packageRoot = join(alpha2Home, "profiles", "web", "node_modules", "@penglai");
@@ -180,7 +180,7 @@ writeFileSync(
 );
 writeFileSync(join(onboardingDir, "current-nonce.digest"), `${fixtureNonceDigest}\n`, { mode: 0o600 });
 const dshCohort = JSON.parse(
-  readFileSync(join(ROOT, "docs/0.6.0/DSH_NPM_COHORT.json"), "utf8"),
+  readFileSync(join(ROOT, "docs/0.6.1/DSH_NPM_COHORT.json"), "utf8"),
 );
 const fixtureDshHome = join(userData, "dsh-home");
 mkdirSync(fixtureDshHome, { recursive: true, mode: 0o700 });

@@ -483,6 +483,24 @@
   installed soak 排除；`test:soak` 保留。真实账号缺凭据记 `LIVE_NOT_RUN`。
   PDF 页预览/Poppler 仍为 D-069 延期。
 - 后果：执行账本为 `docs/0.6.0/`。公开下载在 v0.6.0 回读前仍指向 0.5.12。
+  该授权已完成公开发布；v0.6.0 附件不可变。
+
+### D-071 — 0.6.1 源码与代表包：DSH 0.1.5-rc.1、四端不变、审计缺陷修复
+
+- 日期：2026-09-10。
+- 决定：Owner 授权 **Penglai 0.6.1** 完整开发：升级官方 DSH `0.1.5-rc.1`
+  完整 npm cohort，修复 0.6.0 审计缺陷，适配全部第一方/伴随插件，改进安装器，
+  更新 README 与两个网站的非公开草稿，并为后续四端构建/测试/发布做准备。
+  本阶段交付源码与 Apple Silicon 代表包，READY_FOR_REVIEW。不创建 PR、不合并
+  `main`、不打 tag、不上传、不部署公开下载。Codex 管理与 GUI 验收；Grok 4.6
+  xhigh 负责实现与技术审查。已发布 0.5.10/0.5.11/0.5.12/0.6.0 不可变。
+- 上游：消费官方 DSH `0.1.5-rc.1`（tag `dsh-v0.1.5-rc.1` / commit
+  `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`）。包数以实际图为准。不得混代、
+  源码路径、Git 依赖或本地重打包。不得静默跟随 npm `latest`。
+- 四目标不变，含 UOS 20 old-world。0.6.0 的 UOS `OWNER_POST_RELEASE` 不是
+  0.6.1 native PASS，也不是未来blanket例外。
+- 两小时 installed soak 排除；`test:soak` 保留。
+- 后果：执行账本为 `docs/0.6.1/`。公开下载在 v0.6.1 回读前仍指向 v0.6.0。
 
 ## Superseded
 

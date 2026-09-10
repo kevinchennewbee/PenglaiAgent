@@ -3,13 +3,13 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 
 export const DSH_UPSTREAM = Object.freeze({
-  version: "0.1.5-alpha.1",
-  tag: "dsh-v0.1.5-alpha.1",
-  commit: "5dda764ed3aa172535a7967b06ff95d9cbfe536a",
-  packageCount: 258,
-  rootIntegrity: "sha512-AUjywjrPnhXcAdAjRNgyQa1QCnplFTNYZ+XpR9uCZdbg2FiCb06pHyoDUB2Wxuddzid9D7pVwEiU1OTl4Oshsg==",
-  rootShasum: "5d008b33af044fcc726383112c36581f73138d2d",
-  rootTarballSha256: "c75e7e9168500eca90d27813d6d2b02eab124152c995f43bfa5c6a2504ac79e0",
+  version: "0.1.5-rc.1",
+  tag: "dsh-v0.1.5-rc.1",
+  commit: "183f08e9c6dde7e36cd2318eaee70b0da08fb35e",
+  packageCount: 265,
+  rootIntegrity: "sha512-rmNmzQCg3oIc1z8xH7izRSOuy1TNzq+/NILyfM+7e8DKOyV+yBtg47WEsqR2SiIe1ATec3L/rUa1YhIcfQ2XEg==",
+  rootShasum: "6bcdb554bf2eef837666e37f5bd5fa494eb053e4",
+  rootTarballSha256: "1a79719f1c763918ac30e8194df783a9330c6b12d5f04c950731a3f8a1c3d9d0",
   welcomeNotice: Object.freeze({
     settingsNamespace: "ui-onboarding",
     ackField: "welcomeNoticeVersion",
@@ -24,6 +24,10 @@ export const DSH_REQUIRED_PACKAGES = Object.freeze([
   "@deepseek-ai/dsh-deque",
   "@deepseek-ai/dsh-util-time",
   "@deepseek-ai/dsh-util-values",
+  "@deepseek-ai/dsh-chunked-list",
+  "@deepseek-ai/dsh-client-ui-sidebar-documentpreview",
+  "@deepseek-ai/dsh-tool-present",
+  "@deepseek-ai/dsh-llm-deepseek",
 ]);
 
 export const DSH_VENDOR_VERSIONS = Object.freeze({
@@ -264,9 +268,9 @@ export function validateCohortSnapshot(snapshot) {
   invariant(snapshot.version === DSH_UPSTREAM.version, `unexpected DSH version: ${snapshot.version}`);
   invariant(snapshot.rootTarballSha256 === DSH_UPSTREAM.rootTarballSha256, "@deepseek-ai/dsh tarball SHA-256 mismatch");
   invariant(JSON.stringify(snapshot.upstreamFacts?.welcomeNotice) === JSON.stringify(DSH_UPSTREAM.welcomeNotice), "DSH welcome notice identity mismatch");
-  invariant(snapshot.distTags?.alpha === DSH_UPSTREAM.version, "snapshot npm alpha tag must select the fixed 0.1.5-alpha.1 cohort");
-  invariant(snapshot.distTags?.next === "0.1.2-rc.1", "npm next remains 0.1.2-rc.1 while Penglai consumes 0.1.5-alpha.1");
-  invariant(snapshot.distTags?.latest === "0.1.2-rc.1", "npm latest remains 0.1.2-rc.1 while Penglai consumes 0.1.5-alpha.1");
+  invariant(snapshot.distTags?.next === DSH_UPSTREAM.version, "snapshot npm next tag must select the fixed 0.1.5-rc.1 cohort");
+  invariant(snapshot.distTags?.alpha === "0.1.5-alpha.2", "npm alpha remains 0.1.5-alpha.2; Penglai does not consume it");
+  invariant(snapshot.distTags?.latest === "0.1.2-rc.1", "npm latest remains 0.1.2-rc.1; Penglai does not silently follow latest");
   const entries = Array.isArray(snapshot.packages) ? snapshot.packages : [];
   invariant(new Set(entries.map((entry) => entry.name)).size === entries.length, "duplicate package in DSH npm cohort");
   const dsh = entries.filter((entry) => entry.category === "dsh");
@@ -322,8 +326,10 @@ export function verifyCohortLock(snapshot, lockText) {
   for (const required of ["@deepseek-ai/dsh", ...DSH_REQUIRED_PACKAGES]) {
     invariant(installed.get(required) === DSH_UPSTREAM.version, `pnpm lock is missing required ${required}@${DSH_UPSTREAM.version}`);
   }
-  invariant(!lockText.includes("0.1.2-alpha.1"), "pnpm lock still contains alpha.1");
+  invariant(!lockText.includes("0.1.2-alpha.1"), "pnpm lock still contains 0.1.2-alpha.1");
   invariant(!lockText.includes("0.1.3-alpha.2"), "pnpm lock still contains 0.1.3-alpha.2");
+  invariant(!lockText.includes("0.1.5-alpha.1"), "pnpm lock still contains leftover 0.1.5-alpha.1");
+  invariant(!lockText.includes("0.1.5-alpha.2"), "pnpm lock still contains leftover 0.1.5-alpha.2");
   invariant(!lockText.includes("node-addon-landlock-run"), "pnpm lock still contains Landlock packages from a previous DSH generation");
   invariant(!lockText.includes("@deepseek-ai/dsh-client-runtime"), "pnpm lock contains removed dsh-client-runtime");
   return { packages: installed.size };

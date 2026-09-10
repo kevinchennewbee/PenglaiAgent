@@ -19,6 +19,7 @@ const names = [
   `Penglai_${PRODUCT_VERSION}_macos_aarch64.dmg`,
   `Penglai_${PRODUCT_VERSION}_macos_x64.dmg`,
   `Penglai_${PRODUCT_VERSION}_windows_x64_setup.exe`,
+  `Penglai_${PRODUCT_VERSION}_uos_loong64.deb`,
 ];
 const installers = names.map((name, index) => ({
   name,
@@ -51,7 +52,7 @@ function narrative(exactBytes: boolean): string {
   });
   return [
     `Penglai ${PRODUCT_VERSION}`,
-    "0.1.5-alpha.1",
+    "0.1.5-rc.1",
     sourceSha,
     `https://github.com/${repo}/releases/tag/${tag}`,
     `docs/RELEASE_NOTES_${PRODUCT_VERSION}.md`,
@@ -72,7 +73,7 @@ function validInput(): WebsitePublicationInput {
     repo,
     version: PRODUCT_VERSION,
     tag,
-    dshVersion: "0.1.5-alpha.1",
+    dshVersion: "0.1.5-rc.1",
     peeledSourceSha: sourceSha,
     targetCommitish: sourceSha,
     releaseManifestSourceSha: sourceSha,

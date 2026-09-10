@@ -128,8 +128,8 @@ test("official DSH ships Pi adapter and DeepSeek adapter at the pinned version",
   const deepseekManifest = JSON.parse(readFileSync(deepseekPkg, "utf8")) as { name: string; version: string };
   assert.equal(piManifest.name, "@deepseek-ai/dsh-llm-pi-ai");
   assert.equal(deepseekManifest.name, "@deepseek-ai/dsh-llm-deepseek");
-  assert.equal(piManifest.version, "0.1.5-alpha.1");
-  assert.equal(deepseekManifest.version, "0.1.5-alpha.1");
+  assert.equal(piManifest.version, "0.1.5-rc.1");
+  assert.equal(deepseekManifest.version, "0.1.5-rc.1");
   const piMod = await import(pathToFileURL(resolveFrom(piPkg, "@deepseek-ai/dsh-llm-pi-ai")!).href);
   assert.equal(piMod.name, "llm-pi-ai");
   assert.equal(typeof piMod.apply, "function");
@@ -310,7 +310,7 @@ test("completeWelcome writes the fixed DSH welcomeNoticeVersion then advances we
   ]);
   assert.equal(DSH_WELCOME_NOTICE_VERSION, "2026-08-13.1");
   const npmCohort = JSON.parse(
-    readFileSync(new URL("../../../docs/0.6.0/DSH_NPM_COHORT.json", import.meta.url), "utf8"),
+    readFileSync(new URL("../../../docs/0.6.1/DSH_NPM_COHORT.json", import.meta.url), "utf8"),
   );
   assert.equal(DSH_WELCOME_NOTICE_VERSION, npmCohort.upstreamFacts.welcomeNotice.version);
   const again = await impl.completeWelcome();
@@ -344,6 +344,10 @@ test("enterCredential for deepseek-official writes DEEPSEEK_API_KEY not the deri
         },
         describe: async () => ({ configured: true, source: "file", writable: true }),
       },
+      settings: {
+        mutate: async () => {},
+        describe: () => [],
+      },
       llm: {
         listProviders: () => [{ id: "deepseek-official", name: "DeepSeek" }],
         listModels: async (provider) => [{ provider, id: "deepseek-v4-flash", name: "DeepSeek-V4-Flash" }],
@@ -372,6 +376,10 @@ test("enterCredential sets official seam, returns descriptor only, and never per
           sets.push({ ref, value });
         },
         describe: async () => ({ configured: true, source: "file", writable: true }),
+      },
+      settings: {
+        mutate: async () => {},
+        describe: () => [],
       },
       llm: {
         listProviders: () => [{ id: "deepseek", name: "DeepSeek" }],
@@ -412,6 +420,10 @@ test("enterCredential at model-test-v1 rewrites a stale derived DeepSeek ref", a
         },
         describe: async () => ({ configured: true, source: "file", writable: true }),
       },
+      settings: {
+        mutate: async () => {},
+        describe: () => [],
+      },
       llm: {
         listProviders: () => [{ id: "deepseek-official", name: "DeepSeek" }],
         listModels: async (provider) => [{ provider, id: "deepseek-v4-flash", name: "DeepSeek-V4-Flash" }],
@@ -447,6 +459,10 @@ test("enterCredential rejects unknown provider, short/newline value, and leaked 
       credentials: {
         set: async () => undefined,
         describe: async () => ({ configured: true, source: "file", writable: true }),
+      },
+      settings: {
+        mutate: async () => {},
+        describe: () => [],
       },
       llm: {
         listProviders: () => [{ id: "deepseek", name: "DeepSeek" }],
@@ -492,6 +508,10 @@ test("listModels wraps official llm.listModels and requires catalog provider", a
     officialCatalog: catalog,
     officialWelcomeAck: () => true,
     agents: {
+      settings: {
+        mutate: async () => {},
+        describe: () => [],
+      },
       llm: {
         listProviders: () => [{ id: "deepseek", name: "DeepSeek" }],
         listModels: async (provider) => [{ provider, id: "deepseek-chat", name: "DeepSeek Chat" }],
@@ -678,6 +698,10 @@ test("status returns selection and workspaceId without secrets", async () => {
     officialCatalog: catalog,
     officialWelcomeAck: () => true,
     agents: {
+      settings: {
+        mutate: async () => {},
+        describe: () => [],
+      },
       llm: {
         listProviders: () => [{ id: "deepseek", name: "DeepSeek" }],
         listModels: async (provider) => [{ provider, id: "deepseek-chat", name: "DeepSeek Chat" }],

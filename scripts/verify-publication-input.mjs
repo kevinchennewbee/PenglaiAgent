@@ -3,7 +3,7 @@ import { appendFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
-import { PRODUCT_VERSION, PUBLICATION_TARGET } from "./lib/product.mjs";
+import { PRODUCT_VERSION, PUBLICATION_TARGET, RELEASE_TARGETS } from "./lib/product.mjs";
 import { githubReleaseEndpoint } from "./lib/github-release.mjs";
 
 const source = requireCleanCandidateSource();
@@ -19,7 +19,11 @@ if (run.head_sha !== source.git.head || run.head_branch !== "main" || run.event 
   throw new Error("native workflow is not a successful exact-main release build");
 }
 const artifacts = api(`actions/runs/${runId}/artifacts?per_page=100`).artifacts;
-for (const target of ["darwin-aarch64", "darwin-x86_64", "win32-x86_64", "native-evidence-set"]) {
+const requiredArtifacts = [...RELEASE_TARGETS.map((row) => row.key), "native-evidence-set"];
+if (requiredArtifacts.length !== 5) {
+  throw new Error("publication input must bind the four release targets plus the native evidence set");
+}
+for (const target of requiredArtifacts) {
   if (!artifacts.some((row) => row.name === `penglai-${PRODUCT_VERSION}-${target}` && !row.expired)) {
     throw new Error(`native workflow is missing the sealed ${target} artifact`);
   }

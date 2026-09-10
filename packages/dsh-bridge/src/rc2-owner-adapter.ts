@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { PenglaiError } from "@penglai/contracts";
-import type { DshAgentLike, DshHost } from "./owner-ports.js";
+import type { DshAgentLike, DshHost, DshSessionModelDirectory } from "./owner-ports.js";
 
 /** Historical rc.2 Cordis services. This shape must not grow into an alpha compatibility facade. */
 export interface CordisLike {
@@ -95,7 +95,11 @@ export function hostFromRc2Cordis(ctx: CordisLike, version: string): DshHost {
           `official rc.2 session.models failed: ${response.result.error.code ?? "unknown"}`,
         );
       }
-      return response.result.value;
+      const value = response.result.value as DshSessionModelDirectory;
+      return {
+        ...value,
+        sessionExists: value.sessionExists !== false,
+      };
     },
     async selectSessionModel(sessionId, selection) {
       const selectModel = ctx.apiProxy?.sessions?.selectModel;

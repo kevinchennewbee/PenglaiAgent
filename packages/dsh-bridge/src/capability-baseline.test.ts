@@ -29,7 +29,7 @@ test("DSH alpha source capability baseline matches pinned official seams", () =>
 test("DSH alpha npm cohort digest matches the root tarball pin", () => {
   const lock = readFileSync(join(root, "pnpm-lock.yaml"), "utf8");
   const published = JSON.parse(readFileSync(join(root, "docs/0.5.12/DSH_NPM_COHORT.json"), "utf8"));
-  const cohort = JSON.parse(readFileSync(join(root, "docs/0.6.0/DSH_NPM_COHORT.json"), "utf8"));
+  const cohort = JSON.parse(readFileSync(join(root, "docs/0.6.1/DSH_NPM_COHORT.json"), "utf8"));
   assert.match(lock, new RegExp(`@deepseek-ai/dsh@${PINNED_DSH.replaceAll(".", "\\.")}`));
   assert.equal(cohort.version, PINNED_DSH);
   assert.equal(cohort.rootTarballSha256, PINNED_DSH_NPM_TARBALL_SHA256);

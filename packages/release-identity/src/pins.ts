@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.6.0";
+export const PRODUCT_VERSION = "0.6.1";
 export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
@@ -36,18 +36,18 @@ export const PINNED_NODE_DARWIN_X64_SHA256 =
 export const PINNED_NODE_WIN32_X64_SHA256 =
   "1177b4137ba5adaa56354ae40f1080c7450e8ae09cecb47da459d1c52ac99f97";
 /** Exact official npm pre-release cohort reconciled to the fixed upstream tag. */
-export const PINNED_DSH = "0.1.5-alpha.1";
-export const PINNED_DSH_COMMIT = "5dda764ed3aa172535a7967b06ff95d9cbfe536a";
-export const PINNED_DSH_TAG = "dsh-v0.1.5-alpha.1";
+export const PINNED_DSH = "0.1.5-rc.1";
+export const PINNED_DSH_COMMIT = "183f08e9c6dde7e36cd2318eaee70b0da08fb35e";
+export const PINNED_DSH_TAG = "dsh-v0.1.5-rc.1";
 export const PINNED_DSH_REPOSITORY = "https://github.com/deepseek-ai/DeepSeek-Harness.git";
 export const PINNED_DSH_NPM_INTEGRITY =
-  "sha512-AUjywjrPnhXcAdAjRNgyQa1QCnplFTNYZ+XpR9uCZdbg2FiCb06pHyoDUB2Wxuddzid9D7pVwEiU1OTl4Oshsg==";
-export const PINNED_DSH_NPM_SHASUM = "5d008b33af044fcc726383112c36581f73138d2d";
+  "sha512-rmNmzQCg3oIc1z8xH7izRSOuy1TNzq+/NILyfM+7e8DKOyV+yBtg47WEsqR2SiIe1ATec3L/rUa1YhIcfQ2XEg==";
+export const PINNED_DSH_NPM_SHASUM = "6bcdb554bf2eef837666e37f5bd5fa494eb053e4";
 export const PINNED_DSH_TARBALL_SHA256 =
-  "c75e7e9168500eca90d27813d6d2b02eab124152c995f43bfa5c6a2504ac79e0";
+  "1a79719f1c763918ac30e8194df783a9330c6b12d5f04c950731a3f8a1c3d9d0";
 export const PINNED_DSH_CLOSURE_MANIFEST_SHA256 =
-  "dc726847c2a3947178d8700d1a991108334a882117a498f358956ebc553122e7";
-export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 272;
+  "d82b4650bcd8e55c4adcb476f975169994ffa8fa8476c55f25cf266b5dabeaa9";
+export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 279;
 export const PINNED_LARK_SDK = "1.73.3";
 export const PINNED_LARK_COMMIT = "af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513";
 export const PINNED_DINGTALK_STREAM = "2.1.5";
@@ -121,13 +121,13 @@ export const GITHUB_ACTIONS_STATUS = "AVAILABLE";
 export const CANDIDATE_SOURCE_SHA_NONE = "NONE";
 export const UPDATER_CHANNEL = "desktop-v0.5";
 /** Monotonic after the last complete public manifest (0.5.11, sequence 7). */
-export const UPDATER_SEQUENCE = 9;
+export const UPDATER_SEQUENCE = 10;
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.6.0",
-  release: "v0.6.0",
-  channel: "stable-v0.6.0",
+  tag: "v0.6.1",
+  release: "v0.6.1",
+  channel: "stable-v0.6.1",
 });
 
 export const RELEASE_TARGETS = [
@@ -135,31 +135,31 @@ export const RELEASE_TARGETS = [
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.6.0_macos_aarch64.dmg",
+    installer: "Penglai_0.6.1_macos_aarch64.dmg",
   },
   {
     key: "darwin-x86_64",
     platform: "darwin",
     arch: "x64",
-    installer: "Penglai_0.6.0_macos_x64.dmg",
+    installer: "Penglai_0.6.1_macos_x64.dmg",
   },
   {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
-    installer: "Penglai_0.6.0_windows_x64_setup.exe",
+    installer: "Penglai_0.6.1_windows_x64_setup.exe",
   },
   {
     key: "linux-loong64",
     platform: "linux",
     arch: "loong64",
-    installer: "Penglai_0.6.0_uos_loong64.deb",
+    installer: "Penglai_0.6.1_uos_loong64.deb",
   },
 ] as const;
 
 export type ReleaseTargetKey = (typeof RELEASE_TARGETS)[number]["key"];
 
-/** Mac/Windows native install/lifecycle. linux-loong64 native is OWNER_POST_RELEASE. */
+/** Mac/Windows native install/lifecycle gates. linux-loong64 host evidence remains unrun, not a 0.6.1 PASS. */
 export const NATIVE_INSTALLED_TARGET_KEYS = [
   "darwin-aarch64",
   "darwin-x86_64",

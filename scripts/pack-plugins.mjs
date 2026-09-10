@@ -1244,7 +1244,7 @@ for (const p of packs) {
         filename: "packed-office-smoke.pptx",
         theme: { id: "consulting" },
         slides: [
-          { type: "cover", heading: "Penglai Office", subheading: "0.6.0" },
+          { type: "cover", heading: "Penglai Office", subheading: "0.6.1" },
           { type: "ending", heading: "Packed runtime" },
         ],
       }),

@@ -48,6 +48,7 @@ export interface DshModelSelection {
 export interface DshSessionModelDirectory {
   current: DshModelSelection;
   routable: boolean;
+  sessionExists: boolean;
   groups: Array<{
     id: string;
     name: string;
@@ -74,6 +75,7 @@ export interface DshWorkspaceOwner {
  */
 export interface DshSessionOwner {
   listSessions(): Promise<DshSessionView[]>;
+  inspectSession?(sessionId: string): Promise<{ events: readonly unknown[] } | undefined>;
   createSession(workspaceIdentity: string, title?: string): Promise<{ id: string }>;
   describeSessionModels(sessionId: string): Promise<DshSessionModelDirectory>;
   selectSessionModel(

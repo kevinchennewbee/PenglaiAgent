@@ -63,6 +63,7 @@ export interface DirectoryPort {
   describeSessionModels?(sessionId: string): Promise<{
     current: { provider: string; model: string; reasoningEffort?: string };
     routable: boolean;
+    sessionExists?: boolean;
     groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }>;
   }>;
   selectSessionModel?(
@@ -968,6 +969,9 @@ export class RoutingControlPlane {
         }
         try {
           const directory = await this.directory.describeSessionModels(binding.sessionId);
+          if (directory.sessionExists === false) {
+            return this.reject("INVALID_INPUT", locale === "en" ? "session does not exist" : "会话不存在");
+          }
           if (command.pick) {
             if (!this.directory.selectSessionModel) {
               return this.reject("DSH_UNAVAILABLE", "official session model selection unavailable");

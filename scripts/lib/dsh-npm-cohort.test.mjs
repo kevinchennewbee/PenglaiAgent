@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   discoverSourcePackages,
   DSH_UPSTREAM,
+  DSH_REQUIRED_PACKAGES,
   verifyRegistrySignatures,
   verifyCohortLock,
 } from "./dsh-npm-cohort.mjs";
@@ -36,7 +37,7 @@ test("discovers public fixed DSH, vendor, and native-system source packages", ()
 });
 
 test("npm cohort lock verification binds version and integrity", () => {
-  const required = ["@deepseek-ai/dsh-session-turn-outline", "@deepseek-ai/dsh", "@deepseek-ai/dsh-client-ui-schedule", "@deepseek-ai/dsh-deque", "@deepseek-ai/dsh-util-time", "@deepseek-ai/dsh-util-values"];
+  const required = ["@deepseek-ai/dsh", ...DSH_REQUIRED_PACKAGES];
   const snapshot = {
     packages: required.map((name) => ({
         name,
@@ -45,7 +46,7 @@ test("npm cohort lock verification binds version and integrity", () => {
       })),
   };
   const exact = `packages:\n\n${required.map((name) => `  '${name}@${DSH_UPSTREAM.version}':\n    resolution: {integrity: ${DSH_UPSTREAM.rootIntegrity}}`).join("\n")}\n`;
-  assert.deepEqual(verifyCohortLock(snapshot, exact), { packages: 6 });
+  assert.deepEqual(verifyCohortLock(snapshot, exact), { packages: required.length });
   assert.throws(
     () => verifyCohortLock(snapshot, exact.replace("sha512-", "sha512-wrong")),
     /integrity drift/,

@@ -96,7 +96,7 @@ test("im runtime wires single control plane", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -232,7 +232,7 @@ test("R50-ROUTE-001/002/009 binding is official live list plus CAS and vendor ta
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -257,7 +257,7 @@ test("R50-ROUTE-001/002/009 binding is official live list plus CAS and vendor ta
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
       listSessions: async () => [{ id: "s1", title: "正式会话" }],
@@ -324,7 +324,7 @@ test("R50-FS-002 Feishu App ID persists and secret stays a credential ref", asyn
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -366,7 +366,7 @@ test("R50-FS-002 Feishu App ID persists and secret stays a credential ref", asyn
     vault,
     supervisor as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -507,7 +507,7 @@ test("R2I-IMCORE-002 PenglaiImRemote uses Typert @Remote methods", () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -536,7 +536,7 @@ test("R2I-IMCORE-002 PenglaiImRemote uses Typert @Remote methods", () => {
     vault,
     supervisor as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -576,7 +576,7 @@ test("weixin QR connected starts receive so the scanner can talk immediately", a
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -607,7 +607,7 @@ test("weixin QR connected starts receive so the scanner can talk immediately", a
     new CredentialsServiceVault(undefined),
     supervisor as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -633,7 +633,7 @@ test("Weixin QR protocol failure returns and persists one redacted public cause"
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -664,7 +664,7 @@ test("Weixin QR protocol failure returns and persists one redacted public cause"
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -840,7 +840,7 @@ test("R2I-ROUTE-001 binding requires official workspace/session", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => ({ id: "foreign-session" }) as never,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -857,7 +857,7 @@ test("R2I-ROUTE-001 binding requires official workspace/session", async () => {
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => ({ id: "foreign-session" }) as never,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -946,7 +946,7 @@ test("R2I-ROUTE packaged causal Message→Turn→route stays on original route",
     },
   };
   const hostLike = {
-    version: "0.1.5-alpha.1" as const,
+    version: "0.1.5-rc.1" as const,
     getAgent: () => agent,
     listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
   };
@@ -1103,7 +1103,7 @@ test("R2I-CRED-009 feishu secret write/read via host round-trips without plainte
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -1126,7 +1126,7 @@ test("R2I-CRED-009 feishu secret write/read via host round-trips without plainte
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -1147,7 +1147,7 @@ test("Feishu owner is required for inbound and persists without appearing in ove
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -1204,7 +1204,7 @@ test("Feishu owner is required for inbound and persists without appearing in ove
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -1238,7 +1238,7 @@ test("R56-SEC-013 sendFileToBoundRoute rehashes bytes and ignores the caller dig
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -1272,7 +1272,7 @@ test("R56-SEC-013 sendFileToBoundRoute rehashes bytes and ignores the caller dig
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.5-alpha.1",
+      version: "0.1.5-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },

@@ -8,6 +8,7 @@ import { FIRST_PARTY_PLUGIN_METADATA, PINNED_PLUGIN_DSH, type PluginCatalogEntry
 import {
   assertActivationDigest,
   comparePluginVersion,
+  firstPartyRetentionDecision,
   overlayIdentityPath,
   readInstalledOverlay,
   resolvePluginCatalogEntry,
@@ -106,14 +107,51 @@ test("newer signed remote wins; older, equal, or DSH-mismatched remote keeps bun
 });
 
 test("boot reseeding preserves a newer overlay and refreshes same-version first-party tarballs", () => {
+  const digest = "b".repeat(64);
   assert.equal(
     shouldPreserveInstalledPlugin({
       installedVersion: "0.5.12",
-      installedSha256: "b".repeat(64),
+      installedSha256: digest,
+      bundledVersion: "0.5.10",
+      bundledSha256: "a".repeat(64),
+      catalogSha256: digest,
+      catalogDshExact: "0.1.5-rc.1",
+      pinnedDsh: "0.1.5-rc.1",
+    }),
+    true,
+  );
+  assert.equal(
+    shouldPreserveInstalledPlugin({
+      installedVersion: "0.5.12",
+      installedSha256: digest,
       bundledVersion: "0.5.10",
       bundledSha256: "a".repeat(64),
     }),
-    true,
+    false,
+  );
+  assert.equal(
+    shouldPreserveInstalledPlugin({
+      installedVersion: "0.5.12",
+      installedSha256: digest,
+      bundledVersion: "0.5.10",
+      bundledSha256: "a".repeat(64),
+      catalogSha256: "c".repeat(64),
+      catalogDshExact: "0.1.5-rc.1",
+      pinnedDsh: "0.1.5-rc.1",
+    }),
+    false,
+  );
+  assert.equal(
+    shouldPreserveInstalledPlugin({
+      installedVersion: "0.5.12",
+      installedSha256: digest,
+      bundledVersion: "0.5.10",
+      bundledSha256: "a".repeat(64),
+      catalogSha256: digest,
+      catalogDshExact: "0.1.5-alpha.1",
+      pinnedDsh: "0.1.5-rc.1",
+    }),
+    false,
   );
   assert.equal(
     shouldPreserveInstalledPlugin({
@@ -145,6 +183,55 @@ test("boot reseeding preserves a newer overlay and refreshes same-version first-
   assert.equal(shouldPreserveInstalledPlugin({ bundledVersion: "0.5.10" }), false);
 });
 
+test("retention requires a signed catalog record distinct from the overlay claim", () => {
+  const digest = "b".repeat(64);
+  const installed = {
+    id: "@penglai/office",
+    version: "0.6.1.1",
+    overlaySha256: digest,
+    dshExact: PINNED_PLUGIN_DSH,
+  };
+  assert.equal(
+    firstPartyRetentionDecision({
+      pluginId: "@penglai/office",
+      bundledVersion: "0.6.1",
+      bundledSha256: "a".repeat(64),
+      installed,
+      signed: { version: "0.6.1.1", sha256: digest, dshExact: PINNED_PLUGIN_DSH },
+    }),
+    true,
+  );
+  assert.equal(
+    firstPartyRetentionDecision({
+      pluginId: "@penglai/office",
+      bundledVersion: "0.6.1",
+      bundledSha256: "a".repeat(64),
+      installed,
+    }),
+    false,
+  );
+  assert.equal(
+    firstPartyRetentionDecision({
+      pluginId: "@penglai/office",
+      bundledVersion: "0.6.1",
+      bundledSha256: "a".repeat(64),
+      installed,
+      signed: { version: "0.6.1.1", sha256: "c".repeat(64), dshExact: PINNED_PLUGIN_DSH },
+    }),
+    false,
+  );
+  assert.equal(
+    firstPartyRetentionDecision({
+      pluginId: "@penglai/office",
+      bundledVersion: "0.6.1",
+      bundledSha256: "a".repeat(64),
+      installed: { ...installed, dshExact: "0.1.5-alpha.1" },
+      signed: { version: "0.6.1.1", sha256: digest, dshExact: PINNED_PLUGIN_DSH },
+    }),
+    false,
+  );
+});
+
 test("activation digest must match the staged bytes, not a declared identity", () => {
   const expected = "a".repeat(64);
   assertActivationDigest(expected, expected);
@@ -157,11 +244,18 @@ test("activation digest must match the staged bytes, not a declared identity", (
   assert.throws(() => writeInstalledOverlay(dest, { version: "0.5.12", sha256: "nope" }), /overlay digest required/);
 });
 
-test("first-party install path records overlay identity and skips a newer overlay", () => {
+test("first-party retention uses signed catalog identity, not the overlay as both sides", () => {
   const src = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
-  assert.match(src, /shouldPreserveInstalledPlugin\(/);
-  assert.match(src, /writeInstalledOverlay\(dest, \{ version: entry\.version, sha256: entry\.sha256 \}\)/);
+  assert.match(src, /firstPartyRetentionDecision\(/);
+  assert.match(src, /installedPluginMatchesVerifiedArtifact\(/);
+  assert.match(src, /loadVerifiedSignedPluginCatalog\(/);
+  assert.match(src, /isolateUntrustedPluginInstall\(/);
+  assert.doesNotMatch(src, /catalogSha256: overlay\.sha256/);
+  assert.doesNotMatch(src, /catalogDshExact: overlay\.dshExact/);
+  assert.match(src, /writeInstalledOverlay\(dest, \{ version: entry\.version, sha256: entry\.sha256, dshExact: PINNED_PLUGIN_DSH \}\)/);
   const remotes = readFileSync(new URL("../../plugin-center/src/remotes.ts", import.meta.url), "utf8");
   assert.match(remotes, /resolvePluginCatalogEntry\(/);
   assert.match(remotes, /assertActivationDigest\(/);
+  const profileTx = readFileSync(new URL("../../plugin-center/src/profile-tx.ts", import.meta.url), "utf8");
+  assert.match(profileTx, /writeInstalledOverlay\(scoped,/);
 });

@@ -20,7 +20,6 @@ import {
   doctor,
   ensurePrivateHome,
   EMPTY_INVENTORY_PROOF,
-  evaluateInventory,
   OwnerApprovalBroker,
   drainOwnerDialogRequests,
   requestOwnerApprovalArgs,
@@ -33,7 +32,6 @@ import {
   prepareDshHomeForBoot,
   runtimePluginTarget,
   selectCatalogArtifact,
-  readInventorySnapshot,
   resetManagedDshModuleFallback,
   recoverProfile,
   resolveUserLayout,
@@ -1082,11 +1080,7 @@ async function main(): Promise<void> {
       http = official.http;
       websocket = official.websocket;
     }
-    const snapFile = join(user.root, "plugins", "inventory-snapshot.json");
-    const inventory =
-      live.health?.inventory ??
-      readInventorySnapshot(user) ??
-      (existsSync(snapFile) ? evaluateInventory(JSON.parse(readFileSync(snapFile, "utf8"))) : EMPTY_INVENTORY_PROOF);
+    const inventory = live.health?.inventory ?? EMPTY_INVENTORY_PROOF;
     if (!inventory.ok) throw new Error("first-party inventory not loaded");
     const processTree = {
       electronPid: process.pid,

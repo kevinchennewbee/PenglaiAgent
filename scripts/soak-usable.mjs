@@ -18,7 +18,7 @@ const layout = resolveRuntimeLayout(staging);
 const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-soak-")));
 ensurePrivateHome(user);
 activatePrivateProfile(layout, user);
-installFirstPartyPlugins(layout, user.profileWeb, user.transactions, ["@penglai/office", "@penglai/memory"]);
+installFirstPartyPlugins(layout, user.profileWeb, user.transactions, ["@penglai/office", "@penglai/memory"], user.root);
 const sup = new EmbeddedDshSupervisor(layout);
 const started = Date.now();
 let checks = 0;

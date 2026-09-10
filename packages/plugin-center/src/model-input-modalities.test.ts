@@ -74,6 +74,35 @@ test("setOfficialDeepSeekImageInput writes the official llm-deepseek models arra
   assert.equal(ops.length, 1);
 });
 
+test("image toggle keeps unknown official fields including nested metadata and in-history systemPromptUpdate", () => {
+  const officialFlash = {
+    id: "deepseek-flash",
+    name: "DeepSeek-V41-Flash",
+    contextWindow: 128_000,
+    inputModalities: ["text", "image"],
+    imagePixelBudget: 640_000,
+    imageMaxBytes: 1_048_576,
+    systemPromptUpdate: "in-history",
+    futureCapability: { nested: { flag: true, items: [1, "keep"] }, extra: "untouched" },
+  };
+  const catalog = catalogModelsFromSettingsValue({ models: [officialFlash] });
+  assert.equal(catalog[0]?.systemPromptUpdate, "in-history");
+  assert.deepEqual(catalog[0]?.futureCapability, officialFlash.futureCapability);
+  const disabled = applyImageInputToCatalog(catalog, "deepseek-flash", false);
+  const disabledRow = disabled.find((row) => row.id === "deepseek-flash");
+  assert.deepEqual(disabledRow?.inputModalities, ["text"]);
+  assert.equal(disabledRow?.systemPromptUpdate, "in-history");
+  assert.deepEqual(disabledRow?.futureCapability, officialFlash.futureCapability);
+  assert.equal(disabledRow?.imagePixelBudget, undefined);
+  assert.equal(disabledRow?.name, "DeepSeek-V41-Flash");
+  const enabled = applyImageInputToCatalog(disabled, "deepseek-flash", true);
+  const enabledRow = enabled.find((row) => row.id === "deepseek-flash");
+  assert.deepEqual(enabledRow?.inputModalities, ["text", "image"]);
+  assert.equal(enabledRow?.systemPromptUpdate, "in-history");
+  assert.deepEqual(enabledRow?.futureCapability, officialFlash.futureCapability);
+  assert.equal(enabledRow?.imagePixelBudget, 640_000);
+});
+
 test("client settings section uses official settings.mutate and does not special-case a model id", () => {
   const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   const remote = readFileSync(new URL("./model-input-remote.ts", import.meta.url), "utf8");

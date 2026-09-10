@@ -1,4 +1,4 @@
-# Penglai 0.6.0 product contract
+# Penglai 0.6.1 product contract
 
 ## English
 
@@ -11,10 +11,10 @@ first run, process supervision, local data boundaries, assisted updates,
 uninstall, and a reviewed set of DSH plugins. It does not ship a second agent,
 provider gateway, session store, or chat page.
 
-Version 0.6.0 targets Apple Silicon, Intel Mac, Windows x64, and UnionTech
-UOS 20 `linux-loong64`. It consumes official DSH `0.1.5-alpha.1` (272-package
+Version 0.6.1 targets Apple Silicon, Intel Mac, Windows x64, and UnionTech
+UOS 20 `linux-loong64`. It consumes official DSH `0.1.5-rc.1` (279-package
 npm cohort). Public README and website download tables stay on published
-v0.5.12 until immutable v0.6.0 GitHub Release bytes are read back. A fresh
+v0.6.0 until immutable v0.6.1 GitHub Release bytes are read back. A fresh
 user brings a provider credential, selects an official model and Workspace,
 receives a real first DSH reply, and then uses the official DSH Web
 interface. Published 0.5.10, 0.5.11, and 0.5.12 remain immutable.
@@ -23,10 +23,10 @@ interface. Published 0.5.10, 0.5.11, and 0.5.12 remain immutable.
 
 | Device | Exact installer |
 | --- | --- |
-| Apple Silicon, macOS 13+ | `Penglai_0.6.0_macos_aarch64.dmg` |
-| Intel Mac, macOS 13+ | `Penglai_0.6.0_macos_x64.dmg` |
-| Windows 10+ x64 | `Penglai_0.6.0_windows_x64_setup.exe` |
-| UnionTech UOS 20 loong64 | `Penglai_0.6.0_uos_loong64.deb` |
+| Apple Silicon, macOS 13+ | `Penglai_0.6.1_macos_aarch64.dmg` |
+| Intel Mac, macOS 13+ | `Penglai_0.6.1_macos_x64.dmg` |
+| Windows 10+ x64 | `Penglai_0.6.1_windows_x64_setup.exe` |
+| UnionTech UOS 20 loong64 | `Penglai_0.6.1_uos_loong64.deb` |
 
 The app contains its target Electron, Node, DSH closure, profile seed, bundled
 plugins, licenses, and integrity metadata. It never falls back to a system Node,
@@ -95,7 +95,7 @@ Write, export, return, and undo approval binds the exact job, source/result
 digest, destination, Workspace, Session, and revision. Approval completes only
 after the mutation or delivery succeeds.
 
-Official DSH 0.1.5-alpha.1 conversation Turns support text, images, and generic
+Official DSH 0.1.5-rc.1 conversation Turns support text, images, and generic
 file parts. A file part is a same-Session `uploadFile` receipt, not raw bytes;
 the model later sees handle text (name, size, harness-owned saved path), not a
 native multimodal file. Penglai has not wired Artifact refs through that official
@@ -188,9 +188,9 @@ Agent、模型、工具、审批、Workspace、Session、Turn 和会话 UI。蓬
 Agent、模型网关、Session 存储或聊天页。
 
 0.5.12 公开发布仍固定 DSH `0.1.3-alpha.2`。README 与网站下载表在公开
-v0.6.0 附件回读前保持 0.5.12。0.6.0 开发树消费官方 DSH `0.1.5-alpha.1`
-（272 包），目标为 Apple 芯片、Intel Mac、Windows x64，以及统信 UOS 20
-`linux-loong64`（`Penglai_0.6.0_uos_loong64.deb`）。用户自备模型密钥，
+v0.6.1 附件回读前保持已发布的 0.6.0。0.6.1 开发树消费官方 DSH `0.1.5-rc.1`
+（279 包），目标为 Apple 芯片、Intel Mac、Windows x64，以及统信 UOS 20
+`linux-loong64`（`Penglai_0.6.1_uos_loong64.deb`）。用户自备模型密钥，
 选择 official 模型和 Workspace，收到第一条真实 DSH 回复后进入 official
 DSH Web。已发布的 0.5.10、0.5.11 与 0.5.12 保持不可变。
 
@@ -222,7 +222,7 @@ official Agent 沿用当前供应商和模型，输出由 Host 封闭校验。�
 symlink/device/directory、加密/宏、可执行文件、嵌套压缩和 scope 都由 Host 校验。
 
 写入、导出、回传、撤销确认会绑定 job、摘要、目标、Workspace、Session 和 revision，
-只有真实动作成功后才完成。official DSH 0.1.5-alpha.1 会话 Turn 支持文字、图片和
+只有真实动作成功后才完成。official DSH 0.1.5-rc.1 会话 Turn 支持文字、图片和
 generic file（同 Session 的 `uploadFile` receipt；模型侧是 handle text，不是原生多模态文件）。
 Penglai 尚未把 Artifact 接到这条官方 receipt 路径，因此不宣称输入框能直接发普通
 DOCX/XLSX/PPTX/PDF。official 图片不变；IM 收到的文件或蓬莱办公选择的 Workspace 文件走
