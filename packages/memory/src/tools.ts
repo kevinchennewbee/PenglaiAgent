@@ -18,20 +18,90 @@ interface CordisTools {
   on?(event: string, listener: (...args: unknown[]) => unknown): unknown;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function eventData(raw: unknown): { type: string; data: Record<string, unknown> } {
+  const rec = asRecord(raw) ?? {};
+  const nested = asRecord(rec.data);
+  return {
+    type: typeof rec.type === "string" ? rec.type : "",
+    data: nested ?? rec,
+  };
+}
+
+function officialTurnStep(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+}
+
+/**
+ * Prove the current turn/step from official ToolRunContext identity plus the
+ * live Agent's Session log. Nested PTC calls match rootCallId to tool/call and
+ * callId to tool/ptc-dispatch-start. Fail closed; never invent 0 or trust model args.
+ */
+export function proveMemoryTurnFromOfficialExec(exec: unknown): { turn: number; step: number } {
+  const bag = asRecord(exec) ?? {};
+  if ("turn" in bag || "step" in bag) {
+    throw new PenglaiError("UNAUTHORIZED", "model-supplied turn/step is not memory execution provenance");
+  }
+  const agent = asRecord(bag.agent);
+  const agentId = typeof agent?.id === "string" && agent.id ? agent.id : undefined;
+  if (!agent || !agentId) throw new PenglaiError("UNAUTHORIZED", "memory tools require ToolRunContext exec.agent.id");
+  const callId = typeof bag.callId === "string" && bag.callId ? bag.callId : undefined;
+  if (!callId) throw new PenglaiError("UNAUTHORIZED", "memory tools require ToolRunContext exec.callId");
+  const rootCallId = typeof bag.rootCallId === "string" && bag.rootCallId ? bag.rootCallId : callId;
+  const session = asRecord(agent.session);
+  const snapshot = session?.snapshotEvents;
+  if (typeof snapshot !== "function") {
+    throw new PenglaiError("UNAUTHORIZED", "memory tools require official agent.session snapshotEvents");
+  }
+  const events = snapshot.call(session);
+  if (!Array.isArray(events)) {
+    throw new PenglaiError("UNAUTHORIZED", "memory tools require official session snapshotEvents");
+  }
+  let direct: { turn: number; step: number } | undefined;
+  let parent: { turn: number; step: number } | undefined;
+  let nested = false;
+  for (const raw of events) {
+    const { type, data } = eventData(raw);
+    if (type === "tool/call") {
+      const turn = officialTurnStep(data.turn);
+      const step = officialTurnStep(data.step);
+      const id = typeof data.callId === "string" ? data.callId : "";
+      if (turn === undefined || step === undefined || !id) continue;
+      if (id === callId) direct = { turn, step };
+      if (id === rootCallId) parent = { turn, step };
+    }
+    if (type === "tool/ptc-dispatch-start") {
+      const sub = typeof data.subCallId === "string" ? data.subCallId : "";
+      const root = typeof data.rootCallId === "string" ? data.rootCallId : "";
+      if (sub === callId && root === rootCallId) nested = true;
+    }
+  }
+  if (direct) return direct;
+  if (nested && parent && callId !== rootCallId) return parent;
+  throw new PenglaiError(
+    "UNAUTHORIZED",
+    "memory tools require official session provenance matching exec.callId/rootCallId",
+  );
+}
+
 function boundToolContext(ctx: CordisTools, exec: unknown): {
   workspaceId: string;
   sessionId: string;
   turnId: string;
 } {
-  const bag = exec && typeof exec === "object" ? (exec as Record<string, unknown>) : {};
-  const agent = bag.agent && typeof bag.agent === "object" ? (bag.agent as { id?: unknown }) : undefined;
+  const bag = asRecord(exec) ?? {};
+  const agent = asRecord(bag.agent);
   const agentId = typeof agent?.id === "string" && agent.id ? agent.id : undefined;
   if (!agentId) throw new PenglaiError("UNAUTHORIZED", "memory tools require ToolRunContext exec.agent.id");
   const workspaces = ctx.workspaceRegistry?.list() ?? [];
   const hit = workspaces.find((row) => row.sessionIds?.includes(agentId));
   if (!hit) throw new PenglaiError("UNAUTHORIZED", "agent is not bound to an official Workspace");
-  const turn = typeof bag.turn === "number" && Number.isSafeInteger(bag.turn) && bag.turn >= 0 ? bag.turn : undefined;
-  if (turn === undefined) throw new PenglaiError("UNAUTHORIZED", "memory tools require ToolRunContext exec.turn");
+  const { turn } = proveMemoryTurnFromOfficialExec(exec);
   return { workspaceId: hit.id, sessionId: agentId, turnId: String(turn) };
 }
 

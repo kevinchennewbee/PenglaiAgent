@@ -1,6 +1,6 @@
 import { PenglaiError, snapshotOfficialSession } from "@penglai/contracts";
 import type { RoutingControlPlane } from "@penglai/routing-core";
-import { claimedFromOfficial, textFromAssistantMessage } from "./index.js";
+import { claimedFromOfficial, extractPenglaiSource, textFromAssistantMessage } from "./index.js";
 import type { DshHost } from "./owner-ports.js";
 import type { CordisLike } from "./rc2-owner-adapter.js";
 
@@ -97,11 +97,15 @@ function durableEvent(raw: unknown): {
 } {
   const rec = asRecord(raw);
   const data = asRecord(rec?.data) ?? rec ?? {};
-  const message = asRecord(data.message) ?? asRecord(rec?.message);
+  const type = String(rec?.type ?? data.type ?? "");
+  let message = asRecord(data.message) ?? asRecord(rec?.message);
+  if (!message && type === "user/message" && typeof data.id === "string" && data.id) {
+    message = data;
+  }
   const turn = typeof data.turn === "number" ? data.turn : typeof rec?.turn === "number" ? rec.turn : undefined;
   const inserted = Array.isArray(data.inserted) ? data.inserted : Array.isArray(rec?.inserted) ? rec.inserted : undefined;
   return {
-    type: String(rec?.type ?? data.type ?? ""),
+    type,
     ...(turn !== undefined ? { turn } : {}),
     ...(message ? { message } : {}),
     ...(inserted ? { inserted } : {}),
@@ -125,25 +129,44 @@ export function recoverOfficialTurnDelivery(
   const claims = new Map<number, NonNullable<ReturnType<typeof claimedFromOfficial>>>();
   const texts = new Map<number, string>();
   const ended = new Set<number>();
+  const pending: Record<string, unknown>[] = [];
+  const seenMessages = new Set<string>();
 
   const rememberClaim = (turn: number | undefined, message: Record<string, unknown> | undefined) => {
     const used = turn ?? currentTurn;
     if (typeof used !== "number" || typeof message?.id !== "string" || !message.id) return;
+    if (!extractPenglaiSource(message.source)) return;
+    if (seenMessages.has(message.id) || claims.has(used)) return;
     const fact = claimedFromOfficial({
       message: { id: message.id, source: message.source ?? { kind: "unknown" } },
       turn: used,
       sessionId: input.sessionId,
     });
-    if (fact) claims.set(used, fact);
+    if (fact) {
+      seenMessages.add(message.id);
+      claims.set(used, fact);
+    }
+  };
+
+  const queueOrClaim = (turn: number | undefined, message: Record<string, unknown> | undefined) => {
+    if (!message) return;
+    if (typeof (turn ?? currentTurn) === "number") rememberClaim(turn, message);
+    else pending.push(message);
   };
 
   for (const raw of input.events) {
     const ev = durableEvent(raw);
-    if (ev.type === "turn/start" && typeof ev.turn === "number") currentTurn = ev.turn;
-    if (ev.type === "agent/inbox/claimed") rememberClaim(ev.turn, ev.message ?? asRecord(asRecord(raw)?.data));
-    if (ev.type === "user/message") rememberClaim(ev.turn, ev.message);
+    if (ev.type === "turn/start" && typeof ev.turn === "number") {
+      currentTurn = ev.turn;
+      const waiting = pending.splice(0);
+      for (const message of waiting) rememberClaim(ev.turn, message);
+    }
+    if (ev.type === "agent/inbox/claimed") {
+      queueOrClaim(ev.turn, ev.message ?? asRecord(asRecord(raw)?.data));
+    }
+    if (ev.type === "user/message") queueOrClaim(ev.turn, ev.message);
     if (ev.type === "agent/inbox/spliced") {
-      for (const item of ev.inserted ?? []) rememberClaim(ev.turn, asRecord(item));
+      for (const item of ev.inserted ?? []) queueOrClaim(ev.turn, asRecord(item));
     }
     if (ev.type === "assistant/message") {
       const used = ev.turn ?? currentTurn;

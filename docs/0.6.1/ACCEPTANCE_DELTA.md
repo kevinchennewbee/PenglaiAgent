@@ -33,8 +33,11 @@ in `docs/0.6.1/` and is not a public download claim.
   onboarding without model-id exceptions.
 - Four targets remain `darwin-aarch64`, `darwin-x86_64`, `win32-x86_64`,
   `linux-loong64` UOS 20 old-world. Deterministic `test:soak` remains required.
-  Two-hour installed soak remains excluded. The 0.6.0 UOS `OWNER_POST_RELEASE`
-  record is not a 0.6.1 native PASS and is not a blanket future exception.
+  Two-hour installed soak remains excluded. Old-version installed upgrade
+  acceptance is excluded. UOS native install/startup/function is
+  `OWNER_POST_RELEASE`: Owner will test the published installer. The 0.6.0
+  UOS `OWNER_POST_RELEASE` record is not a 0.6.1 native PASS and is not a
+  blanket future exception. Four exact targets remain required.
 
 ## Out of scope for this source phase
 

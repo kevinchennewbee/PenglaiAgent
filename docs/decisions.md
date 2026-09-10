@@ -497,9 +497,10 @@
 - 上游：消费官方 DSH `0.1.5-rc.1`（tag `dsh-v0.1.5-rc.1` / commit
   `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`）。包数以实际图为准。不得混代、
   源码路径、Git 依赖或本地重打包。不得静默跟随 npm `latest`。
-- 四目标不变，含 UOS 20 old-world。0.6.0 的 UOS `OWNER_POST_RELEASE` 不是
-  0.6.1 native PASS，也不是未来blanket例外。
-- 两小时 installed soak 排除；`test:soak` 保留。
+- 四目标不变，含 UOS 20 old-world。0.6.1 UOS 真机安装/启动/功能为
+  `OWNER_POST_RELEASE`：Owner 在发布后手动测试安装包。0.6.0 的 UOS
+  `OWNER_POST_RELEASE` 不是 0.6.1 native PASS，也不是未来blanket例外。
+- 两小时 installed soak 排除；旧版本已安装升级验收排除；`test:soak` 保留。
 - 后果：执行账本为 `docs/0.6.1/`。公开下载在 v0.6.1 回读前仍指向 v0.6.0。
 
 ## Superseded

@@ -21,8 +21,12 @@ default-on. Optional plugins stay default-off.
   not a public list seam. Cold-session inspect recovery remains.
 - Four packaged targets remain Apple Silicon, Intel Mac, Windows x64, and
   UnionTech UOS 20 LoongArch. UOS native install/startup/function for 0.6.1 is
-  unrun. The 0.6.0 `OWNER_POST_RELEASE` record is not a 0.6.1 PASS.
+  `OWNER_POST_RELEASE`: the Owner will test the published installer. The 0.6.0
+  `OWNER_POST_RELEASE` record is not a 0.6.1 PASS.
+- Official generic right-sidebar preview is plain text for DOCX and may report
+  a non-text file. Structured Office inspect/preview and saved Office bytes
+  remain authoritative.
 
 ## 中文
 
-这不是公开下载声明。公开下载仍是不可变 [`v0.6.0`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0)，直到 `v0.6.1` GitHub Release 字节存在。0.6.1 源码使用官方 DSH `0.1.5-rc.1`（279 包）。办公和记忆默认开启。UOS 真机安装/启动/功能尚未取证。
+这不是公开下载声明。公开下载仍是不可变 [`v0.6.0`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0)，直到 `v0.6.1` GitHub Release 字节存在。0.6.1 源码使用官方 DSH `0.1.5-rc.1`（279 包）。办公和记忆默认开启。UOS 真机安装/启动/功能为 `OWNER_POST_RELEASE`，由 Owner 在发布后测试安装包。官方通用侧栏对 DOCX 只提供纯文本预览。

@@ -1,5 +1,16 @@
 import { PenglaiError } from "@penglai/contracts";
-import type { OfficeFormat } from "./formats.js";
+import {
+  DOCX_CREATE_SPEC_KEYS,
+  OFFICE_CREATE_INPUT_KEYS,
+  OFFICE_CREATE_SPEC_KEYS,
+  OFFICE_TEMPLATE_IDS,
+  PDF_CREATE_SPEC_KEYS,
+  PPTX_CREATE_SPEC_KEYS,
+  XLSX_CREATE_SPEC_KEYS,
+  extraFieldNames,
+  extraFieldsError,
+} from "./contract-schema.js";
+import { asOfficeFormat, type OfficeFormat } from "./formats.js";
 
 export type OfficeScalar = string | number | boolean | null;
 
@@ -55,7 +66,8 @@ function reject(message: string): never {
 function closedRecord(value: unknown, allowed: readonly string[], label: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) reject(`${label} required`);
   const row = value as Record<string, unknown>;
-  if (Object.keys(row).some((key) => !allowed.includes(key))) reject(`${label} has extra fields`);
+  const extra = extraFieldNames(row, allowed);
+  if (extra.length > 0) reject(extraFieldsError(label, extra, allowed));
   return row;
 }
 
@@ -78,8 +90,31 @@ function totalText(value: unknown): number {
   return 0;
 }
 
+export type OfficeCreateInput =
+  | { pathway: "text"; format: OfficeFormat; text: string }
+  | { pathway: "template"; templateId: string }
+  | { pathway: "spec"; spec: OfficeCreateSpec };
+
+function specKeysForFormat(format: unknown): readonly string[] {
+  if (format === "docx") return DOCX_CREATE_SPEC_KEYS;
+  if (format === "xlsx") return XLSX_CREATE_SPEC_KEYS;
+  if (format === "pptx") return PPTX_CREATE_SPEC_KEYS;
+  if (format === "pdf") return PDF_CREATE_SPEC_KEYS;
+  return OFFICE_CREATE_SPEC_KEYS;
+}
+
 export function parseOfficeCreateSpec(value: unknown): OfficeCreateSpec {
-  const root = closedRecord(value, ["format", "title", "theme", "sections", "sheets", "slides", "paragraphs"], "office create spec");
+  if (!value || typeof value !== "object" || Array.isArray(value)) reject("office create spec required");
+  const raw = value as Record<string, unknown>;
+  if (raw.format === undefined) {
+    const extra = extraFieldNames(raw, OFFICE_CREATE_SPEC_KEYS);
+    if (extra.length > 0) reject(extraFieldsError("office create spec", extra, OFFICE_CREATE_SPEC_KEYS));
+    reject("office create spec missing required discriminator format (docx|xlsx|pptx|pdf)");
+  }
+  const allowed = specKeysForFormat(raw.format);
+  const root = closedRecord(raw, allowed, raw.format === "docx" || raw.format === "xlsx" || raw.format === "pptx" || raw.format === "pdf"
+    ? `office create spec (${raw.format})`
+    : "office create spec");
   if (totalText(root) > MAX_TOTAL_TEXT) reject("office create spec text limit");
   const format = root.format as OfficeFormat;
   if (format === "docx") {
@@ -157,5 +192,38 @@ export function parseOfficeCreateSpec(value: unknown): OfficeCreateSpec {
     const title = text(root.title, "pdf title", true);
     return { format, paragraphs, ...(title ? { title } : {}) };
   }
-  reject("unsupported office create spec");
+  reject("office create spec missing required discriminator format (docx|xlsx|pptx|pdf)");
+}
+
+export function parseOfficeCreateInput(value: unknown): OfficeCreateInput {
+  const root = closedRecord(value, OFFICE_CREATE_INPUT_KEYS, "office create");
+  const hasTemplate = root.template_id !== undefined;
+  const hasSpec = root.spec !== undefined;
+  const hasText = root.text !== undefined;
+  const hasFormat = root.format !== undefined;
+  if (hasTemplate && !hasSpec && !hasText && !hasFormat) {
+    if (
+      typeof root.template_id !== "string" ||
+      !root.template_id.trim() ||
+      root.template_id.length > 40 ||
+      !OFFICE_TEMPLATE_IDS.includes(root.template_id)
+    ) {
+      reject("office template_id rejected");
+    }
+    return { pathway: "template", templateId: root.template_id };
+  }
+  if (hasSpec && !hasTemplate && !hasText) {
+    const spec = parseOfficeCreateSpec(root.spec);
+    if (hasFormat && asOfficeFormat(root.format) !== spec.format) {
+      reject(`office create format ${String(root.format)} does not match spec.format ${spec.format}`);
+    }
+    return { pathway: "spec", spec };
+  }
+  if (hasFormat && hasText && !hasTemplate && !hasSpec) {
+    if (typeof root.text !== "string" || !root.text.trim() || root.text.length > 4000) {
+      reject("office create text rejected");
+    }
+    return { pathway: "text", format: asOfficeFormat(root.format), text: root.text };
+  }
+  reject("office create accepts exactly one of: format+text, template_id, or spec");
 }

@@ -31,7 +31,9 @@ interface. Published 0.5.10, 0.5.11, and 0.5.12 remain immutable.
 The app contains its target Electron, Node, DSH closure, profile seed, bundled
 plugins, licenses, and integrity metadata. It never falls back to a system Node,
 pnpm, Python, ffmpeg, or DSH installation. Every support claim requires a build
-and installed test on the matching native platform.
+and installed test on the matching native platform. UOS native
+install/startup/function for 0.6.1 is `OWNER_POST_RELEASE`: the Owner tests
+the published installer. That is not a native PASS.
 
 ### 3. Fresh-install capability set
 

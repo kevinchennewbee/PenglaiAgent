@@ -1,10 +1,15 @@
 import { join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
-import { scopedJobFields, type OfficeFormat, type OfficeJob, type OfficeService } from "./service.js";
+import {
+  OFFICE_CREATE_PARAMETERS_SCHEMA,
+  OFFICE_PLAN_PARAMETERS_SCHEMA,
+} from "./contract-schema.js";
 import { parseOfficeOperation } from "./operations.js";
-import { safeWorkspaceFilename } from "./transaction.js";
 import { isPngRaster, previewPdfPages, publicPdfPreview } from "./pdf-preview.js";
+import { scopedJobFields, type OfficeJob, type OfficeService } from "./service.js";
+import { parseOfficeCreateInput } from "./specs.js";
 import { previewOfficeStructure } from "./structural-preview.js";
+import { safeWorkspaceFilename } from "./transaction.js";
 
 interface CordisTools {
   tools?: { register(definition: Record<string, unknown>): unknown };
@@ -71,11 +76,6 @@ function boundJob(ctx: CordisTools, svc: OfficeService, exec: unknown, jobId: st
     throw new PenglaiError("UNAUTHORIZED", "office job is not bound to this Workspace and Session");
   }
   return job;
-}
-
-function asFormat(value: unknown): OfficeFormat {
-  if (value === "docx" || value === "xlsx" || value === "pptx" || value === "pdf") return value;
-  throw new PenglaiError("INVALID_INPUT", "unsupported office format");
 }
 
 function publicJob(job: OfficeJob | (OfficeJob & { handle?: string })) {
@@ -145,45 +145,28 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
   });
   ctx.tools.register({
     name: "penglai_office_create",
-    description: "Create a DOCX, XLSX, PPTX, or PDF from blank text or a built-in template.",
-    parameters: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        format: { type: "string", enum: ["docx", "xlsx", "pptx", "pdf"] },
-        text: { type: "string", minLength: 1, maxLength: 4000 },
-        template_id: { type: "string", minLength: 2, maxLength: 40 },
-        spec: { type: "object", additionalProperties: true },
-      },
-    },
+    description:
+      "Create a DOCX, XLSX, PPTX, or PDF using exactly one pathway: (1) format+text, (2) built-in template_id, or (3) structured spec with spec.format plus the format's required fields (docx sections, xlsx sheets, pptx slides, pdf paragraphs). spec is a closed typed object, not an arbitrary bag. Do not send body, destPath, or other extra fields.",
+    parameters: OFFICE_CREATE_PARAMETERS_SCHEMA,
     output: jsonOutput("office create"),
     async execute(args: unknown, exec?: unknown) {
-      const input = args as { format?: string; text?: string; template_id?: string; spec?: unknown };
+      const input = parseOfficeCreateInput(args);
       const ws = boundWorkspace(ctx, exec);
       const scope = { workspaceId: ws.id, sessionId: ws.sessionId };
-      if (input.template_id) {
-        return publicJob(await svc.createFromTemplate(input.template_id, ws.id, ws.sessionId));
+      if (input.pathway === "template") {
+        return publicJob(await svc.createFromTemplate(input.templateId, ws.id, ws.sessionId));
       }
-      if (input.spec) {
+      if (input.pathway === "spec") {
         return publicJob(await svc.createStructured(input.spec, scope));
       }
-      if (!input.format || !input.text) throw new PenglaiError("INVALID_INPUT", "office create requires format and text or template_id");
-      return publicJob(await svc.create(asFormat(input.format), input.text, scope));
+      return publicJob(await svc.create(input.format, input.text, scope));
     },
   });
   ctx.tools.register({
     name: "penglai_office_plan",
-    description: "Apply one closed typed operation to a session-bound office job or attached handle.",
-    parameters: {
-      type: "object",
-      additionalProperties: false,
-      required: ["operation"],
-      properties: {
-        job_id: { type: "string", minLength: 8, maxLength: 80 },
-        handle: { type: "string", minLength: 8, maxLength: 80 },
-        operation: { type: "object", additionalProperties: true },
-      },
-    },
+    description:
+      "Apply one closed typed operation to a session-bound office job or attached handle. operation.kind is required and selects the remaining fields. Unknown operation fields are rejected.",
+    parameters: OFFICE_PLAN_PARAMETERS_SCHEMA,
     output: jsonOutput("office plan"),
     async execute(args: unknown, exec?: unknown) {
       const input = args as { job_id?: string; handle?: string; operation?: unknown };

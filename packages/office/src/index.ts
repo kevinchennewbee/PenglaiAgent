@@ -14,8 +14,14 @@ export const version = RELEASE;
 export { createOfficeService, inspect, createDocument, createStructuredDocument, edit, commit, copyCommittedOfficeBytes, detect } from "./service.js";
 export type { OfficeFormat, DocumentInventory, OfficeJob, OfficeOperation } from "./service.js";
 export { OFFICE_LIMITS, parseOfficeOperation } from "./operations.js";
-export { parseOfficeCreateSpec } from "./specs.js";
-export type { OfficeCreateSpec } from "./specs.js";
+export { parseOfficeCreateSpec, parseOfficeCreateInput } from "./specs.js";
+export type { OfficeCreateSpec, OfficeCreateInput } from "./specs.js";
+export {
+  OFFICE_CREATE_PARAMETERS_SCHEMA,
+  OFFICE_CREATE_SPEC_SCHEMA,
+  OFFICE_OPERATION_SCHEMA,
+  OFFICE_PLAN_PARAMETERS_SCHEMA,
+} from "./contract-schema.js";
 export { OFFICE_TEMPLATES } from "./templates/catalog.js";
 export { assertAuthorizedBytes } from "./authorization.js";
 export { registerOfficeTools } from "./tools.js";

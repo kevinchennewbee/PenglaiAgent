@@ -1,4 +1,5 @@
 import { PenglaiError } from "@penglai/contracts";
+import { OFFICE_OPERATION_KIND_KEYS, extraFieldNames, extraFieldsError } from "./contract-schema.js";
 import type { OfficeFormat } from "./formats.js";
 import type { OfficeScalar } from "./specs.js";
 
@@ -21,13 +22,36 @@ export function operationFormat(op: OfficeOperation): OfficeFormat {
   return "pdf";
 }
 
+function rejectOperation(message: string): never {
+  throw new PenglaiError("INVALID_INPUT", message);
+}
+
+function closedOperation(raw: Record<string, unknown>, kind: keyof typeof OFFICE_OPERATION_KIND_KEYS): Record<string, unknown> {
+  const allowed = OFFICE_OPERATION_KIND_KEYS[kind];
+  const extra = extraFieldNames(raw, allowed);
+  if (extra.length > 0) rejectOperation(extraFieldsError(`office operation (${kind})`, extra, allowed));
+  return raw;
+}
+
 export function parseOfficeOperation(value: unknown): OfficeOperation {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new PenglaiError("INVALID_INPUT", "office operation required");
   }
   const raw = value as Record<string, unknown>;
-  const keys = Object.keys(raw);
-  if (keys.length > 6) throw new PenglaiError("INVALID_INPUT", "office operation has extra fields");
+  const kind = typeof raw.kind === "string" ? raw.kind : undefined;
+  if (kind === undefined) {
+    const extra = extraFieldNames(raw, ["kind"]);
+    const extraNote = extra.length > 0 ? `; extra fields: ${extra.join(", ")}` : "";
+    rejectOperation(`office operation missing required discriminator kind${extraNote}`);
+  }
+  if (!Object.hasOwn(OFFICE_OPERATION_KIND_KEYS, kind)) {
+    const extra = extraFieldNames(raw, ["kind"]);
+    if (extra.length > 0) {
+      rejectOperation(`office operation kind ${kind} is not in the closed typed set; extra fields: ${extra.join(", ")}`);
+    }
+    rejectOperation(`office operation kind ${kind} is not in the closed typed set`);
+  }
+  closedOperation(raw, kind as keyof typeof OFFICE_OPERATION_KIND_KEYS);
   if (raw.kind === "docx.replaceParagraph" || raw.kind === "docx.insertParagraph") {
     if (typeof raw.paragraphIndex !== "number" || !Number.isInteger(raw.paragraphIndex) || raw.paragraphIndex < 0 || raw.paragraphIndex > 4000) {
       throw new PenglaiError("INVALID_INPUT", "docx paragraphIndex rejected");

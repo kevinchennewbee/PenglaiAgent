@@ -19,9 +19,10 @@ explicit model choices stay in official settings. Four installers must come
 from one clean `main` SHA. Linux amd64 and Windows ARM are not targets.
 
 UOS 20 old-world remains the fourth packaged target. Native install,
-startup, and function on a physical UOS host are still unrun for 0.6.1 and
-must not be marked PASS from source or cross-build evidence. The 0.6.0 UOS
-`OWNER_POST_RELEASE` record is historical for that release only.
+startup, and function on a physical UOS host are `OWNER_POST_RELEASE`:
+the Owner will test the published installer. Do not mark PASS from source
+or cross-build evidence. The 0.6.0 UOS `OWNER_POST_RELEASE` record is
+historical for that release only.
 
 ## 中文
 
@@ -34,5 +35,6 @@ Intel Mac、Windows x64 与统信 UOS 20 龙芯。DSH 仍是唯一 Agent 核心�
 文本与图片输入。用户已经明确选过的模型保留在官方设置里。四个安装包必须来自
 同一个干净的 `main` SHA。Linux amd64 与 Windows ARM 不是目标。
 
-UOS 20 旧世界仍是第四个打包目标。0.6.1 的真机安装、启动与功能尚未取证，不得
-用源码或交叉编译冒充 PASS。0.6.0 的 `OWNER_POST_RELEASE` 只记录那一次发布。
+UOS 20 旧世界仍是第四个打包目标。0.6.1 真机安装/启动/功能为
+`OWNER_POST_RELEASE`：Owner 在发布后测试安装包。不得用源码或交叉编译冒充
+PASS。0.6.0 的 `OWNER_POST_RELEASE` 只记录那一次发布。

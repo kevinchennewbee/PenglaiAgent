@@ -14,7 +14,9 @@ representative app for Codex GUI testing.
 ## Out of this phase
 
 PR, `main` merge, four-target native CI, tag, upload, site deploy, live IM,
-and UOS native PASS.
+and UOS native PASS. UOS native install/startup/function is
+`OWNER_POST_RELEASE`; the Owner tests the published installer. Four exact
+targets remain required.
 
 ## Workstreams
 

@@ -18,5 +18,6 @@ Status: source phase. `[x]` requires implementation plus captured evidence.
       plus identity/contracts; live/native/UOS host remain later phases).
 - [ ] Local candidate commit and representative Apple Silicon package.
 - [ ] Remaining manager phases: PR/main freeze, four-target natives,
-      immutable publication, public-byte readback. UOS native host
-      evidence remains unrun; not a 0.6.1 PASS.
+      immutable publication, public-byte readback. UOS native
+      install/startup/function is `OWNER_POST_RELEASE` (Owner tests the
+      published installer); not a 0.6.1 native PASS.

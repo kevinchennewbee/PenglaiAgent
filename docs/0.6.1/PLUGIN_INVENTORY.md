@@ -18,4 +18,5 @@ Official DSH pin: npm `0.1.5-rc.1` / `dsh-v0.1.5-rc.1` /
 
 Native engine compatibility on all four targets remains decisive. No
 `--no-sandbox`, no disabling Office/Memory, and no unconstrained execution to
-show a window.
+show a window. UOS native install/startup/function is `OWNER_POST_RELEASE`
+(Owner tests the published installer) and is not a 0.6.1 native PASS.

@@ -430,7 +430,8 @@ jobs:
           PENGLAI_PACK_TARGET: linux-loong64
         run: |
           # Fail-closed: a missing old-world payload is not a packaged .deb.
-          # Native UOS install/startup/function remain OWNER_POST_RELEASE.
+          # Native UOS install/startup/function remain OWNER_POST_RELEASE
+          # (Owner tests the published installer; not a native PASS).
           pnpm stage:linux-loong64
           pnpm package:linux-deb -- --target linux-loong64
       - name: Upload linux-loong64 installer and packaging evidence

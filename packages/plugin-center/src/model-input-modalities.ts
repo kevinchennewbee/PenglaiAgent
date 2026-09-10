@@ -94,6 +94,34 @@ export function applyImageInputToCatalog(
   });
 }
 
+const CATALOG_MODEL_KEYS = [
+  "id",
+  "name",
+  "description",
+  "contextWindow",
+  "maxTokens",
+  "inputModalities",
+  "imagePixelBudget",
+  "imageMaxBytes",
+  "systemPromptUpdate",
+] as const;
+
+function catalogSeedFromResolvedInfo(info: Record<string, unknown>, id: string): Record<string, unknown> {
+  const context = asRecord(info.context);
+  const seed: Record<string, unknown> = { id };
+  for (const key of CATALOG_MODEL_KEYS) {
+    if (key === "id") continue;
+    if (info[key] !== undefined) seed[key] = info[key];
+  }
+  if (seed.contextWindow === undefined && typeof context?.contextWindow === "number") {
+    seed.contextWindow = context.contextWindow;
+  }
+  if (seed.maxTokens === undefined && typeof info.defaultMaxTokens === "number") {
+    seed.maxTokens = info.defaultMaxTokens;
+  }
+  return seed;
+}
+
 export async function listOfficialDeepSeekCatalog(official: OfficialUsableCtx): Promise<CatalogModelDraft[]> {
   const described = official.settings?.describe?.() ?? [];
   const ns = described.find((row) => row.ns === DEEPSEEK_SETTINGS_NS);
@@ -110,8 +138,8 @@ export async function listOfficialDeepSeekCatalog(official: OfficialUsableCtx): 
     let extra: Record<string, unknown> = asRecord(entry) ?? {};
     if (official.llm.resolveModelInfo) {
       try {
-        const info = await official.llm.resolveModelInfo("deepseek-official", id);
-        extra = { ...extra, ...(asRecord(info) ?? {}) };
+        const info = asRecord(await official.llm.resolveModelInfo("deepseek-official", id)) ?? {};
+        extra = { ...catalogSeedFromResolvedInfo(info, id) };
       } catch {
         extra = asRecord(entry) ?? {};
       }

@@ -3,6 +3,12 @@
 Target remains UnionTech UOS 20 Professional 1070, `linux-loong64`, old-world
 userland, kernel 4.19. Not V25 and not another architecture.
 
+Owner authorization 2026-09-10: there is no available UOS native test
+environment; the Owner will manually test the published UOS installer.
+0.6.1 native install/startup/function is `OWNER_POST_RELEASE`. Do not
+require a pre-publication UOS host, mark PASS, or treat this as a missing
+fourth artifact.
+
 The 0.6.0 `OWNER_POST_RELEASE` record is historical. It is not a 0.6.1 native
 PASS and is not a blanket future exception.
 
@@ -31,5 +37,7 @@ PASS and is not a blanket future exception.
 6. Do not use `--no-sandbox`, disable Office/Memory, or unconstrained execution
    to obtain PASS.
 
-Until those host steps exist, UOS native install/startup/function stays
-`OWNER_POST_RELEASE` / `NOT_RUN`.
+Until the Owner runs those host steps on the published installer, UOS
+native install/startup/function stays `OWNER_POST_RELEASE` / `NOT_RUN`.
+Package/ABI evidence from a Mac-hosted UOS package is not native UOS
+execution.

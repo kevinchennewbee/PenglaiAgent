@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Session } from "@deepseek-ai/dsh-session";
 import { isJsonValue } from "@deepseek-ai/dsh-util-values";
 import { PenglaiError } from "@penglai/contracts";
 import { SeqIds, VirtualClock } from "@penglai/testkit";
@@ -664,9 +665,20 @@ test("host recovery reads official snapshotEvents and does not duplicate outbox"
 test("host recovery reads official inspect events for cold sessions without a live Agent", async () => {
   const { store, plane, source } = recoveryPlane();
   const events = [
-    { type: "agent/inbox/claimed", data: { turn: 7, message: { id: "mid-cold", source } } },
-    { type: "assistant/message", data: { turn: 7, message: { content: [{ type: "text", text: "cold-final" }] } } },
-    { type: "turn/end", data: { turn: 7 } },
+    { type: "turn/start", data: { turn: 7 } },
+    { type: "step/start", data: { turn: 7, step: 1 } },
+    {
+      type: "user/message",
+      data: {
+        id: "mid-cold",
+        role: "user",
+        content: [{ type: "text", text: "cold inbound" }],
+        source,
+      },
+    },
+    { type: "assistant/message", data: { turn: 7, step: 1, message: { content: [{ type: "text", text: "cold-final" }] }, stream: [] } },
+    { type: "step/end", data: { turn: 7, step: 1 } },
+    { type: "turn/end", data: { turn: 7, reason: { kind: "completed" } } },
   ];
   const host = {
     version: "0.1.5-rc.1",
@@ -682,4 +694,105 @@ test("host recovery reads official inspect events for cold sessions without a li
   assert.equal(second.delivered, 1);
   assert.equal(store.pendingOutbox("r").length, 1);
   assert.equal(store.pendingOutbox("r")[0]?.payloadText, "cold-final");
+});
+
+test("followup classifies a proven missing official session as INVALID_INPUT", async () => {
+  const bridge = new DshBridge({
+    version: "0.1.5-rc.1",
+    getAgent: () => undefined,
+    async describeSessionModels() {
+      return {
+        current: { provider: "deepseek", model: "deepseek-flash" },
+        routable: false,
+        sessionExists: false,
+        groups: [],
+      };
+    },
+    listWorkspaces: () => [],
+  });
+  await assert.rejects(
+    () => bridge.followup({
+      sessionId: "missing",
+      inboundId: "in-missing",
+      routeId: "r",
+      text: "hi",
+      source: { kind: "penglai-im", schema: 1, routeId: "r", inboundId: "in-missing", adapter: "mock" },
+      mode: "followup",
+    }),
+    (err: unknown) => err instanceof PenglaiError && err.errorClass === "INVALID_INPUT" && /session does not exist/.test(err.message),
+  );
+});
+
+test("recoverOfficialTurnDelivery uses pinned Session.append/snapshotEvents envelopes", () => {
+  const { plane, store, source } = recoveryPlane();
+  const session = Session.create("s");
+  session.append("turn/start", { turn: 1 });
+  session.append("step/start", { turn: 1, step: 1 });
+  session.append(
+    "user/message",
+    {
+      id: "pm-inbound-message",
+      role: "user",
+      content: [{ type: "text", text: "neutral recovery fixture" }],
+      source,
+    } as never,
+    { surfaceOp: "append" },
+  );
+  session.append(
+    "assistant/message",
+    {
+      turn: 1,
+      step: 1,
+      message: { role: "assistant", content: [{ type: "text", text: "PM-COLD-COMPLETED" }] },
+      stream: [],
+    } as never,
+    { surfaceOp: "append" },
+  );
+  session.append("step/end", { turn: 1, step: 1 });
+  session.append("turn/end", { turn: 1, reason: { kind: "completed" } });
+  const result = recoverOfficialTurnDelivery(plane, { sessionId: session.id, events: session.snapshotEvents() });
+  assert.deepEqual(result, { claimed: 1, delivered: 1, incomplete: 0 });
+  assert.equal(store.pendingOutbox("r")[0]?.payloadText, "PM-COLD-COMPLETED");
+});
+
+test("recoverOfficialTurnDelivery associates pre-turn splices, injections, incomplete and closed turns", () => {
+  const first = recoveryPlane();
+  const second = recoveryPlane();
+  const spliceThenTurn = recoverOfficialTurnDelivery(first.plane, {
+    sessionId: "s",
+    events: [
+      { type: "agent/inbox/spliced", data: { target: "next-turn", start: 0, inserted: [{ id: "mid-pre", source: first.source }] } },
+      { type: "turn/start", data: { turn: 2 } },
+      { type: "user/message", data: { id: "mid-pre", role: "user", content: [{ type: "text", text: "claimed" }], source: first.source } },
+      { type: "user/message", data: { id: "inject-1", role: "user", content: [{ type: "text", text: "notice" }], source: { kind: "plugin", plugin: "fs" } } },
+      { type: "assistant/message", data: { turn: 2, message: { content: [{ type: "text", text: "from-splice" }] } } },
+      { type: "turn/end", data: { turn: 2, reason: { kind: "completed" } } },
+    ],
+  });
+  assert.deepEqual(spliceThenTurn, { claimed: 1, delivered: 1, incomplete: 0 });
+  assert.equal(first.store.pendingOutbox("r")[0]?.payloadText, "from-splice");
+
+  const incomplete = recoverOfficialTurnDelivery(second.plane, {
+    sessionId: "s",
+    events: [
+      { type: "turn/start", data: { turn: 9 } },
+      { type: "user/message", data: { id: "mid-open", role: "user", content: [{ type: "text", text: "open" }], source: second.source } },
+      { type: "assistant/message", data: { turn: 9, message: { content: [{ type: "text", text: "partial" }] } } },
+    ],
+  });
+  assert.equal(incomplete.incomplete, 1);
+  assert.equal(incomplete.delivered, 0);
+  assert.equal(second.store.pendingOutbox("r").length, 0);
+
+  const replay = recoverOfficialTurnDelivery(first.plane, {
+    sessionId: "s",
+    events: [
+      { type: "turn/start", data: { turn: 2 } },
+      { type: "user/message", data: { id: "mid-pre", role: "user", content: [{ type: "text", text: "claimed" }], source: first.source } },
+      { type: "assistant/message", data: { turn: 2, message: { content: [{ type: "text", text: "from-splice" }] } } },
+      { type: "turn/end", data: { turn: 2, reason: { kind: "completed" } } },
+    ],
+  });
+  assert.equal(replay.delivered, 1);
+  assert.equal(first.store.pendingOutbox("r").length, 1);
 });

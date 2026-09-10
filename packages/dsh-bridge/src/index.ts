@@ -285,6 +285,9 @@ export class DshBridge implements AgentPort, DirectoryPort {
   private async ensureSessionModelRoute(sessionId: string): Promise<void> {
     if (!this.host.describeSessionModels) return;
     const directory = await this.host.describeSessionModels(sessionId);
+    if (directory.sessionExists === false) {
+      throw new PenglaiError("INVALID_INPUT", "session does not exist");
+    }
     if (!directory.current.provider || !directory.current.model || !directory.routable) {
       throw new PenglaiError(
         "DSH_UNAVAILABLE",
