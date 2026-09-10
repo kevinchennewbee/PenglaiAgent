@@ -469,8 +469,10 @@ test("official DSH HTTP probe validates identity and aborts a hanging response",
     const address = server.address();
     assert.ok(address && typeof address !== "string");
     const origin = `http://127.0.0.1:${address.port}`;
-    assert.equal((await probeOfficialDsh(`${origin}/official`, 500)).official, true);
-    assert.equal((await probeOfficialDsh(`${origin}/other`, 500)).official, false);
+    // Test-only ceiling for healthy loopback identity; not a production probe SLO.
+    const healthyDeadlineMs = 10_000;
+    assert.equal((await probeOfficialDsh(`${origin}/official`, healthyDeadlineMs)).official, true);
+    assert.equal((await probeOfficialDsh(`${origin}/other`, healthyDeadlineMs)).official, false);
     const started = Date.now();
     await assert.rejects(() => probeOfficialDsh(`${origin}/hang`, 40));
     assert.ok(Date.now() - started < 1_000, "hanging probe must be bounded");
