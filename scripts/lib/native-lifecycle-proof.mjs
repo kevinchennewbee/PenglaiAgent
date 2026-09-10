@@ -138,7 +138,16 @@ function canonicalJson(value) {
 function stableInventoryBody(snapshot) {
   if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
   const { launchNonce: _nonce, dshPid: _pid, at: _at, ...stable } = snapshot;
-  return stable;
+  if (!Array.isArray(stable.entries) || stable.entries.some((entry) => !entry || typeof entry !== "object" || Array.isArray(entry))) return null;
+  // Loader entry IDs identify this process's instances, including native host plugins.
+  // Preserve every semantic row and its multiplicity while ignoring instance IDs/order.
+  const entries = stable.entries.map(({ entryId: _entryId, ...entry }) => canonicalJson(entry));
+  entries.sort((left, right) => {
+    const a = JSON.stringify(left);
+    const b = JSON.stringify(right);
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+  return { ...stable, entries };
 }
 
 export function stableInventoryIdentity(snapshot) {

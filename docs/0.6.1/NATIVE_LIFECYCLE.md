@@ -22,7 +22,9 @@ A passing Mac/Windows receipt must bind:
 - normal restart/resume on the same owner-data root, with persisted
   current-generation identity (`dsh-home-active.json` plus
   `dsh-homes/dsh-v0.1.5-rc.1`) and exact sentinel bytes/digest. Inventory
-  `launchNonce`/`dshPid` must change; they are not the stable identity.
+  `launchNonce`/`dshPid` must change; they are not the stable identity. Loader
+  entry IDs and row order are process-local; restart compares the semantic
+  plugin rows with their multiplicity preserved.
   Schema 4 also binds the activation manifest, Home manifest, web profile
   package/configuration, and any existing default settings/patch file to
   unchanged bytes. Missing profile files or an unsuccessful required-plugin

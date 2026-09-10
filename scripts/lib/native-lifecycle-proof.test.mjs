@@ -18,6 +18,7 @@ import {
   profileRestartProblems,
   readCurrentGenerationIdentity,
   requestNativeApplicationClose,
+  stableInventoryIdentity,
   waitForChildExitNoKill,
   windowsDefaultInstallDir,
   windowsFreshLifecyclePathContract,
@@ -215,6 +216,28 @@ function writeSnap(root, { nonce, pid, entries = [{ id: "@penglai/office", enabl
     }, null, 2),
   );
 }
+
+test("stable inventory ignores process instance IDs and ordering while preserving plugin identity and multiplicity", () => {
+  const entries = [
+    { entryId: "include:office", moduleName: "@penglai/office", enabled: true, fiberPhase: "active", healthy: true, health: "ready" },
+    { entryId: "process-instance-a", moduleName: "@deepseek-ai/dsh-host-directory-picker-native", enabled: true, fiberPhase: "active", healthy: true, health: "ready" },
+  ];
+  const snapshot = { at: "first", launchNonce: "boot-a", dshPid: 101, entries, ok: true, requiredProofs: [] };
+  const before = stableInventoryIdentity(snapshot);
+  const restarted = { ...snapshot, at: "second", launchNonce: "boot-b", dshPid: 202, entries: entries.map((entry, index) => ({ ...entry, entryId: `other-instance-${index}` })).reverse() };
+  assert.equal(before.ok, true);
+  assert.equal(stableInventoryIdentity(restarted).digest, before.digest);
+  for (const changed of [
+    entries.slice(1),
+    [...entries, { ...entries[1], entryId: "additional-instance" }],
+    entries.map((entry, index) => index === 1 ? { ...entry, moduleName: "@penglai/unexpected" } : entry),
+    entries.map((entry, index) => index === 1 ? { ...entry, enabled: false } : entry),
+    entries.map((entry, index) => index === 1 ? { ...entry, healthy: false, health: "failed" } : entry),
+  ]) {
+    assert.notEqual(stableInventoryIdentity({ ...snapshot, entries: changed }).digest, before.digest);
+  }
+  assert.equal(stableInventoryIdentity({ ...snapshot, entries: [null] }).ok, false);
+});
 
 function writeCurrentHome(root, { version = CURRENT_DSH_HOME_VERSION, relative = CURRENT_DSH_HOME_RELATIVE, malformed = false, skipHome = false } = {}) {
   if (malformed) {
