@@ -3,7 +3,7 @@ import test from "node:test";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
@@ -660,11 +660,18 @@ test("opened required profile file that grows past the byte cap after read is re
   assert.equal(grew, true);
   assert.equal(grown.ok, false);
   assert.match(String(grown.reason ?? ""), /invalid persisted profile file: dsh-home-active\.json/);
-  const actualSize = statSync(required).size;
-  assert.equal(actualSize > max, true);
-  assert.equal(actualSize, original.length + max + 1);
-
-  writeFileSync(required, original);
+  let restoreFd;
+  try {
+    restoreFd = fs.openSync(required, fs.constants.O_RDWR | (fs.constants.O_NOFOLLOW ?? 0));
+    const grownStat = fs.fstatSync(restoreFd);
+    assert.equal(grownStat.isFile(), true);
+    assert.equal(grownStat.size > max, true);
+    assert.equal(grownStat.size, original.length + max + 1);
+    fs.ftruncateSync(restoreFd, original.length);
+    fs.writeSync(restoreFd, original, 0, original.length, 0);
+  } finally {
+    if (restoreFd !== undefined) fs.closeSync(restoreFd);
+  }
   const restored = readPersistedProfileProof(root, generation);
   assert.equal(restored.ok, true);
   assert.equal(persistedProfileProofValid(restored), true);
