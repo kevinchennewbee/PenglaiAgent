@@ -4,8 +4,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
-
-const EXPECTED_ALPHA_SHA = "5dda764ed3aa172535a7967b06ff95d9cbfe536a";
+import { DSH_UPSTREAM } from "./lib/dsh-npm-cohort.mjs";
 
 function fail(message) {
   process.stderr.write(`DSH_ALPHA_OWNER_REMOTES_FAIL ${message}\n`);
@@ -27,11 +26,13 @@ function requireTokens(label, text, tokens) {
   assert.deepEqual(missing, [], `${label} lost fixed-source contracts: ${missing.join(", ")}`);
 }
 
-const checkoutArg = process.argv[2] ?? process.env.PENGLAI_DSH_ALPHA_SOURCE;
-if (!checkoutArg) fail("pass the fixed alpha source checkout path");
+const checkoutArg = process.argv[2] ?? process.env.PENGLAI_DSH_UPSTREAM ?? process.env.PENGLAI_DSH_ALPHA_SOURCE;
+if (!checkoutArg) fail("pass the fixed official DSH source checkout path");
 const checkout = resolve(checkoutArg);
 if (!existsSync(join(checkout, "pnpm-lock.yaml"))) fail("source checkout is missing pnpm-lock.yaml");
-if (git(checkout, ["rev-parse", "HEAD"]) !== EXPECTED_ALPHA_SHA) fail("source checkout HEAD drifted");
+if (git(checkout, ["rev-parse", "HEAD"]) !== DSH_UPSTREAM.commit) {
+  fail(`source checkout HEAD drifted, expected ${DSH_UPSTREAM.commit}`);
+}
 if (git(checkout, ["status", "--porcelain"])) fail("source checkout is dirty");
 
 const sessionController = source(checkout, "packages/api/session-controller/src/index.ts");
@@ -96,11 +97,12 @@ const removedApiProxy = git(checkout, [
   "--",
   "packages/api",
 ]).split("\n").filter((path) => /apiproxy/i.test(path));
-assert.deepEqual(removedApiProxy, [], `alpha API tree still contains ApiProxy: ${removedApiProxy.join(", ")}`);
+assert.deepEqual(removedApiProxy, [], `official DSH API tree still contains ApiProxy: ${removedApiProxy.join(", ")}`);
 
 process.stdout.write(`${JSON.stringify({
   status: "PASS",
-  alphaSha: EXPECTED_ALPHA_SHA,
+  dsh: DSH_UPSTREAM.version,
+  sourceCommit: DSH_UPSTREAM.commit,
   owners: {
     session: ["list", "create", "rename", "modelCatalog", "selectModel"],
     workspace: ["create", "insertSessionBefore", "archiveSession", "follow"],

@@ -29,11 +29,11 @@ jobs:
           # Pull-request jobs otherwise test GitHub's synthetic merge commit,
           # which cannot serve as the immutable release candidate identity.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Check out immutable official DSH 0.1.5-alpha.1 source
+      - name: Check out immutable official DSH 0.1.5-rc.1 source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: deepseek-ai/DeepSeek-Harness
-          ref: 5dda764ed3aa172535a7967b06ff95d9cbfe536a
+          ref: 183f08e9c6dde7e36cd2318eaee70b0da08fb35e
           path: upstream-dsh
           fetch-depth: 1
       - name: Prepare authoritative main identity
@@ -63,7 +63,7 @@ jobs:
         run: pnpm fetch:mnemon-assets
       - name: Source, contract, and evidence-class gates
         env:
-          PENGLAI_DSH_ALPHA_SOURCE: ${{ github.workspace }}/upstream-dsh
+          PENGLAI_DSH_UPSTREAM: ${{ github.workspace }}/upstream-dsh
         run: |
           pnpm format:check
           pnpm typecheck
