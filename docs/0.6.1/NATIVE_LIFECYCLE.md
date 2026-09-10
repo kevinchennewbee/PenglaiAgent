@@ -12,13 +12,20 @@ A passing Mac/Windows receipt must bind:
 
 - exact candidate installer SHA
 - clean source SHA and target identity
-- actual installation of those bytes into an isolated dedicated destination
-- fresh installed boot and normal graceful shutdown
-- normal restart/resume on the same owner-data root
+- actual installation of those bytes: Mac uses a dedicated task-created app
+  copy; Windows uses the exact default native path
+  `%LOCALAPPDATA%\Penglai\app\0.5` with an explicit clean-host/unowned-install
+  refusal. Custom INSTDIR remains protected in NSIS and is not the 0.6.1
+  uninstall fixture.
+- fresh installed boot and a normal application shutdown. Forced
+  SIGKILL/taskkill `/F` or Windows Node `SIGTERM` is not a graceful pass.
+- normal restart/resume on the same owner-data root, with persisted profile
+  identity and exact sentinel bytes/digest
 - process cleanup after boot, restart, and uninstall
-- default uninstall: actual NSIS `Uninstall.exe` on Windows, dedicated
-  installed-app removal on Mac
-- independent owner-data sentinel preservation
+- default uninstall: actual NSIS `Uninstall.exe` on the default INSTDIR, or
+  dedicated installed-app removal on Mac
+- Windows owner-data sentinel lives in `%LOCALAPPDATA%\Penglai\0.5`, which
+  NSIS preserves, not in an env-overridden helper profile or the update cache
 
 Only verified task-created paths may be removed. Do not delete a whole Windows
 `INSTDIR` to manufacture uninstall success. If NSIS leaves only a known

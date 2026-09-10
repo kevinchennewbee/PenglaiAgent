@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -15,6 +16,7 @@ import { finish } from "./lib/exit-contract.mjs";
 import {
   cleanupRegisteredWindowsInstallerFixture,
   exeInside,
+  forceStopChild,
   installFromExactInstaller,
   launchPackaged,
   leftoversByCommand,
@@ -22,14 +24,14 @@ import {
   reapWindowsInstallTree,
   resourcesInside,
   sha256File,
-  stopChild,
+  windowsRegisteredInstallDir,
 } from "./lib/installed-app.mjs";
 import {
   classifyUninstallResidue,
   listInstallTreeFiles,
   removeUninstallerResidualOnly,
 } from "./lib/windows-uninstall-residue.mjs";
-import { observeFreshInstalledBoot } from "./lib/installed-readiness.mjs";
+import { observeFreshInstalledBoot, observeInstalledRestart } from "./lib/installed-readiness.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
 import { sanitizeEvidenceText } from "./lib/evidence-json.mjs";
 import {
@@ -45,6 +47,20 @@ import {
   FRESH_LIFECYCLE_SCOPE,
 } from "./lib/native-fresh-set.mjs";
 import { currentNativeLifecycleScope } from "./lib/native-upgrade-set.mjs";
+import {
+  FRESH_LIFECYCLE_SENTINEL_NAME,
+  WINDOWS_DEFAULT_APP_SEGMENTS,
+  classifyApplicationShutdown,
+  persistedRestartMatches,
+  profileIdentityFromUserData,
+  readExactSentinel,
+  requestNativeApplicationClose,
+  sha256Bytes,
+  waitForChildExitNoKill,
+  windowsDefaultInstallDir,
+  windowsDefaultUserDataDir,
+  windowsUpdateCacheDir,
+} from "./lib/native-lifecycle-proof.mjs";
 import { ROOT } from "./lib/repo.mjs";
 
 const COMMAND = FRESH_LIFECYCLE_COMMAND;
@@ -116,26 +132,102 @@ async function cleanupProcesses(app, label) {
   return { ok: true, leftover: [] };
 }
 
-async function boot(app, userData, label) {
+function launchFreshApp(app, userData) {
   const resources = resourcesInside(app, target);
   const executable = exeInside(app, target);
-  if (!executable) fail(`${label} installed Penglai executable missing`);
-  const { launched, gateway, inventory, freshReadiness } = await observeFreshInstalledBoot(
-    userData, () => launchPackaged(executable, resources, userData),
-  );
-  const [code, signal] = await stopChild(launched.child);
-  const cleanup = await cleanupProcesses(app, label);
-  if (!freshReadiness || !gateway || !inventory || (code !== 0 && signal === null)) {
-    fail(`${label} did not boot and exit through the installed runtime`, {
-      gateway,
-      inventory,
-      freshReadiness,
-      code,
-      signal,
-      outputTail: sanitizeEvidenceText(launched.output(), 2_000),
+  if (!executable) fail("installed Penglai executable missing");
+  if (target === "win32-x86_64") {
+    return launchPackaged(executable, resources, userData, [], {}, { isolateUserData: false });
+  }
+  return launchPackaged(executable, resources, userData);
+}
+
+function installWindowsDefault(installer, label) {
+  const run = spawnSync(installer, ["/S"], { encoding: "utf8", windowsHide: true, timeout: 20 * 60_000 });
+  if (run.error || run.status !== 0) {
+    fail(`${label} NSIS install failed`, {
+      status: run.status,
+      timedOut: run.error?.code === "ETIMEDOUT",
+      error: run.error?.code,
+      stdout: sanitizeEvidenceText(String(run.stdout ?? ""), 1_000),
+      stderr: sanitizeEvidenceText(String(run.stderr ?? ""), 1_000),
     });
   }
-  return { gateway, inventory, freshReadiness, exitCode: code, signal, processCleanup: cleanup.ok };
+  const localAppData = resolve(String(process.env.LOCALAPPDATA ?? ""));
+  if (!localAppData) fail("LOCALAPPDATA is unavailable on the Windows native runner");
+  const app = windowsDefaultInstallDir(localAppData);
+  if (!existsSync(join(app, "Penglai.exe"))) fail(`${label} NSIS app payload missing at the default native path`, { app });
+  return app;
+}
+
+async function shutdownFresh(child, label) {
+  const waiting = waitForChildExitNoKill(child, 20_000);
+  const closeReq = await requestNativeApplicationClose(child, { platform: process.platform });
+  const waited = await waiting;
+  if (waited.timedOut) {
+    const forced = await forceStopChild(child);
+    fail(`${label} required forced process termination; that is not a graceful application shutdown`, {
+      shutdown: { ...closeReq, ...forced, graceful: false },
+    });
+  }
+  const shutdown = {
+    ...closeReq,
+    exitCode: waited.code,
+    signal: waited.signal,
+    forced: false,
+    graceful: false,
+  };
+  const classified = classifyApplicationShutdown(shutdown, target);
+  if (!classified.graceful) {
+    fail(`${label} did not complete a normal application shutdown`, { shutdown, classified });
+  }
+  return { ...shutdown, graceful: true };
+}
+
+function requireSentinel(label) {
+  const observed = readExactSentinel(sentinelPath, sentinelSha256);
+  if (!observed.ok) {
+    fail(`${label} did not preserve exact Owner-data sentinel bytes`, {
+      sentinelPath,
+      expectedSha256: sentinelSha256,
+      observed,
+    });
+  }
+  return observed;
+}
+
+async function boot(app, userData, label, previousIdentity) {
+  const observed = previousIdentity
+    ? await observeInstalledRestart(userData, () => launchFreshApp(app, userData), previousIdentity)
+    : await observeFreshInstalledBoot(userData, () => launchFreshApp(app, userData));
+  const shutdown = await shutdownFresh(observed.launched.child, label);
+  const cleanup = await cleanupProcesses(app, label);
+  const profileIdentity = profileIdentityFromUserData(userData);
+  requireSentinel(label);
+  if (!observed.freshReadiness || !observed.gateway || (previousIdentity ? !observed.inventory : !observed.inventory)) {
+    fail(`${label} did not boot through the installed runtime`, {
+      gateway: observed.gateway,
+      inventory: observed.inventory,
+      freshReadiness: observed.freshReadiness,
+      shutdown,
+      outputTail: sanitizeEvidenceText(observed.launched.output(), 2_000),
+    });
+  }
+  if (previousIdentity && !persistedRestartMatches(previousIdentity, profileIdentity)) {
+    fail(`${label} did not resume persisted profile identity`, {
+      previousIdentity,
+      profileIdentity,
+    });
+  }
+  return {
+    gateway: observed.gateway,
+    inventory: observed.inventory,
+    freshReadiness: observed.freshReadiness,
+    resumed: Boolean(previousIdentity) && persistedRestartMatches(previousIdentity, profileIdentity),
+    profileIdentity,
+    shutdown,
+    processCleanup: cleanup.ok,
+  };
 }
 
 let lastWindowsDefender = { attempted: false, mutated: false };
@@ -233,34 +325,77 @@ if (process.env.PENGLAI_LIFECYCLE_ALLOW_NATIVE !== "1") {
 const currentInstaller = join(ROOT, "dist", installerForTarget(target));
 if (!existsSync(currentInstaller)) fail("current exact installer is missing");
 const currentSha256 = sha256File(currentInstaller);
-const appRoot = requireExactChild(join(ROOT, ".tmp", "fresh-install-uninstall", "app"), ROOT, "app test root");
-const userData = requireExactChild(join(ROOT, ".tmp", "fresh-install-uninstall", "user"), ROOT, "user-data test root");
-rmSync(userData, { recursive: true, force: true });
+
+const appRoot = target === "win32-x86_64"
+  ? ""
+  : requireExactChild(join(ROOT, ".tmp", "fresh-install-uninstall", "app"), ROOT, "app test root");
+const userData = target === "win32-x86_64"
+  ? windowsDefaultUserDataDir(resolve(String(process.env.LOCALAPPDATA ?? "")))
+  : requireExactChild(join(ROOT, ".tmp", "fresh-install-uninstall", "user"), ROOT, "user-data test root");
+if (!userData) fail("Owner-data root for this target is unavailable");
+if (target !== "win32-x86_64") {
+  rmSync(userData, { recursive: true, force: true });
+}
 mkdirSync(userData, { recursive: true });
-const sentinel = join(userData, "owner-data-preserved.txt");
-writeFileSync(sentinel, "Penglai fresh-install/uninstall preservation sentinel\n");
+const sentinelPath = join(userData, FRESH_LIFECYCLE_SENTINEL_NAME);
+if (target === "win32-x86_64") {
+  const updateCache = windowsUpdateCacheDir(resolve(String(process.env.LOCALAPPDATA ?? "")));
+  if (sentinelPath.startsWith(updateCache)) fail("Windows owner-data sentinel must not live in the NSIS update-cache tree");
+}
+const sentinelBytes = Buffer.from(
+  `Penglai ${PRODUCT_VERSION} fresh-lifecycle owner sentinel\nnonce=${randomBytes(16).toString("hex")}\n`,
+);
+writeFileSync(sentinelPath, sentinelBytes);
+const sentinelSha256 = sha256Bytes(sentinelBytes);
 
 if (target === "win32-x86_64") {
   const fixtureCleanup = cleanupRegisteredWindowsInstallerFixture();
   if (!fixtureCleanup.ok) fail(`Windows release-test fixture cleanup failed: ${fixtureCleanup.reason}`);
+  const localAppData = resolve(String(process.env.LOCALAPPDATA ?? ""));
+  const expectedApp = windowsDefaultInstallDir(localAppData);
+  const registered = windowsRegisteredInstallDir();
+  if (registered) {
+    const registeredResolved = resolve(registered);
+    if (registeredResolved.toLowerCase() !== expectedApp.toLowerCase()) {
+      fail("refusing an existing unowned custom Penglai install", { registered, expectedApp });
+    }
+  }
+  if (existsSync(expectedApp)) {
+    fail("Windows native runner is not clean; refusing to overwrite an existing Penglai install", {
+      expectedApp,
+    });
+  }
 }
 
-const installed = await installFromExactInstaller(currentInstaller, appRoot, target);
-if (!installed.ok) fail(`fresh ${PRODUCT_VERSION} install failed: ${installed.reason}`, { installed });
-const app = installed.app;
+let app;
+let windowsInstall = null;
+if (target === "win32-x86_64") {
+  app = installWindowsDefault(currentInstaller, `fresh ${PRODUCT_VERSION}`);
+  windowsInstall = {
+    path: app,
+    segments: WINDOWS_DEFAULT_APP_SEGMENTS,
+    defaultNativeInstdir: true,
+    customDestination: false,
+    payloadDeletedByHarness: false,
+    nsisDefaultInstallDir: String.raw`$LOCALAPPDATA\Penglai\app\0.5`,
+  };
+} else {
+  const installed = await installFromExactInstaller(currentInstaller, appRoot, target);
+  if (!installed.ok) fail(`fresh ${PRODUCT_VERSION} install failed: ${installed.reason}`, { installed });
+  app = installed.app;
+}
 const identity = assertVersion(app, PRODUCT_VERSION, "fresh install");
 const currentPackage = inspectPackagedCandidate({ app, candidateSha: source.git.head, expectedTarget: target });
 if (currentPackage.verdict !== "PASS") fail("fresh installer source identity mismatch", { currentPackage });
 if (target === "win32-x86_64") observeWindowsDefender();
 
 const bootProof = await boot(app, userData, "fresh install");
-if (!existsSync(sentinel)) fail("fresh install boot did not preserve isolated Owner data");
-const restartProof = await boot(app, userData, "fresh restart");
-if (!existsSync(sentinel)) fail("fresh restart did not preserve isolated Owner data");
+const restartProof = await boot(app, userData, "fresh restart", bootProof.profileIdentity);
+if (!restartProof.resumed) fail("fresh restart did not resume persisted profile identity");
 
 let uninstallLeftoverNames = [];
 let uninstallRemovedApp = false;
-let uninstallMethod = target === "win32-x86_64" ? "nsis-uninstaller" : "dedicated-app-removal";
+const uninstallMethod = target === "win32-x86_64" ? "nsis-uninstaller" : "dedicated-app-removal";
 if (target === "win32-x86_64") {
   await reapWindowsInstallTree(app, 30_000, userData);
   observeWindowsDefender();
@@ -280,9 +415,6 @@ if (target === "win32-x86_64") {
       stderr: sanitizeEvidenceText(String(uninstall.stderr ?? ""), 1_000),
     });
   }
-  // `_?=` keeps Uninstall.exe in INSTDIR so spawnSync observes the real
-  // process; the in-use uninstaller cannot delete itself. Prove payload
-  // absence first. Only Uninstall.exe may be removed as test cleanup.
   const residue = classifyUninstallResidue(listInstallTreeFiles(app));
   if (!residue.payloadRemoved) {
     fail("Windows uninstaller left app payload", {
@@ -299,11 +431,11 @@ if (target === "win32-x86_64") {
   uninstallRemovedApp = true;
 }
 const removed = await waitRemoved(app, 60_000);
-if (!removed || !existsSync(sentinel)) {
+requireSentinel("fresh uninstall");
+if (!removed) {
   fail("uninstall did not remove only the app while preserving Owner data", {
     appRemoved: removed,
     leftover: existsSync(app) ? readdirSync(app).slice(0, 40) : [],
-    ownerDataPreserved: existsSync(sentinel),
   });
 }
 const afterUninstall = await cleanupProcesses(app, "fresh uninstall");
@@ -322,9 +454,10 @@ finish("PASS", {
   installerSha256: currentSha256,
   identity,
   destination: app,
-  destinationTaskCreated: true,
+  destinationTaskCreated: target !== "win32-x86_64",
+  windowsInstall,
   boot: bootProof,
-  restart: { ...restartProof, resumed: true },
+  restart: restartProof,
   processCleanup: {
     afterBoot: bootProof.processCleanup === true,
     afterRestart: restartProof.processCleanup === true,
@@ -339,6 +472,12 @@ finish("PASS", {
   },
   leftover: uninstallLeftoverNames,
   ownerData: {
+    path: sentinelPath,
+    scope: target === "win32-x86_64"
+      ? "localappdata-penglai-0.5-excluding-update-cache"
+      : "task-created-user-data",
+    sentinelSha256,
+    sentinelUnchanged: true,
     sentinelPreservedAfterBoot: true,
     sentinelPreservedAfterRestart: true,
     sentinelPreservedAfterUninstall: true,

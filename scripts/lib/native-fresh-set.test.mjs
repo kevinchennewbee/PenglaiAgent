@@ -18,9 +18,28 @@ import {
 
 const sourceSha = "a".repeat(40);
 const installerSha256 = "b".repeat(64);
+const profileIdentity = { inventorySha256: "e".repeat(64), dshHomePresent: true };
+
+function hostFor(target) {
+  if (target === "win32-x86_64") return { platform: "win32", arch: "x64" };
+  if (target === "darwin-x86_64") return { platform: "darwin", arch: "x64" };
+  return { platform: "darwin", arch: "arm64" };
+}
+
+function gracefulShutdown(target) {
+  return {
+    graceful: true,
+    forced: false,
+    requestedClose: true,
+    method: target === "win32-x86_64" ? "windows-wm-close" : "posix-sigterm",
+    exitCode: 0,
+    signal: null,
+  };
+}
 
 function passingReceipt(target, extra = {}) {
   const method = target === "win32-x86_64" ? "nsis-uninstaller" : "dedicated-app-removal";
+  const windowsPath = "C:\\Users\\runner\\AppData\\Local\\Penglai\\app\\0.5";
   return {
     schema: FRESH_LIFECYCLE_SCHEMA,
     command: FRESH_LIFECYCLE_COMMAND,
@@ -31,8 +50,13 @@ function passingReceipt(target, extra = {}) {
     sourceSha,
     installer: `Penglai_${PRODUCT_VERSION}_${target}.bin`,
     installerSha256,
-    boot: { freshReadiness: true },
-    restart: { freshReadiness: true, resumed: true },
+    host: hostFor(target),
+    destination: target === "win32-x86_64" ? windowsPath : "/tmp/Penglai.app",
+    windowsInstall: target === "win32-x86_64"
+      ? { path: windowsPath, customDestination: false, payloadDeletedByHarness: false }
+      : undefined,
+    boot: { freshReadiness: true, shutdown: gracefulShutdown(target), profileIdentity },
+    restart: { freshReadiness: true, resumed: true, shutdown: gracefulShutdown(target), profileIdentity },
     processCleanup: { afterBoot: true, afterRestart: true, afterUninstall: true },
     uninstall: {
       method,
@@ -44,6 +68,9 @@ function passingReceipt(target, extra = {}) {
       sentinelPreservedAfterBoot: true,
       sentinelPreservedAfterRestart: true,
       sentinelPreservedAfterUninstall: true,
+      sentinelUnchanged: true,
+      sentinelSha256: "c".repeat(64),
+      scope: target === "win32-x86_64" ? "localappdata-penglai-0.5-excluding-update-cache" : "task-created-user-data",
     },
     olderInstalledUpgrade: { status: "OWNER_EXCLUDED", claimedPass: false },
     nativeUos: { status: "OWNER_POST_RELEASE", claimedPass: false },
@@ -141,6 +168,51 @@ test("fresh lifecycle aggregation negatives: missing target, SHA, hash, proofs, 
   assert.equal(worstFreshLifecycleVerdict(["wrong installer hash"]), "STALE");
   assert.equal(worstFreshLifecycleVerdict(["missing target"]), "INCOMPLETE");
   assert.equal(worstFreshLifecycleVerdict(["absent fresh boot/restart/uninstall proof"]), "INCOMPLETE");
+  assert.ok(
+    freshInstallUninstallEvidenceProblems(
+      passingReceipt("darwin-aarch64", {
+        boot: {
+          freshReadiness: true,
+          profileIdentity,
+          shutdown: { graceful: true, forced: false, requestedClose: true, method: "posix-sigterm", exitCode: null, signal: "SIGKILL" },
+        },
+      }),
+      expected,
+    ).includes("forced or abnormal shutdown"),
+  );
+  assert.ok(
+    freshInstallUninstallEvidenceProblems(
+      passingReceipt("darwin-aarch64", {
+        ownerData: {
+          sentinelPreservedAfterBoot: true,
+          sentinelPreservedAfterRestart: true,
+          sentinelPreservedAfterUninstall: true,
+          sentinelUnchanged: false,
+          sentinelSha256: "c".repeat(64),
+          scope: "task-created-user-data",
+        },
+      }),
+      expected,
+    ).includes("absent or changed owner-data proof"),
+  );
+  assert.ok(
+    freshInstallUninstallEvidenceProblems(
+      passingReceipt("darwin-aarch64", {
+        restart: { freshReadiness: true, resumed: true, shutdown: gracefulShutdown("darwin-aarch64"), profileIdentity: { inventorySha256: "f".repeat(64), dshHomePresent: true } },
+      }),
+      expected,
+    ).includes("absent persisted restart proof"),
+  );
+  assert.ok(
+    freshInstallUninstallEvidenceProblems(
+      passingReceipt("win32-x86_64", {
+        destination: "C:\\repo\\.tmp\\fresh-install-uninstall\\app",
+        windowsInstall: { path: "C:\\repo\\.tmp\\fresh-install-uninstall\\app", customDestination: true, payloadDeletedByHarness: false },
+      }),
+      { sourceSha, installerSha256, target: "win32-x86_64" },
+    ).includes("incompatible receipt shape"),
+  );
+  assert.equal(worstFreshLifecycleVerdict(["forced or abnormal shutdown"]), "FAIL");
 });
 
 test("fresh lifecycle set requires every Mac/Windows target and rejects a UOS native PASS", () => {

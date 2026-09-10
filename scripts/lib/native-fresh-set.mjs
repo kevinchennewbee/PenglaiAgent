@@ -1,7 +1,13 @@
 import { NATIVE_INSTALLED_TARGETS } from "./release-targets.mjs";
+import {
+  classifyApplicationShutdown,
+  hostFactsMatchTarget,
+  persistedRestartMatches,
+  windowsDestinationIsDefaultInstdir,
+} from "./native-lifecycle-proof.mjs";
 
 export const FRESH_LIFECYCLE_COMMAND = "verify:fresh-install-uninstall";
-export const FRESH_LIFECYCLE_SCHEMA = 1;
+export const FRESH_LIFECYCLE_SCHEMA = 2;
 export const FRESH_LIFECYCLE_SCOPE = "fresh-install-restart-default-uninstall";
 
 const HEX40 = /^[0-9a-f]{40}$/;
@@ -45,6 +51,7 @@ export function freshInstallUninstallEvidenceProblems(record, expected = {}) {
   }
   const bootOk = record.boot?.freshReadiness === true;
   const restartOk = record.restart?.freshReadiness === true && record.restart?.resumed === true;
+  const persistedOk = persistedRestartMatches(record.boot?.profileIdentity, record.restart?.profileIdentity);
   const uninstallOk =
     record.uninstall?.uninstallRemovedApp === true &&
     record.uninstall?.method === uninstallMethodForTarget(target || expectedTarget) &&
@@ -56,9 +63,37 @@ export function freshInstallUninstallEvidenceProblems(record, expected = {}) {
   const ownerDataOk =
     record.ownerData?.sentinelPreservedAfterBoot === true &&
     record.ownerData?.sentinelPreservedAfterRestart === true &&
-    record.ownerData?.sentinelPreservedAfterUninstall === true;
-  if (!bootOk || !restartOk || !uninstallOk || !cleanupOk || !ownerDataOk) {
+    record.ownerData?.sentinelPreservedAfterUninstall === true &&
+    record.ownerData?.sentinelUnchanged === true &&
+    HEX64.test(String(record.ownerData?.sentinelSha256 ?? ""));
+  if (!bootOk || !restartOk || !uninstallOk || !cleanupOk) {
     problems.push("absent fresh boot/restart/uninstall proof");
+  }
+  if (bootOk && restartOk && !persistedOk) problems.push("absent persisted restart proof");
+  if (!ownerDataOk) problems.push("absent or changed owner-data proof");
+  const bootShutdown = classifyApplicationShutdown(record.boot?.shutdown, target || expectedTarget);
+  const restartShutdown = classifyApplicationShutdown(record.restart?.shutdown, target || expectedTarget);
+  if (!bootShutdown.graceful || !restartShutdown.graceful) {
+    problems.push("forced or abnormal shutdown");
+  }
+  if (!hostFactsMatchTarget(record.host, target || expectedTarget)) problems.push("missing target");
+  if ((target || expectedTarget) === "win32-x86_64") {
+    const dest = record.windowsInstall?.path ?? record.destination;
+    if (!windowsDestinationIsDefaultInstdir(dest) || record.windowsInstall?.customDestination === true) {
+      problems.push("incompatible receipt shape");
+    }
+    if (record.windowsInstall?.payloadDeletedByHarness === true) {
+      problems.push("fabricated/deferred native PASS");
+    }
+    if (record.ownerData?.scope !== "localappdata-penglai-0.5-excluding-update-cache") {
+      problems.push("absent or changed owner-data proof");
+    }
+  }
+  if (
+    (record.boot?.shutdown?.graceful === true && (record.boot.shutdown.forced === true || record.boot.shutdown.signal === "SIGKILL")) ||
+    (record.restart?.shutdown?.graceful === true && (record.restart.shutdown.forced === true || record.restart.shutdown.signal === "SIGKILL"))
+  ) {
+    problems.push("fabricated/deferred native PASS");
   }
   const fabricated =
     record.deferred === true ||
@@ -81,7 +116,8 @@ export function freshInstallUninstallEvidenceMatches(record, expected = {}) {
 export function worstFreshLifecycleVerdict(problems) {
   if (
     problems.includes("fabricated/deferred native PASS") ||
-    problems.includes("incompatible receipt shape")
+    problems.includes("incompatible receipt shape") ||
+    problems.includes("forced or abnormal shutdown")
   ) {
     return "FAIL";
   }

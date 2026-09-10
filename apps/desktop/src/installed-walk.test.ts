@@ -387,22 +387,30 @@ test("installed restart requests the product lifecycle before signal fallback", 
   assert.equal(closed, true);
 
   const compat = readFileSync(join(root, "scripts/u3-first-party-plugins.mjs"), "utf8");
+  const fresh = readFileSync(join(root, "scripts/verify-fresh-install-uninstall.mjs"), "utf8");
   assert.match(compat, /requestBrowserClose\(cdpSession\)/);
   assert.match(compat, /stopChild\(launched\.child(?:,\s*[\d_]+)?\)/);
   assert.ok(
     compat.indexOf("requestBrowserClose(cdpSession)") < compat.indexOf("stopChild(launched.child"),
   );
+  assert.match(fresh, /requestNativeApplicationClose/);
+  assert.match(fresh, /waitForChildExitNoKill/);
+  assert.match(fresh, /forced process termination; that is not a graceful application shutdown/);
+  assert.ok(fresh.indexOf("requestNativeApplicationClose") < fresh.indexOf("forceStopChild(child)"));
 });
 
 test("Windows child shutdown kills the process tree so NSIS upgrade is not blocked", () => {
   const helper = readFileSync(join(root, "scripts/lib/installed-app.mjs"), "utf8");
   const upgrade = readFileSync(join(root, "scripts/verify-upgrade-uninstall.mjs"), "utf8");
   const fresh = readFileSync(join(root, "scripts/verify-fresh-install-uninstall.mjs"), "utf8");
+  const force = helper.indexOf("export async function forceStopChild");
   const stop = helper.indexOf("export async function stopChild");
-  const taskkill = helper.indexOf('spawnSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"]', stop);
-  const posixKill = helper.indexOf('child.kill("SIGKILL")', stop);
-  assert.ok(stop >= 0 && taskkill > stop, "stopChild must tree-kill Windows descendants");
+  const taskkill = helper.indexOf('spawnSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"]', force);
+  const posixKill = helper.indexOf('child.kill("SIGKILL")', force);
+  assert.ok(force >= 0 && taskkill > force, "forceStopChild must tree-kill Windows descendants");
   assert.ok(posixKill > taskkill, "POSIX SIGKILL remains the non-Windows fallback");
+  assert.ok(stop > force, "stopChild must reuse the forced tree-kill path");
+  assert.match(helper, /return forceStopChild\(child\)/);
   assert.match(upgrade, /leftoversByCommand|windows-process-scope/);
   assert.match(upgrade, /reapWindowsInstallTree/);
   assert.match(upgrade, /windows-uninstall-residue/);
@@ -414,6 +422,9 @@ test("Windows child shutdown kills the process tree so NSIS upgrade is not block
   assert.match(fresh, /timeout:\s*20 \* 60_000/);
   assert.match(fresh, /classifyUninstallResidue/);
   assert.doesNotMatch(fresh, /removeTreeNoFollow\(app\)/);
+  assert.match(fresh, /function installWindowsDefault/);
+  assert.match(fresh, /isolateUserData: false/);
+  assert.doesNotMatch(fresh.slice(fresh.indexOf("function installWindowsDefault"), fresh.indexOf("async function shutdownFresh")), /\/D=/);
   assert.match(helper, /export async function reapWindowsInstallTree/);
   assert.match(helper, /windows-process-scope/);
   assert.match(upgrade, /`_\?=\$\{app\}`/);

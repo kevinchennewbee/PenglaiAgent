@@ -85,7 +85,7 @@ jobs:
           pnpm build
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.6.0-native-evidence-set
+          name: penglai-0.6.1-native-evidence-set
           run-id: ${{ inputs.native_run_id }}
           github-token: ${{ github.token }}
           path: evidence/generated
@@ -96,7 +96,7 @@ jobs:
           PENGLAI_NATIVE_RUN_ID: ${{ inputs.native_run_id }}
           PENGLAI_RELEASE_ID: ${{ inputs.release_id }}
         run: node --import tsx scripts/verify-publication-input.mjs
-      - name: Read back all ten draft assets and verify signatures
+      - name: Read back all eleven draft assets and verify signatures
         id: draft
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -147,7 +147,7 @@ jobs:
           node --import tsx scripts/readback-release.mjs > evidence/generated/public-release-readback.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.6.0-public-readback
+          name: penglai-0.6.1-public-readback
           path: evidence/generated/public-release-readback.json
           if-no-files-found: error
           retention-days: 90
