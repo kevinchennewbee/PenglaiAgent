@@ -37,23 +37,23 @@ You
 ## A day with Penglai
 
 1. Install the matching Apple Silicon, Intel Mac, Windows x64, or UnionTech UOS 20 LoongArch package.
-2. Finish seven first-run steps until a real model reply arrives. Fresh setup lists official `deepseek-flash` (DeepSeek-V41-Flash) with text and image input. A model you already chose stays in official settings. Folder browse for Add workspace and a new conversation stays in the Penglai window; you can cancel, retry, or pick another folder. Back, retry, and restart-resume are supported. A failed API key is never recorded as success. The app data directory and the install directory cannot be Workspaces.
-3. Work in the DSH Workspace you selected. Office can inspect, create, preview, export, and save DOCX, XLSX, PPTX, and PDF after a confirmation bound to that action. That is not dropping a file in the composer, and it is not sending a picture to a vision model. Memory may keep safe facts for *this* Workspace only. A later Workspace does not see them. Saving a candidate, starting a new Workspace, and restarting the app keep that boundary.
-4. Optionally bind Weixin, Feishu, or another supported channel; optionally enable macOS iMessage after Full Disk Access and Messages automation; optionally install local speech models. Ordinary conversation must still work if those plugins are off, offline, or missing weights.
-5. When a signed desktop update appears, you choose to install it. Updates are never silent.
+2. Finish the seven-step guide until a real model reply arrives. Fresh setup lists official `deepseek-flash` (DeepSeek-V41-Flash). You can go back, retry, or resume after a restart.
+3. Work in the Workspace you chose. Attach files in chat so the assistant can read them with tools. Use Office to inspect, create, preview, or export documents. Project memory stays in this Workspace; personal memory is a separate choice you confirm.
+4. Bind Weixin, Feishu, or another channel only if you need it. On a Mac, iMessage is optional and off by default. Speech models download only after you ask. Ordinary chat still works without them.
+5. When a signed update appears, you choose whether to install it. Updates are never silent.
 
 ## What starts enabled
 
 | Product surface | Fresh install | What it does |
 | --- | --- | --- |
 | Penglai Office | On | Inspect, create, edit, preview, export, and save DOCX, XLSX, PPTX, and PDF |
-| Penglai Memory | On | Automatic current-Workspace memory, explicit personal memory, authorised sources, provenance, and a knowledge graph |
+| Penglai Memory | On | Project memory in the current Workspace, plus explicit personal memory you confirm, authorised sources, provenance, and a knowledge graph |
 | Mobile Messaging | Off | Eight connectors under one IM control plane, plus optional macOS iMessage (private text, default off). WhatsApp is not a product surface |
 | Speech Recognition | Off | Local SenseVoice transcription; enabling it adds the conversation microphone entry |
 | Voice Generation | Off | Local MOSS-TTS-Nano preview, desktop playback, and supported channel audio |
 | Companion | Off | Opt-in scheduled contact with quiet hours, daily limits, and a bound IM route |
 
-In Plugin Center the usual action is install and enable, or disable. Hashes, loader phases, permissions, rollback, and diagnostics stay available if you need them. The live signed catalog remains [`plugin-catalog-v1.000006`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000006): it lists no extra downloads and keeps the historic office-reader revocation. A reviewed DSH `0.1.5-rc.1`-compatible plugin can join later without shipping a new desktop version merely to change a list.
+In Plugin Center the usual action is install and enable, or disable. Hashes, loader phases, permissions, rollback, and diagnostics stay available if you need them. The live signed catalog remains [`plugin-catalog-v1.000006`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000006): it lists no extra downloads and keeps the historic office-reader revocation. A reviewed plugin compatible with DSH `0.1.5-rc.1` can join later without a new desktop release.
 
 <p align="center">
   <img src="website/shots/0.5.5/plugin-center.png" width="48%" alt="Penglai Plugin Center in official DSH settings">
@@ -61,11 +61,11 @@ In Plugin Center the usual action is install and enable, or disable. Hashes, loa
 </p>
 <p align="center"><sub>Installed 0.5.5 Plugin Center and Office, kept as UI references. UI state is never proof of installation or health. Not 0.6.1 screenshots.</sub></p>
 
-Office writes use host-issued `artifact:<uuid>` handles and wait for a confirmation bound to that action. Sending a picture in chat uses the official image store. A generic file in the composer is a same-session upload receipt; the model later sees handle text (name, size, harness-owned saved path), not a native Office document. Penglai does not claim that the composer attaches ordinary DOCX, XLSX, PPTX, or PDF. Structured Office inspect, preview, export, and saved bytes are the product path for those files. The official generic right sidebar is plain text for DOCX and may call the file non-text.
+You can attach files in the conversation. The assistant reads them with tools. Whether a picture is understood as an image depends on the model you selected. Office inspects, creates, previews, and exports DOCX, XLSX, PPTX, and PDF; writes and exports wait for a confirmation bound to that action. The official generic sidebar is a plain-text preview, not a formatted Office viewer.
 
-Memory recall never searches another Workspace. Memory uses your selected model provider to decide which candidate facts to keep. Storage and recall stay local. Memory is required and default-on, including on UOS, with the Mnemon `0.2.8` engine packed. Large SenseVoice weights download only after an explicit action. MOSS-TTS is not available and cannot be enabled on LoongArch.
+Project memory stays in the current Workspace. Personal memory is a separate choice you confirm. Memory uses your selected model provider to decide which project facts to keep. Storage and recall stay on this computer. Memory starts on, with the Mnemon `0.2.8` engine packed.
 
-WeChat and Feishu remain the native media channels. Admitted non-image files enter the bound official conversation as official file blocks, separate from Office export and from chat image vision. If the bound conversation or agent preset is missing, messaging keeps a durable error with `/projects` and `/new`, not a one-line unknown failure. Optional macOS iMessage is private text, default off, and Darwin-only. Enable it only after granting Full Disk Access and Messages automation, then bind the exact peer. It does not read images, files, or group chats. Native iMessage live use is not claimed. The channel is unsupported on Windows and UOS. WhatsApp is not displayed, supported, or bundled.
+WeChat and Feishu can send files into the bound conversation. If that conversation is missing, messaging keeps a durable error with `/projects` and `/new`. Optional macOS iMessage is private text, default off, and Mac-only. Grant Full Disk Access and Messages automation before you enable it, then bind the exact peer. It does not read images, files, or group chats. Native live use is not claimed (`LIVE_NOT_RUN`). Unsupported on Windows and UOS. WhatsApp is not bundled.
 
 ## Download
 
@@ -110,13 +110,15 @@ Upgrade with the same-platform installer as a manual overlay. Default uninstall 
 
 - There is no Penglai account, Penglai-operated telemetry backend, or cloud memory sync. Official DSH bundles a dormant DeepSeek OTLP endpoint; Penglai hard-disables it. Model calls still send the context required for a task to the provider you selected.
 - Credentials are stored in app-private YAML through official DSH. That is not Keychain or hardware isolation.
+- Folder browse for Add workspace and a new conversation stays in the Penglai window. You can cancel or retry. The app data directory and the install directory cannot be Workspaces. A failed API key is never recorded as success.
+- Chat attachments are read with tools. Picture input follows the selected model's vision capability. Office is the structured inspect, create, preview, and export path. The generic sidebar is a plain-text preview for DOCX, not a formatted Office viewer.
+- Project memory does not search another Workspace. Personal memory is a separate choice you confirm.
 - macOS is ad-hoc signed and **not notarized**. Windows has **no Authenticode**. Do not disable system security to install.
 - Plugins share the local DSH process. Install only reviewed catalog entries and read their permissions.
-- UnionTech UOS 20 LoongArch is the fourth packaged target. Native install, startup, and function on a physical UOS host remain `OWNER_POST_RELEASE`. The 0.6.0 UOS record is historical for that release only; it is not a 0.6.1 native PASS.
-- UOS Electron 31.7.7 / Chromium 126 is unmaintained. UOS Node is vendor `22.16.0`, not the Mac/Windows `22.23.2`. That is not a Mac/Windows security equivalent.
-- Memory stays required and on for UOS, with the packed Mnemon engine. MOSS-TTS is not available on LoongArch and cannot be enabled there.
-- Optional macOS iMessage is default off. Native iMessage live evidence is not claimed (`LIVE_NOT_RUN`). Windows and UOS never call macOS Messages helpers.
-- Source tests, packaged tests, native installed Mac/Windows tests, and live external-account tests are reported separately. This page does not claim a four-target native GUI PASS, live provider replies on every target, or notarization.
+- UnionTech UOS 20 LoongArch is the fourth packaged target. Native install, startup, and function on a physical UOS host remain `OWNER_POST_RELEASE`. The 0.6.0 UOS record is historical for that release only.
+- UOS Electron 31.7.7 / Chromium 126 is unmaintained. UOS Node is vendor `22.16.0`, not the Mac/Windows `22.23.2`. Memory stays on for UOS, with the packed Mnemon engine. MOSS-TTS cannot be enabled on LoongArch.
+- Optional macOS iMessage is default off. Native live use is not claimed (`LIVE_NOT_RUN`). Windows and UOS never call macOS Messages helpers.
+- This page does not claim a four-target native GUI PASS or live provider replies on every target.
 
 ## Further reading
 
@@ -175,9 +177,9 @@ DSH 始终是唯一的 Agent 核心。Agent loop、模型、工具、审批、Wo
 ## 怎么用
 
 1. 下载对应平台的安装包：Apple 芯片、Intel Mac、Windows x64 或统信 UOS 20 龙芯，不要混用。
-2. 走完七步引导，直到模型真正回复。全新安装会列出官方 `deepseek-flash`（DeepSeek-V41-Flash），支持文本和图片输入。你已经明确选过的模型留在官方设置里。添加工作区和发起新会话时，选文件夹的窗口留在蓬莱里，可以取消、重试或换一个目录。可以返回、重试，关掉窗口之后也能接着做。密钥失败不会被记成成功。应用数据目录和安装目录不能当作 Workspace。
-3. 在引导里选好的 Workspace 里工作。办公可以检查、创建、预览、导出和保存 DOCX、XLSX、PPTX、PDF，写入前要有与动作绑定的确认。这不是把文件丢进输入框，也不是把图片发给视觉模型。记忆只整理 *当前* Workspace 的安全事实。换一个 Workspace 看不见。保存候选、新建工作区、重启应用，这条边界都还在。
-4. 需要时再绑定微信、飞书或其他渠道；macOS 上可选的 iMessage 要先授予完全磁盘访问和 Messages 自动化；本地语音模型也要你主动安装。这些插件关闭、离线或缺少模型时，普通会话仍应可用。
+2. 走完七步引导，等到模型真正回复。全新安装会列出官方 `deepseek-flash`（DeepSeek-V41-Flash）。可以返回、重试，关掉窗口之后也能接着做。
+3. 在选好的 Workspace 里工作。聊天里可以附上文件，助手用工具来读。要用办公来检查、创建、预览或导出文档。项目记忆只留在当前 Workspace；个人记忆是另一次你确认的选择。
+4. 需要时再绑定微信、飞书或其他渠道。Mac 上的 iMessage 可选、默认关闭。语音模型要你主动下载。这些关掉时，普通会话仍可用。
 5. 出现签名更新时由你确认安装，不会静默升级。
 
 ## 默认开着什么
@@ -185,13 +187,13 @@ DSH 始终是唯一的 Agent 核心。Agent loop、模型、工具、审批、Wo
 | 产品功能 | 全新安装 | 能做什么 |
 | --- | --- | --- |
 | 蓬莱办公 | 默认启用 | 检查、创建、编辑、预览、导出和保存 DOCX、XLSX、PPTX、PDF |
-| 蓬莱记忆 | 默认启用 | 当前 Workspace 自动记忆、明确个人记忆、授权资料、来源追溯和知识图谱 |
+| 蓬莱记忆 | 默认启用 | 当前 Workspace 的项目记忆，加上你确认的个人记忆、授权资料、来源追溯和知识图谱 |
 | 消息连接 | 默认关闭 | 八个平台共用一个 IM 控制平面，另加可选的 macOS iMessage（仅私聊文本，默认关闭）；WhatsApp 不是产品能力 |
 | 蓬莱语音识别 | 默认关闭 | 本地 SenseVoice 转写；启用后为电脑会话提供麦克风入口 |
 | 蓬莱语音生成 | 默认关闭 | 本地 MOSS-TTS-Nano 试听、电脑播放和支持渠道的语音输出 |
 | 蓬莱主动陪伴 | 默认关闭 | 安静时段、每日上限、指定 IM 路由下的主动联系 |
 
-插件中心里，日常操作就是安装并启用，或者停用。哈希、加载阶段、权限、回滚和诊断都还在，需要时可以看。当前线上签名目录仍是 [`plugin-catalog-v1.000006`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000006)：没有可下载的额外插件，并保留对旧 office-reader 的撤销。以后若有通过审核、兼容 DSH `0.1.5-rc.1` 的插件，不必只为改一张列表重发桌面版本。
+插件中心里，日常操作就是安装并启用，或者停用。哈希、加载阶段、权限、回滚和诊断都还在，需要时可以看。当前线上签名目录仍是 [`plugin-catalog-v1.000006`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000006)：没有可下载的额外插件，并保留对旧 office-reader 的撤销。以后若有通过审核、兼容 DSH `0.1.5-rc.1` 的插件，不必重发桌面版本。
 
 <p align="center">
   <img src="website/shots/0.5.5/plugin-center.png" width="48%" alt="官方 DSH 设置里的蓬莱插件中心">
@@ -199,11 +201,11 @@ DSH 始终是唯一的 Agent 核心。Agent loop、模型、工具、审批、Wo
 </p>
 <p align="center"><sub>0.5.5 安装版插件中心与办公界面，作为参考。界面状态不等于已安装或健康。不是 0.6.1 截图。</sub></p>
 
-办公写入使用宿主发出的 `artifact:<uuid>` 句柄，并等待与动作绑定的确认。聊天里发图片走官方图片存储。输入框里的普通文件是同一次会话的上传回执；模型稍后看到的是句柄文字（文件名、大小、Harness 保存路径），不是原生办公文档。蓬莱不宣称输入框能直接附上普通 DOCX、XLSX、PPTX 或 PDF。这些文件的产品路径是办公的检查、预览、导出和保存。官方通用侧栏对 DOCX 只提供纯文本预览，也可能把它报成非文本文件。
+聊天里可以附上文件，助手用工具来读。能不能看图取决于你选的模型。办公负责检查、创建、预览和导出 DOCX、XLSX、PPTX、PDF；写入和导出要针对这一次动作确认。官方通用侧栏是纯文本预览，不是完整排版的办公视图。
 
-记忆召回不会搜索另一个 Workspace。记忆整理会调用你选择的模型供应商，判断哪些候选信息值得保留；存储和检索在本机完成。记忆必装默认开启，UOS 上也带入 Mnemon `0.2.8` 引擎。SenseVoice 大模型要你主动下载。MOSS-TTS 在龙芯上不可用，也不能启用。
+项目记忆只留在当前 Workspace。个人记忆是另一次你确认的选择。整理候选会调用你选的模型供应商；存储和召回在本机。记忆默认开启，并带入 Mnemon `0.2.8` 引擎。
 
-微信和飞书仍是原生媒体通道。允许进入的非图片文件会成为绑定官方会话里的官方文件块，这和办公导出、聊天图片视觉不是同一条路。如果绑定的会话或 Agent Preset 不可用，消息连接会留下可处理的错误（`/项目`、`/新建`），而不是一句不明原因的失败。可选的 macOS iMessage 仅私聊文本、默认关闭、只在 Darwin 可用。请先授予完全磁盘访问和 Messages 自动化，再启用并把精确对端绑定好。它不读图片、文件或群聊。真机 iMessage 未取证。Windows 与 UOS 不可用，也不会调用 macOS Messages 助手。不提供 WhatsApp。
+微信和飞书可以把文件发进绑定的会话。如果那个会话不在了，消息连接会留下可处理的错误（`/项目`、`/新建`）。可选的 macOS iMessage 仅私聊文本、默认关闭、只在 Mac 上可用。请先授予完全磁盘访问和 Messages 自动化，再启用并绑定精确对端。它不读图片、文件或群聊。真机 live 未取证（`LIVE_NOT_RUN`）。Windows 与 UOS 不可用。不提供 WhatsApp。
 
 ## 下载
 
@@ -242,13 +244,15 @@ UOS 安装包已随另外三个安装包一起发布。龙芯真机安装/启动
 
 - 没有蓬莱账号、蓬莱运营的遥测后端或云端记忆同步。官方 DSH 自带一个休眠的 DeepSeek OTLP 地址，蓬莱会硬性禁用。模型调用仍会把当前任务需要的内容发给你选择的供应商。
 - 密钥写在官方 DSH 的应用私有 YAML 里。这不是钥匙串，也不是硬件隔离。
+- 添加工作区和发起新会话时，选文件夹的窗口留在蓬莱里，可以取消或重试。应用数据目录和安装目录不能当作 Workspace。密钥失败不会被记成成功。
+- 聊天附件由工具读取。能不能看图取决于你选的模型。办公负责结构化的检查、创建、预览和导出。通用侧栏对 DOCX 只提供纯文本预览，不是完整排版视图。
+- 项目记忆不会搜索另一个 Workspace。个人记忆是另一次你确认的选择。
 - macOS 是 ad-hoc 签名、**未公证**；Windows **没有 Authenticode**。请不要为了安装而关闭系统安全功能。
 - 插件和 DSH 在同一本地进程中运行，只应安装经过审核的目录条目并阅读权限。
-- 统信 UOS 20 龙芯是第四个打包目标。真机安装/启动/功能仍是 `OWNER_POST_RELEASE`。0.6.0 的 UOS 记录只属于那一次发布，不是 0.6.1 的原生 PASS。
-- UOS 的 Electron 31.7.7 / Chromium 126 已经停止维护。UOS 的 Node 是厂商 `22.16.0`，不是 Mac/Windows 的 `22.23.2`。这不是 Mac/Windows 的安全等价。
-- UOS 上记忆必开，并带入 Mnemon 引擎。MOSS-TTS 在龙芯上不可用，也不能启用。
-- 可选的 macOS iMessage 默认关闭。真机 iMessage 证据为 `LIVE_NOT_RUN`。Windows 与 UOS 不会调用 macOS Messages 助手。
-- 源码测试、打包测试、Mac/Windows 原生安装测试、真实外部账号测试分别记录。本页不宣称四端原生界面全部 PASS，也不宣称每个目标都有真实模型回复或系统公证。
+- 统信 UOS 20 龙芯是第四个打包目标。真机安装/启动/功能仍是 `OWNER_POST_RELEASE`。0.6.0 的 UOS 记录只属于那一次发布。
+- UOS 的 Electron 31.7.7 / Chromium 126 已经停止维护。UOS 的 Node 是厂商 `22.16.0`，不是 Mac/Windows 的 `22.23.2`。UOS 上记忆默认开启，并带入 Mnemon 引擎。MOSS-TTS 在龙芯上不能启用。
+- 可选的 macOS iMessage 默认关闭。真机 live 未取证（`LIVE_NOT_RUN`）。Windows 与 UOS 不会调用 macOS Messages 助手。
+- 本页不宣称四端原生界面全部 PASS，也不宣称每个目标都有真实模型回复。
 
 ## 继续阅读
 

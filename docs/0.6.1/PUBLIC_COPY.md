@@ -24,16 +24,18 @@ Mobile Messaging, speech recognition, voice generation, and Companion stay
 optional and default off.
 
 Fresh install uses the official DeepSeek catalog, including `deepseek-flash`
-(DeepSeek-V41-Flash) with text and image input. Existing explicit model
-choices stay in official settings. Office inspect, preview, export, and save
-are distinct from composer file upload and from model image vision. Memory
-keeps confirmed facts in the current Workspace only. WeChat and Feishu remain
-the native media channels; admitted files become official conversation file
-blocks. Missing session or agent-preset errors stay durable with `/projects`
-and `/new`. An optional macOS iMessage private-text channel is default off,
-requires manual Full Disk Access and Messages automation, and is unsupported
-on Windows and UOS. Native iMessage live evidence is not claimed
-(`LIVE_NOT_RUN`). WhatsApp is not a Penglai channel.
+(DeepSeek-V41-Flash). Existing explicit model choices stay in official
+settings. Users can attach files in chat; the assistant reads them with tools.
+Picture input follows the selected model's vision capability. Office inspects,
+creates, previews, and exports with confirmation on writes. The generic
+sidebar is a plain-text preview, not a formatted Office viewer. Project memory
+stays in the current Workspace. Personal memory is an explicit separate
+choice. WeChat and Feishu can send files into the bound conversation. Missing
+session errors stay durable with `/projects` and `/new`. An optional macOS
+iMessage private-text channel is default off, requires Full Disk Access and
+Messages automation, and is unsupported on Windows and UOS. Native iMessage
+live evidence is not claimed (`LIVE_NOT_RUN`). WhatsApp is not a Penglai
+channel.
 
 Release URL: `https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1`.
 Four exact installers use the stable `v0.6.1` URL shape:
@@ -62,14 +64,14 @@ commit `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`，279 包），面向 Apple �
 Intel Mac、Windows x64 与统信 UOS 20 龙芯。DSH 仍是唯一 Agent 核心。办公和记忆
 默认开启。手机消息、语音识别、语音生成、主动陪伴仍为可选且默认关闭。
 
-全新安装使用官方 DeepSeek 目录，含 `deepseek-flash`（DeepSeek-V41-Flash）的
-文本与图片输入。用户已经明确选过的模型保留在官方设置里。办公的检查、预览、
-导出和保存，不同于输入框上传文件，也不同于模型看图。记忆只留在当前
-Workspace。微信和飞书仍是原生媒体通道，允许进入的文件成为官方会话文件块。
-会话或 Agent Preset 不可用时，错误可处理（`/项目`、`/新建`）。可选的 macOS
-iMessage 私聊文本默认关闭，需要用户手动授予完全磁盘访问和 Messages 自动化，
-在 Windows 与 UOS 上不可用。不把源码夹具写成真机 iMessage 证据。不提供
-WhatsApp。
+全新安装使用官方 DeepSeek 目录，含 `deepseek-flash`（DeepSeek-V41-Flash）。
+用户已经明确选过的模型保留在官方设置里。聊天里可以附上文件，助手用工具来读。
+能不能看图取决于你选的模型。办公负责检查、创建、预览和导出，写入要确认。
+通用侧栏是纯文本预览，不是完整排版的办公视图。项目记忆只留在当前
+Workspace；个人记忆是另一次明确选择。微信和飞书可以把文件发进绑定的会话。
+会话不可用时，错误可处理（`/项目`、`/新建`）。可选的 macOS iMessage 私聊文本
+默认关闭，需要完全磁盘访问和 Messages 自动化，在 Windows 与 UOS 上不可用。
+真机 iMessage 未取证。不提供 WhatsApp。
 
 四个精确安装包使用稳定的 `v0.6.1` 下载地址。Linux amd64 与 Windows ARM 不是
 目标。Mac/Windows 内嵌 Node `22.23.2` 与 Electron `43.6.0`。UOS 20 旧世界内嵌
