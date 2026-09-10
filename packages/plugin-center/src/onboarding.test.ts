@@ -19,6 +19,7 @@ import {
   loadOnboarding,
   persistOnboarding,
   createOnboardingHost,
+  readAppearanceFromOfficialSettings,
   resumeOnboardingCurrent,
   supportsOfficialOpenAiCompatible,
   onboardingApiTestCwd,
@@ -328,6 +329,8 @@ test("wizard resume follows persisted current and surfaces retryable lastError",
   assert.match(wizard, /status\.lastError/);
   assert.match(wizard, /screenForLedger\(state\.current\)/);
   assert.match(wizard, /rewindOnboarding|rpc\("rewind/);
+  assert.match(wizard, /applyPersistedAppearance\(state, status\)/);
+  assert.match(wizard, /refreshStatus\(\{ applyAppearance: true \}\)/);
 });
 
 test("R50-ONB-003 wizard lists official providers and models through penglaiOnboarding", () => {
@@ -593,6 +596,61 @@ test("R50-ONB-002 completeAppearance persists locale/theme through official sett
     ["locale:preference=zh", "ui-theme:preference=dark"],
   );
   assert.equal(impl.status().current, "model-provider-v1");
+});
+
+test("readAppearanceFromOfficialSettings accepts only official locale/theme preferences", () => {
+  assert.deepEqual(
+    readAppearanceFromOfficialSettings([
+      { ns: "locale", value: { preference: "en" } },
+      { ns: "ui-theme", value: { preference: "dark" } },
+    ]),
+    { locale: "en", theme: "dark" },
+  );
+  assert.deepEqual(readAppearanceFromOfficialSettings([]), {});
+  assert.deepEqual(
+    readAppearanceFromOfficialSettings([
+      { ns: "locale", value: { preference: "fr" } },
+      { ns: "ui-theme", value: { preference: "neon" } },
+    ]),
+    {},
+  );
+});
+
+test("completeAppearance English locale survives a new onboarding status read", async () => {
+  const { createPenglaiOnboardingRemoteImpl } = await import("./onboarding-remote.js");
+  const rows: Array<{ ns: string; value: Record<string, unknown> }> = [];
+  const settings = {
+    mutate: async (ns: string, list: Array<{ op: string; path: string[]; value?: unknown }>) => {
+      let row = rows.find((item) => item.ns === ns);
+      if (!row) {
+        row = { ns, value: {} };
+        rows.push(row);
+      }
+      for (const item of list) {
+        if (item.op === "set" && item.path[0]) row.value[item.path[0]] = item.value;
+      }
+    },
+    describe: () => rows.map((row) => ({ ns: row.ns, value: { ...row.value } })),
+  };
+  const dir = mkdtempSync(join(tmpdir(), "penglai-onb-app-"));
+  const opts = {
+    dir,
+    officialCatalog: () => ({ providers: [{ id: "deepseek", protocol: "deepseek" }] }),
+    officialWelcomeAck: () => true,
+    agents: { settings },
+  };
+  const impl = createPenglaiOnboardingRemoteImpl(opts);
+  await impl.completeAppearance({ locale: "en", theme: "dark" });
+  impl.advance("privacy-v1");
+  assert.equal(impl.status().current, "model-provider-v1");
+  assert.equal(impl.status().locale, "en");
+  assert.equal(impl.status().theme, "dark");
+  const restarted = createPenglaiOnboardingRemoteImpl(opts);
+  assert.deepEqual(restarted.status().completed, ["welcome-v1", "appearance-locale-v1", "privacy-v1"]);
+  assert.equal(restarted.status().current, "model-provider-v1");
+  assert.equal(restarted.status().locale, "en");
+  assert.equal(restarted.status().theme, "dark");
+  assert.equal(restarted.status().schema, 2);
 });
 
 function officialFirehoseServices(opts: {

@@ -203,3 +203,31 @@ test("wizard API-test classifier distinguishes auth, rate, model, timeout, netwo
     /state\.workspacePath = String\(picked\);\s*state\.workspaceId = "";\s*state\.error = "";/,
   );
 });
+
+test("wizard hydrates English locale and theme from official status on a new initialization", () => {
+  const match = js.match(/function applyPersistedAppearance\(target, status\) \{[\s\S]*?\n  \}/);
+  assert.ok(match, "wizard.js must apply persisted appearance on initialization");
+  const apply = Function(`${match[0]}; return applyPersistedAppearance;`)() as (
+    target: { locale: string; theme: string },
+    status: unknown,
+  ) => void;
+  const firstOrigin = { locale: "zh", theme: "system" };
+  apply(firstOrigin, { locale: "en", theme: "dark", current: "model-provider-v1" });
+  assert.equal(firstOrigin.locale, "en");
+  assert.equal(firstOrigin.theme, "dark");
+  const restartedOrigin = { locale: "zh", theme: "system" };
+  apply(restartedOrigin, { locale: "en", theme: "dark", current: "model-provider-v1" });
+  assert.equal(restartedOrigin.locale, "en");
+  assert.equal(restartedOrigin.theme, "dark");
+  const ignored = { locale: "zh", theme: "system" };
+  apply(ignored, { locale: "fr", theme: "neon" });
+  assert.equal(ignored.locale, "zh");
+  assert.equal(ignored.theme, "system");
+  assert.match(js, /refreshStatus\(\{ applyAppearance: true \}\)/);
+  assert.match(js, /if \(opts && opts\.applyAppearance\) applyPersistedAppearance\(state, status\)/);
+  assert.match(js, /rpc\("completeAppearance", \{ locale: state\.locale, theme: state\.theme \}\)/);
+  assert.match(js, /fetch\("\/api\/penglaiOnboarding\/" \+ method/);
+  assert.doesNotMatch(js, /localStorage|sessionStorage/);
+  assert.doesNotMatch(js, /location\.port|location\.host|document\.origin/);
+  assert.match(js, /locale: "zh"/);
+});

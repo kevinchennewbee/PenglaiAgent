@@ -158,6 +158,15 @@
     return table[key] || COPY.en[key] || key;
   }
 
+  function applyPersistedAppearance(target, status) {
+    if (status && (status.locale === "en" || status.locale === "zh")) {
+      target.locale = status.locale;
+    }
+    if (status && (status.theme === "light" || status.theme === "dark" || status.theme === "system")) {
+      target.theme = status.theme;
+    }
+  }
+
   function screenForLedger(current) {
     if (current === "welcome-v1" || current === "appearance-locale-v1") {
       return LEDGER_SCREENS.find((s) => s.id === "language");
@@ -353,8 +362,9 @@
     if (btn) btn.disabled = !canContinue();
   }
 
-  async function refreshStatus() {
+  async function refreshStatus(opts) {
     const status = await rpc("status");
+    if (opts && opts.applyAppearance) applyPersistedAppearance(state, status);
     state.current = status.current;
     state.completed = Array.isArray(status.completed) ? status.completed : [];
     if (status.lastError && typeof status.lastError.code === "string") {
@@ -880,7 +890,7 @@
     applyChrome();
     render();
     try {
-      await refreshStatus();
+      await refreshStatus({ applyAppearance: true });
       if (state.selection?.provider) {
         try {
           await loadModels(state.selection.provider);
