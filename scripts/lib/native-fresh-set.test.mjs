@@ -9,6 +9,8 @@ import { NATIVE_INSTALLED_TARGETS } from "./release-targets.mjs";
 import {
   CURRENT_DSH_HOME_RELATIVE,
   CURRENT_DSH_HOME_VERSION,
+  PERSISTED_PROFILE_FILES,
+  persistedProfileDigest,
 } from "./native-lifecycle-proof.mjs";
 import {
   evaluateFreshLifecycleSet,
@@ -24,6 +26,7 @@ const sourceSha = "a".repeat(40);
 const installerSha256 = "b".repeat(64);
 
 function generationIdentity(launch, extra = {}) {
+  const files = PERSISTED_PROFILE_FILES.map(({ relative }) => ({ relative, present: true, bytes: 1, sha256: "c".repeat(64) }));
   return {
     generation: {
       ok: true,
@@ -34,6 +37,7 @@ function generationIdentity(launch, extra = {}) {
       reason: "",
     },
     stable: { digest: "e".repeat(64), inventoryOk: true },
+    persisted: { ok: true, digest: persistedProfileDigest(files), files },
     launch,
     onboardingCompleted: false,
     ok: true,
@@ -246,6 +250,19 @@ test("fresh lifecycle aggregation negatives: missing target, SHA, hash, proofs, 
   assert.equal(worstFreshLifecycleVerdict(["forced process cleanup"]), "FAIL");
   assert.equal(worstFreshLifecycleVerdict(["stale process-bound readiness"]), "FAIL");
   assert.equal(worstFreshLifecycleVerdict(["absent current generation identity"]), "FAIL");
+  const missingProfile = structuredClone(passingReceipt("darwin-aarch64"));
+  delete missingProfile.restart.profileIdentity.persisted;
+  assert.equal(freshInstallUninstallEvidenceMatches(missingProfile, expected), false);
+  assert.ok(freshInstallUninstallEvidenceProblems(missingProfile, expected).includes("absent persisted profile proof"));
+  const unhealthyInventory = structuredClone(passingReceipt("darwin-aarch64"));
+  unhealthyInventory.restart.profileIdentity.stable.inventoryOk = false;
+  assert.equal(freshInstallUninstallEvidenceMatches(unhealthyInventory, expected), false);
+  assert.ok(freshInstallUninstallEvidenceProblems(unhealthyInventory, expected).includes("required plugin inventory failed"));
+  const inventedProfileHash = structuredClone(passingReceipt("darwin-aarch64"));
+  inventedProfileHash.restart.profileIdentity.persisted.digest = "a".repeat(64);
+  assert.ok(freshInstallUninstallEvidenceProblems(inventedProfileHash, expected).includes("absent persisted profile proof"));
+  assert.equal(worstFreshLifecycleVerdict(["required plugin inventory failed"]), "FAIL");
+  assert.equal(worstFreshLifecycleVerdict(["changed persisted profile state"]), "FAIL");
   assert.ok(
     freshInstallUninstallEvidenceProblems(
       passingReceipt("win32-x86_64", {

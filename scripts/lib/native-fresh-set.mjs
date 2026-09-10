@@ -7,7 +7,7 @@ import {
 } from "./native-lifecycle-proof.mjs";
 
 export const FRESH_LIFECYCLE_COMMAND = "verify:fresh-install-uninstall";
-export const FRESH_LIFECYCLE_SCHEMA = 3;
+export const FRESH_LIFECYCLE_SCHEMA = 4;
 export const FRESH_LIFECYCLE_SCOPE = "fresh-install-restart-default-uninstall";
 
 const HEX40 = /^[0-9a-f]{40}$/;
@@ -129,6 +129,9 @@ export function worstFreshLifecycleVerdict(problems) {
     problems.includes("forced process cleanup") ||
     problems.includes("stale process-bound readiness") ||
     problems.includes("changed stable generation state") ||
+    problems.includes("absent persisted profile proof") ||
+    problems.includes("changed persisted profile state") ||
+    problems.includes("required plugin inventory failed") ||
     problems.includes("absent current generation identity")
   ) {
     return "FAIL";

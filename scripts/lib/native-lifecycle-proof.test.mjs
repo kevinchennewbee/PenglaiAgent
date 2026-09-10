@@ -232,7 +232,14 @@ function writeCurrentHome(root, { version = CURRENT_DSH_HOME_VERSION, relative =
       targetDigest: "a".repeat(64),
     }),
   );
-  if (!skipHome) mkdirSync(join(root, ...relative.split("/")), { recursive: true });
+  if (!skipHome) {
+    const home = join(root, ...relative.split("/"));
+    const profile = join(home, "profiles", "web");
+    mkdirSync(profile, { recursive: true });
+    writeFileSync(join(home, ".penglai-dsh-home.json"), JSON.stringify({ schema: 1, kind: "fresh", state: "active", dshVersion: version }));
+    writeFileSync(join(profile, "package.json"), JSON.stringify({ private: true, dependencies: {} }));
+    writeFileSync(join(profile, "cordis.yml"), "plugins: {}\n");
+  }
 }
 
 test("current-generation restart accepts writer nonce/PID change and rejects stale or absent homes", () => {
@@ -246,11 +253,13 @@ test("current-generation restart accepts writer nonce/PID change and rejects sta
     assert.equal(previous.generation.homeRelative, CURRENT_DSH_HOME_RELATIVE);
     assert.equal(previous.onboardingCompleted, false);
     writeSnap(root, { nonce: "restart", pid: 22 });
-    writeFileSync(join(root, ".credentials.yaml"), "DEEPSEEK_API_KEY: not-hashed\n");
+    writeFileSync(join(root, ".credentials.yaml"), "fixture: root vault bytes are excluded\n");
+    writeFileSync(join(root, CURRENT_DSH_HOME_RELATIVE, ".credentials.yaml"), "fixture: current vault bytes are excluded\n");
     const current = currentGenerationProfileIdentity(root);
     assert.equal(current.ok, true);
     assert.deepEqual(profileRestartProblems(previous, current), []);
     assert.equal(current.stable.digest, previous.stable.digest);
+    assert.equal(current.persisted.digest, previous.persisted.digest);
 
     writeSnap(root, { nonce: "boot", pid: 11 });
     const stale = currentGenerationProfileIdentity(root);
@@ -282,6 +291,54 @@ test("current-generation restart accepts writer nonce/PID change and rejects sta
     writeCurrentHome(missingHome, { skipHome: true });
     assert.equal(readCurrentGenerationIdentity(missingHome).ok, false);
     rmSync(missingHome, { recursive: true, force: true });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("restart requires persisted profile files and successful inventory, not just a current Home directory", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-persisted-profile-"));
+  try {
+    writeCurrentHome(root);
+    writeSnap(root, { nonce: "first", pid: 11 });
+    const before = currentGenerationProfileIdentity(root);
+    assert.equal(before.ok, true);
+
+    const inventory = join(root, "plugins", "inventory-snapshot.json");
+    const failed = JSON.parse(readFileSync(inventory, "utf8"));
+    writeFileSync(inventory, JSON.stringify({ ...failed, ok: false, launchNonce: "second", dshPid: 22 }));
+    const unhealthy = currentGenerationProfileIdentity(root);
+    assert.equal(unhealthy.ok, false);
+    assert.ok(profileRestartProblems(before, unhealthy).includes("required plugin inventory failed"));
+
+    writeSnap(root, { nonce: "second", pid: 22 });
+    const profile = join(root, CURRENT_DSH_HOME_RELATIVE, "profiles", "web", "cordis.yml");
+    rmSync(profile);
+    const absent = currentGenerationProfileIdentity(root);
+    assert.equal(absent.ok, false);
+    assert.ok(profileRestartProblems(before, absent).includes("absent persisted profile proof"));
+    writeFileSync(profile, "plugins: {}\n");
+
+    const activationPath = join(root, "dsh-home-active.json");
+    const activation = JSON.parse(readFileSync(activationPath, "utf8"));
+    writeFileSync(activationPath, JSON.stringify({ ...activation, activatedAt: "2026-09-10T01:00:00Z" }));
+    const recreated = currentGenerationProfileIdentity(root);
+    assert.equal(recreated.ok, true);
+    assert.equal(recreated.stable.digest, before.stable.digest);
+    assert.ok(profileRestartProblems(before, recreated).includes("changed persisted profile state"));
+
+    writeFileSync(activationPath, JSON.stringify({ ...activation, activatedAt: "invalid" }));
+    assert.equal(currentGenerationProfileIdentity(root).ok, false);
+    writeFileSync(activationPath, JSON.stringify(activation));
+
+    const settings = join(root, CURRENT_DSH_HOME_RELATIVE, "settings.yaml");
+    writeFileSync(settings, "locale: en\n");
+    const configured = currentGenerationProfileIdentity(root);
+    writeFileSync(settings, "locale: zh\n");
+    writeSnap(root, { nonce: "third", pid: 33 });
+    const changed = currentGenerationProfileIdentity(root);
+    assert.equal(changed.ok, true);
+    assert.ok(profileRestartProblems(configured, changed).includes("changed persisted profile state"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

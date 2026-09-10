@@ -23,6 +23,11 @@ A passing Mac/Windows receipt must bind:
   current-generation identity (`dsh-home-active.json` plus
   `dsh-homes/dsh-v0.1.5-rc.1`) and exact sentinel bytes/digest. Inventory
   `launchNonce`/`dshPid` must change; they are not the stable identity.
+  Schema 4 also binds the activation manifest, Home manifest, web profile
+  package/configuration, and any existing default settings/patch file to
+  unchanged bytes. Missing profile files or an unsuccessful required-plugin
+  inventory fail the gate. Vault, session, media, and Memory data are excluded
+  from this fresh-profile fingerprint.
   First-run `activationKind: fresh` is not onboarding completed.
 - process cleanup after boot, restart, and uninstall waits for owned
   processes to disappear without killing. Forced `taskkill /F` is only for

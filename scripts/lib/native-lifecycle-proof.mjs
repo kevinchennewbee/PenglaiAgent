@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { requestBrowserClose } from "./installed-app.mjs";
 import { PINNED_DSH } from "./product.mjs";
@@ -10,6 +10,17 @@ export const WINDOWS_DEFAULT_USERDATA_SEGMENTS = ["Penglai", "0.5"];
 export const FRESH_LIFECYCLE_SENTINEL_NAME = "penglai-fresh-lifecycle-owner-sentinel.txt";
 export const CURRENT_DSH_HOME_VERSION = PINNED_DSH;
 export const CURRENT_DSH_HOME_RELATIVE = `dsh-homes/dsh-v${PINNED_DSH}`;
+// Only default-generated state in a fresh, task-owned profile is read here.
+// The vault, sessions, media, and Memory databases are never hashed.
+export const PERSISTED_PROFILE_FILES = Object.freeze([
+  { relative: "dsh-home-active.json", required: true },
+  { relative: `${CURRENT_DSH_HOME_RELATIVE}/.penglai-dsh-home.json`, required: true },
+  { relative: `${CURRENT_DSH_HOME_RELATIVE}/profiles/web/package.json`, required: true },
+  { relative: `${CURRENT_DSH_HOME_RELATIVE}/profiles/web/cordis.yml`, required: true },
+  { relative: `${CURRENT_DSH_HOME_RELATIVE}/profiles/web/cordis.patch.yml`, required: false },
+  { relative: `${CURRENT_DSH_HOME_RELATIVE}/settings.yaml`, required: false },
+]);
+const MAX_PROFILE_FILE_BYTES = 4 * 1024 * 1024;
 export const OWNER_PROFILE_MARKERS = Object.freeze([
   "dsh-home-active.json",
   "dsh-homes",
@@ -170,6 +181,9 @@ export function readCurrentGenerationIdentity(userRoot) {
   if (
     value?.schema !== 1 ||
     activeVersion !== CURRENT_DSH_HOME_VERSION ||
+    typeof value.activatedAt !== "string" ||
+    !Number.isFinite(Date.parse(value.activatedAt)) ||
+    !HEX64.test(String(value.targetDigest ?? "")) ||
     homeRelative !== CURRENT_DSH_HOME_RELATIVE ||
     isAbsolute(String(value?.homeRelative ?? "")) ||
     String(value?.homeRelative ?? "").split(/[\\/]/u).includes("..") ||
@@ -202,8 +216,58 @@ export function readCurrentGenerationIdentity(userRoot) {
   return { ok: true, reason: "", activeVersion, homeRelative, homePresent: true, activationKind };
 }
 
+export function persistedProfileDigest(files) {
+  return sha256Bytes(Buffer.from(JSON.stringify(canonicalJson(files))));
+}
+
+export function persistedProfileProofValid(proof) {
+  return Boolean(
+    proof?.ok === true &&
+      Array.isArray(proof.files) &&
+      proof.files.length === PERSISTED_PROFILE_FILES.length &&
+      proof.files.every((row, index) => {
+        const expected = PERSISTED_PROFILE_FILES[index];
+        return row?.relative === expected.relative &&
+          (row.present === true
+            ? HEX64.test(String(row.sha256 ?? "")) && Number.isSafeInteger(row.bytes) && row.bytes >= (expected.required ? 1 : 0) && row.bytes <= MAX_PROFILE_FILE_BYTES
+            : row.present === false && !expected.required && row.bytes === 0 && row.sha256 === "");
+      }) &&
+      proof.digest === persistedProfileDigest(proof.files),
+  );
+}
+
+export function readPersistedProfileProof(userData, generation) {
+  const files = [];
+  try {
+    if (!generation?.ok) throw new Error("current generation is unavailable");
+    const root = realpathSync(userData);
+    for (const expected of PERSISTED_PROFILE_FILES) {
+      const path = join(root, expected.relative);
+      let stat;
+      try {
+        stat = lstatSync(path);
+      } catch (error) {
+        if (error?.code !== "ENOENT" || expected.required) throw new Error(`missing persisted profile file: ${expected.relative}`);
+        files.push({ relative: expected.relative, present: false, bytes: 0, sha256: "" });
+        continue;
+      }
+      const actual = relative(root, realpathSync(path));
+      if (!stat.isFile() || stat.isSymbolicLink() || actual.startsWith("..") || isAbsolute(actual) || stat.size > MAX_PROFILE_FILE_BYTES) {
+        throw new Error(`invalid persisted profile file: ${expected.relative}`);
+      }
+      const bytes = readFileSync(path);
+      if (expected.required && bytes.length === 0) throw new Error(`empty persisted profile file: ${expected.relative}`);
+      files.push({ relative: expected.relative, present: true, bytes: bytes.length, sha256: sha256Bytes(bytes) });
+    }
+    return { ok: true, files, digest: persistedProfileDigest(files) };
+  } catch (error) {
+    return { ok: false, files, digest: "", reason: error.message };
+  }
+}
+
 export function currentGenerationProfileIdentity(userData) {
   const generation = readCurrentGenerationIdentity(userData);
+  const persisted = readPersistedProfileProof(userData, generation);
   const snapshotPath = join(userData, "plugins", "inventory-snapshot.json");
   let snapshot = null;
   if (existsSync(snapshotPath)) {
@@ -215,14 +279,16 @@ export function currentGenerationProfileIdentity(userData) {
   }
   const stable = stableInventoryIdentity(snapshot);
   const launch = processBoundLaunchIdentity(snapshot);
-  const ok = generation.ok === true && stable.ok === true && launch.ok === true;
+  const inventoryOk = snapshot?.ok === true;
+  const ok = generation.ok === true && persisted.ok === true && stable.ok === true && inventoryOk && launch.ok === true;
   return {
     generation,
-    stable: { digest: stable.digest, inventoryOk: snapshot?.ok === true },
+    persisted,
+    stable: { digest: stable.digest, inventoryOk },
     launch: { launchNonce: launch.launchNonce, dshPid: launch.dshPid },
     onboardingCompleted: false,
     ok,
-    reason: ok ? "" : generation.ok ? (stable.ok ? launch.reason : stable.reason) : generation.reason,
+    reason: ok ? "" : !generation.ok ? generation.reason : !persisted.ok ? persisted.reason : !stable.ok ? stable.reason : !inventoryOk ? "required plugin inventory failed" : launch.reason,
   };
 }
 
@@ -259,6 +325,14 @@ export function profileRestartProblems(previous, current) {
   }
   if (!HEX64.test(String(previous?.stable?.digest ?? "")) || previous?.stable?.digest !== current?.stable?.digest) {
     problems.push("changed stable generation state");
+  }
+  if (!persistedProfileProofValid(previous?.persisted) || !persistedProfileProofValid(current?.persisted)) {
+    problems.push("absent persisted profile proof");
+  } else if (previous.persisted.digest !== current.persisted.digest) {
+    problems.push("changed persisted profile state");
+  }
+  if (previous?.stable?.inventoryOk !== true || current?.stable?.inventoryOk !== true) {
+    problems.push("required plugin inventory failed");
   }
   if (!launchIdentityChanged(previous, current)) problems.push("stale process-bound readiness");
   if (previous?.onboardingCompleted === true || current?.onboardingCompleted === true) {
