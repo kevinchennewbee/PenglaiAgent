@@ -7,6 +7,12 @@ import { ROOT } from "./repo.mjs";
 import { PRODUCT_VERSION } from "./product.mjs";
 import { NATIVE_INSTALLED_TARGETS } from "./release-targets.mjs";
 import {
+  CURRENT_DSH_HOME_RELATIVE,
+  CURRENT_DSH_HOME_VERSION,
+  PERSISTED_PROFILE_FILES,
+  persistedProfileDigest,
+} from "./native-lifecycle-proof.mjs";
+import {
   evaluateFreshLifecycleSet,
   FRESH_LIFECYCLE_COMMAND,
   FRESH_LIFECYCLE_SCHEMA,
@@ -18,7 +24,30 @@ import {
 
 const sourceSha = "a".repeat(40);
 const installerSha256 = "b".repeat(64);
-const profileIdentity = { inventorySha256: "e".repeat(64), dshHomePresent: true };
+
+function generationIdentity(launch, extra = {}) {
+  const files = PERSISTED_PROFILE_FILES.map(({ relative }) => ({ relative, present: true, bytes: 1, sha256: "c".repeat(64) }));
+  return {
+    generation: {
+      ok: true,
+      activeVersion: CURRENT_DSH_HOME_VERSION,
+      homeRelative: CURRENT_DSH_HOME_RELATIVE,
+      homePresent: true,
+      activationKind: "fresh",
+      reason: "",
+    },
+    stable: { digest: "e".repeat(64), inventoryOk: true },
+    persisted: { ok: true, digest: persistedProfileDigest(files), files },
+    launch,
+    onboardingCompleted: false,
+    ok: true,
+    reason: "",
+    ...extra,
+  };
+}
+
+const bootIdentity = generationIdentity({ launchNonce: "boot-nonce", dshPid: 11 });
+const restartIdentity = generationIdentity({ launchNonce: "restart-nonce", dshPid: 22 });
 
 function hostFor(target) {
   if (target === "win32-x86_64") return { platform: "win32", arch: "x64" };
@@ -55,9 +84,10 @@ function passingReceipt(target, extra = {}) {
     windowsInstall: target === "win32-x86_64"
       ? { path: windowsPath, customDestination: false, payloadDeletedByHarness: false }
       : undefined,
-    boot: { freshReadiness: true, shutdown: gracefulShutdown(target), profileIdentity },
-    restart: { freshReadiness: true, resumed: true, shutdown: gracefulShutdown(target), profileIdentity },
-    processCleanup: { afterBoot: true, afterRestart: true, afterUninstall: true },
+    boot: { freshReadiness: true, shutdown: gracefulShutdown(target), profileIdentity: bootIdentity },
+    restart: { freshReadiness: true, resumed: true, shutdown: gracefulShutdown(target), profileIdentity: restartIdentity },
+    processCleanup: { afterBoot: true, afterRestart: true, afterUninstall: true, forced: false },
+    onboardingCompleted: false,
     uninstall: {
       method,
       uninstallRemovedApp: true,
@@ -173,7 +203,7 @@ test("fresh lifecycle aggregation negatives: missing target, SHA, hash, proofs, 
       passingReceipt("darwin-aarch64", {
         boot: {
           freshReadiness: true,
-          profileIdentity,
+          profileIdentity: bootIdentity,
           shutdown: { graceful: true, forced: false, requestedClose: true, method: "posix-sigterm", exitCode: null, signal: "SIGKILL" },
         },
       }),
@@ -198,11 +228,41 @@ test("fresh lifecycle aggregation negatives: missing target, SHA, hash, proofs, 
   assert.ok(
     freshInstallUninstallEvidenceProblems(
       passingReceipt("darwin-aarch64", {
-        restart: { freshReadiness: true, resumed: true, shutdown: gracefulShutdown("darwin-aarch64"), profileIdentity: { inventorySha256: "f".repeat(64), dshHomePresent: true } },
+        restart: { freshReadiness: true, resumed: true, shutdown: gracefulShutdown("darwin-aarch64"), profileIdentity: generationIdentity({ launchNonce: "restart-nonce", dshPid: 22 }, { stable: { digest: "f".repeat(64), inventoryOk: true } }) },
       }),
       expected,
-    ).includes("absent persisted restart proof"),
+    ).includes("changed stable generation state"),
   );
+  assert.ok(
+    freshInstallUninstallEvidenceProblems(
+      passingReceipt("darwin-aarch64", {
+        restart: { freshReadiness: true, resumed: true, shutdown: gracefulShutdown("darwin-aarch64"), profileIdentity: bootIdentity },
+      }),
+      expected,
+    ).includes("stale process-bound readiness"),
+  );
+  assert.ok(
+    freshInstallUninstallEvidenceProblems(
+      passingReceipt("darwin-aarch64", { processCleanup: { afterBoot: true, afterRestart: true, afterUninstall: true, forced: true } }),
+      expected,
+    ).includes("forced process cleanup"),
+  );
+  assert.equal(worstFreshLifecycleVerdict(["forced process cleanup"]), "FAIL");
+  assert.equal(worstFreshLifecycleVerdict(["stale process-bound readiness"]), "FAIL");
+  assert.equal(worstFreshLifecycleVerdict(["absent current generation identity"]), "FAIL");
+  const missingProfile = structuredClone(passingReceipt("darwin-aarch64"));
+  delete missingProfile.restart.profileIdentity.persisted;
+  assert.equal(freshInstallUninstallEvidenceMatches(missingProfile, expected), false);
+  assert.ok(freshInstallUninstallEvidenceProblems(missingProfile, expected).includes("absent persisted profile proof"));
+  const unhealthyInventory = structuredClone(passingReceipt("darwin-aarch64"));
+  unhealthyInventory.restart.profileIdentity.stable.inventoryOk = false;
+  assert.equal(freshInstallUninstallEvidenceMatches(unhealthyInventory, expected), false);
+  assert.ok(freshInstallUninstallEvidenceProblems(unhealthyInventory, expected).includes("required plugin inventory failed"));
+  const inventedProfileHash = structuredClone(passingReceipt("darwin-aarch64"));
+  inventedProfileHash.restart.profileIdentity.persisted.digest = "a".repeat(64);
+  assert.ok(freshInstallUninstallEvidenceProblems(inventedProfileHash, expected).includes("absent persisted profile proof"));
+  assert.equal(worstFreshLifecycleVerdict(["required plugin inventory failed"]), "FAIL");
+  assert.equal(worstFreshLifecycleVerdict(["changed persisted profile state"]), "FAIL");
   assert.ok(
     freshInstallUninstallEvidenceProblems(
       passingReceipt("win32-x86_64", {

@@ -24,6 +24,7 @@ import {
   reapWindowsInstallTree,
   resourcesInside,
   sha256File,
+  waitOwnedWindowsProcessesGone,
   windowsRegisteredInstallDir,
 } from "./lib/installed-app.mjs";
 import {
@@ -51,14 +52,15 @@ import {
   FRESH_LIFECYCLE_SENTINEL_NAME,
   WINDOWS_DEFAULT_APP_SEGMENTS,
   classifyApplicationShutdown,
-  persistedRestartMatches,
-  profileIdentityFromUserData,
+  currentGenerationProfileIdentity,
+  profileRestartProblems,
   readExactSentinel,
   requestNativeApplicationClose,
   sha256Bytes,
   waitForChildExitNoKill,
   windowsDefaultInstallDir,
   windowsDefaultUserDataDir,
+  windowsFreshProfilePreflight,
   windowsUpdateCacheDir,
 } from "./lib/native-lifecycle-proof.mjs";
 import { ROOT } from "./lib/repo.mjs";
@@ -112,13 +114,14 @@ async function cleanupProcesses(app, label) {
   const resources = resourcesInside(app, target);
   const executable = exeInside(app, target);
   if (process.platform === "win32") {
-    const reaped = await reapWindowsInstallTree(app);
-    if (!reaped.ok) {
-      fail(`${label} left Windows processes in the install tree`, {
-        leftover: reaped.leftover.slice(0, 20),
-      });
-    }
-    return { ok: true, leftover: [] };
+    const observed = await waitOwnedWindowsProcessesGone(app, userData);
+    if (observed.ok) return { ok: true, leftover: [], forced: false };
+    const reaped = await reapWindowsInstallTree(app, 15_000, userData);
+    fail(`${label} required forced descendant cleanup; that is not a normal lifecycle proof`, {
+      leftover: observed.leftover.slice(0, 20),
+      forcedCleanup: true,
+      reaped: { ok: reaped.ok, leftover: reaped.leftover.slice(0, 20) },
+    });
   }
   const leftoverNeedles = [executable, join(resources, "runtime/dsh/lib/bin.js"), app].filter(Boolean);
   const leftoverDeadline = Date.now() + 30_000;
@@ -129,7 +132,7 @@ async function cleanupProcesses(app, label) {
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
   }
   if (leftover.length) fail(`${label} left processes after shutdown`, { leftover: leftover.slice(0, 20) });
-  return { ok: true, leftover: [] };
+  return { ok: true, leftover: [], forced: false };
 }
 
 function launchFreshApp(app, userData) {
@@ -202,9 +205,9 @@ async function boot(app, userData, label, previousIdentity) {
     : await observeFreshInstalledBoot(userData, () => launchFreshApp(app, userData));
   const shutdown = await shutdownFresh(observed.launched.child, label);
   const cleanup = await cleanupProcesses(app, label);
-  const profileIdentity = profileIdentityFromUserData(userData);
+  const profileIdentity = currentGenerationProfileIdentity(userData);
   requireSentinel(label);
-  if (!observed.freshReadiness || !observed.gateway || (previousIdentity ? !observed.inventory : !observed.inventory)) {
+  if (!observed.freshReadiness || !observed.gateway || !observed.inventory) {
     fail(`${label} did not boot through the installed runtime`, {
       gateway: observed.gateway,
       inventory: observed.inventory,
@@ -213,20 +216,27 @@ async function boot(app, userData, label, previousIdentity) {
       outputTail: sanitizeEvidenceText(observed.launched.output(), 2_000),
     });
   }
-  if (previousIdentity && !persistedRestartMatches(previousIdentity, profileIdentity)) {
-    fail(`${label} did not resume persisted profile identity`, {
-      previousIdentity,
-      profileIdentity,
-    });
+  if (!profileIdentity.ok) {
+    fail(`${label} did not persist current-generation DSH home and profile identity`, { profileIdentity });
+  }
+  if (previousIdentity) {
+    const restartProblems = profileRestartProblems(previousIdentity, profileIdentity);
+    if (restartProblems.length) {
+      fail(`${label} did not resume current-generation profile with a new process identity`, {
+        previousIdentity,
+        profileIdentity,
+        restartProblems,
+      });
+    }
   }
   return {
     gateway: observed.gateway,
     inventory: observed.inventory,
     freshReadiness: observed.freshReadiness,
-    resumed: Boolean(previousIdentity) && persistedRestartMatches(previousIdentity, profileIdentity),
+    resumed: Boolean(previousIdentity) && profileRestartProblems(previousIdentity, profileIdentity).length === 0,
     profileIdentity,
     shutdown,
-    processCleanup: cleanup.ok,
+    processCleanup: cleanup,
   };
 }
 
@@ -333,7 +343,17 @@ const userData = target === "win32-x86_64"
   ? windowsDefaultUserDataDir(resolve(String(process.env.LOCALAPPDATA ?? "")))
   : requireExactChild(join(ROOT, ".tmp", "fresh-install-uninstall", "user"), ROOT, "user-data test root");
 if (!userData) fail("Owner-data root for this target is unavailable");
-if (target !== "win32-x86_64") {
+if (target === "win32-x86_64") {
+  const fixtureCleanup = cleanupRegisteredWindowsInstallerFixture();
+  if (!fixtureCleanup.ok) fail(`Windows release-test fixture cleanup failed: ${fixtureCleanup.reason}`);
+  const localAppData = resolve(String(process.env.LOCALAPPDATA ?? ""));
+  const preflight = windowsFreshProfilePreflight({
+    localAppData,
+    env: process.env,
+    registeredInstallDir: windowsRegisteredInstallDir(),
+  });
+  if (!preflight.ok) fail(preflight.reason, preflight);
+} else {
   rmSync(userData, { recursive: true, force: true });
 }
 mkdirSync(userData, { recursive: true });
@@ -347,25 +367,6 @@ const sentinelBytes = Buffer.from(
 );
 writeFileSync(sentinelPath, sentinelBytes);
 const sentinelSha256 = sha256Bytes(sentinelBytes);
-
-if (target === "win32-x86_64") {
-  const fixtureCleanup = cleanupRegisteredWindowsInstallerFixture();
-  if (!fixtureCleanup.ok) fail(`Windows release-test fixture cleanup failed: ${fixtureCleanup.reason}`);
-  const localAppData = resolve(String(process.env.LOCALAPPDATA ?? ""));
-  const expectedApp = windowsDefaultInstallDir(localAppData);
-  const registered = windowsRegisteredInstallDir();
-  if (registered) {
-    const registeredResolved = resolve(registered);
-    if (registeredResolved.toLowerCase() !== expectedApp.toLowerCase()) {
-      fail("refusing an existing unowned custom Penglai install", { registered, expectedApp });
-    }
-  }
-  if (existsSync(expectedApp)) {
-    fail("Windows native runner is not clean; refusing to overwrite an existing Penglai install", {
-      expectedApp,
-    });
-  }
-}
 
 let app;
 let windowsInstall = null;
@@ -397,7 +398,15 @@ let uninstallLeftoverNames = [];
 let uninstallRemovedApp = false;
 const uninstallMethod = target === "win32-x86_64" ? "nsis-uninstaller" : "dedicated-app-removal";
 if (target === "win32-x86_64") {
-  await reapWindowsInstallTree(app, 30_000, userData);
+  const beforeUninstall = await waitOwnedWindowsProcessesGone(app, userData);
+  if (!beforeUninstall.ok) {
+    const reaped = await reapWindowsInstallTree(app, 15_000, userData);
+    fail("uninstall required forced descendant cleanup; that is not a normal lifecycle proof", {
+      leftover: beforeUninstall.leftover.slice(0, 20),
+      forcedCleanup: true,
+      reaped: { ok: reaped.ok, leftover: reaped.leftover.slice(0, 20) },
+    });
+  }
   observeWindowsDefender();
   const uninstaller = join(app, "Uninstall.exe");
   if (!existsSync(uninstaller)) fail("Windows uninstaller missing after fresh install");
@@ -459,10 +468,12 @@ finish("PASS", {
   boot: bootProof,
   restart: restartProof,
   processCleanup: {
-    afterBoot: bootProof.processCleanup === true,
-    afterRestart: restartProof.processCleanup === true,
+    afterBoot: bootProof.processCleanup?.ok === true,
+    afterRestart: restartProof.processCleanup?.ok === true,
     afterUninstall: afterUninstall.ok === true,
+    forced: false,
   },
+  onboardingCompleted: false,
   uninstall: {
     method: uninstallMethod,
     uninstallRemovedApp,

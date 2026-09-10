@@ -424,6 +424,11 @@ test("Windows child shutdown kills the process tree so NSIS upgrade is not block
   assert.doesNotMatch(fresh, /removeTreeNoFollow\(app\)/);
   assert.match(fresh, /function installWindowsDefault/);
   assert.match(fresh, /isolateUserData: false/);
+  assert.match(fresh, /windowsFreshProfilePreflight/);
+  assert.match(fresh, /waitOwnedWindowsProcessesGone/);
+  const cleanupFn = fresh.slice(fresh.indexOf("async function cleanupProcesses"), fresh.indexOf("function launchFreshApp"));
+  assert.ok(cleanupFn.indexOf("waitOwnedWindowsProcessesGone") < cleanupFn.indexOf("reapWindowsInstallTree"));
+  assert.ok(fresh.indexOf("windowsFreshProfilePreflight") < fresh.indexOf("writeFileSync(sentinelPath"));
   assert.doesNotMatch(fresh.slice(fresh.indexOf("function installWindowsDefault"), fresh.indexOf("async function shutdownFresh")), /\/D=/);
   assert.match(helper, /export async function reapWindowsInstallTree/);
   assert.match(helper, /windows-process-scope/);
