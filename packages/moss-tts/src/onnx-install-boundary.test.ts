@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { FIXTURE_MARKER } from "../../../scripts/lib/secret-scan.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -13,11 +14,45 @@ function productAdmZipCall(text: string): boolean {
   );
 }
 
-test("adm-zip destination-symlink extraction is not a product or authorized-build call path", () => {
-  assert.equal(productAdmZipCall('const zip = require("adm-zip")'), true);
+function isTestOrFixtureSource(relative: string): boolean {
+  const path = relative.replaceAll("\\", "/");
+  if (/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(path)) return true;
+  if (/(?:^|\/)(?:testdata|fixtures)(?:\/|$)/.test(path)) return true;
+  return false;
+}
+
+function productionAdmZipCall(relative: string, text: string): boolean {
+  if (isTestOrFixtureSource(relative)) return false;
+  return text.split(/\r?\n/).some((line) => !FIXTURE_MARKER.test(line) && productAdmZipCall(line));
+}
+
+test("adm-zip call detection keeps product and build sources and ignores tests/fixtures", () => {
+  const requireCall = 'const zip = require("adm-zip")';
+  assert.equal(productAdmZipCall(requireCall), true);
+  assert.equal(productAdmZipCall('import zip from "adm-zip"'), true);
+  assert.equal(productAdmZipCall('await import("adm-zip")'), true);
   assert.equal(productAdmZipCall("onnxruntime-node>adm-zip"), false);
   assert.equal(productAdmZipCall("packageRoot(\"adm-zip\", ortReq, ort.root)"), false);
 
+  assert.equal(isTestOrFixtureSource("packages/moss-tts/src/engine.ts"), false);
+  assert.equal(isTestOrFixtureSource("scripts/pack-plugins.mjs"), false);
+  assert.equal(isTestOrFixtureSource("packages/moss-tts/src/onnx-install-boundary.test.ts"), true);
+  assert.equal(isTestOrFixtureSource("scripts/lib/secret-scan.test.mjs"), true);
+  assert.equal(isTestOrFixtureSource("packages/runtime/testdata/probe.ts"), true);
+  assert.equal(isTestOrFixtureSource("packages/office/fixtures/sample.js"), true);
+
+  assert.equal(productionAdmZipCall("packages/moss-tts/src/engine.ts", requireCall), true);
+  assert.equal(productionAdmZipCall("scripts/pack-plugins.mjs", requireCall), true);
+  assert.equal(productionAdmZipCall("packages/moss-tts/src/engine.test.ts", requireCall), false);
+  assert.equal(productionAdmZipCall("scripts/lib/secret-scan.test.mjs", requireCall), false);
+  assert.equal(productionAdmZipCall("packages/runtime/testdata/probe.ts", requireCall), false);
+  assert.equal(
+    productionAdmZipCall("packages/moss-tts/src/engine.ts", `${requireCall}; // penglai-test-fixture`),
+    false,
+  );
+});
+
+test("adm-zip destination-symlink extraction is not a product or authorized-build call path", () => {
   const npmrc = readFileSync(join(root, ".npmrc"), "utf8");
   assert.match(npmrc, /^ignore-scripts=true$/m);
 
@@ -27,7 +62,7 @@ test("adm-zip destination-symlink extraction is not a product or authorized-buil
   const pack = readFileSync(join(root, "scripts/pack-plugins.mjs"), "utf8");
   assert.match(pack, /function vendorMossRuntime/);
   assert.doesNotMatch(pack, /script\/install|onnxruntime-node-install|ONNXRUNTIME_NODE_INSTALL/);
-  assert.doesNotMatch(pack, /productAdmZipCall|require\("adm-zip"\)/);
+  assert.equal(productionAdmZipCall("scripts/pack-plugins.mjs", pack), false);
 
   const tracked = execFileSync(
     "git",
@@ -41,9 +76,13 @@ test("adm-zip destination-symlink extraction is not a product or authorized-buil
   for (const relative of tracked) {
     if (!/\.(?:[cm]?js|ts|json|ya?ml|mjs)$/.test(relative) && relative !== ".npmrc") continue;
     const text = readFileSync(join(root, relative), "utf8");
-    if (productAdmZipCall(text)) callers.push(relative);
+    if (productionAdmZipCall(relative, text)) callers.push(relative);
   }
   assert.deepEqual(callers, []);
+  assert.equal(
+    tracked.includes("packages/moss-tts/src/onnx-install-boundary.test.ts"),
+    true,
+  );
 
   const ortPackage = join(root, "node_modules/onnxruntime-node/package.json");
   assert.equal(existsSync(ortPackage), true);
