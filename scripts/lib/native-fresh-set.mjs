@@ -2,12 +2,12 @@ import { NATIVE_INSTALLED_TARGETS } from "./release-targets.mjs";
 import {
   classifyApplicationShutdown,
   hostFactsMatchTarget,
-  persistedRestartMatches,
+  profileRestartProblems,
   windowsDestinationIsDefaultInstdir,
 } from "./native-lifecycle-proof.mjs";
 
 export const FRESH_LIFECYCLE_COMMAND = "verify:fresh-install-uninstall";
-export const FRESH_LIFECYCLE_SCHEMA = 2;
+export const FRESH_LIFECYCLE_SCHEMA = 3;
 export const FRESH_LIFECYCLE_SCOPE = "fresh-install-restart-default-uninstall";
 
 const HEX40 = /^[0-9a-f]{40}$/;
@@ -51,7 +51,7 @@ export function freshInstallUninstallEvidenceProblems(record, expected = {}) {
   }
   const bootOk = record.boot?.freshReadiness === true;
   const restartOk = record.restart?.freshReadiness === true && record.restart?.resumed === true;
-  const persistedOk = persistedRestartMatches(record.boot?.profileIdentity, record.restart?.profileIdentity);
+  const restartIdentityProblems = profileRestartProblems(record.boot?.profileIdentity, record.restart?.profileIdentity);
   const uninstallOk =
     record.uninstall?.uninstallRemovedApp === true &&
     record.uninstall?.method === uninstallMethodForTarget(target || expectedTarget) &&
@@ -59,7 +59,8 @@ export function freshInstallUninstallEvidenceProblems(record, expected = {}) {
   const cleanupOk =
     record.processCleanup?.afterBoot === true &&
     record.processCleanup?.afterRestart === true &&
-    record.processCleanup?.afterUninstall === true;
+    record.processCleanup?.afterUninstall === true &&
+    record.processCleanup?.forced !== true;
   const ownerDataOk =
     record.ownerData?.sentinelPreservedAfterBoot === true &&
     record.ownerData?.sentinelPreservedAfterRestart === true &&
@@ -69,7 +70,14 @@ export function freshInstallUninstallEvidenceProblems(record, expected = {}) {
   if (!bootOk || !restartOk || !uninstallOk || !cleanupOk) {
     problems.push("absent fresh boot/restart/uninstall proof");
   }
-  if (bootOk && restartOk && !persistedOk) problems.push("absent persisted restart proof");
+  if (record.processCleanup?.forced === true) problems.push("forced process cleanup");
+  if (bootOk && restartOk) problems.push(...restartIdentityProblems);
+  if (record.boot?.profileIdentity?.generation?.ok !== true || record.restart?.profileIdentity?.generation?.ok !== true) {
+    problems.push("absent current generation identity");
+  }
+  if (record.onboardingCompleted === true || record.boot?.profileIdentity?.onboardingCompleted === true) {
+    problems.push("fabricated/deferred native PASS");
+  }
   if (!ownerDataOk) problems.push("absent or changed owner-data proof");
   const bootShutdown = classifyApplicationShutdown(record.boot?.shutdown, target || expectedTarget);
   const restartShutdown = classifyApplicationShutdown(record.restart?.shutdown, target || expectedTarget);
@@ -117,7 +125,11 @@ export function worstFreshLifecycleVerdict(problems) {
   if (
     problems.includes("fabricated/deferred native PASS") ||
     problems.includes("incompatible receipt shape") ||
-    problems.includes("forced or abnormal shutdown")
+    problems.includes("forced or abnormal shutdown") ||
+    problems.includes("forced process cleanup") ||
+    problems.includes("stale process-bound readiness") ||
+    problems.includes("changed stable generation state") ||
+    problems.includes("absent current generation identity")
   ) {
     return "FAIL";
   }

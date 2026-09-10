@@ -72,19 +72,48 @@ export function leftoversUnderInstallRoot(appDir, dataRoot) {
   return selectProcessesForInstance(collectWindowsProcesses(), { installRoot: appDir, dataRoot });
 }
 
-export async function reapWindowsInstallTree(appDir, timeoutMs = 30_000, dataRoot) {
-  if (process.platform !== "win32") return { ok: true, leftover: [] };
+export async function waitOwnedWindowsProcessesGone(
+  appDir,
+  dataRoot,
+  {
+    timeoutMs = 30_000,
+    listProcesses = collectWindowsProcesses,
+    now = Date.now,
+    sleep = (ms) => new Promise((resolveDelay) => setTimeout(resolveDelay, ms)),
+  } = {},
+) {
+  const deadline = now() + timeoutMs;
+  let leftover = selectProcessesForInstance(listProcesses(), { installRoot: appDir, dataRoot });
+  while (now() < deadline && leftover.length) {
+    await sleep(250);
+    leftover = selectProcessesForInstance(listProcesses(), { installRoot: appDir, dataRoot });
+  }
+  return { ok: leftover.length === 0, leftover, forced: false, timedOut: leftover.length > 0 };
+}
+
+export async function reapWindowsInstallTree(
+  appDir,
+  timeoutMs = 30_000,
+  dataRoot,
+  { listProcesses = collectWindowsProcesses, kill } = {},
+) {
+  if (process.platform !== "win32" && !kill) return { ok: true, leftover: [] };
   const deadline = Date.now() + timeoutMs;
-  let leftover = leftoversUnderInstallRoot(appDir, dataRoot);
-  while (Date.now() < deadline) {
-    leftover = leftoversUnderInstallRoot(appDir, dataRoot);
-    if (leftover.length === 0) return { ok: true, leftover: [] };
-    for (const row of leftover) {
-      spawnSync("taskkill.exe", ["/PID", String(row.pid), "/T", "/F"], { windowsHide: true, timeout: 15_000 });
+  const stop = (pid) => {
+    if (kill) {
+      kill(pid);
+      return;
     }
+    spawnSync("taskkill.exe", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, timeout: 15_000 });
+  };
+  let leftover = selectProcessesForInstance(listProcesses(), { installRoot: appDir, dataRoot });
+  while (Date.now() < deadline) {
+    leftover = selectProcessesForInstance(listProcesses(), { installRoot: appDir, dataRoot });
+    if (leftover.length === 0) return { ok: true, leftover: [] };
+    for (const row of leftover) stop(row.pid);
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
   }
-  leftover = leftoversUnderInstallRoot(appDir, dataRoot);
+  leftover = selectProcessesForInstance(listProcesses(), { installRoot: appDir, dataRoot });
   return { ok: leftover.length === 0, leftover };
 }
 

@@ -1,20 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ROOT } from "./repo.mjs";
 import { PRODUCT_VERSION } from "./product.mjs";
-import { observeStopChild } from "./installed-app.mjs";
+import { observeStopChild, reapWindowsInstallTree, waitOwnedWindowsProcessesGone } from "./installed-app.mjs";
 import {
+  CURRENT_DSH_HOME_RELATIVE,
+  CURRENT_DSH_HOME_VERSION,
   classifyApplicationShutdown,
+  currentGenerationProfileIdentity,
   nsisDefaultInstallDir,
   nsisUninstallKeepsCustomInstdir,
+  profileRestartProblems,
+  readCurrentGenerationIdentity,
   requestNativeApplicationClose,
   waitForChildExitNoKill,
-  windowsFreshLifecyclePathContract,
   windowsDefaultInstallDir,
+  windowsFreshLifecyclePathContract,
+  windowsFreshProfilePreflight,
 } from "./native-lifecycle-proof.mjs";
 import { FRESH_LIFECYCLE_SCHEMA, freshInstallUninstallEvidenceMatches, freshInstallUninstallEvidenceProblems } from "./native-fresh-set.mjs";
 
@@ -25,11 +32,12 @@ test("NSIS default INSTDIR and fresh Windows fixture path stay the same contract
   assert.equal(nsisDefaultInstallDir(nsis), String.raw`$LOCALAPPDATA\Penglai\app\0.5`);
   assert.equal(nsisUninstallKeepsCustomInstdir(nsis), true);
   assert.equal(windowsDefaultInstallDir("C:\\Users\\runner\\AppData\\Local"), join("C:\\Users\\runner\\AppData\\Local", "Penglai", "app", "0.5"));
-  assert.deepEqual(windowsFreshLifecyclePathContract({ nsis, freshGate: fresh, helper }), []);
+  const proofHelper = readFileSync(join(ROOT, "scripts/lib/native-lifecycle-proof.mjs"), "utf8");
+  assert.deepEqual(windowsFreshLifecyclePathContract({ nsis, freshGate: fresh, helper, proofHelper }), []);
   const customNsis = nsis.replace('Keeping custom install directory $INSTDIR (not the default app tree).', "RMDir /r \"$INSTDIR\"");
-  assert.ok(windowsFreshLifecyclePathContract({ nsis: customNsis, freshGate: fresh, helper }).length > 0);
+  assert.ok(windowsFreshLifecyclePathContract({ nsis: customNsis, freshGate: fresh, helper, proofHelper }).length > 0);
   const customFresh = fresh.replace("function installWindowsDefault", "function installWindowsCustom");
-  assert.ok(windowsFreshLifecyclePathContract({ nsis, freshGate: customFresh, helper }).length > 0);
+  assert.ok(windowsFreshLifecyclePathContract({ nsis, freshGate: customFresh, helper, proofHelper }).length > 0);
 });
 
 test("forced SIGKILL from stopChild is not a graceful application shutdown", async (context) => {
@@ -190,4 +198,147 @@ test("publication workflow consumes the current 0.6.1 native evidence set and el
   const mismatched = publish.replaceAll(`penglai-${PRODUCT_VERSION}-native-evidence-set`, "penglai-0.6.0-native-evidence-set");
   assert.match(mismatched, /penglai-0\.6\.0-native-evidence-set/);
   assert.doesNotMatch(mismatched, new RegExp(`name:\\s*penglai-${PRODUCT_VERSION}-native-evidence-set`));
+});
+
+function writeSnap(root, { nonce, pid, entries = [{ id: "@penglai/office", enabled: true, fiberPhase: "active" }] }) {
+  mkdirSync(join(root, "plugins"), { recursive: true });
+  writeFileSync(
+    join(root, "plugins", "inventory-snapshot.json"),
+    JSON.stringify({
+      at: new Date().toISOString(),
+      launchNonce: nonce,
+      dshPid: pid,
+      entries,
+      required: { office: true, memory: true, credentials: true, "plugin-center": true, im: false, smokeDisabled: true },
+      requiredProofs: [],
+      ok: true,
+    }, null, 2),
+  );
+}
+
+function writeCurrentHome(root, { version = CURRENT_DSH_HOME_VERSION, relative = CURRENT_DSH_HOME_RELATIVE, malformed = false, skipHome = false } = {}) {
+  if (malformed) {
+    writeFileSync(join(root, "dsh-home-active.json"), "{not-json");
+    return;
+  }
+  writeFileSync(
+    join(root, "dsh-home-active.json"),
+    JSON.stringify({
+      schema: 1,
+      activeVersion: version,
+      homeRelative: relative,
+      activatedAt: "2026-09-10T00:00:00.000Z",
+      activationKind: "fresh",
+      targetDigest: "a".repeat(64),
+    }),
+  );
+  if (!skipHome) mkdirSync(join(root, ...relative.split("/")), { recursive: true });
+}
+
+test("current-generation restart accepts writer nonce/PID change and rejects stale or absent homes", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-stable-restart-"));
+  try {
+    writeCurrentHome(root);
+    writeSnap(root, { nonce: "boot", pid: 11 });
+    const previous = currentGenerationProfileIdentity(root);
+    assert.equal(previous.ok, true);
+    assert.equal(previous.generation.activeVersion, CURRENT_DSH_HOME_VERSION);
+    assert.equal(previous.generation.homeRelative, CURRENT_DSH_HOME_RELATIVE);
+    assert.equal(previous.onboardingCompleted, false);
+    writeSnap(root, { nonce: "restart", pid: 22 });
+    writeFileSync(join(root, ".credentials.yaml"), "DEEPSEEK_API_KEY: not-hashed\n");
+    const current = currentGenerationProfileIdentity(root);
+    assert.equal(current.ok, true);
+    assert.deepEqual(profileRestartProblems(previous, current), []);
+    assert.equal(current.stable.digest, previous.stable.digest);
+
+    writeSnap(root, { nonce: "boot", pid: 11 });
+    const stale = currentGenerationProfileIdentity(root);
+    assert.ok(profileRestartProblems(previous, stale).includes("stale process-bound readiness"));
+
+    writeSnap(root, { nonce: "other", pid: 33, entries: [{ id: "@penglai/memory", enabled: true, fiberPhase: "active" }] });
+    const changed = currentGenerationProfileIdentity(root);
+    assert.ok(profileRestartProblems(previous, changed).includes("changed stable generation state"));
+
+    const empty = mkdtempSync(join(tmpdir(), "penglai-absent-home-"));
+    writeSnap(empty, { nonce: "boot", pid: 11 });
+    const absent = currentGenerationProfileIdentity(empty);
+    assert.equal(absent.generation.ok, false);
+    assert.equal(absent.generation.homePresent, false);
+    assert.ok(profileRestartProblems(absent, absent).includes("absent current generation identity"));
+    rmSync(empty, { recursive: true, force: true });
+
+    const malformedRoot = mkdtempSync(join(tmpdir(), "penglai-malformed-home-"));
+    writeCurrentHome(malformedRoot, { malformed: true });
+    assert.equal(readCurrentGenerationIdentity(malformedRoot).ok, false);
+    rmSync(malformedRoot, { recursive: true, force: true });
+
+    const oldRoot = mkdtempSync(join(tmpdir(), "penglai-old-home-"));
+    writeCurrentHome(oldRoot, { version: "0.1.5-alpha.1", relative: "dsh-homes/dsh-v0.1.5-alpha.1" });
+    assert.equal(readCurrentGenerationIdentity(oldRoot).ok, false);
+    rmSync(oldRoot, { recursive: true, force: true });
+
+    const missingHome = mkdtempSync(join(tmpdir(), "penglai-missing-home-dir-"));
+    writeCurrentHome(missingHome, { skipHome: true });
+    assert.equal(readCurrentGenerationIdentity(missingHome).ok, false);
+    rmSync(missingHome, { recursive: true, force: true });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("lingering owned Windows descendants cannot PASS after forced cleanup", async () => {
+  const installRoot = "C:\\Users\\runner\\AppData\\Local\\Penglai\\app\\0.5";
+  const rows = [
+    { pid: 11, parentPid: 1, name: "Penglai.exe", executablePath: `${installRoot}\\Penglai.exe`, commandLine: "" },
+    { pid: 13, parentPid: 1, name: "Penglai.exe", executablePath: "C:\\Users\\owner\\AppData\\Local\\Penglai-other\\Penglai.exe", commandLine: "" },
+  ];
+  let listed = rows.slice();
+  let t = 0;
+  const observed = await waitOwnedWindowsProcessesGone(installRoot, undefined, {
+    timeoutMs: 20,
+    now: () => t,
+    sleep: async (ms) => {
+      t += ms;
+    },
+    listProcesses: () => listed,
+  });
+  assert.equal(observed.ok, false);
+  assert.equal(observed.forced, false);
+  assert.equal(observed.leftover.map((row) => row.pid).join(","), "11");
+  const kills = [];
+  const reaped = await reapWindowsInstallTree(installRoot, 1_000, undefined, {
+    listProcesses: () => listed,
+    kill: (pid) => {
+      kills.push(pid);
+      listed = listed.filter((row) => row.pid !== pid);
+    },
+  });
+  assert.deepEqual(kills, [11]);
+  assert.equal(reaped.ok, true);
+  assert.ok(!kills.includes(13));
+});
+
+test("Windows preflight refuses unowned profile and inherited user-data overrides before mutation", () => {
+  const local = mkdtempSync(join(tmpdir(), "penglai-localapp-"));
+  const expectedUser = join(local, "Penglai", "0.5");
+  mkdirSync(expectedUser, { recursive: true });
+  writeFileSync(join(expectedUser, "dsh-home-active.json"), "{}");
+  const blockedProfile = windowsFreshProfilePreflight({ localAppData: local, env: {}, installExists: false });
+  assert.equal(blockedProfile.ok, false);
+  assert.match(blockedProfile.reason, /unowned existing Penglai profile/);
+  rmSync(join(expectedUser, "dsh-home-active.json"));
+  const override = windowsFreshProfilePreflight({
+    localAppData: local,
+    env: { PENGLAI_USER_DATA: join(local, "other-profile") },
+    installExists: false,
+  });
+  assert.equal(override.ok, false);
+  assert.match(override.reason, /contradictory PENGLAI_USER_DATA/);
+  const existingInstall = windowsFreshProfilePreflight({ localAppData: local, env: {}, installExists: true });
+  assert.equal(existingInstall.ok, false);
+  assert.match(existingInstall.reason, /existing Penglai install/);
+  const clean = windowsFreshProfilePreflight({ localAppData: local, env: {}, installExists: false });
+  assert.equal(clean.ok, true);
+  rmSync(local, { recursive: true, force: true });
 });

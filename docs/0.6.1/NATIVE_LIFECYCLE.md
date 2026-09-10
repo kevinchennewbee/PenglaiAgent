@@ -19,13 +19,19 @@ A passing Mac/Windows receipt must bind:
   uninstall fixture.
 - fresh installed boot and a normal application shutdown. Forced
   SIGKILL/taskkill `/F` or Windows Node `SIGTERM` is not a graceful pass.
-- normal restart/resume on the same owner-data root, with persisted profile
-  identity and exact sentinel bytes/digest
-- process cleanup after boot, restart, and uninstall
+- normal restart/resume on the same owner-data root, with persisted
+  current-generation identity (`dsh-home-active.json` plus
+  `dsh-homes/dsh-v0.1.5-rc.1`) and exact sentinel bytes/digest. Inventory
+  `launchNonce`/`dshPid` must change; they are not the stable identity.
+  First-run `activationKind: fresh` is not onboarding completed.
+- process cleanup after boot, restart, and uninstall waits for owned
+  processes to disappear without killing. Forced `taskkill /F` is only for
+  abandoned leftover cleanup and fails the normal lifecycle proof.
 - default uninstall: actual NSIS `Uninstall.exe` on the default INSTDIR, or
   dedicated installed-app removal on Mac
 - Windows owner-data sentinel lives in `%LOCALAPPDATA%\Penglai\0.5`, which
-  NSIS preserves, not in an env-overridden helper profile or the update cache
+  NSIS preserves, not in an env-overridden helper profile or the update cache.
+  Existing-install and owner-profile preflight runs before any sentinel write.
 
 Only verified task-created paths may be removed. Do not delete a whole Windows
 `INSTDIR` to manufacture uninstall success. If NSIS leaves only a known
