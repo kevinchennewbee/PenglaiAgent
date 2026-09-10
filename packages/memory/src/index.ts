@@ -25,6 +25,7 @@ import { ingestCuratorOutput } from "./v2/curator.js";
 import { migrateJournalToV2 } from "./v2/migrate.js";
 import { MEMORY_OWNER_ACTIONS } from "./v2/owner.js";
 import { proposeMemoryAction, reserveMemoryOwnerProof, type MemoryOwnerBrokerPort } from "./v2/owner-adapter.js";
+import { nativeCategoryForCandidateKind, nativeMaterializationTags } from "./v2/native-category.js";
 import { InternalCuratorQueue, internalCuratorJobKey } from "./v2/internal-curator.js";
 import { CURATOR_ESTIMATED_TOKENS, MemoryCuratorFailure, classifyMemoryCuratorFailure, ingestOfficialTurn, resolveSessionTurn, runOfficialLlmCurator, sessionEventParts, turnSourceDigest, turnSummary, withMemoryRecall, workspaceIdForSession } from "./turn-pipeline.js";
 import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
@@ -172,12 +173,20 @@ export function createDurableMemoryService(opts: {
   owner?: MemoryOwnerBrokerPort;
   internalCuratorSnapshot?: () => { active: number; queued: number; timers: number };
   sources?: ReturnType<typeof createContextSettingsApi>;
+  binaryPath?: string;
+  /** Test-only escape hatch for the deterministic fake Mnemon executable. */
+  allowUnpinnedTestBinary?: boolean;
 }) {
   const v2 = new MemoryV2Store(join(opts.userData, "memory", "v2.sqlite3"));
   const engine = new MnemonMemoryService(opts.userData, {
-    ...(process.env.PENGLAI_MNEMON_BINARY ? { binaryPath: process.env.PENGLAI_MNEMON_BINARY } : {}),
+    ...(opts.binaryPath
+      ? { binaryPath: opts.binaryPath }
+      : process.env.PENGLAI_MNEMON_BINARY
+        ? { binaryPath: process.env.PENGLAI_MNEMON_BINARY }
+        : {}),
     ...(process.env.PENGLAI_APP_ROOT ? { appRoot: process.env.PENGLAI_APP_ROOT } : {}),
     packageRoot: PACKAGE_ROOT,
+    ...(opts.allowUnpinnedTestBinary === true ? { allowUnpinnedTestBinary: true } : {}),
   });
   const skillsRoot = officialSkillsRoot(opts.userData);
   migrateJournalToV2(engine.journal, v2, { userData: opts.userData });
@@ -215,8 +224,8 @@ export function createDurableMemoryService(opts: {
     const remembered = await engine.remember({
       text: candidate.text,
       ...(workspaceId ? { workspaceId } : {}),
-      cat: candidate.kind,
-      tags: `candidate:${candidate.candidateId}`,
+      cat: nativeCategoryForCandidateKind(candidate.kind),
+      tags: nativeMaterializationTags(candidate),
       source: personal ? "owner-accepted-curator" : "auto-curator",
     });
     v2.setMeta(`materialized:${candidate.candidateId}`, remembered.id);
@@ -383,6 +392,7 @@ export function createDurableMemoryService(opts: {
       reservation.complete(resultDigest({
         candidateId: candidate.candidateId,
         memoryId: remembered.id,
+        kind: candidate.kind,
         scope: input.personal ? "personal" : "workspace",
         sourceDigest,
       }));
@@ -828,6 +838,13 @@ export { bundledMnemonBinary, MNEMON_ASSETS } from "./engine/mnemon-provider.js"
 export { importLegacy, previewLegacy } from "./migration/legacy-053.js";
 export { projectGraph } from "./graph/projection.js";
 export { MemoryV2Store } from "./v2/candidates.js";
+export {
+  CANDIDATE_KIND_TO_MNEMON_CATEGORY,
+  nativeCategoryForCandidateKind,
+  nativeMaterializationTags,
+} from "./v2/native-category.js";
+export { MNEMON_CATEGORIES, requireMnemonCategory } from "./engine/categories.js";
+export type { MnemonCategory } from "./engine/categories.js";
 export { ingestCuratorOutput } from "./v2/curator.js";
 export { migrateJournalToV2 } from "./v2/migrate.js";
 export type { MemoryWrite };

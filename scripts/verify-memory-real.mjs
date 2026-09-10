@@ -1,8 +1,13 @@
+import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
+import { OwnerApprovalBroker } from "../packages/runtime/src/owner-broker.ts";
+import { createDurableMemoryService } from "../packages/memory/src/index.ts";
+import { CANDIDATE_KINDS } from "../packages/memory/src/v2/governance.ts";
+import { nativeCategoryForCandidateKind } from "../packages/memory/src/v2/native-category.ts";
 import { ROOT } from "./lib/repo.mjs";
 import { EXIT_BY_VERDICT } from "./lib/exit-contract.mjs";
 import { beginEvidenceRun, finishEvidenceRun, recordCommand, HOST_TARGET } from "./lib/evidence-dir.mjs";
@@ -116,6 +121,132 @@ const again = mnemon(restartDir, ["status"]);
 if (again.status !== 0) {
   const manifest = finishEvidenceRun(run, "FAIL", "status after restart failed");
   console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
+  process.exit(EXIT_BY_VERDICT.FAIL);
+}
+
+const invalidKindDir = mkdtempSync(join(tmpdir(), "mnemon-invalid-kind-"));
+const invalidKind = mnemon(invalidKindDir, [
+  "remember",
+  "Neutral isolated memory acceptance probe 061",
+  "--cat",
+  "project_fact",
+  "--source",
+  "auto-curator",
+]);
+if (invalidKind.status === 0) {
+  const manifest = finishEvidenceRun(run, "FAIL", "pinned Mnemon 0.2.8 must still reject --cat project_fact");
+  console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
+  process.exit(EXIT_BY_VERDICT.FAIL);
+}
+
+const KIND_FIXTURES = [
+  { kind: "preference", text: "Prefer compact diffs in this workspace" },
+  { kind: "project_fact", text: "This workspace uses pnpm for package management" },
+  { kind: "decision", text: "Keep the official DSH runtime as the only core" },
+  { kind: "constraint", text: "Do not enable telemetry in this workspace" },
+  { kind: "person_fact", text: "The maintainer of this workspace uses Simplified Chinese" },
+];
+
+async function replayCandidateMaterializationFactory() {
+  if (KIND_FIXTURES.map((row) => row.kind).join(",") !== CANDIDATE_KINDS.join(",")) {
+    throw new Error("verify-memory-real CandidateKind fixtures drifted");
+  }
+  const userData = mkdtempSync(join(tmpdir(), "mnemon-factory-"));
+  const owner = new OwnerApprovalBroker(userData, { dialog: async () => "approved" });
+  const svc = createDurableMemoryService({
+    userData,
+    skills: { snapshot: async () => ({ skills: [], complete: true }) },
+    owner,
+    binaryPath: bin,
+  });
+  svc.setMemoryMode("suggest");
+  const rows = [];
+  try {
+    if (svc.engine.degraded) throw new Error(svc.engine.degradeReason ?? "mnemon binary missing");
+    for (const [index, fixture] of KIND_FIXTURES.entries()) {
+      const sourceDigest = createHash("sha256").update(`factory:${fixture.kind}:${index}`).digest("hex");
+      const pending = svc.memoryV2.enqueue({
+        workspaceId: "ws-a",
+        sessionId: "s-factory",
+        turnId: `t-${index + 1}`,
+        kind: fixture.kind,
+        text: fixture.text,
+        rationale: `neutral ${fixture.kind}`,
+        confidence: 0.91,
+        sourceDigest,
+      });
+      if (!("candidateId" in pending)) throw new Error(`expected pending ${fixture.kind}`);
+      const proposed = svc.proposeAction({
+        action: "memory.accept",
+        objectId: pending.candidateId,
+        workspaceId: "ws-a",
+      });
+      const decided = await owner.requestOwnerApproval(proposed.actionId);
+      if (decided.decision !== "approved") throw new Error(`owner denied ${fixture.kind}`);
+      const accepted = await svc.acceptCandidate({
+        candidateId: pending.candidateId,
+        actionId: proposed.actionId,
+        receipt: decided.receipt,
+      });
+      const stored = svc.memoryV2.getCandidate(pending.candidateId);
+      if (stored?.kind !== fixture.kind || stored.status !== "accepted") {
+        throw new Error(`candidate kind/status lost for ${fixture.kind}`);
+      }
+      const hits = await svc.search(fixture.text, "ws-a");
+      const leak = await svc.search(fixture.text, "ws-b");
+      if (!hits.some((hit) => hit.id === accepted.memoryId)) throw new Error(`search missed ${fixture.kind}`);
+      if (leak.some((hit) => hit.id === accepted.memoryId)) throw new Error(`workspace leak ${fixture.kind}`);
+      if (hits.find((hit) => hit.id === accepted.memoryId)?.category !== nativeCategoryForCandidateKind(fixture.kind)) {
+        throw new Error(`native category mismatch ${fixture.kind}`);
+      }
+      rows.push({
+        kind: fixture.kind,
+        nativeCategory: nativeCategoryForCandidateKind(fixture.kind),
+        memoryId: accepted.memoryId,
+        observedCategory: hits.find((hit) => hit.id === accepted.memoryId)?.category,
+      });
+    }
+    svc.close();
+    const restarted = createDurableMemoryService({
+      userData,
+      skills: { snapshot: async () => ({ skills: [], complete: true }) },
+      owner,
+      binaryPath: bin,
+    });
+    try {
+      for (const row of rows) {
+        const fixture = KIND_FIXTURES.find((item) => item.kind === row.kind);
+        if (!fixture) throw new Error(`missing fixture ${row.kind}`);
+        const hits = await restarted.search(fixture.text, "ws-a");
+        if (!hits.some((hit) => hit.id === row.memoryId)) throw new Error(`restart missed ${row.kind}`);
+      }
+    } finally {
+      restarted.close();
+    }
+    recordCommand(run, {
+      argv: [process.execPath, "createDurableMemoryService", "acceptCandidate"],
+      exitCode: 0,
+      durationMs: 0,
+      stdout: JSON.stringify({ binary: bin, sha256: sha256File(bin), rows }),
+    });
+    rmSync(userData, { recursive: true, force: true });
+  } catch (error) {
+    try {
+      svc.close();
+    } catch {
+      // evidence path below is authoritative
+    }
+    throw error;
+  }
+}
+
+try {
+  await replayCandidateMaterializationFactory();
+} catch (error) {
+  const failed = finishEvidenceRun(run, "FAIL", "production candidate materialization factory failed", {
+    detail: error instanceof Error ? error.message : "factory error",
+  });
+  console.error(JSON.stringify({ verdict: failed.verdict, reason: failed.reason, detail: failed.detail }));
   process.exit(EXIT_BY_VERDICT.FAIL);
 }
 

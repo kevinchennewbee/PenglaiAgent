@@ -39,6 +39,11 @@ if (command === "version") { process.stderr.write("unknown command\\n"); process
 const db = load();
 if (command === "remember") {
   const cat = take("--cat") || "fact";
+  const valid = ["preference", "decision", "fact", "insight", "context", "general"];
+  if (!valid.includes(cat)) {
+    process.stderr.write("Error: invalid category " + JSON.stringify(cat) + "; valid: preference, decision, fact, insight, context, general\\n");
+    process.exit(1);
+  }
   const tags = (take("--tags") || "").split(",").filter(Boolean);
   take("--source");
   take("--imp");

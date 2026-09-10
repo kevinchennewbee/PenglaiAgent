@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
+import { requireMnemonCategory, type MnemonCategory } from "./categories.js";
 import { resolveMnemonBinary } from "./mnemon-provider.js";
 import { MnemonRunner } from "./runner.js";
 import { MnemonAdapter } from "./adapter.js";
@@ -103,12 +104,12 @@ export class MnemonMemoryService {
     return { adapter: this.workspace(row.workspaceId), scope: "workspace", workspaceId: row.workspaceId };
   }
 
-  async remember(input: { text: string; workspaceId?: string; cat?: string; tags?: string; source?: string }) {
+  async remember(input: { text: string; workspaceId?: string; cat?: MnemonCategory; tags?: string; source?: string }) {
     const personal = this.requireEnabled();
     assertNotSecret(input.text);
     const adapter = input.workspaceId ? this.workspace(input.workspaceId) : personal;
     const remembered = await adapter.remember(input.text, {
-      cat: input.cat ?? "fact",
+      cat: requireMnemonCategory(input.cat ?? "fact"),
       source: input.source ?? "user",
       ...(input.tags ? { tags: input.tags } : {}),
     });

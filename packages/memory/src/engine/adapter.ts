@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { PenglaiError } from "@penglai/contracts";
+import { requireMnemonCategory, type MnemonCategory } from "./categories.js";
 import { MnemonRunner } from "./runner.js";
 import { parseMnemonDot, type DotGraph } from "./dot.js";
 
@@ -21,13 +22,13 @@ export class MnemonAdapter {
     mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   }
 
-  async remember(content: string, flags: { cat?: string; tags?: string; source?: string } = {}) {
+  async remember(content: string, flags: { cat?: MnemonCategory; tags?: string; source?: string } = {}) {
     const result = await this.runner.run({
       command: "remember",
       dataDir: this.dataDir,
       positionals: [content],
       flags: {
-        ...(flags.cat ? { "--cat": flags.cat } : {}),
+        ...(flags.cat ? { "--cat": requireMnemonCategory(flags.cat) } : {}),
         ...(flags.tags ? { "--tags": flags.tags } : {}),
         ...(flags.source ? { "--source": flags.source } : {}),
       },

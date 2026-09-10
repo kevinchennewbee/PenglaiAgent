@@ -6,6 +6,8 @@ import { join } from "node:path";
 import { MnemonMemoryService } from "./service.js";
 import { personalDataDir, workspaceDataDir } from "./service.js";
 import { createTestMnemonBinary } from "./test-binary.js";
+import { CANDIDATE_KINDS } from "../v2/governance.js";
+import { nativeCategoryForCandidateKind } from "../v2/native-category.js";
 
 const binaryPath = createTestMnemonBinary();
 
@@ -56,6 +58,48 @@ test("production service rejects an explicit unpinned Mnemon executable", () => 
     () => new MnemonMemoryService(mkdtempSync(join(tmpdir(), "penglai-mnemon-pin-")), { binaryPath }),
     /hash mismatch/,
   );
+});
+
+test("fake mnemon rejects engine-invalid categories and accepts mapped CandidateKind values", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-mnemon-cat-"));
+  const memory = new MnemonMemoryService(dir, { binaryPath, allowUnpinnedTestBinary: true });
+  await assert.rejects(
+    () => memory.remember({ text: "invalid-project-fact-cat", cat: "project_fact" as never }),
+    /UNKNOWN_MNEMON_CATEGORY/,
+  );
+  await assert.rejects(
+    () => memory.remember({ text: "invalid-constraint-cat", cat: "constraint" as never }),
+    /UNKNOWN_MNEMON_CATEGORY/,
+  );
+  await assert.rejects(
+    () => memory.remember({ text: "invalid-person-fact-cat", cat: "person_fact" as never }),
+    /UNKNOWN_MNEMON_CATEGORY/,
+  );
+  const rawDir = mkdtempSync(join(tmpdir(), "penglai-mnemon-raw-cat-"));
+  assert.ok(memory.runner);
+  const raw = await memory.runner.run({
+    command: "remember",
+    dataDir: rawDir,
+    positionals: ["raw invalid category probe"],
+    flags: { "--cat": "project_fact" },
+  });
+  assert.equal(raw.exitCode, 1);
+  assert.match(raw.stderr, /invalid category "project_fact"/);
+  assert.match(raw.stderr, /valid: preference, decision, fact, insight, context, general/);
+  for (const kind of CANDIDATE_KINDS) {
+    const cat = nativeCategoryForCandidateKind(kind);
+    const row = await memory.remember({
+      text: `mapped-${kind}-token`,
+      cat,
+      workspaceId: "ws-map",
+      tags: `kind:${kind}`,
+    });
+    assert.equal(row.category, cat);
+    const hits = await memory.search(`mapped-${kind}-token`, "ws-map");
+    assert.equal(hits.some((hit) => hit.id === row.id), true);
+    assert.equal((hits.find((hit) => hit.id === row.id) as { category?: string } | undefined)?.category, cat);
+  }
+  memory.close();
 });
 
 test("known-id operations resolve personal scope and reject cross-workspace ids", async () => {
