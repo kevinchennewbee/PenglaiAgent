@@ -181,7 +181,7 @@ export function firstPartyRetentionDecision(input: {
   });
 }
 
-function readRegularArtifactBytes(path: string): Buffer | undefined {
+function readOpenedRegularFile(path: string): Buffer {
   let fd: number | undefined;
   try {
     fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
@@ -194,13 +194,26 @@ function readRegularArtifactBytes(path: string): Buffer | undefined {
       opened.dev !== named.dev ||
       opened.ino !== named.ino
     ) {
-      return undefined;
+      throw new PenglaiError("SECURITY_POLICY", "regular file identity changed");
     }
     return readFileSync(fd);
-  } catch {
-    return undefined;
+  } catch (error) {
+    if (error instanceof PenglaiError) throw error;
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ELOOP") {
+      throw new PenglaiError("SECURITY_POLICY", "file is a symlink source");
+    }
+    throw error;
   } finally {
     if (fd !== undefined) closeSync(fd);
+  }
+}
+
+function readRegularArtifactBytes(path: string): Buffer | undefined {
+  try {
+    return readOpenedRegularFile(path);
+  } catch {
+    return undefined;
   }
 }
 
@@ -240,7 +253,14 @@ function walkInstalledPluginTree(dest: string): { files: Map<string, Buffer>; di
       if (!st.isFile()) {
         throw new PenglaiError("SECURITY_POLICY", "installed plugin has unexpected node type");
       }
-      files.set(childRel.replace(/\\/g, "/"), readFileSync(full));
+      try {
+        files.set(childRel.replace(/\\/g, "/"), readOpenedRegularFile(full));
+      } catch (error) {
+        if (error instanceof PenglaiError && /symlink/i.test(error.message)) {
+          throw new PenglaiError("SECURITY_POLICY", "installed plugin contains symlink");
+        }
+        throw new PenglaiError("SECURITY_POLICY", "installed plugin file identity changed");
+      }
     }
   };
   visit("");

@@ -266,14 +266,25 @@ export interface FileAdmission {
   }): Promise<OfficialFileRef>;
 }
 
+function stripTrailingAsciiDotsAndSpaces(value: string): string {
+  let end = value.length;
+  while (end > 0) {
+    const code = value.charCodeAt(end - 1);
+    if (code !== 0x20 && code !== 0x2e) break;
+    end -= 1;
+  }
+  return value.slice(0, end);
+}
+
 export function sanitizeOfficialFileName(value: string | undefined): string {
   if (value === undefined) return "file";
   const leaf = value.slice(Math.max(value.lastIndexOf("/"), value.lastIndexOf("\\")) + 1);
-  let clean = leaf
-    .replace(/[\u0000-\u001f\u007f]/g, "")
-    .replace(/[<>:"|?*]/g, "_")
-    .trim()
-    .replace(/[. ]+$/u, "");
+  let clean = stripTrailingAsciiDotsAndSpaces(
+    leaf
+      .replace(/[\u0000-\u001f\u007f]/g, "")
+      .replace(/[<>:"|?*]/g, "_")
+      .trim(),
+  );
   if (/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.[^.]+)?$/iu.test(clean)) clean = `_${clean}`;
   if (Buffer.byteLength(clean) > 255) {
     let bytes = 0;
@@ -284,7 +295,7 @@ export function sanitizeOfficialFileName(value: string | undefined): string {
       prefix += character;
       bytes += size;
     }
-    clean = prefix.replace(/[. ]+$/u, "");
+    clean = stripTrailingAsciiDotsAndSpaces(prefix);
   }
   return clean === "" || clean === "." || clean === ".." ? "file" : clean;
 }

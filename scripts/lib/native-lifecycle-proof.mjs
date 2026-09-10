@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readFileSync, realpathSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { requestBrowserClose } from "./installed-app.mjs";
 import { PINNED_DSH } from "./product.mjs";
 
@@ -245,6 +245,49 @@ export function persistedProfileProofValid(proof) {
   );
 }
 
+function readContainedRegularFile(root, path) {
+  let fd;
+  try {
+    fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  } catch (error) {
+    if (error?.code === "ENOENT") throw error;
+    const failed = new Error("invalid persisted profile file");
+    failed.cause = error;
+    throw failed;
+  }
+  try {
+    const opened = fstatSync(fd);
+    const named = lstatSync(path);
+    if (
+      !opened.isFile() ||
+      named.isSymbolicLink() ||
+      !named.isFile() ||
+      opened.dev !== named.dev ||
+      opened.ino !== named.ino ||
+      opened.size > MAX_PROFILE_FILE_BYTES
+    ) {
+      throw new Error("invalid persisted profile file");
+    }
+    const resolvedParent = realpathSync(dirname(path));
+    const actual = relative(root, join(resolvedParent, basename(path)));
+    if (actual.startsWith("..") || isAbsolute(actual)) {
+      throw new Error("invalid persisted profile file");
+    }
+    const bytes = readFileSync(fd);
+    const after = fstatSync(fd);
+    if (
+      bytes.length > MAX_PROFILE_FILE_BYTES ||
+      after.dev !== opened.dev ||
+      after.ino !== opened.ino
+    ) {
+      throw new Error("invalid persisted profile file");
+    }
+    return bytes;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
 export function readPersistedProfileProof(userData, generation) {
   const files = [];
   try {
@@ -252,19 +295,20 @@ export function readPersistedProfileProof(userData, generation) {
     const root = realpathSync(userData);
     for (const expected of PERSISTED_PROFILE_FILES) {
       const path = join(root, expected.relative);
-      let stat;
+      let bytes;
       try {
-        stat = lstatSync(path);
+        bytes = readContainedRegularFile(root, path);
       } catch (error) {
-        if (error?.code !== "ENOENT" || expected.required) throw new Error(`missing persisted profile file: ${expected.relative}`);
+        if (error?.code !== "ENOENT" || expected.required) {
+          throw new Error(
+            error?.code === "ENOENT"
+              ? `missing persisted profile file: ${expected.relative}`
+              : `invalid persisted profile file: ${expected.relative}`,
+          );
+        }
         files.push({ relative: expected.relative, present: false, bytes: 0, sha256: "" });
         continue;
       }
-      const actual = relative(root, realpathSync(path));
-      if (!stat.isFile() || stat.isSymbolicLink() || actual.startsWith("..") || isAbsolute(actual) || stat.size > MAX_PROFILE_FILE_BYTES) {
-        throw new Error(`invalid persisted profile file: ${expected.relative}`);
-      }
-      const bytes = readFileSync(path);
       if (expected.required && bytes.length === 0) throw new Error(`empty persisted profile file: ${expected.relative}`);
       files.push({ relative: expected.relative, present: true, bytes: bytes.length, sha256: sha256Bytes(bytes) });
     }

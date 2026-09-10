@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -15,8 +15,10 @@ import {
   currentGenerationProfileIdentity,
   nsisDefaultInstallDir,
   nsisUninstallKeepsCustomInstdir,
+  persistedProfileProofValid,
   profileRestartProblems,
   readCurrentGenerationIdentity,
+  readPersistedProfileProof,
   requestNativeApplicationClose,
   stableInventoryIdentity,
   waitForChildExitNoKill,
@@ -454,3 +456,109 @@ test("Windows preflight refuses unowned profile and inherited user-data override
   assert.equal(clean.ok, true);
   rmSync(local, { recursive: true, force: true });
 });
+
+test("persisted profile proof binds open/stat/read to one regular file and fails closed on races", (context) => {
+  const src = readFileSync(join(ROOT, "scripts/lib/native-lifecycle-proof.mjs"), "utf8");
+  const reader = src.slice(src.indexOf("function readContainedRegularFile"), src.indexOf("export function currentGenerationProfileIdentity"));
+  assert.match(reader, /O_RDONLY \| \(constants\.O_NOFOLLOW/);
+  assert.match(reader, /readFileSync\(fd\)/);
+  assert.doesNotMatch(reader, /readFileSync\(path\)/);
+
+  const root = mkdtempSync(join(tmpdir(), "penglai-profile-proof-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  writeCurrentHome(root);
+  const generation = readCurrentGenerationIdentity(root);
+  const healthy = readPersistedProfileProof(root, generation);
+  assert.equal(healthy.ok, true);
+  assert.equal(persistedProfileProofValid(healthy), true);
+  assert.equal(healthy.files.length > 0, true);
+  assert.equal(healthy.files.some((row) => row.relative.includes("credentials")), false);
+  assert.equal(healthy.files.some((row) => /session|media|Memory/i.test(row.relative)), false);
+
+  writeSnap(root, { nonce: "boot", pid: 11 });
+  const previous = currentGenerationProfileIdentity(root);
+  writeSnap(root, { nonce: "restart", pid: 22 });
+  const restarted = currentGenerationProfileIdentity(root);
+  assert.deepEqual(profileRestartProblems(previous, restarted), []);
+
+  const required = join(root, "dsh-home-active.json");
+  const original = readFileSync(required);
+  const outside = join(root, "outside-profile.json");
+  writeFileSync(outside, original);
+  unlinkSync(required);
+  try {
+    symlinkSync(outside, required);
+  } catch (error) {
+    if (process.platform === "win32" && error?.code === "EPERM") {
+      writeFileSync(required, original);
+      context.skip("Windows account cannot create file symlinks without Developer Mode or elevation");
+      return;
+    }
+    throw error;
+  }
+  const linked = readPersistedProfileProof(root, generation);
+  assert.equal(linked.ok, false);
+  assert.match(linked.reason, /invalid persisted profile file/);
+  unlinkSync(required);
+  writeFileSync(required, original);
+  assert.equal(readPersistedProfileProof(root, generation).ok, true);
+
+  const oversized = join(root, CURRENT_DSH_HOME_RELATIVE, "settings.yaml");
+  writeFileSync(oversized, "x".repeat(4 * 1024 * 1024 + 1));
+  const tooBig = readPersistedProfileProof(root, generation);
+  assert.equal(tooBig.ok, false);
+  assert.match(tooBig.reason, /invalid persisted profile file/);
+  unlinkSync(oversized);
+  assert.equal(readPersistedProfileProof(root, generation).ok, true);
+
+  unlinkSync(required);
+  const missing = readPersistedProfileProof(root, generation);
+  assert.equal(missing.ok, false);
+  assert.match(missing.reason, /missing persisted profile file/);
+  writeFileSync(required, original);
+
+  const swapper = spawn(
+    process.execPath,
+    [
+      "-e",
+      `const fs = require("node:fs");
+const target = process.env.PENGLAI_SWAP_TARGET;
+const outside = process.env.PENGLAI_SWAP_OUTSIDE;
+const orig = fs.readFileSync(target);
+for (;;) {
+  try { fs.unlinkSync(target); } catch {}
+  try { fs.symlinkSync(outside, target); } catch {}
+  try { fs.unlinkSync(target); } catch {}
+  try { fs.writeFileSync(target, orig); } catch {}
+}`,
+    ],
+    {
+      env: { ...process.env, PENGLAI_SWAP_TARGET: required, PENGLAI_SWAP_OUTSIDE: outside },
+      stdio: "ignore",
+    },
+  );
+  context.after(() => {
+    try {
+      swapper.kill("SIGKILL");
+    } catch {
+      /* already gone */
+    }
+  });
+  for (let i = 0; i < 80; i += 1) {
+    const raced = readPersistedProfileProof(root, generation);
+    assert.equal(typeof raced.ok, "boolean");
+    if (raced.ok) assert.equal(persistedProfileProofValid(raced), true);
+    else assert.match(String(raced.reason ?? ""), /persisted profile|unavailable|invalid|missing|empty/);
+  }
+  swapper.kill("SIGKILL");
+  try {
+    unlinkSync(required);
+  } catch {
+    /* restored below */
+  }
+  writeFileSync(required, original);
+  const restored = readPersistedProfileProof(root, generation);
+  assert.equal(restored.ok, true);
+  assert.equal(persistedProfileProofValid(restored), true);
+});
+
