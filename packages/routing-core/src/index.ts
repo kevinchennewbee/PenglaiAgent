@@ -22,9 +22,15 @@ import {
   type PenglaiImSource,
   type PenglaiVoiceMetadata,
   type OfficialImageRef,
+  type OfficialFileRef,
   type ObjectBind,
+  type InboundMediaReceipt,
   isDiagnosticMediaCaption,
   userFacingMediaPrompt,
+  officialRemoteFailure,
+  isAgentPresetRemoteCode,
+  presetUnavailableUserText,
+  buildInboundMediaReceipt,
 } from "@penglai/contracts";
 import {
   PENDING_MENU_TTL_MS,
@@ -88,12 +94,14 @@ export interface AgentPort {
 
 export interface ObjectBinder {
   bind(handle: string, bind: ObjectBind): void;
+  peek?(handle: string): { bind?: ObjectBind };
 }
 
 export interface ControlReply {
   kind: "control" | "accepted" | "rejected";
   text: string;
   errorClass?: ErrorClass;
+  failureCode?: string;
 }
 
 export interface VoiceInboundClaim {
@@ -247,6 +255,7 @@ export class RoutingControlPlane {
     text: string,
   ): ModelInput {
     const images: OfficialImageRef[] = env.media?.officialImage ? [env.media.officialImage] : [];
+    const files: OfficialFileRef[] = env.media?.officialFile ? [env.media.officialFile] : [];
     return {
       sessionId: binding.sessionId,
       inboundId,
@@ -255,9 +264,117 @@ export class RoutingControlPlane {
       source,
       mode: "followup",
       ...(images.length ? { images } : {}),
+      ...(files.length ? { files } : {}),
       ...(env.media?.officeHandle ? { officeHandle: env.media.officeHandle } : {}),
       ...(env.media?.audioHandle ? { audioHandle: env.media.audioHandle } : {}),
     };
+  }
+
+  private persistInboundMediaReceipt(
+    inboundId: string,
+    env: InboundEnvelope,
+    binding: Binding,
+    routeId: string,
+  ): void {
+    if (env.bodyKind !== "media" || !env.media) return;
+    const route = this.store.getRoute(routeId);
+    if (!route) throw new PenglaiError("STORE_CORRUPT", "route missing for media receipt");
+    this.store.putInboundMediaReceipt(
+      inboundId,
+      buildInboundMediaReceipt({
+        kind: env.media.kind,
+        workspaceIdentity: binding.workspaceIdentity,
+        sessionId: binding.sessionId,
+        routeId,
+        accountRef: route.accountRef,
+        bindingRevision: binding.revision,
+        ...(env.media.officialFile ? { officialFile: env.media.officialFile } : {}),
+        ...(env.media.officialImage ? { officialImage: env.media.officialImage } : {}),
+        ...(env.media.officeHandle ? { officeHandle: env.media.officeHandle } : {}),
+        ...(env.media.audioHandle ? { audioHandle: env.media.audioHandle } : {}),
+      }),
+      this.clock.now(),
+    );
+  }
+
+  private revalidateReceiptOwnership(
+    receipt: InboundMediaReceipt,
+    inbound: { inboundId: string; routeId: string; bindingRevision: number },
+    binding: Binding,
+    accountRef: string,
+  ): void {
+    if (
+      receipt.routeId !== inbound.routeId ||
+      receipt.bindingRevision !== inbound.bindingRevision ||
+      receipt.bindingRevision !== binding.revision ||
+      receipt.sessionId !== binding.sessionId ||
+      receipt.workspaceIdentity !== binding.workspaceIdentity ||
+      receipt.accountRef !== accountRef
+    ) {
+      throw new PenglaiError("BINDING_STALE", "media receipt ownership rejected");
+    }
+    for (const handle of [receipt.officeHandle, receipt.audioHandle]) {
+      if (!handle || !this.objects?.peek) continue;
+      const peeked = this.objects.peek(handle);
+      if (
+        peeked.bind &&
+        (peeked.bind.sessionId !== binding.sessionId ||
+          (peeked.bind.workspaceId !== undefined && peeked.bind.workspaceId !== binding.workspaceIdentity) ||
+          (peeked.bind.routeId !== undefined && peeked.bind.routeId !== inbound.routeId))
+      ) {
+        throw new PenglaiError("UNAUTHORIZED", "office/audio handle is not bound to this Session");
+      }
+    }
+    if (receipt.officeHandle) this.objects?.bind(receipt.officeHandle, {
+      sessionId: binding.sessionId,
+      workspaceId: binding.workspaceIdentity,
+      routeId: inbound.routeId,
+    });
+    if (receipt.audioHandle) this.objects?.bind(receipt.audioHandle, {
+      sessionId: binding.sessionId,
+      workspaceId: binding.workspaceIdentity,
+      routeId: inbound.routeId,
+    });
+  }
+
+  private modelInputFromReceipt(
+    inbound: { inboundId: string; routeId: string; dispatchMode?: "followup" | "steer" },
+    binding: Binding,
+    text: string,
+    source: PenglaiImSource,
+    receipt: InboundMediaReceipt,
+  ): ModelInput {
+    const images = receipt.officialImage ? [receipt.officialImage] : [];
+    const files = receipt.officialFile ? [receipt.officialFile] : [];
+    return {
+      sessionId: binding.sessionId,
+      inboundId: inbound.inboundId,
+      routeId: inbound.routeId,
+      text,
+      source,
+      mode: inbound.dispatchMode === "steer" ? "steer" : "followup",
+      recovery: true,
+      ...(images.length ? { images } : {}),
+      ...(files.length ? { files } : {}),
+      ...(receipt.officeHandle ? { officeHandle: receipt.officeHandle } : {}),
+      ...(receipt.audioHandle ? { audioHandle: receipt.audioHandle } : {}),
+    };
+  }
+
+  private deliverPresetTurnFailure(routeId: string, inboundId: string, error: unknown): ControlReply | undefined {
+    const official = officialRemoteFailure(error);
+    if (!official || !isAgentPresetRemoteCode(official.code)) return undefined;
+    const text = presetUnavailableUserText();
+    this.store.tx(() => {
+      this.enqueueControlReply(routeId, inboundId, text);
+      this.store.setInboundState(inboundId, "no_delivery");
+      this.store.audit(
+        "inbound_preset_unavailable",
+        { inboundId, routeId, code: official.code.slice(0, 64) },
+        this.clock.now(),
+      );
+    });
+    return { kind: "control", text, failureCode: "PRESET_UNAVAILABLE" };
   }
 
   private inboundModelText(env: InboundEnvelope): string {
@@ -343,11 +460,15 @@ export class RoutingControlPlane {
         adapter: route.adapter,
         ...(recoveredVoice ? { voice: recoveredVoice } : {}),
       };
+      let recoveredInput: ModelInput;
       try {
-        const call = inbound.dispatchMode === "steer" ? this.agent.steer : this.agent.followup;
-        const dispatched = await call.call(
-          this.agent,
-          {
+        if (inbound.bodyKind === "media") {
+          const receipt = this.store.getInboundMediaReceipt(inbound.inboundId);
+          if (!receipt) throw new PenglaiError("SECURITY_POLICY", "media receipt missing");
+          this.revalidateReceiptOwnership(receipt, inbound, binding, route.accountRef);
+          recoveredInput = this.modelInputFromReceipt(inbound, binding, text, source, receipt);
+        } else {
+          recoveredInput = {
             sessionId: binding.sessionId,
             inboundId: inbound.inboundId,
             routeId: inbound.routeId,
@@ -355,7 +476,23 @@ export class RoutingControlPlane {
             source,
             mode: inbound.dispatchMode === "steer" ? "steer" : "followup",
             recovery: true,
-          },
+          };
+        }
+      } catch {
+        this.store.setInboundState(inbound.inboundId, "no_delivery");
+        this.store.audit(
+          "inbound_recovery_rejected",
+          { inboundId: inbound.inboundId, routeId: inbound.routeId, reason: "media_receipt" },
+          this.clock.now(),
+        );
+        result.rejected += 1;
+        return;
+      }
+      try {
+        const call = inbound.dispatchMode === "steer" ? this.agent.steer : this.agent.followup;
+        const dispatched = await call.call(
+          this.agent,
+          recoveredInput,
           {
             operationId: inbound.inboundId,
             ...(options?.signal ? { signal: options.signal } : {}),
@@ -375,7 +512,12 @@ export class RoutingControlPlane {
           { inboundId: inbound.inboundId, routeId: inbound.routeId, mode: inbound.dispatchMode ?? "followup" },
           this.clock.now(),
         );
-      } catch {
+      } catch (err: unknown) {
+        const preset = this.deliverPresetTurnFailure(inbound.routeId, inbound.inboundId, err);
+        if (preset) {
+          result.rejected += 1;
+          return;
+        }
         this.store.audit(
           "inbound_recovery_deferred",
           { inboundId: inbound.inboundId, routeId: inbound.routeId },
@@ -824,6 +966,13 @@ export class RoutingControlPlane {
     }
     if (
       env.bodyKind === "media" &&
+      (env.media?.kind === "file" || env.media?.kind === "office" || env.media?.kind === "pdf") &&
+      !env.media.officialFile
+    ) {
+      return this.reject("DSH_UNAVAILABLE", "file requires official DSH attachments.saveFile");
+    }
+    if (
+      env.bodyKind === "media" &&
       (env.media?.kind === "office" || env.media?.kind === "pdf") &&
       !env.media.officeHandle
     ) {
@@ -886,19 +1035,22 @@ export class RoutingControlPlane {
       inboundId,
       adapter: env.adapter,
     };
-    this.store.insertInbound(
-      {
-        inboundId,
-        adapterMessageKey: env.adapterMessageKey,
-        routeId,
-        bindingRevision: binding.revision,
-        bodyKind: "text",
-        redactedDigest: digestText(text),
-        state: "queued",
-      },
-      text,
-      this.clock.now(),
-    );
+    this.store.tx(() => {
+      this.store.insertInbound(
+        {
+          inboundId,
+          adapterMessageKey: env.adapterMessageKey,
+          routeId,
+          bindingRevision: binding.revision,
+          bodyKind: env.bodyKind === "media" ? "media" : "text",
+          redactedDigest: digestText(text),
+          state: "queued",
+        },
+        text,
+        this.clock.now(),
+      );
+      this.persistInboundMediaReceipt(inboundId, env, binding, routeId);
+    });
     try {
       this.bindInboundObjects(env, binding, routeId);
       const result = await this.agent.followup(
@@ -912,6 +1064,8 @@ export class RoutingControlPlane {
       return { kind: "accepted", text: "queued" };
     } catch (err: unknown) {
       this.store.audit("inbound_write_uncertain", { inboundId, routeId }, this.clock.now());
+      const preset = this.deliverPresetTurnFailure(routeId, inboundId, err);
+      if (preset) return preset;
       return this.reject("DSH_UNAVAILABLE", err instanceof Error ? err.message : "dsh write failed");
     }
   }
@@ -1077,16 +1231,23 @@ export class RoutingControlPlane {
           command.text,
           this.clock.now(),
         );
-        const r = await this.agent.steer({
-          sessionId: binding.sessionId,
-          inboundId: inboundId2,
-          routeId,
-          text: command.text,
-          source,
-          mode: "steer",
-        });
-        this.store.setInboundState(inboundId2, "queued", r.dshMessageId);
-        return { kind: "control", text: "steered" };
+        try {
+          const r = await this.agent.steer({
+            sessionId: binding.sessionId,
+            inboundId: inboundId2,
+            routeId,
+            text: command.text,
+            source,
+            mode: "steer",
+          });
+          this.store.setInboundState(inboundId2, "queued", r.dshMessageId);
+          return { kind: "control", text: "steered" };
+        } catch (err: unknown) {
+          this.store.audit("inbound_write_uncertain", { inboundId: inboundId2, routeId }, this.clock.now());
+          const preset = this.deliverPresetTurnFailure(routeId, inboundId2, err);
+          if (preset) return preset;
+          return this.reject("DSH_UNAVAILABLE", err instanceof Error ? err.message : "dsh write failed");
+        }
       }
       case "stop_current": {
         await this.agent.cancelCurrent(binding.sessionId);

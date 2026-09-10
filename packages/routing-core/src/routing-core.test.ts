@@ -122,6 +122,11 @@ test("image and file inbound are accepted into the bound session", async () => {
   assert.equal(h.inputs.at(-1)?.text.includes("penglai-media"), false);
   assert.equal(h.inputs.at(-1)?.text.includes("[image]"), false);
   assert.deepEqual(h.inputs.at(-1)?.images, [officialImage]);
+  const officialFile = {
+    attachmentId: `sha256:${"b".repeat(64)}`,
+    name: "note.docx",
+    bytes: 32,
+  };
   const office = await h.plane.submitInbound(
     env({
       adapterMessageKey: "doc",
@@ -136,13 +141,33 @@ test("image and file inbound are accepted into the bound session", async () => {
         size: 32,
         sha256: "b".repeat(64),
         opaqueHandle: "media-doc",
-        officeHandle: "obj-officehandle00000001",
+        officeHandle: "obj-0123456789abcdef01234567",
+        officialFile,
       },
     }),
   );
   assert.equal(office.kind, "accepted");
-  assert.equal(h.inputs.at(-1)?.officeHandle, "obj-officehandle00000001");
+  assert.equal(h.inputs.at(-1)?.officeHandle, "obj-0123456789abcdef01234567");
+  assert.deepEqual(h.inputs.at(-1)?.files, [officialFile]);
   assert.equal(h.inputs.at(-1)?.text.includes("penglai-media"), false);
+  const missingReceipt = await h.plane.submitInbound(
+    env({
+      adapterMessageKey: "bin-missing",
+      bodyKind: "media",
+      text: "",
+      media: {
+        kind: "file",
+        source: "weixin",
+        sourceMessageId: "bin-missing",
+        sourceResourceId: "cdn-3",
+        mime: "application/octet-stream",
+        size: 4,
+        sha256: "c".repeat(64),
+        opaqueHandle: "media-bin",
+      },
+    }),
+  );
+  assert.equal(missingReceipt.kind, "rejected");
 });
 
 test("image inbound without official DSH attachment is rejected", async () => {
@@ -404,6 +429,11 @@ test("group rejected and media accepted", async () => {
         size: 4,
         sha256: "b".repeat(64),
         opaqueHandle: "media-file",
+        officialFile: {
+          attachmentId: `sha256:${"b".repeat(64)}`,
+          name: "a.bin",
+          bytes: 4,
+        },
       },
     }),
   );

@@ -967,7 +967,7 @@ export class PenglaiImHost {
     return {
       channel,
       enabled: health.enabled,
-      configured: health.connection !== "disabled" && health.connection !== "not_configured",
+      configured: health.connection !== "disabled" && health.connection !== "not_configured" && health.connection !== "blocked",
       connection: health.connection,
       boundRoutes: this.listBindings().filter((row) => row.channel === channel).length,
       pendingInbox: 0,
@@ -1021,6 +1021,18 @@ export class PenglaiImHost {
     return this.bots.list(input.channelId);
   }
 
+  setBotAlias(input: { botId: string; alias: string }) {
+    return this.bots.setAlias(input.botId, input.alias);
+  }
+
+  async inspectIMessagePermissions() {
+    const adapter = this.adapters.get("imessage");
+    if (!adapter?.inspectPermissions) {
+      return { platform: process.platform, database: "unsupported", automation: "unsupported" };
+    }
+    return adapter.inspectPermissions();
+  }
+
   removeBot(input: { botId: string }) {
     this.bots.remove(input.botId);
     return { removed: true };
@@ -1045,6 +1057,7 @@ export class PenglaiImHost {
   }): Promise<{ stored: true }> {
     const id = requireChannelId(input.channel);
     if (isNativeChannel(id)) throw new PenglaiError("INVALID_INPUT", "NATIVE_CHANNEL_USES_NATIVE_CONNECT");
+    if (id === "imessage") throw new PenglaiError("INVALID_INPUT", "IMESSAGE_HAS_NO_TOKEN_SECRET");
     if (!getChannelManifest(id).runtimeBundled) {
       throw new PenglaiError("DSH_UNAVAILABLE", `CHANNEL_RUNTIME_NOT_BUNDLED:${id}`);
     }
@@ -1082,6 +1095,9 @@ export class PenglaiImHost {
       throw new PenglaiError("DSH_UNAVAILABLE", `CHANNEL_RUNTIME_NOT_BUNDLED:${id}`);
     }
     await this.waitForSidecars();
+    if (id === "imessage" && input.secret) {
+      throw new PenglaiError("INVALID_INPUT", "IMESSAGE_HAS_NO_TOKEN_SECRET");
+    }
     if (input.secret) {
       await this.storeChannelSecret({
         channel: id,
@@ -1470,7 +1486,7 @@ export class PenglaiImHost {
     const adapter = this.adapters.get(event.channel);
     if (adapter) this.startStatusReaction(adapter, event, routeId);
     try {
-      await this.plane.submitInbound({
+      const reply = await this.plane.submitInbound({
         adapter: event.channel,
         adapterMessageKey: event.idempotencyKey,
         accountRef: event.accountRef,
@@ -1481,6 +1497,12 @@ export class PenglaiImHost {
         text: event.text,
         receivedAt,
       });
+      if (reply.failureCode === "PRESET_UNAVAILABLE") {
+        this.recordChannelFailure(event.channel, channelConfigAccountId(event.channel), {
+          isDSHRemoteError: true,
+          code: "agent-preset/unavailable",
+        });
+      }
       if (adapter) this.persistAdapterState(event.channel, adapter);
     } catch (error) {
       this.statusReactions.get(inboundOperationKey(routeId, event.idempotencyKey))?.error();

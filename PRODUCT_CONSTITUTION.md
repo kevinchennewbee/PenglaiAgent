@@ -70,6 +70,7 @@
 - **0.5.12 全流程授权**（D-068，已完成）：完整开发、上游升级适配、缺陷修复、正常测试、推送与 PR 合并、三端原生构建、精确十项附件不可变发布及 README/既有官网更新与公开回读。官方 DSH `0.1.3-alpha.2` 完整 263 包 npm cohort。该授权已完成。已发布的 0.5.12 tag 与附件不得改写。精确冻结见 `docs/0.5.12/`。
 - **0.6.0 全流程授权**（D-070，已完成公开发布）：官方 DSH `0.1.5-alpha.1`、四端安装包与不可变 `v0.6.0` 附件。该授权已完成。已发布的 0.6.0 tag 与附件不得改写。UOS 真机安装/启动/功能仍为当时记录的 `OWNER_POST_RELEASE`，不是后续版本的自动 PASS。
 - **0.6.1 全流程授权、分阶段执行**（D-071）：完整开发、官方 DSH `0.1.5-rc.1` 队列与第一方/伴随插件适配、审计缺陷修复、正常确定性测试、本地 `codex/0.6.1` 提交，当前 Mac/Windows 全新安装/重启/默认卸载门禁，以及供 Codex GUI 验收的 Apple Silicon 代表包。Owner 已授权后续 PR/`main`/四端原生 CI/不可变发布/README 与既有官网；当前 worker 阶段不创建 PR、不合并 `main`、不打 tag、不上传、不部署公开下载。包数以实际依赖图为准。明确排除两小时测试与旧版本已安装升级验收（`OWNER_EXCLUDED`，不得把未跑升级标 PASS）；`test:soak` 保留。UOS 真机安装/启动/功能为 `OWNER_POST_RELEASE`（Owner 发布后测试安装包），不是 native PASS。四目标与架构/ABI/闭包/依赖检查仍要求。精确冻结见 `docs/0.6.1/`。
+- **0.6.1 IM 追踪与可选 iMessage**（D-072）：继续第一方改写追踪 dsh-im，不安装社区 runtime。已采用 rewrite-source 仍是 4.17.1 `464c0a9…`；当前已发布上游是 4.18.1 `d01bd34…`；未发布 `606ced1…` 只作为别名参考，不得写成 v4.18.1 字节。可选 iMessage 仅 Darwin、仅私聊文本、默认关闭；用户未明确启用并授予完全磁盘访问/自动化前，不得读取 Messages 数据或调用 Messages 自动化。权限不足或未配置不得记为已连接。Windows/UOS 只暴露不支持状态，不得调用 macOS helper。WhatsApp、wecom-app 回调、第二套管理 HTTP、Office 当 IM、DOM 注入与第二 Agent 核心仍禁止。Telegram Rich Draft 心跳不适用：保持官方终态投递。
 
 0.5.8 的预览方向不改写已经公开的 0.5.7 tag、Release、附件或历史文档。迁移到新 DSH 时必须从现行源代码与产品表面移除 WhatsApp 的说明卡、channel identity、连接路径、adapter/runtime 接线、Baileys/libsignal 依赖以及任何支持或路线图声明；Git 历史与明确标注为历史的发行审计记录继续保留。移除完成后需用 catalog、依赖闭包、lockfile、SBOM、许可证、安装包内容和用户界面反向证明 WhatsApp 不再属于 Penglai。
 
@@ -88,7 +89,8 @@
 - 安装包是否依赖开发机的全局 Node、pnpm、DSH、仓库目录或首次联网安装？
 - 任一目标包是否携带了错误 OS/arch 的 Electron、Node、DSH closure 或原生依赖？
 - Plugin Center 的状态是否可能与 DSH loader inventory 不一致？
-- 微信或飞书是否绕过统一 binding、commands、causal router 或 DSH AgentHandle？
+- 微信、飞书或可选 iMessage 是否绕过统一 binding、commands、causal router 或 DSH AgentHandle？
+- 是否在用户未启用 iMessage、未绑定对端/Workspace/Session 或未授予系统权限时读取 Messages 数据库或调用 Messages 自动化？
 - ASR/TTS 是否创建了第二 Agent/session/UI，或 IM adapter 是否直接拥有模型引擎而不是调用 DSH plugin service？
 - Context/Memory/Budget/Companion 是否复制了 DSH 的 Workspace/Session/Turn/Skills/Schedule/TokenMeter，或按最近项目/窗口猜 scope？
 - Context 是否能越过用户授权根、修改源文件或让模型伪造来源状态？Memory 是否允许模型无确认写 global/SOP？Companion 是否能无人值守执行工具或绕过 quiet-hours/budget/IM binding？

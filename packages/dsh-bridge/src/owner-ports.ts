@@ -1,4 +1,4 @@
-import type { OfficialImageRef, PenglaiImSource } from "@penglai/contracts";
+import type { OfficialFileRef, OfficialImageRef, PenglaiImSource } from "@penglai/contracts";
 
 /** Narrow official Agent face consumed by Penglai message routing. */
 export interface DshAgentLike {
@@ -12,13 +12,21 @@ export interface DshAgentLike {
   followup(message: {
     id?: string;
     role: "user";
-    content: Array<{ type: "text"; text: string } | { type: "image"; attachment: OfficialImageRef }>;
+    content: Array<
+      | { type: "text"; text: string }
+      | { type: "image"; attachment: OfficialImageRef }
+      | { type: "file"; attachment: OfficialFileRef }
+    >;
     source: PenglaiImSource;
   }): void;
   steer(message: {
     id?: string;
     role: "user";
-    content: Array<{ type: "text"; text: string } | { type: "image"; attachment: OfficialImageRef }>;
+    content: Array<
+      | { type: "text"; text: string }
+      | { type: "image"; attachment: OfficialImageRef }
+      | { type: "file"; attachment: OfficialFileRef }
+    >;
     source: PenglaiImSource;
   }): void;
   cancel(cause: string, opts?: { keepInbox?: boolean }): void;

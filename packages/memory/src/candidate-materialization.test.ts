@@ -15,8 +15,25 @@ import { CANDIDATE_KINDS, type CandidateKind } from "./v2/governance.js";
 import { nativeCategoryForCandidateKind } from "./v2/native-category.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const EVIDENCE_DIR = "/tmp/penglai-061-memory-materialization-evidence";
+const PRIOR_PHASE_MATERIALIZATION_EVIDENCE = "/tmp/penglai-061-memory-materialization-evidence";
 const fakeBinaryPath = createTestMnemonBinary();
+let cachedMaterializationEvidenceDir: string | undefined;
+
+function materializationEvidenceDir(): string {
+  if (cachedMaterializationEvidenceDir) return cachedMaterializationEvidenceDir;
+  const selected = process.env.PENGLAI_MEMORY_MATERIALIZATION_EVIDENCE_DIR?.trim();
+  if (selected) {
+    const resolved = resolve(selected);
+    if (resolved === resolve(PRIOR_PHASE_MATERIALIZATION_EVIDENCE)) {
+      throw new Error("refusing to overwrite prior-phase memory materialization evidence");
+    }
+    cachedMaterializationEvidenceDir = resolved;
+    return cachedMaterializationEvidenceDir;
+  }
+  cachedMaterializationEvidenceDir = mkdtempSync(join(tmpdir(), "penglai-mem-materialization-evidence-"));
+  return cachedMaterializationEvidenceDir;
+}
+
 const inertSkills = { snapshot: async () => ({ skills: [] as Array<{ name: string }>, complete: true }) };
 
 const KIND_FIXTURES: Array<{ kind: CandidateKind; text: string }> = [
@@ -284,7 +301,8 @@ test("pinned Mnemon factory materializes every CandidateKind without an unpinned
     assert.match(String(health.version), /0\.2\.8/);
     assert.equal(pinned.sha256, hostMnemonTarget()?.binarySha256);
     assert.ok(svc.engine.runner);
-    mkdirSync(EVIDENCE_DIR, { recursive: true, mode: 0o700 });
+    const evidenceDir = materializationEvidenceDir();
+    mkdirSync(evidenceDir, { recursive: true, mode: 0o700 });
     const nativeSearches = [];
     for (const row of replayed.rows) {
       const native = await svc.engine.runner.run({
@@ -305,7 +323,7 @@ test("pinned Mnemon factory materializes every CandidateKind without an unpinned
       assert.equal(parsed.find((item) => item.id === row.memoryId)?.category, row.nativeCategory);
     }
     writeFileSync(
-      join(EVIDENCE_DIR, "pinned-binary.json"),
+      join(evidenceDir, "pinned-binary.json"),
       `${JSON.stringify({
         path: pinned.path,
         sha256: pinned.sha256,
@@ -315,14 +333,14 @@ test("pinned Mnemon factory materializes every CandidateKind without an unpinned
       }, null, 2)}\n`,
     );
     writeFileSync(
-      join(EVIDENCE_DIR, "mapping.json"),
+      join(evidenceDir, "mapping.json"),
       `${JSON.stringify({
         candidateKinds: [...CANDIDATE_KINDS],
         mapped: Object.fromEntries(CANDIDATE_KINDS.map((kind) => [kind, nativeCategoryForCandidateKind(kind)])),
       }, null, 2)}\n`,
     );
     writeFileSync(
-      join(EVIDENCE_DIR, "factory-replay.json"),
+      join(evidenceDir, "factory-replay.json"),
       `${JSON.stringify({ rows: replayed.rows, personalMemoryId: replayed.personalMemoryId, nativeSearches }, null, 2)}\n`,
     );
   } finally {
@@ -393,9 +411,10 @@ test("pinned Mnemon rejects a failed native write then accepts a fresh Owner ret
       positionals: [text],
       flags: { "--limit": 10 },
     });
-    mkdirSync(EVIDENCE_DIR, { recursive: true, mode: 0o700 });
+    const evidenceDir = materializationEvidenceDir();
+    mkdirSync(evidenceDir, { recursive: true, mode: 0o700 });
     writeFileSync(
-      join(EVIDENCE_DIR, "failed-write-retry.json"),
+      join(evidenceDir, "failed-write-retry.json"),
       `${JSON.stringify({
         binarySha256: pinned.sha256,
         firstActionState: "reserved",

@@ -39,6 +39,9 @@ export function assertPenglaiAppIdentity(facts: AppIdentityFacts): void {
 export const MICROPHONE_USAGE_DESCRIPTION =
   "Penglai uses the microphone only when you start voice input. It does not record in the background. 蓬莱仅在你主动开始语音输入时使用麦克风，不会在后台录音。";
 
+export const APPLE_EVENTS_USAGE_DESCRIPTION =
+  "Penglai controls Messages only after you enable the optional iMessage channel. It does not send messages in the background. 蓬莱仅在你启用可选 iMessage 通道后才会控制 Messages，不会在后台发送。";
+
 export const FORBIDDEN_MAC_PLIST_KEYS = [
   "NSAllowsArbitraryLoads",
   "NSAudioCaptureUsageDescription",
@@ -60,6 +63,10 @@ export function rewriteElectronPlist(plist: string): string {
     .replace(
       /<key>NSMicrophoneUsageDescription<\/key>\s*<string>[^<]*<\/string>/,
       `<key>NSMicrophoneUsageDescription</key>\n\t<string>${MICROPHONE_USAGE_DESCRIPTION}</string>`,
+    )
+    .replace(
+      /<key>NSAppleEventsUsageDescription<\/key>\s*<string>[^<]*<\/string>/,
+      `<key>NSAppleEventsUsageDescription</key>\n\t<string>${APPLE_EVENTS_USAGE_DESCRIPTION}</string>`,
     );
   if (!/<key>CFBundleIconFile<\/key>/.test(next)) {
     next = next.replace(
@@ -80,6 +87,15 @@ export function rewriteElectronPlist(plist: string): string {
       next = next.replace(/<\/dict>\s*<\/plist>\s*$/, `${microphone}</dict>\n</plist>\n`);
     } else {
       next += microphone;
+    }
+  }
+  if (!/<key>NSAppleEventsUsageDescription<\/key>/.test(next)) {
+    const appleEvents =
+      `\t<key>NSAppleEventsUsageDescription</key>\n\t<string>${APPLE_EVENTS_USAGE_DESCRIPTION}</string>\n`;
+    if (/<\/dict>\s*<\/plist>\s*$/.test(next)) {
+      next = next.replace(/<\/dict>\s*<\/plist>\s*$/, `${appleEvents}</dict>\n</plist>\n`);
+    } else {
+      next += appleEvents;
     }
   }
   next = next.replace(

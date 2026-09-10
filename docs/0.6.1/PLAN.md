@@ -31,12 +31,17 @@ Old-version installed upgrade and previous-installer downloads are
 1. Pin the discovered 279-package npm cohort and rewrite identity atomically.
 2. Repair IM cold recovery, session existence, inventory liveness, publication
    input, UOS Node/Depends, signed plugin preservation, and `deepseek-flash`
-   onboarding.
-3. Keep Office action confirmation and Workspace isolation.
-4. Stage 0.6.1 public copy under `docs/0.6.1/`; do not claim public bytes.
-5. Run source gates and package a representative darwin-arm64 app from a local
-   candidate commit.
-6. Make current native/release automation implement the authorized 0.6.1
+   onboarding. Include Office object-root schemas, Memory execution-context
+   and Mnemon category mapping, durable cold IM recovery, and missing-session
+   classification from accepted core source `cbe557bf`.
+3. Adapt current dsh-im 4.18.1 / unpublished 606ced1 inside `@penglai/im`:
+   official inbound FileBlock, bot aliases, RemoteError/preset copy, optional
+   Darwin iMessage. Do not install the community runtime.
+4. Keep Office action confirmation and Workspace isolation.
+5. Stage 0.6.1 public copy under `docs/0.6.1/`; do not claim public bytes.
+6. Run source gates on the combined tree. Representative darwin-arm64 packaging
+   waits for the manager's accepted native-proof descendant.
+7. Make current native/release automation implement the authorized 0.6.1
    scope: fresh install, restart/resume, and default uninstall on
    Mac/Windows; keep historical upgrade verifiers; do not fetch old
    installers in this workflow.

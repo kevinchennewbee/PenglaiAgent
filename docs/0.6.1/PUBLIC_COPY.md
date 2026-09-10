@@ -11,7 +11,11 @@ Penglai 0.6.1 installs official DeepSeek Harness `0.1.5-rc.1` (tag
 packages) on Apple Silicon, Intel Mac, Windows x64, and UnionTech UOS 20
 LoongArch. DSH remains the only agent core. Office and Memory start on.
 Mobile Messaging, speech recognition, voice generation, and Companion stay
-optional and default off.
+optional and default off. WeChat and Feishu remain the native media channels.
+An optional macOS iMessage private-text channel is default off, requires
+manual Full Disk Access and Messages automation, and is unsupported on
+Windows and UOS. Native iMessage live evidence is not claimed. WhatsApp
+is not a Penglai channel.
 
 Fresh install uses the official DeepSeek catalog, including
 `deepseek-flash` (DeepSeek-V41-Flash) with text and image input. Existing
@@ -32,7 +36,10 @@ historical for that release only.
 蓬莱 0.6.1 使用官方 DeepSeek Harness `0.1.5-rc.1`（tag `dsh-v0.1.5-rc.1`，
 commit `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`，279 包），面向 Apple 芯片、
 Intel Mac、Windows x64 与统信 UOS 20 龙芯。DSH 仍是唯一 Agent 核心。办公和记忆
-默认开启。手机消息、语音识别、语音生成、主动陪伴仍为可选且默认关闭。
+默认开启。手机消息、语音识别、语音生成、主动陪伴仍为可选且默认关闭。微信和飞书仍是
+原生媒体通道。可选的 macOS iMessage 私聊文本默认关闭，需要用户手动授予
+完全磁盘访问和 Messages 自动化，在 Windows 与 UOS 上不可用。不把源码夹具
+写成真机 iMessage 证据。不提供 WhatsApp。
 
 全新安装使用官方 DeepSeek 目录，含 `deepseek-flash`（DeepSeek-V41-Flash）的
 文本与图片输入。用户已经明确选过的模型保留在官方设置里。四个安装包必须来自

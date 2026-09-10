@@ -206,6 +206,42 @@ test("bridge supplies the session-bound opaque office handle to the official DSH
   assert.doesNotMatch(context?.text ?? "", /[/\\](Users|Volumes|home|tmp)[/\\]/);
 });
 
+test("bridge submits official FileBlock plus office handle text and never a host path", async () => {
+  const sent: Array<{ type: string; text?: string; attachment?: { attachmentId?: string; name?: string } }> = [];
+  const bridge = new DshBridge({
+    version: "0.1.5-rc.1",
+    getAgent: (id) => ({
+      id,
+      followup(message) { sent.push(...message.content); },
+      steer() {},
+      cancel() {},
+      inbox: { remove() { return true; } },
+    }),
+    async describeSessionModels() {
+      return { current: { provider: "deepseek", model: "deepseek-chat" }, routable: true, sessionExists: true, groups: [] };
+    },
+    listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
+  });
+  const file = {
+    attachmentId: `sha256:${"ab".repeat(32)}`,
+    name: "note.pdf",
+    bytes: 12,
+  };
+  await bridge.followup({
+    sessionId: "s",
+    inboundId: "in-file",
+    routeId: "r",
+    text: "用户发送了一份文档。请检查附件。",
+    officeHandle: "obj-0123456789abcdef01234567",
+    files: [file],
+    source: { kind: "user", schema: 1, routeId: "r", inboundId: "in-file", adapter: "weixin" },
+    mode: "followup",
+  });
+  assert.equal(sent.some((row) => row.type === "file" && row.attachment?.attachmentId === file.attachmentId), true);
+  assert.equal(sent.some((row) => row.type === "text" && String(row.text).includes("office_handle=")), true);
+  assert.equal(sent.some((row) => String(row.text ?? "").includes("/Users/") || String(row.attachment?.name ?? "").includes("/")), false);
+});
+
 test("bridge fails closed before waking an IM turn when the official model route is unavailable", async () => {
   const calls: string[] = [];
   const bridge = new DshBridge({

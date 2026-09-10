@@ -14,6 +14,7 @@ import {
   type MessageFailureCode,
 } from "./message-failure.js";
 import { CHANNEL_IDS, getChannelManifest, type ChannelId } from "./registry.js";
+import { validateBotAlias } from "./bot-alias.js";
 
 export const IM_BOT_STATES = [
   "disabled",
@@ -31,6 +32,8 @@ export interface ImBotRow {
   botId: string;
   channelId: ChannelId;
   displayName: string;
+  originalDisplayName: string;
+  alias?: string;
   credentialRef: string;
   state: ImBotState;
   createdAt: number;
@@ -49,6 +52,8 @@ const SIDECAR_SQL = `
     bot_id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
     display_name TEXT NOT NULL,
+    original_display_name TEXT,
+    alias TEXT,
     credential_ref TEXT NOT NULL,
     state TEXT NOT NULL,
     created_at INTEGER NOT NULL,
@@ -97,6 +102,23 @@ export function ensureImV2Tables(db: DatabaseSync): void {
       db.exec(`ALTER TABLE im_v2_channel_failures ADD COLUMN ${name} ${declaration}`);
     }
   }
+  const botColumns = new Set(
+    (
+      db.prepare("PRAGMA table_info(im_v2_bots)").all() as Array<{
+        name: string;
+      }>
+    ).map((row) => row.name),
+  );
+  if (!botColumns.has("original_display_name")) {
+    db.exec(`ALTER TABLE im_v2_bots ADD COLUMN original_display_name TEXT`);
+  }
+  if (!botColumns.has("alias")) {
+    db.exec(`ALTER TABLE im_v2_bots ADD COLUMN alias TEXT`);
+  }
+  db.exec(
+    `UPDATE im_v2_bots SET original_display_name = display_name
+     WHERE original_display_name IS NULL OR original_display_name = ''`,
+  );
 }
 
 export class ImBotStore {
@@ -154,10 +176,12 @@ export class ImBotStore {
     const channelId = parseClosedEnum(input.channelId, CHANNEL_IDS, "CHANNEL_ID", "INVALID_INPUT");
     const manifest = getChannelManifest(channelId);
     const now = Date.now();
+    const originalDisplayName = input.displayName.trim() || manifest.displayName.en;
     const row: ImBotRow = {
       botId: randomUUID(),
       channelId,
-      displayName: input.displayName.trim() || manifest.displayName.en,
+      displayName: originalDisplayName,
+      originalDisplayName,
       credentialRef: CHANNEL_CREDENTIAL_REFS[channelId],
       state: manifest.defaultEnabled ? "connecting" : "disabled",
       createdAt: now,
@@ -165,11 +189,31 @@ export class ImBotStore {
     };
     this.db
       .prepare(
-        `INSERT INTO im_v2_bots(bot_id, channel_id, display_name, credential_ref, state, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO im_v2_bots(bot_id, channel_id, display_name, original_display_name, alias, credential_ref, state, created_at, updated_at)
+         VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
       )
-      .run(row.botId, row.channelId, row.displayName, row.credentialRef, row.state, row.createdAt, row.updatedAt);
+      .run(
+        row.botId,
+        row.channelId,
+        row.displayName,
+        row.originalDisplayName,
+        row.credentialRef,
+        row.state,
+        row.createdAt,
+        row.updatedAt,
+      );
     return row;
+  }
+
+  setAlias(botId: string, alias: string): ImBotRow {
+    const current = this.require(botId);
+    const nextAlias = validateBotAlias(alias);
+    const displayName = nextAlias || current.originalDisplayName;
+    const now = Date.now();
+    this.db
+      .prepare(`UPDATE im_v2_bots SET display_name = ?, alias = ?, updated_at = ? WHERE bot_id = ?`)
+      .run(displayName, nextAlias || null, now, botId);
+    return this.require(botId);
   }
 
   setState(botId: string, state: string): ImBotRow {
@@ -296,10 +340,14 @@ export class ImBotStore {
   }
 
   private map(row: Record<string, string | number | null>): ImBotRow {
+    const originalDisplayName = String(row.original_display_name || row.display_name);
+    const alias = typeof row.alias === "string" && row.alias.trim() ? row.alias.trim() : undefined;
     return {
       botId: String(row.bot_id),
       channelId: parseClosedEnum(String(row.channel_id), CHANNEL_IDS, "CHANNEL_ID", "SECURITY_POLICY"),
-      displayName: String(row.display_name),
+      displayName: alias || originalDisplayName,
+      originalDisplayName,
+      ...(alias ? { alias } : {}),
       credentialRef: String(row.credential_ref),
       state: parseClosedEnum(String(row.state), IM_BOT_STATES, "IM_BOT_STATE", "SECURITY_POLICY"),
       createdAt: Number(row.created_at),

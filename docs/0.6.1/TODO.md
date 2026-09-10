@@ -14,13 +14,19 @@ Status: source phase. `[x]` requires implementation plus captured evidence.
       generation-bound inventory, four-target publication input, UOS Node
       credential and Depends, signed overlay preservation, official Flash
       catalog consumption.
+- [x] IM 0.6.1 current-dsh-im adaptation in this isolated checkout: inbound
+      FileBlock, bot aliases, RemoteError/preset, optional Darwin iMessage.
 - [x] Deterministic source gates on the rc.1 graph (source unit/contract/e2e
       plus identity/contracts; live/native/UOS host remain later phases).
 - [x] Wire current 0.6.1 native lifecycle: fresh install/restart/default
       uninstall as the hard `installed-lifecycle` gate; keep historical
       upgrade verifier; do not fetch previous installers; record UOS native
       as `OWNER_POST_RELEASE` without PASS.
-- [ ] Local candidate commit and representative Apple Silicon package.
+- [x] Combined source commit on this dedicated checkout from accepted core
+      `cbe557bf` and IM `27139c5c`.
+- [ ] Representative Apple Silicon package after the manager supplies the
+      accepted native-proof descendant. Do not package from this source SHA
+      while native-proof follow-up is still open.
 - [ ] Remaining manager phases: PR/main freeze, four-target natives
       executing `verify:fresh-install-uninstall` on Mac/Windows, UOS
       package/ABI, immutable publication, public-byte readback. UOS native

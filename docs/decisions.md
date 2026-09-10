@@ -509,6 +509,34 @@
   账号验收仍为补充项。
 - 后果：执行账本为 `docs/0.6.1/`。公开下载在 v0.6.1 回读前仍指向 v0.6.0。
 
+### D-072 — 0.6.1 IM：官方 FileBlock 入站、在线别名、RemoteError/preset、可选 Darwin iMessage
+
+- 日期：2026-09-10。
+- 决定：在现有 `@penglai/im` 内完成当前 dsh-im 追踪。不安装 `@xmanrui/dsh-im`
+  runtime。四件套目标不禁止 Darwin-only 可选能力。
+- 钉扎：rewrite-source 4.17.1 `464c0a91762ebd0befc2d179f036eaae4864fb0e`；
+  已发布 4.18.1 `d01bd3450c6d17db2b3386ec44ffa474fd15b03e`；未发布别名
+  `606ced1b5e4f02fe4a1afc9462014f3db1176396`（不是 npm 4.18.1 字节）。
+  官方 DSH 仍为 `0.1.5-rc.1` / `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`。
+  不得跟随 dsh-im 的 `0.1.5-alpha.1` 兼容声明，也不得把 alpha.2 写成比 rc.1
+  更新。
+- 入站非图片：微信/飞书已下载字节走官方 `attachments.saveFile` /
+  `FileAttachmentRef` / `FileBlock`，精确 Workspace/Session/account/route。
+  PNG/JPEG/WebP/GIF 仍走 `saveImage`。语音仍走 ASR。已批准 Office handle
+  仍走 action-bound artifact。无 receipt 不得假装文件回合成功。官方 Web
+  任意扩展上传已经可用，不得关掉或改写成通用预览器。
+- 在线别名：本地显示名，trim、≤80、禁控制字符；空别名恢复原名；不重连、
+  不动凭据/account/peer/route/session。
+- RemoteError/preset：透传 `isDSHRemoteError` 与 `failure.code`；
+  `agent-preset[-/]*` 为 `PRESET_UNAVAILABLE`，文案用蓬莱 `/项目` `/新建`。
+  missing-session 分类不在本里程碑实现。
+- 可选 iMessage：见 ADR 0046。私聊文本、默认关、显式 `macos-messages`。
+  native/live `LIVE_NOT_RUN`。
+- 明确不适用：第二管理 HTTP、默认 LAN trust、Office 渠道、WhatsApp、
+  wecom-app 回调、DOM 注入、Telegram Rich Draft 直播思考、默认启用 Teams
+  或改默认供应商。
+- 后果：执行账本 `docs/0.6.1/DSH_IM_DELTA.md`。不改写 0.5.x/0.6.0 历史。
+
 ## Superseded
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。

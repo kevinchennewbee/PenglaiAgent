@@ -44,7 +44,7 @@ the published installer. That is not a native PASS.
 | Plugin Center | Active | Shows real DSH loader state and signed catalog transactions |
 | Penglai Office | Active | Inspect, create, plan edits, preview, commit, export/return, and undo DOCX/XLSX/PPTX/PDF |
 | Penglai Memory | Active | Automatic current-Workspace memory, explicit personal memory, authorised sources, provenance, and graph views |
-| Mobile Messaging | Disabled | Eight adapters; account connectivity is reported only with actual evidence |
+| Mobile Messaging | Disabled | Nine first-party adapters. WeChat/Feishu keep native media. Optional macOS iMessage is private text, default off, Darwin-only. Account connectivity is reported only with actual evidence; iMessage native live is `LIVE_NOT_RUN`. WhatsApp is excluded. |
 | Speech Recognition | Disabled | Local SenseVoice transcription after explicit model installation and microphone action |
 | Voice Generation | Disabled | Local MOSS-TTS preview, conversation Read, and supported channel audio |
 | Companion | Disabled | Opt-in scheduled contact with quiet hours, budget, and an exact IM route |
@@ -114,10 +114,13 @@ service without DOM injection or a second conversation engine.
 commands, causal routing, persistence, recovery, outbox, and adapter lifecycle.
 Adapters cannot call a parallel agent or guess the current Workspace/Session.
 
-Eight platforms have connection entry points in 0.5.10. Slack, Telegram, and
-Discord use official token/manifest flows and must not fake QR. WhatsApp is not displayed, supported, planned, or bundled in 0.5.10. Binding, rebinding,
-and removal require an Owner approval bound to the exact channel, account,
-peer, Workspace, and Session.
+Nine first-party adapters exist in 0.6.1. WeChat and Feishu keep native media.
+Slack, Telegram, and Discord use official token/manifest flows and must not
+fake QR. Optional macOS iMessage is private text, default off, Darwin-only, and
+unsupported on Windows/UOS; native live evidence is `LIVE_NOT_RUN`. WhatsApp
+is not displayed, supported, planned, or bundled. Binding, rebinding, and
+removal require an Owner approval bound to the exact channel, account, peer,
+Workspace, and Session.
 
 ### 8. Local voice
 
@@ -236,8 +239,10 @@ artifact service，不做 DOM hack 或第二会话引擎。
 
 ### 5. IM 与语音
 
-`@penglai/im` 是唯一消息插件。0.5.10 提供八个平台连接入口。Slack、Telegram、
-Discord 走官方 Token/Manifest，禁止伪装扫码。WhatsApp 不展示、不支持、不列为规划，也不捆绑运行时。
+`@penglai/im` 是唯一消息插件。0.6.1 提供九个第一方 adapter。微信和飞书保留原生
+媒体。Slack、Telegram、Discord 走官方 Token/Manifest，禁止伪装扫码。可选 macOS
+iMessage 仅私聊文本、默认关闭、只在 Darwin 可用，Windows/UOS 为不支持；真机 live
+记 `LIVE_NOT_RUN`。WhatsApp 不展示、不支持、不列为规划，也不捆绑运行时。
 
 ASR/TTS 代码随包，大模型权重只在用户明确操作后下载。麦克风必须由当前用户手势触发，
 只申请 audio；相机、视频、蓝牙和无关 capture 权限不进入产品声明。设置页试听与会话

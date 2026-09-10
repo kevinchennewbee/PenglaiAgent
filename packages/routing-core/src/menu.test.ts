@@ -119,8 +119,13 @@ test("/version is a local control command and does not mention a second host", (
   assert.match(text, /Penglai 0\.6\.1/);
   assert.match(text, /DSH 0\.1\.5-rc\.1/);
   assert.match(text, /183f08e9c6dde7e36cd2318eaee70b0da08fb35e/);
-  assert.match(text, /DSH-IM reference v4\.17\.1/);
+  assert.match(text, /DSH-IM adopted rewrite-source v4\.17\.1/);
   assert.match(text, /464c0a91762ebd0befc2d179f036eaae4864fb0e/);
+  assert.match(text, /DSH-IM published v4\.18\.1/);
+  assert.match(text, /d01bd3450c6d17db2b3386ec44ffa474fd15b03e/);
+  assert.match(text, /606ced1b5e4f02fe4a1afc9462014f3db1176396/);
+  assert.match(text, /unpublished on npm 4\.18\.1/);
+  assert.doesNotMatch(text, /606ced1b5e4f02fe4a1afc9462014f3db1176396 is v4\.18\.1/);
   assert.doesNotMatch(text, /64587b3b6162fa34f1c3ddb335a254d4154c9175/);
   assert.doesNotMatch(text, /ea5176be93cf0a5959397bd15d3ef614811a2a67/);
 });

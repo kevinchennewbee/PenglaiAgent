@@ -15,6 +15,7 @@
     { "path": "../channel-slack" },
     { "path": "../channel-telegram" },
     { "path": "../channel-discord" },
+    { "path": "../channel-imessage" },
     { "path": "../runtime" }
   ],
   "include": ["src/**/*.ts"],

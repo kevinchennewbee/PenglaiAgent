@@ -217,6 +217,9 @@ test("R50-DIST: packaged identity is Penglai 0.6.1 and Windows NSIS stays curren
   assert.match(rewritten, /NSMicrophoneUsageDescription/);
   assert.match(rewritten, /only when you start voice input/);
   assert.match(rewritten, /仅在你主动开始语音输入时使用麦克风/);
+  assert.match(rewritten, /NSAppleEventsUsageDescription/);
+  assert.match(rewritten, /optional iMessage channel/);
+  assert.match(rewritten, /启用可选 iMessage 通道后才会控制 Messages/);
   assert.doesNotMatch(rewritten, /This app needs access to the microphone/);
   assert.doesNotMatch(rewritten, /NSAllowsArbitraryLoads|NSAudioCaptureUsageDescription|NSBluetooth|NSCameraUsageDescription/);
   assertWindowsNsisContract({

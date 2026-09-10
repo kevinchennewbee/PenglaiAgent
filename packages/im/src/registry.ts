@@ -9,6 +9,7 @@ export const CHANNEL_IDS = [
   "slack",
   "telegram",
   "discord",
+  "imessage",
 ] as const;
 
 export type ChannelId = (typeof CHANNEL_IDS)[number];
@@ -265,6 +266,37 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     defaultEnabled: false,
     docsUrl: "https://discord.com/developers/docs/quick-start/getting-started",
   }),
+  imessage: manifest({
+    id: "imessage",
+    displayName: { en: "iMessage", zh: "iMessage" },
+    connectionMethods: ["manual-fallback"],
+    entryAvailable: true,
+    adapterMode: "bundled-sidecar",
+    runtimeBundled: true,
+    releaseEvidence: "source-only",
+    capabilityEvidence: {
+      ...SOURCE_TEXT,
+      authentication: "source-tested",
+      inboundText: "source-tested",
+      outboundText: "source-tested",
+      file: "not-supported",
+      voice: "not-supported",
+      image: "not-supported",
+      audio: "not-supported",
+      question: "not-supported",
+      approval: "not-supported",
+      recovery: "source-tested",
+      reconnect: "source-tested",
+      exit: "source-tested",
+    },
+    connectionHint: {
+      en: "macOS only, private text, default off. Enable after granting Full Disk Access and Messages automation. This version does not read images, files, or group chats, and never uses a legacy default account. Native live evidence is not claimed.",
+      zh: "仅 macOS、仅私聊文本、默认关闭。请先授予完全磁盘访问和 Messages 自动化再启用。本版不读图片、文件或群聊，也不使用未限定的默认账户。真机 live 未取证。",
+    },
+    limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
+    defaultEnabled: false,
+    docsUrl: "https://github.com/xmanrui/dsh-im/blob/v4.18.0/docs/imessage.md",
+  }),
 };
 
 export function requireChannelId(value: string): ChannelId {
@@ -323,5 +355,19 @@ export const GUIDED_STEPS: Record<ChannelId, { en: string[]; zh: string[] }> = {
   discord: {
     en: ["Open the Discord Developer Portal.", "Create a bot with the minimum intents.", "Paste the bot token into Vault. There is no QR shortcut."],
     zh: ["打开 Discord Developer Portal。", "用最小 intents 创建 Bot。", "把 Bot Token 写入保险库。没有二维码捷径。"],
+  },
+  imessage: {
+    en: [
+      "This channel is macOS only and default off.",
+      "In System Settings grant Penglai Full Disk Access and allow it to control Messages.",
+      "Enable only after those permissions exist, then bind the exact peer to a Workspace and Session.",
+      "Private text only. Old history is not replayed. Native live proof is not claimed.",
+    ],
+    zh: [
+      "此通道仅 macOS，默认关闭。",
+      "在系统设置中授予蓬莱完全磁盘访问，并允许控制 Messages。",
+      "权限就绪后再启用，并把精确对端绑定到工作区和会话。",
+      "仅私聊文本。不会回放旧历史。真机 live 未取证。",
+    ],
   },
 };

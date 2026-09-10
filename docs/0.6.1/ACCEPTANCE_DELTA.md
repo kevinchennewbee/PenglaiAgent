@@ -33,6 +33,11 @@ in `docs/0.6.1/` and is not a public download claim.
   assets; UOS Node closure identity and dependency/preflight truth; signed
   catalog identity+digest plugin preservation; official `deepseek-flash`
   onboarding without model-id exceptions.
+- IM 0.6.1 current-dsh-im adaptation (D-072): WeChat/Feishu inbound non-image
+  files onto official `FileBlock`; online bot aliases from unpublished
+  `606ced1` (not npm 4.18.1 bytes); official RemoteError/preset classification;
+  optional Darwin-only iMessage private text default off. Telegram Rich Draft,
+  dsh-im management HTTP, WhatsApp, wecom-app, and Office-as-IM stay out.
 - Four targets remain `darwin-aarch64`, `darwin-x86_64`, `win32-x86_64`,
   `linux-loong64` UOS 20 old-world. Deterministic `test:soak` remains required.
   Two-hour installed soak remains excluded. Old-version installed upgrade
