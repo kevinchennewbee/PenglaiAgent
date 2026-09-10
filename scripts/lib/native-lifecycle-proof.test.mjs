@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import * as fs from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
+import * as path from "node:path";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ROOT } from "./repo.mjs";
@@ -15,6 +19,7 @@ import {
   currentGenerationProfileIdentity,
   nsisDefaultInstallDir,
   nsisUninstallKeepsCustomInstdir,
+  PERSISTED_PROFILE_FILES,
   persistedProfileProofValid,
   profileRestartProblems,
   readCurrentGenerationIdentity,
@@ -568,4 +573,102 @@ for (;;) {
   assert.equal(restored.ok, true);
   assert.equal(persistedProfileProofValid(restored), true);
 });
+
+const requireRoot = createRequire(join(ROOT, "package.json"));
+
+function loadLifecycleFunction(name, deps = {}) {
+  const ts = requireRoot("typescript");
+  const file = "scripts/lib/native-lifecycle-proof.mjs";
+  const source = readFileSync(join(ROOT, file), "utf8");
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+  const declaration = sf.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === name);
+  assert.ok(declaration, `actual source declaration exists: ${name}`);
+  const js = ts.transpileModule(declaration.getText(sf), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  return new Function("exports", ...Object.keys(deps), `${js};return ${name};`)({}, ...Object.values(deps));
+}
+
+function loadMaxProfileFileBytes() {
+  const ts = requireRoot("typescript");
+  const file = "scripts/lib/native-lifecycle-proof.mjs";
+  const source = readFileSync(join(ROOT, file), "utf8");
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+  const names = new Set(["CURRENT_DSH_HOME_VERSION", "CURRENT_DSH_HOME_RELATIVE", "PERSISTED_PROFILE_FILES", "MAX_PROFILE_FILE_BYTES"]);
+  const declarations = sf.statements
+    .filter(
+      (node) =>
+        ts.isVariableStatement(node) &&
+        node.declarationList.declarations.some((declaration) => names.has(declaration.name.getText(sf))),
+    )
+    .map((node) => node.getText(sf))
+    .join("\n");
+  const js = ts.transpileModule(declarations, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  return new Function("exports", "PINNED_DSH", `${js};return MAX_PROFILE_FILE_BYTES;`)({}, CURRENT_DSH_HOME_VERSION);
+}
+
+test("opened required profile file that grows past the byte cap after read is rejected", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-profile-growth-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  writeCurrentHome(root);
+  const generation = readCurrentGenerationIdentity(root);
+  const before = readPersistedProfileProof(root, generation);
+  assert.equal(before.ok, true);
+  assert.equal(persistedProfileProofValid(before), true);
+
+  const required = join(root, PERSISTED_PROFILE_FILES[0].relative);
+  const original = readFileSync(required);
+  const max = loadMaxProfileFileBytes();
+  assert.equal(max, 4 * 1024 * 1024);
+  const sha256Bytes = loadLifecycleFunction("sha256Bytes", { createHash });
+  const canonicalJson = loadLifecycleFunction("canonicalJson");
+  const persistedProfileDigest = loadLifecycleFunction("persistedProfileDigest", { sha256Bytes, canonicalJson });
+  let grew = false;
+  const readContainedRegularFile = loadLifecycleFunction("readContainedRegularFile", {
+    constants: fs.constants,
+    openSync: fs.openSync,
+    fstatSync: fs.fstatSync,
+    lstatSync: fs.lstatSync,
+    realpathSync: fs.realpathSync,
+    closeSync: fs.closeSync,
+    dirname: path.dirname,
+    basename: path.basename,
+    relative: path.relative,
+    join: path.join,
+    isAbsolute: path.isAbsolute,
+    MAX_PROFILE_FILE_BYTES: max,
+    readFileSync(fd) {
+      const bytes = fs.readFileSync(fd);
+      if (!grew) {
+        fs.appendFileSync(required, Buffer.alloc(max + 1));
+        grew = true;
+      }
+      return bytes;
+    },
+  });
+  const readProof = loadLifecycleFunction("readPersistedProfileProof", {
+    join: path.join,
+    realpathSync: fs.realpathSync,
+    readContainedRegularFile,
+    PERSISTED_PROFILE_FILES,
+    sha256Bytes,
+    persistedProfileDigest,
+  });
+  const grown = readProof(root, generation);
+  assert.equal(grew, true);
+  assert.equal(grown.ok, false);
+  assert.match(String(grown.reason ?? ""), /invalid persisted profile file: dsh-home-active\.json/);
+  const actualSize = statSync(required).size;
+  assert.equal(actualSize > max, true);
+  assert.equal(actualSize, original.length + max + 1);
+
+  writeFileSync(required, original);
+  const restored = readPersistedProfileProof(root, generation);
+  assert.equal(restored.ok, true);
+  assert.equal(persistedProfileProofValid(restored), true);
+  assert.equal(restored.digest, before.digest);
+});
+
 

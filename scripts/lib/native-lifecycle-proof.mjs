@@ -277,6 +277,7 @@ function readContainedRegularFile(root, path) {
     const after = fstatSync(fd);
     if (
       bytes.length > MAX_PROFILE_FILE_BYTES ||
+      after.size > MAX_PROFILE_FILE_BYTES ||
       after.dev !== opened.dev ||
       after.ino !== opened.ino
     ) {
