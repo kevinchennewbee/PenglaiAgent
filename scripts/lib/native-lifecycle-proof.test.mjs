@@ -457,7 +457,7 @@ test("Windows preflight refuses unowned profile and inherited user-data override
   rmSync(local, { recursive: true, force: true });
 });
 
-test("persisted profile proof binds open/stat/read to one regular file and fails closed on races", (context) => {
+test("persisted profile proof binds open/stat/read to one regular file and fails closed on races", async (context) => {
   const src = readFileSync(join(ROOT, "scripts/lib/native-lifecycle-proof.mjs"), "utf8");
   const reader = src.slice(src.indexOf("function readContainedRegularFile"), src.indexOf("export function currentGenerationProfileIdentity"));
   assert.match(reader, /O_RDONLY \| \(constants\.O_NOFOLLOW/);
@@ -551,6 +551,13 @@ for (;;) {
     else assert.match(String(raced.reason ?? ""), /persisted profile|unavailable|invalid|missing|empty/);
   }
   swapper.kill("SIGKILL");
+  await new Promise((resolve) => {
+    if (swapper.exitCode !== null || swapper.signalCode) {
+      resolve(undefined);
+      return;
+    }
+    swapper.once("exit", () => resolve(undefined));
+  });
   try {
     unlinkSync(required);
   } catch {

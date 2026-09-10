@@ -361,7 +361,7 @@ test("installed tree matches the verified CAS artifact and rejects a same-bytes 
   assert.equal(installedPluginMatchesVerifiedArtifact(staged.input), true);
 });
 
-test("installed tree check survives a live regular-file/symlink race without executing plugin bytes", (context) => {
+test("installed tree check survives a live regular-file/symlink race without executing plugin bytes", async (context) => {
   const staged = stageVerifiedPlugin();
   const jsPath = join(staged.dest, "dist", "index.js");
   const outside = join(staged.userData, "alias.js");
@@ -407,7 +407,16 @@ for (;;) {
   for (let i = 0; i < 120; i += 1) {
     assert.equal(typeof installedPluginMatchesVerifiedArtifact(staged.input), "boolean");
   }
-  swapper.kill("SIGKILL");
+  if (!swapper) throw new Error("file swapper missing");
+  const child = swapper;
+  child.kill("SIGKILL");
+  await new Promise((resolve) => {
+    if (child.exitCode !== null || child.signalCode) {
+      resolve(undefined);
+      return;
+    }
+    child.once("exit", () => resolve(undefined));
+  });
   try {
     unlinkSync(jsPath);
   } catch {
