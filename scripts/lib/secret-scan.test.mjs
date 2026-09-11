@@ -64,9 +64,9 @@ test("R56-SEC-007 owner absolute paths in tracked text are hits", () => {
   const hits = scanIdentityText(
     "docs/notes.md",
     [
-      ["Repo lives at ", "/Users/kevin-private/repo", "."].join(""), // penglai-test-fixture
-      ["Backup on ", "/Volumes/MyDrive/backup", "."].join(""), // penglai-test-fixture
-      ["Windows copy ", "C:\\Users\\kevin\\secret", "."].join(""), // penglai-test-fixture
+      ["Repo lives at ", "/Users/fakeuser/repo", "."].join(""), // penglai-test-fixture
+      ["Backup on ", "/Volumes/fakedrive/backup", "."].join(""), // penglai-test-fixture
+      ["Windows copy ", "C:\\Users\\fakeuser\\secret", "."].join(""), // penglai-test-fixture
     ].join("\n"),
   );
   assert.deepEqual(
@@ -83,7 +83,7 @@ test("R56-SEC-007 personal webmail addresses in tracked text are hits", () => {
   const hits = scanIdentityText(
     "docs/contact.md",
     [
-      ["Owner contact ", "200705279@qq.com"].join(""), // penglai-test-fixture
+      ["Owner contact ", "fakeuser@qq.com"].join(""), // penglai-test-fixture
       ["Backup ", "owner@gmail.com"].join(""), // penglai-test-fixture
     ].join("\n"),
   );
@@ -108,10 +108,10 @@ test("R56-SEC-007 synthetic fixture identities are not owner leaks", () => {
 });
 
 test("R56-SEC-008 identity scanner never echoes the leaked value", () => {
-  const hits = scanIdentityText("notes.md", ["x ", "/Users/kevin-private/repo"].join("")); // penglai-test-fixture
+  const hits = scanIdentityText("notes.md", ["x ", "/Users/fakeuser/repo"].join("")); // penglai-test-fixture
   const report = formatSecretHits(hits);
   assert.match(report, /notes.md:1 rule=owner-absolute-path category=owner-path/);
-  assert.equal(report.includes("kevin-private"), false);
+  assert.equal(report.includes("fakeuser"), false);
 });
 
 test("R56-SEC-007 frozen publication records are exempt (release gate forbids editing them)", () => {
