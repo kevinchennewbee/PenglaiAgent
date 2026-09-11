@@ -24,10 +24,10 @@ test("release identity copies resolve from the one authoritative pins source", (
   );
   assert.equal(pins.dshSource.packageCount, 279);
   assert.equal(pins.node, "22.23.2");
-  assert.equal(pins.targets.length, 4);
+  assert.equal(pins.targets.length, 3);
   assert.deepEqual(
     pins.targets.map((row) => row.key),
-    ["darwin-aarch64", "darwin-x86_64", "win32-x86_64", "linux-loong64"],
+    ["darwin-aarch64", "win32-x86_64", "linux-loong64"],
   );
 });
 

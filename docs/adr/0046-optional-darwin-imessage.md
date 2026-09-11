@@ -2,15 +2,15 @@
 
 - Status: Accepted
 - Date: 2026-09-10
-- Relates: D-071, D-072, PRODUCT_CONSTITUTION current 0.6.1 boundary
+- Relates: D-071, D-072, D-073, PRODUCT_CONSTITUTION current 0.6.1 boundary
 
 ## Context
 
 Reviewed dsh-im v4.18.0 added a macOS Messages.app private-text adapter
-(`ff865f9c` / `017f6fb1`). Penglai's four packaged targets include Windows
+(`ff865f9c` / `017f6fb1`). Penglai's packaged targets include Windows
 and UOS loong64, which have no Messages.app. Owner later authorized adapting
 this channel inside the existing first-party `@penglai/im` architecture as a
-Mac-only optional feature. A four-target release does not forbid a Darwin-only
+Mac-only optional feature. A multi-target release does not forbid a Darwin-only
 optional channel.
 
 Immutable 0.5.x and 0.6.0 history is not rewritten.

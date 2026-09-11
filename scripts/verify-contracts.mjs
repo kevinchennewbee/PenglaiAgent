@@ -107,6 +107,15 @@ try {
   console.error("release-contract invalid", err);
   process.exit(1);
 }
+const dshWorkflowMod = await import(
+  pathToFileURL(join(ROOT, "packages/release-identity/src/dsh-workflow-checkout.ts")).href,
+);
+try {
+  dshWorkflowMod.assertActiveOfficialDshWorkflowCheckouts(ROOT);
+} catch (err) {
+  console.error("official DSH workflow checkout drifted from the current source contract", err);
+  process.exit(1);
+}
 const deployWorkflow = readFileSync(join(ROOT, ".github/workflows/deploy-website.yml"), "utf8");
 for (const required of [
   `test "\${{ inputs.tag }}" = "${PUBLICATION_TARGET.tag}"`,

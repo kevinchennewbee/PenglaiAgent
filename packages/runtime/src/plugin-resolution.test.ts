@@ -1,14 +1,33 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { PenglaiError } from "@penglai/contracts";
-import { FIRST_PARTY_PLUGIN_METADATA, PINNED_PLUGIN_DSH, type PluginCatalogEntry } from "./plugin-catalog.js";
+import { contentAddressedPath, pluginDistributionStatePaths } from "@penglai/plugin-registry";
+import { writeTestTarGz } from "../../../scripts/lib/test-tar-fixture.mjs";
+import {
+  FIRST_PARTY_PLUGIN_METADATA,
+  PINNED_PLUGIN_DSH,
+  runtimePluginTarget,
+  type PluginCatalogEntry,
+} from "./plugin-catalog.js";
 import {
   assertActivationDigest,
   comparePluginVersion,
   firstPartyRetentionDecision,
+  installedPluginMatchesVerifiedArtifact,
   overlayIdentityPath,
   readInstalledOverlay,
   resolvePluginCatalogEntry,
@@ -258,4 +277,154 @@ test("first-party retention uses signed catalog identity, not the overlay as bot
   assert.match(remotes, /assertActivationDigest\(/);
   const profileTx = readFileSync(new URL("../../plugin-center/src/profile-tx.ts", import.meta.url), "utf8");
   assert.match(profileTx, /writeInstalledOverlay\(scoped,/);
+  const resolution = readFileSync(new URL("./plugin-resolution.ts", import.meta.url), "utf8");
+  assert.match(resolution, /readOpenedRegularFile\(/);
+  assert.match(resolution, /O_RDONLY \| constants\.O_NOFOLLOW/);
+  assert.doesNotMatch(resolution, /files\.set\([^;]+readFileSync\(full\)\)/);
 });
+
+function writeMinimalPluginTree(root: string, js: string): { id: string; version: string; target: ReturnType<typeof runtimePluginTarget> } {
+  const id = "@penglai/office";
+  const version = "0.6.1-test";
+  const target = runtimePluginTarget();
+  mkdirSync(join(root, "dist"), { recursive: true });
+  writeFileSync(join(root, "dist", "index.js"), js);
+  writeFileSync(
+    join(root, "package.json"),
+    JSON.stringify({
+      name: id,
+      version,
+      type: "module",
+      main: "dist/index.js",
+      exports: { ".": "./dist/index.js" },
+      penglaiPlugin: {
+        schema: 1,
+        id,
+        dshExact: PINNED_PLUGIN_DSH,
+        target,
+      },
+    }),
+  );
+  return { id, version, target };
+}
+
+function stageVerifiedPlugin(js = "export const marker = \"trusted-plugin-bytes\";\n") {
+  const dest = mkdtempSync(join(tmpdir(), "penglai-plugin-tree-"));
+  const userData = mkdtempSync(join(tmpdir(), "penglai-plugin-cas-"));
+  const identity = writeMinimalPluginTree(dest, js);
+  const archivePath = join(dest, "artifact.tgz");
+  writeTestTarGz(dest, archivePath);
+  const archive = readFileSync(archivePath);
+  unlinkSync(archivePath);
+  const digest = createHash("sha256").update(archive).digest("hex");
+  const { cacheRoot } = pluginDistributionStatePaths(userData);
+  mkdirSync(cacheRoot, { recursive: true, mode: 0o700 });
+  writeFileSync(contentAddressedPath(cacheRoot, digest, ".tgz"), archive, { mode: 0o600 });
+  writeInstalledOverlay(dest, { version: identity.version, sha256: digest, dshExact: PINNED_PLUGIN_DSH });
+  return {
+    dest,
+    userData,
+    input: {
+      dest,
+      pluginId: identity.id,
+      signed: { version: identity.version, sha256: digest, dshExact: PINNED_PLUGIN_DSH },
+      userDataRoot: userData,
+      hostTarget: identity.target,
+    },
+  };
+}
+
+test("installed tree matches the verified CAS artifact and rejects a same-bytes symlink swap", (context) => {
+  const staged = stageVerifiedPlugin();
+  context.after(() => {
+    rmSync(staged.dest, { recursive: true, force: true });
+    rmSync(staged.userData, { recursive: true, force: true });
+  });
+  assert.equal(installedPluginMatchesVerifiedArtifact(staged.input), true);
+
+  const jsPath = join(staged.dest, "dist", "index.js");
+  const outside = join(staged.userData, "same-bytes.js");
+  writeFileSync(outside, readFileSync(jsPath));
+  unlinkSync(jsPath);
+  try {
+    symlinkSync(outside, jsPath);
+  } catch (error) {
+    if (process.platform === "win32" && (error as NodeJS.ErrnoException).code === "EPERM") {
+      context.skip("Windows account cannot create file symlinks without Developer Mode or elevation");
+      return;
+    }
+    throw error;
+  }
+  assert.equal(installedPluginMatchesVerifiedArtifact(staged.input), false);
+  unlinkSync(jsPath);
+  writeFileSync(jsPath, readFileSync(outside));
+  assert.equal(installedPluginMatchesVerifiedArtifact(staged.input), true);
+});
+
+test("installed tree check survives a live regular-file/symlink race without executing plugin bytes", async (context) => {
+  const staged = stageVerifiedPlugin();
+  const jsPath = join(staged.dest, "dist", "index.js");
+  const outside = join(staged.userData, "alias.js");
+  const original = readFileSync(jsPath);
+  writeFileSync(outside, original);
+  let swapper: ReturnType<typeof spawn> | undefined;
+  context.after(() => {
+    try {
+      swapper?.kill("SIGKILL");
+    } catch {
+      /* already gone */
+    }
+    rmSync(staged.dest, { recursive: true, force: true });
+    rmSync(staged.userData, { recursive: true, force: true });
+  });
+  swapper = spawn(
+    process.execPath,
+    [
+      "-e",
+      `const fs = require("node:fs");
+const target = process.env.PENGLAI_SWAP_TARGET;
+const outside = process.env.PENGLAI_SWAP_OUTSIDE;
+const orig = fs.readFileSync(target);
+for (;;) {
+  try { fs.unlinkSync(target); } catch {}
+  try { fs.symlinkSync(outside, target); } catch {}
+  try { fs.unlinkSync(target); } catch {}
+  try { fs.writeFileSync(target, orig); } catch {}
+}`,
+    ],
+    {
+      env: { ...process.env, PENGLAI_SWAP_TARGET: jsPath, PENGLAI_SWAP_OUTSIDE: outside },
+      stdio: "ignore",
+    },
+  );
+  if (swapper.exitCode !== null) {
+    if (process.platform === "win32") {
+      context.skip("Windows account cannot create file symlinks without Developer Mode or elevation");
+      return;
+    }
+    throw new Error("file swapper exited before the tree walk");
+  }
+  for (let i = 0; i < 120; i += 1) {
+    assert.equal(typeof installedPluginMatchesVerifiedArtifact(staged.input), "boolean");
+  }
+  if (!swapper) throw new Error("file swapper missing");
+  const child = swapper;
+  child.kill("SIGKILL");
+  await new Promise((resolve) => {
+    if (child.exitCode !== null || child.signalCode) {
+      resolve(undefined);
+      return;
+    }
+    child.once("exit", () => resolve(undefined));
+  });
+  try {
+    unlinkSync(jsPath);
+  } catch {
+    /* restored below */
+  }
+  writeFileSync(jsPath, original);
+  assert.equal(existsSync(jsPath), true);
+  assert.equal(installedPluginMatchesVerifiedArtifact(staged.input), true);
+  assert.equal(original.toString("utf8").includes("trusted-plugin-bytes"), true);
+});
+

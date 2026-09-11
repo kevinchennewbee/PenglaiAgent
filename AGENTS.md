@@ -74,15 +74,16 @@
   profile, closure, clean-clone, Office-real, and Memory-real gates as applicable.
 - The onboarding wizard must never strand a user. Verify fresh install, restart,
   Back/retry, invalid folder rejection, credential failure recovery, first official
-  message, and default uninstall on Apple Silicon, Intel Mac, and Windows x64.
+  message, and default uninstall on Apple Silicon and Windows x64.
   Old-version installed upgrade is `OWNER_EXCLUDED` for 0.6.1. UOS native
   install/startup/function is `OWNER_POST_RELEASE` and must not be labeled PASS;
   the UOS package/ABI/closure still require verification.
-- Native artifacts for all four targets must come from one clean `main` SHA.
-  Follow the current version contract and acceptance delta; publish only the
-  exact asset set in `release-contract.json`, then verify immutable public bytes.
-  A feasibility report, cross-build or three-platform set is not a completed
-  four-platform release.
+- Native artifacts for all three selected 0.6.1 targets must come from one clean
+  `main` SHA. Intel Mac is excluded from this version. Follow the current
+  version contract and acceptance delta; publish only the exact asset set in
+  `release-contract.json`, then verify immutable public bytes. Missing any
+  selected target is not a completed release; adding Intel to this version's
+  exact set is not a completed release.
 - Public README, site, release notes, and user-facing documentation are English
   first and Chinese second. State known limitations honestly.
 
@@ -138,7 +139,7 @@
 - Mac/Windows 安装引导必须验证全新安装、重启续跑、返回/重试、非法目录、凭据
   失败恢复、首条官方消息和默认卸载。0.6.1 排除旧版本已安装升级验收。UOS 真机
   安装/启动/功能为 `OWNER_POST_RELEASE`，不得标 PASS；UOS 包/ABI/闭包仍须验证。
-  四个安装包必须来自同一个干净 main SHA。可行性备忘、交叉编译或三端集合不能
-  冒充四端完成。
+  三个所选安装包必须来自同一个干净 main SHA。Intel Mac 不在本版。缺任一所选
+  目标仍失败；把 Intel 加入本版精确集合仍失败。
 - 发布严格执行当前版本契约与验收增量，README、官网、发行说明与用户
   文档均为英文优先、中文随后，并如实写出限制。

@@ -29,11 +29,11 @@ jobs:
           # Pull-request jobs otherwise test GitHub's synthetic merge commit,
           # which cannot serve as the immutable release candidate identity.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Check out immutable official DSH 0.1.5-alpha.1 source
+      - name: Check out immutable official DSH 0.1.5-rc.1 source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: deepseek-ai/DeepSeek-Harness
-          ref: 5dda764ed3aa172535a7967b06ff95d9cbfe536a
+          ref: 183f08e9c6dde7e36cd2318eaee70b0da08fb35e
           path: upstream-dsh
           fetch-depth: 1
       - name: Prepare authoritative main identity
@@ -63,7 +63,7 @@ jobs:
         run: pnpm fetch:mnemon-assets
       - name: Source, contract, and evidence-class gates
         env:
-          PENGLAI_DSH_ALPHA_SOURCE: ${{ github.workspace }}/upstream-dsh
+          PENGLAI_DSH_UPSTREAM: ${{ github.workspace }}/upstream-dsh
         run: |
           pnpm format:check
           pnpm typecheck
@@ -90,3 +90,42 @@ jobs:
           pnpm verify:asr-real
           pnpm verify:moss-real
           pnpm verify:clean-clone
+
+  # Focused Windows PR check for the four files macOS-only Source CI missed.
+  # This is not four-target native installer acceptance.
+  windows-source-regression:
+    name: Windows focused source regression
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.2
+      - name: Install pinned dependencies
+        shell: pwsh
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.7.0 --activate
+          pnpm install --frozen-lockfile
+          pnpm rebuild:fs-ext
+      - name: Build native Windows security helper for regression gates
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          pnpm build:windows-host
+      - name: Fetch and verify the pinned native Mnemon binary
+        run: pnpm fetch:mnemon-assets
+      - name: Build source from the clean checkout
+        run: pnpm build
+      - name: Focused Windows native regression files
+        shell: bash
+        run: |
+          node --import tsx --test \
+            packages/memory/src/candidate-materialization.test.ts \
+            packages/runtime/src/runtime.test.ts \
+            scripts/lib/native-fresh-set.test.mjs \
+            scripts/lib/native-lifecycle-proof.test.mjs

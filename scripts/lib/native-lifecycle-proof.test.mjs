@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import * as fs from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
+import * as path from "node:path";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ROOT } from "./repo.mjs";
@@ -15,8 +19,11 @@ import {
   currentGenerationProfileIdentity,
   nsisDefaultInstallDir,
   nsisUninstallKeepsCustomInstdir,
+  PERSISTED_PROFILE_FILES,
+  persistedProfileProofValid,
   profileRestartProblems,
   readCurrentGenerationIdentity,
+  readPersistedProfileProof,
   requestNativeApplicationClose,
   stableInventoryIdentity,
   waitForChildExitNoKill,
@@ -157,6 +164,36 @@ test("forced stopChild termination is not a graceful application shutdown", asyn
 });
 
 test("posix SIGTERM close of a cooperative child is classified graceful on Mac only", async (context) => {
+  const cooperative = {
+    graceful: true,
+    forced: false,
+    requestedClose: true,
+    method: "posix-sigterm",
+    exitCode: 0,
+    signal: null,
+  };
+  assert.equal(classifyApplicationShutdown(cooperative, "darwin-aarch64").graceful, true);
+  assert.equal(classifyApplicationShutdown(cooperative, "darwin-x86_64").graceful, true);
+  assert.equal(classifyApplicationShutdown(cooperative, "win32-x86_64").graceful, false);
+
+  if (process.platform === "win32") {
+    assert.equal(
+      classifyApplicationShutdown(
+        { graceful: true, forced: false, requestedClose: true, method: "node-sigterm-windows", exitCode: 1, signal: null },
+        "win32-x86_64",
+      ).graceful,
+      false,
+    );
+    assert.equal(
+      classifyApplicationShutdown(
+        { graceful: true, forced: true, requestedClose: true, method: "taskkill-force", exitCode: 1, signal: null },
+        "win32-x86_64",
+      ).graceful,
+      false,
+    );
+    return;
+  }
+
   const child = spawn(
     process.execPath,
     ["-e", "process.on('SIGTERM',()=>process.exit(0));process.stdout.write('READY\\n');setInterval(()=>{},1000);"],
@@ -214,19 +251,23 @@ test("Node SIGTERM on Windows and taskkill /F are never graceful shutdown proof"
   );
 });
 
-test("publication workflow consumes the current 0.6.1 native evidence set and eleven-asset contract", async () => {
+test("publication workflow consumes the current 0.6.1 native evidence set and ten-asset contract", async () => {
   const { EXACT_RELEASE_ASSETS } = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/contract.ts")).href);
   const publish = readFileSync(join(ROOT, ".github/workflows/publish-release.yml"), "utf8");
   const native = readFileSync(join(ROOT, ".github/workflows/native-release-candidate.yml"), "utf8");
-  assert.equal(EXACT_RELEASE_ASSETS.length, 11);
+  assert.equal(EXACT_RELEASE_ASSETS.length, 10);
   const nativeName = `penglai-${PRODUCT_VERSION}-native-evidence-set`;
   const readbackName = `penglai-${PRODUCT_VERSION}-public-readback`;
   assert.match(native, new RegExp(`name:\\s*${nativeName}`));
   assert.match(publish, new RegExp(`name:\\s*${nativeName}`));
-  assert.match(publish, /Read back all eleven draft assets/);
+  assert.match(publish, /Read back all ten draft assets/);
   assert.match(publish, new RegExp(`name:\\s*${readbackName}`));
+  assert.match(native, /Exact three-target evidence aggregate/);
+  assert.doesNotMatch(native, /macos-15-intel/);
+  assert.doesNotMatch(native, /darwin-x86_64/);
+  assert.doesNotMatch(native, /Penglai_0\.6\.1_macos_x64\.dmg/);
   assert.doesNotMatch(publish, /penglai-0\.6\.0-native-evidence-set/);
-  assert.doesNotMatch(publish, /all ten draft assets/);
+  assert.doesNotMatch(publish, /all eleven draft assets/);
   assert.doesNotMatch(publish, /penglai-0\.6\.0-public-readback/);
   const mismatched = publish.replaceAll(`penglai-${PRODUCT_VERSION}-native-evidence-set`, "penglai-0.6.0-native-evidence-set");
   assert.match(mismatched, /penglai-0\.6\.0-native-evidence-set/);
@@ -454,3 +495,221 @@ test("Windows preflight refuses unowned profile and inherited user-data override
   assert.equal(clean.ok, true);
   rmSync(local, { recursive: true, force: true });
 });
+
+test("persisted profile proof binds open/stat/read to one regular file and fails closed on races", async (context) => {
+  const src = readFileSync(join(ROOT, "scripts/lib/native-lifecycle-proof.mjs"), "utf8");
+  const reader = src.slice(src.indexOf("function readContainedRegularFile"), src.indexOf("export function currentGenerationProfileIdentity"));
+  assert.match(reader, /O_RDONLY \| \(constants\.O_NOFOLLOW/);
+  assert.match(reader, /readFileSync\(fd\)/);
+  assert.doesNotMatch(reader, /readFileSync\(path\)/);
+
+  const root = mkdtempSync(join(tmpdir(), "penglai-profile-proof-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  writeCurrentHome(root);
+  const generation = readCurrentGenerationIdentity(root);
+  const healthy = readPersistedProfileProof(root, generation);
+  assert.equal(healthy.ok, true);
+  assert.equal(persistedProfileProofValid(healthy), true);
+  assert.equal(healthy.files.length > 0, true);
+  assert.equal(healthy.files.some((row) => row.relative.includes("credentials")), false);
+  assert.equal(healthy.files.some((row) => /session|media|Memory/i.test(row.relative)), false);
+
+  writeSnap(root, { nonce: "boot", pid: 11 });
+  const previous = currentGenerationProfileIdentity(root);
+  writeSnap(root, { nonce: "restart", pid: 22 });
+  const restarted = currentGenerationProfileIdentity(root);
+  assert.deepEqual(profileRestartProblems(previous, restarted), []);
+
+  const required = join(root, "dsh-home-active.json");
+  const original = readFileSync(required);
+  const outside = join(root, "outside-profile.json");
+  writeFileSync(outside, original);
+  unlinkSync(required);
+  try {
+    symlinkSync(outside, required);
+  } catch (error) {
+    if (process.platform === "win32" && error?.code === "EPERM") {
+      writeFileSync(required, original);
+      context.skip("Windows account cannot create file symlinks without Developer Mode or elevation");
+      return;
+    }
+    throw error;
+  }
+  const linked = readPersistedProfileProof(root, generation);
+  assert.equal(linked.ok, false);
+  assert.match(linked.reason, /invalid persisted profile file/);
+  unlinkSync(required);
+  writeFileSync(required, original);
+  assert.equal(readPersistedProfileProof(root, generation).ok, true);
+
+  const oversized = join(root, CURRENT_DSH_HOME_RELATIVE, "settings.yaml");
+  writeFileSync(oversized, "x".repeat(4 * 1024 * 1024 + 1));
+  const tooBig = readPersistedProfileProof(root, generation);
+  assert.equal(tooBig.ok, false);
+  assert.match(tooBig.reason, /invalid persisted profile file/);
+  unlinkSync(oversized);
+  assert.equal(readPersistedProfileProof(root, generation).ok, true);
+
+  unlinkSync(required);
+  const missing = readPersistedProfileProof(root, generation);
+  assert.equal(missing.ok, false);
+  assert.match(missing.reason, /missing persisted profile file/);
+  writeFileSync(required, original);
+
+  const swapper = spawn(
+    process.execPath,
+    [
+      "-e",
+      `const fs = require("node:fs");
+const target = process.env.PENGLAI_SWAP_TARGET;
+const outside = process.env.PENGLAI_SWAP_OUTSIDE;
+const orig = fs.readFileSync(target);
+for (;;) {
+  try { fs.unlinkSync(target); } catch {}
+  try { fs.symlinkSync(outside, target); } catch {}
+  try { fs.unlinkSync(target); } catch {}
+  try { fs.writeFileSync(target, orig); } catch {}
+}`,
+    ],
+    {
+      env: { ...process.env, PENGLAI_SWAP_TARGET: required, PENGLAI_SWAP_OUTSIDE: outside },
+      stdio: "ignore",
+    },
+  );
+  context.after(() => {
+    try {
+      swapper.kill("SIGKILL");
+    } catch {
+      /* already gone */
+    }
+  });
+  for (let i = 0; i < 80; i += 1) {
+    const raced = readPersistedProfileProof(root, generation);
+    assert.equal(typeof raced.ok, "boolean");
+    if (raced.ok) assert.equal(persistedProfileProofValid(raced), true);
+    else assert.match(String(raced.reason ?? ""), /persisted profile|unavailable|invalid|missing|empty/);
+  }
+  swapper.kill("SIGKILL");
+  await new Promise((resolve) => {
+    if (swapper.exitCode !== null || swapper.signalCode) {
+      resolve(undefined);
+      return;
+    }
+    swapper.once("exit", () => resolve(undefined));
+  });
+  try {
+    unlinkSync(required);
+  } catch {
+    /* restored below */
+  }
+  writeFileSync(required, original);
+  const restored = readPersistedProfileProof(root, generation);
+  assert.equal(restored.ok, true);
+  assert.equal(persistedProfileProofValid(restored), true);
+});
+
+const requireRoot = createRequire(join(ROOT, "package.json"));
+
+function loadLifecycleFunction(name, deps = {}) {
+  const ts = requireRoot("typescript");
+  const file = "scripts/lib/native-lifecycle-proof.mjs";
+  const source = readFileSync(join(ROOT, file), "utf8");
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+  const declaration = sf.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === name);
+  assert.ok(declaration, `actual source declaration exists: ${name}`);
+  const js = ts.transpileModule(declaration.getText(sf), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  return new Function("exports", ...Object.keys(deps), `${js};return ${name};`)({}, ...Object.values(deps));
+}
+
+function loadMaxProfileFileBytes() {
+  const ts = requireRoot("typescript");
+  const file = "scripts/lib/native-lifecycle-proof.mjs";
+  const source = readFileSync(join(ROOT, file), "utf8");
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+  const names = new Set(["CURRENT_DSH_HOME_VERSION", "CURRENT_DSH_HOME_RELATIVE", "PERSISTED_PROFILE_FILES", "MAX_PROFILE_FILE_BYTES"]);
+  const declarations = sf.statements
+    .filter(
+      (node) =>
+        ts.isVariableStatement(node) &&
+        node.declarationList.declarations.some((declaration) => names.has(declaration.name.getText(sf))),
+    )
+    .map((node) => node.getText(sf))
+    .join("\n");
+  const js = ts.transpileModule(declarations, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  return new Function("exports", "PINNED_DSH", `${js};return MAX_PROFILE_FILE_BYTES;`)({}, CURRENT_DSH_HOME_VERSION);
+}
+
+test("opened required profile file that grows past the byte cap after read is rejected", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-profile-growth-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  writeCurrentHome(root);
+  const generation = readCurrentGenerationIdentity(root);
+  const before = readPersistedProfileProof(root, generation);
+  assert.equal(before.ok, true);
+  assert.equal(persistedProfileProofValid(before), true);
+
+  const required = join(root, PERSISTED_PROFILE_FILES[0].relative);
+  const original = readFileSync(required);
+  const max = loadMaxProfileFileBytes();
+  assert.equal(max, 4 * 1024 * 1024);
+  const sha256Bytes = loadLifecycleFunction("sha256Bytes", { createHash });
+  const canonicalJson = loadLifecycleFunction("canonicalJson");
+  const persistedProfileDigest = loadLifecycleFunction("persistedProfileDigest", { sha256Bytes, canonicalJson });
+  let grew = false;
+  const readContainedRegularFile = loadLifecycleFunction("readContainedRegularFile", {
+    constants: fs.constants,
+    openSync: fs.openSync,
+    fstatSync: fs.fstatSync,
+    lstatSync: fs.lstatSync,
+    realpathSync: fs.realpathSync,
+    closeSync: fs.closeSync,
+    dirname: path.dirname,
+    basename: path.basename,
+    relative: path.relative,
+    join: path.join,
+    isAbsolute: path.isAbsolute,
+    MAX_PROFILE_FILE_BYTES: max,
+    readFileSync(fd) {
+      const bytes = fs.readFileSync(fd);
+      if (!grew) {
+        fs.appendFileSync(required, Buffer.alloc(max + 1));
+        grew = true;
+      }
+      return bytes;
+    },
+  });
+  const readProof = loadLifecycleFunction("readPersistedProfileProof", {
+    join: path.join,
+    realpathSync: fs.realpathSync,
+    readContainedRegularFile,
+    PERSISTED_PROFILE_FILES,
+    sha256Bytes,
+    persistedProfileDigest,
+  });
+  const grown = readProof(root, generation);
+  assert.equal(grew, true);
+  assert.equal(grown.ok, false);
+  assert.match(String(grown.reason ?? ""), /invalid persisted profile file: dsh-home-active\.json/);
+  let restoreFd;
+  try {
+    restoreFd = fs.openSync(required, fs.constants.O_RDWR | (fs.constants.O_NOFOLLOW ?? 0));
+    const grownStat = fs.fstatSync(restoreFd);
+    assert.equal(grownStat.isFile(), true);
+    assert.equal(grownStat.size > max, true);
+    assert.equal(grownStat.size, original.length + max + 1);
+    fs.ftruncateSync(restoreFd, original.length);
+    fs.writeSync(restoreFd, original, 0, original.length, 0);
+  } finally {
+    if (restoreFd !== undefined) fs.closeSync(restoreFd);
+  }
+  const restored = readPersistedProfileProof(root, generation);
+  assert.equal(restored.ok, true);
+  assert.equal(persistedProfileProofValid(restored), true);
+  assert.equal(restored.digest, before.digest);
+});
+
+

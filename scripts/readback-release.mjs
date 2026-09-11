@@ -4,6 +4,7 @@ import { publicationAssetSeal } from "./lib/publication-seal.mjs";
 import { githubReleaseEndpoint } from "./lib/github-release.mjs";
 import { ROOT } from "./lib/repo.mjs";
 import { PRODUCT_VERSION, UPDATER_SEQUENCE } from "./lib/product.mjs";
+import { NATIVE_INSTALLED_TARGETS, installerForTarget } from "./lib/release-targets.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { EXACT_RELEASE_ASSETS } from "../packages/release-identity/src/contract.ts";
@@ -203,14 +204,7 @@ for (const declared of releaseArtifacts) {
 }
 
 for (const [target, platform] of Object.entries(update.platforms)) {
-  const filename =
-    target === "darwin-aarch64"
-      ? `Penglai_${PRODUCT_VERSION}_macos_aarch64.dmg`
-      : target === "darwin-x86_64"
-        ? `Penglai_${PRODUCT_VERSION}_macos_x64.dmg`
-        : target === "win32-x86_64"
-          ? `Penglai_${PRODUCT_VERSION}_windows_x64_setup.exe`
-          : "";
+  const filename = NATIVE_INSTALLED_TARGETS.includes(target) ? installerForTarget(target) : "";
   const installer = bytesByName.get(filename);
   const githubAsset = assets.find((asset) => asset.name === filename);
   if (
@@ -226,8 +220,9 @@ for (const [target, platform] of Object.entries(update.platforms)) {
   verifyBytes(installer, Buffer.from(platform.signature, "base64"), EMBEDDED_UPDATER_PUBLIC_KEY.publicKeyHex);
 }
 
-if (Object.keys(update.platforms).sort().join(",") !== "darwin-aarch64,darwin-x86_64,win32-x86_64") {
-  finish("FAIL", { command, reason: "update manifest does not cover Mac/Windows native targets" });
+const expectedUpdatePlatforms = [...NATIVE_INSTALLED_TARGETS].sort().join(",");
+if (Object.keys(update.platforms).sort().join(",") !== expectedUpdatePlatforms) {
+  finish("FAIL", { command, reason: "update manifest does not cover the current Mac/Windows native targets" });
 }
 
 const assetSetSha256 = publicationAssetSeal(rows);

@@ -87,18 +87,19 @@ const uuid = packageRoot("uuid", excelReq, exceljs.root);
 const lock = readFileSync("pnpm-lock.yaml", "utf8");
 if (
   !workspace.includes("'pptxgenjs>image-size': 'workspace:*'") ||
-  !workspace.includes("'@liustack/pptfast>sharp': '0.35.3'") ||
+  !workspace.includes("'@liustack/pptfast>sharp': '0.35.4'") ||
   !workspace.includes("'exceljs>uuid': '11.1.1'") ||
   imageSize.metadata.version !== pkg.version ||
   imageSize.metadata.license !== "MIT" ||
-  sharp.metadata.version !== "0.35.3" ||
+  sharp.metadata.version !== "0.35.4" ||
   uuid.metadata.version !== "11.1.1" ||
   uuid.metadata.license !== "MIT" ||
   !lock.includes("image-size: link:packages/image-size-disabled") ||
-  !lock.includes("sharp@0.35.3:") ||
+  !lock.includes("sharp@0.35.4:") ||
   !lock.includes("uuid@11.1.1:") ||
   /(?:^|\n)\s{2}image-size@1\.2\.1:/.test(lock) ||
   /(?:^|\n)\s{2}sharp@0\.34\.5:/.test(lock) ||
+  /(?:^|\n)\s{2}sharp@0\.35\.3:/.test(lock) ||
   /(?:^|\n)\s{2}uuid@8\.3\.2:/.test(lock)
 ) {
   console.error("Office transitive security closure drift");

@@ -29,10 +29,10 @@ test("DSH rc.1 source commit and closure digests are exact", () => {
   assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "d82b4650bcd8e55c4adcb476f975169994ffa8fa8476c55f25cf266b5dabeaa9");
 });
 
-test("R55-TRUTH-003 four exact target installers including linux-loong64", () => {
+test("R55-TRUTH-003 three exact target installers including linux-loong64", () => {
   assert.deepEqual(
     RELEASE_TARGETS.map((row) => row.key),
-    ["darwin-aarch64", "darwin-x86_64", "win32-x86_64", "linux-loong64"],
+    ["darwin-aarch64", "win32-x86_64", "linux-loong64"],
   );
 });
 

@@ -1,29 +1,36 @@
-import { macosAarch64DmgName, macosX64DmgName, windowsSetupName, uosDebName } from "./product.mjs";
+import {
+  macosAarch64DmgName,
+  macosX64DmgName,
+  windowsSetupName,
+  uosDebName,
+  RELEASE_TARGETS as PINNED_RELEASE_TARGETS,
+  NATIVE_INSTALLED_TARGET_KEYS,
+} from "./product.mjs";
 
-export const RELEASE_TARGETS = Object.freeze([
-  "darwin-aarch64",
-  "darwin-x86_64",
-  "win32-x86_64",
-  "linux-loong64",
-]);
+export const RELEASE_TARGETS = Object.freeze(PINNED_RELEASE_TARGETS.map((row) => row.key));
 
 /** Mac/Windows native install/lifecycle. linux-loong64 native is OWNER_POST_RELEASE. */
-export const NATIVE_INSTALLED_TARGETS = Object.freeze([
-  "darwin-aarch64",
-  "darwin-x86_64",
-  "win32-x86_64",
-]);
+export const NATIVE_INSTALLED_TARGETS = Object.freeze([...NATIVE_INSTALLED_TARGET_KEYS]);
 
+/** Known installer names, including historical Intel Mac packaging. */
 export const TARGET_INSTALLERS = Object.freeze({
   "darwin-aarch64": macosAarch64DmgName(),
   "darwin-x86_64": macosX64DmgName(),
   "win32-x86_64": windowsSetupName(),
   "linux-loong64": uosDebName(),
+  ...Object.fromEntries(PINNED_RELEASE_TARGETS.map((row) => [row.key, row.installer])),
 });
 
 export function assertReleaseTarget(target) {
-  if (!RELEASE_TARGETS.includes(target)) {
+  if (!Object.hasOwn(TARGET_INSTALLERS, target)) {
     throw new Error(`unsupported release target ${target}`);
+  }
+  return target;
+}
+
+export function assertCurrentReleaseTarget(target) {
+  if (!RELEASE_TARGETS.includes(target)) {
+    throw new Error(`not a current release target ${target}`);
   }
   return target;
 }
@@ -78,4 +85,9 @@ export function missingReleaseTargets(present) {
 export function missingNativeInstalledTargets(present) {
   const have = new Set(present ?? []);
   return NATIVE_INSTALLED_TARGETS.filter((target) => !have.has(target));
+}
+
+export function extraReleaseTargets(present) {
+  const allowed = new Set(RELEASE_TARGETS);
+  return [...new Set(present ?? [])].filter((target) => !allowed.has(target));
 }

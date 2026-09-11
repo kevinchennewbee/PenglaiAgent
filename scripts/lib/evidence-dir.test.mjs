@@ -42,4 +42,7 @@ test("evidence JSON is bounded, cycle-safe, and redacts credentials", () => {
   const written = readFileSync(path, "utf8");
   assert.doesNotMatch(written, /examplecredential|Bearer|abcdefghijklmnopqrstuvwxyz/);
   assert.match(written, /\[redacted\]/);
+  assert.throws(() => writeEvidenceJson(path, Buffer.from("http-body")), /structured records/);
+  assert.throws(() => writeEvidenceJson(path, new Uint8Array([1, 2, 3])), /structured records/);
+  assert.throws(() => writeEvidenceJson(path, "<script>http</script>"), /structured records/);
 });

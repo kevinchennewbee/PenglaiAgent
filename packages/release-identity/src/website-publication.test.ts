@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { PRODUCT_VERSION } from "./pins.js";
+import { PRODUCT_VERSION, RELEASE_TARGETS } from "./pins.js";
 import {
   assertPublicationOnlyChanges,
   assertWebsitePublication,
@@ -15,12 +15,7 @@ const root = join(fileURLToPath(new URL(".", import.meta.url)), "../../..");
 const sourceSha = "a".repeat(40);
 const repo = "kevinchennewbee/PenglaiAgent";
 const tag = `v${PRODUCT_VERSION}`;
-const names = [
-  `Penglai_${PRODUCT_VERSION}_macos_aarch64.dmg`,
-  `Penglai_${PRODUCT_VERSION}_macos_x64.dmg`,
-  `Penglai_${PRODUCT_VERSION}_windows_x64_setup.exe`,
-  `Penglai_${PRODUCT_VERSION}_uos_loong64.deb`,
-];
+const names = RELEASE_TARGETS.map((row) => row.installer);
 const installers = names.map((name, index) => ({
   name,
   size: (index + 1) * 1048576,

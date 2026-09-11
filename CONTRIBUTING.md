@@ -46,8 +46,8 @@ pnpm build:local-dmg --reuse-app
 
 Native packaging still refuses a dirty tree for release artifacts. Apple Silicon
 and Intel Mac builds are separate installers; a universal app is not two
-installers. Follow the current version's acceptance delta, not a historical
-runbook.
+installers. 0.6.1 publication excludes Intel Mac. Follow the current version's
+acceptance delta, not a historical runbook.
 
 ## Public export
 

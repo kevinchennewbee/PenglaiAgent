@@ -319,6 +319,11 @@ writeFileSync(join(staging, "update-manifest-v1.json"), updateBytes);
 writeFileSync(join(staging, "update-manifest-v1.json.sig"), updateSignature);
 
 const parsed = parseAppUpdateManifest(JSON.parse(updateBytes.toString("utf8")), issuedMs);
+const expectedUpdatePlatforms = [...NATIVE_INSTALLED_TARGETS].sort();
+const assembledUpdatePlatforms = Object.keys(parsed.platforms).sort();
+if (JSON.stringify(assembledUpdatePlatforms) !== JSON.stringify(expectedUpdatePlatforms)) {
+  fail(`update manifest platforms must be exactly ${expectedUpdatePlatforms.join(",")}`);
+}
 verifyBytes(updateBytes, updateSignature, EMBEDDED_UPDATER_PUBLIC_KEY.publicKeyHex);
 for (const row of installerRows.filter((entry) => NATIVE_INSTALLED_TARGETS.includes(entry.target))) {
   verifyBytes(row.bytes, Buffer.from(parsed.platforms[row.target].signature, "base64"), EMBEDDED_UPDATER_PUBLIC_KEY.publicKeyHex);

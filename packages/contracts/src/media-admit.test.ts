@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import {
   MediaStore,
   ObjectStore,
+  assertOfficialFileRef,
   attachDownloadedMedia,
   imageMediaTypeFromBytes,
   isDiagnosticMediaCaption,
@@ -144,6 +145,57 @@ test("PDF and DOCX admit through official saveFile and keep office handles", asy
   assert.match(env.officialFile?.attachmentId ?? "", /^sha256:[a-f0-9]{64}$/);
   assert.ok(env.officeHandle);
   assert.match(userFacingMediaPrompt(env), /文档/);
+});
+
+test("official file names stay path-leaf bounded and strip trailing dots or spaces linearly", () => {
+  assert.equal(sanitizeOfficialFileName(undefined), "file");
+  assert.equal(sanitizeOfficialFileName(""), "file");
+  assert.equal(sanitizeOfficialFileName("."), "file");
+  assert.equal(sanitizeOfficialFileName(".."), "file");
+  assert.equal(sanitizeOfficialFileName("C:\\\\Users\\\\x\\\\report.pdf"), "report.pdf");
+  assert.equal(sanitizeOfficialFileName("/tmp/nested/note.txt"), "note.txt");
+  assert.equal(sanitizeOfficialFileName("a\u0000b\u0007c.txt"), "abc.txt");
+  assert.equal(sanitizeOfficialFileName("bad<>:\"|?*.bin"), "bad_______.bin");
+  assert.equal(sanitizeOfficialFileName("con"), "_con");
+  assert.equal(sanitizeOfficialFileName("COM1.dat"), "_COM1.dat");
+  assert.equal(sanitizeOfficialFileName("lpt9.txt"), "_lpt9.txt");
+  assert.equal(sanitizeOfficialFileName("con."), "_con");
+  assert.equal(sanitizeOfficialFileName("report.pdf..."), "report.pdf");
+  assert.equal(sanitizeOfficialFileName("report.pdf. . "), "report.pdf");
+  assert.equal(sanitizeOfficialFileName("keep" + ".".repeat(80_000)), "keep");
+  assert.equal(sanitizeOfficialFileName("keep.pdf" + ".".repeat(80_000)), "keep.pdf");
+  assert.equal(sanitizeOfficialFileName("keep" + " ".repeat(80_000)), "keep");
+  assert.equal(sanitizeOfficialFileName("draft . 1.bin"), "draft . 1.bin");
+  assert.equal(sanitizeOfficialFileName(`keep${" .".repeat(80_000)}end.bin`), "keep");
+  assert.equal(sanitizeOfficialFileName(`note${".".repeat(80_000)}x.pdf`), "note");
+  assert.equal(sanitizeOfficialFileName(`file${" ".repeat(80_000)}x`), "file");
+  const spacesThenName = `${" ".repeat(80_000)}end.bin`;
+  assert.equal(sanitizeOfficialFileName(spacesThenName), "end.bin");
+  const longUtf8 = `${"你".repeat(70)}done.bin`;
+  const truncated = sanitizeOfficialFileName(`${"你".repeat(200)}.pdf`);
+  assert.ok(Buffer.byteLength(truncated) <= 255);
+  assert.equal(truncated.includes("\uFFFD"), false);
+  assert.match(truncated, /^你+/);
+  assert.doesNotMatch(truncated, /[. ]$/);
+  assert.equal(sanitizeOfficialFileName(longUtf8), longUtf8);
+  assert.equal(sanitizeOfficialFileName(`${"n".repeat(253)}...extra`), "n".repeat(253));
+  const src = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(src, /\[\. \]\+\$\/u/);
+});
+
+test("official file receipts keep digest ownership after name sanitation", () => {
+  const bytes = Buffer.from("receipt-bytes");
+  const name = sanitizeOfficialFileName("C:\\\\inbox\\\\coral.txt...");
+  const ref = {
+    attachmentId: `sha256:${officialFileDigest(bytes)}`,
+    name,
+    bytes: bytes.byteLength,
+  };
+  assert.deepEqual(assertOfficialFileRef(ref, bytes), ref);
+  assert.throws(
+    () => assertOfficialFileRef({ ...ref, name: "coral.txt..." }, bytes),
+    /official file receipt rejected|SECURITY_POLICY/,
+  );
 });
 
 test("neutral binary files require an official FileBlock receipt and reject a missing or tampered receipt", async () => {
