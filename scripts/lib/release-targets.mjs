@@ -22,7 +22,7 @@ export const TARGET_INSTALLERS = Object.freeze({
 });
 
 export function assertReleaseTarget(target) {
-  if (!(target in TARGET_INSTALLERS)) {
+  if (!Object.hasOwn(TARGET_INSTALLERS, target)) {
     throw new Error(`unsupported release target ${target}`);
   }
   return target;
