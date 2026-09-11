@@ -20,8 +20,8 @@ if (run.head_sha !== source.git.head || run.head_branch !== "main" || run.event 
 }
 const artifacts = api(`actions/runs/${runId}/artifacts?per_page=100`).artifacts;
 const requiredArtifacts = [...RELEASE_TARGETS.map((row) => row.key), "native-evidence-set"];
-if (requiredArtifacts.length !== 5) {
-  throw new Error("publication input must bind the four release targets plus the native evidence set");
+if (requiredArtifacts.length !== RELEASE_TARGETS.length + 1) {
+  throw new Error("publication input must bind every current release target plus the native evidence set");
 }
 for (const target of requiredArtifacts) {
   if (!artifacts.some((row) => row.name === `penglai-${PRODUCT_VERSION}-${target}` && !row.expired)) {

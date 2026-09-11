@@ -12,39 +12,75 @@ import {
   assertReleaseContract,
   updaterRequiresIndependentSignature,
 } from "./contract.js";
+import { RELEASE_TARGETS } from "./pins.js";
 import { assertNoFakeArtifact, evaluateTargetPreflight } from "./preflight.js";
 import { recordAssertion } from "./assertion.js";
 import { GENERATION_ID } from "./pins.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
-test("R50-DIST-001 committed release-contract pins four targets and hashed downloads", () => {
+test("R50-DIST-001 committed release-contract pins three targets and hashed downloads", () => {
   const raw = JSON.parse(readFileSync(join(root, "release-contract.json"), "utf8"));
   const contract = assertReleaseContract(raw);
   assert.equal(contract.dshVersion, "0.1.5-rc.1");
   assert.deepEqual(
     contract.targets.map((row) => row.key),
-    ["darwin-aarch64", "darwin-x86_64", "win32-x86_64", "linux-loong64"],
+    ["darwin-aarch64", "win32-x86_64", "linux-loong64"],
   );
-  assert.equal(contract.targets.length, 4);
-  assert.equal(contract.runtimeInputs.length, 8);
+  assert.equal(contract.targets.length, 3);
+  assert.equal(contract.runtimeInputs.length, 6);
+  assert.equal(contract.exactAssets.length, 10);
   assert.ok(updaterRequiresIndependentSignature(contract));
   assert.deepEqual(contract.exactAssets, [...EXACT_RELEASE_ASSETS]);
+  assert.equal(contract.exactAssets.includes("Penglai_0.6.1_macos_x64.dmg"), false);
   assert.doesNotThrow(() => assertCanonicalUpdaterManifestUrl(contract.updaterManifestUrl));
   assert.doesNotThrow(() => assertCanonicalUpdaterManifestUrl(contract.updaterManifestSignatureUrl, true));
   for (const input of contract.runtimeInputs) {
     assert.doesNotThrow(() => assertCanonicalDownloadUrl(input.url));
     assert.equal(input.url.includes("latest"), false);
+    assert.notEqual(input.target, "darwin-x86_64");
   }
   recordAssertion({
     acceptanceId: "R50-DIST-001",
     runnerId: "release-identity.contract",
     testId: "release-contract-pins",
-    assertionId: "four-targets-hashed-downloads-exact-set",
+    assertionId: "three-targets-hashed-downloads-exact-set",
     status: "PASS",
     candidateSourceSha: "a".repeat(40),
     exitCode: 0,
   });
+});
+
+test("current 0.6.1 exact set rejects a missing selected target and an added Intel target", () => {
+  const raw = JSON.parse(readFileSync(join(root, "release-contract.json"), "utf8"));
+  const missingUos = structuredClone(raw);
+  missingUos.targets = raw.targets.filter((row: { key: string }) => row.key !== "linux-loong64");
+  missingUos.exactAssets = raw.exactAssets.filter((name: string) => !name.endsWith(".deb"));
+  missingUos.runtimeInputs = raw.runtimeInputs.filter((row: { target: string }) => row.target !== "linux-loong64");
+  assert.throws(() => assertReleaseContract(missingUos), /targets/);
+
+  const withIntel = structuredClone(raw);
+  withIntel.targets = [
+    ...raw.targets.slice(0, 1),
+    {
+      key: "darwin-x86_64",
+      platform: "darwin",
+      arch: "x64",
+      installer: "Penglai_0.6.1_macos_x64.dmg",
+    },
+    ...raw.targets.slice(1),
+  ];
+  withIntel.exactAssets = [
+    raw.exactAssets[0],
+    "Penglai_0.6.1_macos_x64.dmg",
+    ...raw.exactAssets.slice(1),
+  ];
+  assert.throws(() => assertReleaseContract(withIntel), /targets/);
+  assert.deepEqual(
+    RELEASE_TARGETS.map((row) => row.key),
+    ["darwin-aarch64", "win32-x86_64", "linux-loong64"],
+  );
+  assert.equal(EXACT_RELEASE_ASSETS.length, 10);
 });
 
 test("latest or HTTP download URLs are rejected", () => {

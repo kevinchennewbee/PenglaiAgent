@@ -334,7 +334,7 @@ export function buildPublicationDraft(input: {
       native: "pending",
     })),
     limitations: [
-      `${PRODUCT_VERSION} declares darwin-aarch64, darwin-x86_64, win32-x86_64, and linux-loong64; native PASS requires a matching runner`,
+      `${PRODUCT_VERSION} declares ${RELEASE_TARGETS.map((row) => row.key).join(", ")}; native PASS requires a matching runner`,
       "community-verified: macOS ad-hoc/not notarized; Windows has no Authenticode",
       "0.5.0 to 0.5.1 is a manual overlay install on Apple Silicon; Intel/Windows are fresh installs",
       "0.5.1 to 0.5.7 uses signed assisted update after user confirmation; 0.5.0 remains manual",

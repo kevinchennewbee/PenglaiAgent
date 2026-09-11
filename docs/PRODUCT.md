@@ -11,8 +11,8 @@ first run, process supervision, local data boundaries, assisted updates,
 uninstall, and a reviewed set of DSH plugins. It does not ship a second agent,
 provider gateway, session store, or chat page.
 
-Version 0.6.1 targets Apple Silicon, Intel Mac, Windows x64, and UnionTech
-UOS 20 `linux-loong64`. It consumes official DSH `0.1.5-rc.1` (279-package
+Version 0.6.1 targets Apple Silicon, Windows x64, and UnionTech
+UOS 20 `linux-loong64`. Intel Mac is excluded from this version. It consumes official DSH `0.1.5-rc.1` (279-package
 npm cohort). Public README and website download tables stay on published
 v0.6.0 until immutable v0.6.1 GitHub Release bytes are read back. A fresh
 user brings a provider credential, selects an official model and Workspace,
@@ -24,7 +24,6 @@ interface. Published 0.5.10, 0.5.11, and 0.5.12 remain immutable.
 | Device | Exact installer |
 | --- | --- |
 | Apple Silicon, macOS 13+ | `Penglai_0.6.1_macos_aarch64.dmg` |
-| Intel Mac, macOS 13+ | `Penglai_0.6.1_macos_x64.dmg` |
 | Windows 10+ x64 | `Penglai_0.6.1_windows_x64_setup.exe` |
 | UnionTech UOS 20 loong64 | `Penglai_0.6.1_uos_loong64.deb` |
 
@@ -32,7 +31,7 @@ The app contains its target Electron, Node, DSH closure, profile seed, bundled
 plugins, licenses, and integrity metadata. It never falls back to a system Node,
 pnpm, Python, ffmpeg, or DSH installation. Every support claim requires a build
 and installed test on the matching native platform. Current 0.6.1 native
-lifecycle is fresh install, restart, and default uninstall on Mac/Windows.
+lifecycle is fresh install, restart, and default uninstall on Apple Silicon and Windows.
 Old-version installed upgrade is `OWNER_EXCLUDED`. UOS native
 install/startup/function for 0.6.1 is `OWNER_POST_RELEASE`: the Owner tests
 the published installer. That is not a native PASS.
@@ -196,10 +195,10 @@ Agent、模型网关、Session 存储或聊天页。
 
 0.5.12 公开发布仍固定 DSH `0.1.3-alpha.2`。README 与网站下载表在公开
 v0.6.1 附件回读前保持已发布的 0.6.0。0.6.1 开发树消费官方 DSH `0.1.5-rc.1`
-（279 包），目标为 Apple 芯片、Intel Mac、Windows x64，以及统信 UOS 20
-`linux-loong64`（`Penglai_0.6.1_uos_loong64.deb`）。用户自备模型密钥，
+（279 包），目标为 Apple 芯片、Windows x64，以及统信 UOS 20
+`linux-loong64`（`Penglai_0.6.1_uos_loong64.deb`）。Intel Mac 不在本版发布。用户自备模型密钥，
 选择 official 模型和 Workspace，收到第一条真实 DSH 回复后进入 official
-DSH Web。0.6.1 当前原生生命周期是 Mac/Windows 全新安装、重启与默认卸载；
+DSH Web。0.6.1 当前原生生命周期是 Apple 芯片与 Windows 全新安装、重启与默认卸载；
 旧版本已安装升级为 `OWNER_EXCLUDED`。UOS 真机安装/启动/功能为
 `OWNER_POST_RELEASE`。已发布的 0.5.10、0.5.11 与 0.5.12 保持不可变。
 

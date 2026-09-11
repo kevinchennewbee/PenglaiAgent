@@ -537,6 +537,21 @@
   或改默认供应商。
 - 后果：执行账本 `docs/0.6.1/DSH_IM_DELTA.md`。不改写 0.5.x/0.6.0 历史。
 
+### D-073 — 0.6.1 三目标发布：Owner 排除 Intel Mac
+
+- 日期：2026-09-11。
+- 决定：Owner 指令「不管 intel芯片的，赶紧发布」取代 D-071 中 0.6.1 必须四端
+  发布的要求。0.6.1 精确目标为 `darwin-aarch64`、`win32-x86_64`、
+  `linux-loong64`。精确附件十项：三安装包加七项元数据。`darwin-x86_64` 不进入
+  0.6.1 native matrix、必需要证或 updater coverage。不得把
+  native34542847487 Intel 失败标 PASS，不得为 Intel 开 ad hoc 发布旁路。
+  缺任一所选目标仍失败；把 Intel 加入本版精确集合仍失败。
+- 历史：已发布 v0.6.0 四端十一附件与更早版本合同、归档文档/测试保持不可变。
+  Intel 通用打包/校验工具保留，供历史校验使用，不构成本版精确集合。
+- 后果：当前契约见 `release-contract.json` 与 `docs/0.6.1/`。公开下载在
+  v0.6.1 回读前仍指向 v0.6.0。后续 PR/`main`/三端原生/不可变发布仍由
+  manager 在审查后执行。
+
 ## Superseded
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。
@@ -546,6 +561,7 @@
 - 旧“当前R2必须Developer ID/notarization才结束”和旧单机ad-hoc目标由D-034取代。
 - alpha.1/alpha.2/alpha.3的READY、artifact hash、closure、soak或live声明不继承到0.5。
 - D-033/D-038 的三平台 0.5.0 首发要求由 D-054 取代；跨平台工程保留为后续路线。
+- D-071 的 0.6.1 四端要求由 D-073 取代；D-071 其余授权仍有效。
 - 旧“0.5私聊文本only”由D-041取代；旧“Voice/Memory只留台账”由D-041/D-042取代。
 
 ## Deferred

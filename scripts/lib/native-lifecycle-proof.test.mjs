@@ -251,19 +251,23 @@ test("Node SIGTERM on Windows and taskkill /F are never graceful shutdown proof"
   );
 });
 
-test("publication workflow consumes the current 0.6.1 native evidence set and eleven-asset contract", async () => {
+test("publication workflow consumes the current 0.6.1 native evidence set and ten-asset contract", async () => {
   const { EXACT_RELEASE_ASSETS } = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/contract.ts")).href);
   const publish = readFileSync(join(ROOT, ".github/workflows/publish-release.yml"), "utf8");
   const native = readFileSync(join(ROOT, ".github/workflows/native-release-candidate.yml"), "utf8");
-  assert.equal(EXACT_RELEASE_ASSETS.length, 11);
+  assert.equal(EXACT_RELEASE_ASSETS.length, 10);
   const nativeName = `penglai-${PRODUCT_VERSION}-native-evidence-set`;
   const readbackName = `penglai-${PRODUCT_VERSION}-public-readback`;
   assert.match(native, new RegExp(`name:\\s*${nativeName}`));
   assert.match(publish, new RegExp(`name:\\s*${nativeName}`));
-  assert.match(publish, /Read back all eleven draft assets/);
+  assert.match(publish, /Read back all ten draft assets/);
   assert.match(publish, new RegExp(`name:\\s*${readbackName}`));
+  assert.match(native, /Exact three-target evidence aggregate/);
+  assert.doesNotMatch(native, /macos-15-intel/);
+  assert.doesNotMatch(native, /darwin-x86_64/);
+  assert.doesNotMatch(native, /Penglai_0\.6\.1_macos_x64\.dmg/);
   assert.doesNotMatch(publish, /penglai-0\.6\.0-native-evidence-set/);
-  assert.doesNotMatch(publish, /all ten draft assets/);
+  assert.doesNotMatch(publish, /all eleven draft assets/);
   assert.doesNotMatch(publish, /penglai-0\.6\.0-public-readback/);
   const mismatched = publish.replaceAll(`penglai-${PRODUCT_VERSION}-native-evidence-set`, "penglai-0.6.0-native-evidence-set");
   assert.match(mismatched, /penglai-0\.6\.0-native-evidence-set/);

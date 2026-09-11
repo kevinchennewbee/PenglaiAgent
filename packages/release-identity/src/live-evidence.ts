@@ -120,7 +120,7 @@ export function evaluateLiveEvidence(
     return { verdict: "STALE", reason: "live evidence source SHA is not the release candidate", acceptedPlatforms: [] };
   }
   if (!Array.isArray(raw.nativeInstallers) || raw.nativeInstallers.length !== NATIVE_INSTALLER_TARGETS.size) {
-    return { verdict: "INCOMPLETE", reason: "live evidence does not bind all three native installers", acceptedPlatforms: [] };
+    return { verdict: "INCOMPLETE", reason: "live evidence does not bind all required native installers", acceptedPlatforms: [] };
   }
   const nativeInstallers = new Map<string, string>();
   for (const entry of raw.nativeInstallers) {

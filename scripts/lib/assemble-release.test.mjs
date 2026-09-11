@@ -8,10 +8,10 @@ import test from "node:test";
 import {
   PRODUCT_VERSION,
   UPDATER_SEQUENCE,
-  macosAarch64DmgName,
+  RELEASE_TARGETS,
   macosX64DmgName,
-  windowsSetupName,
 } from "./product.mjs";
+import { NATIVE_INSTALLED_TARGETS } from "./release-targets.mjs";
 
 const ROOT = process.cwd();
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -22,18 +22,13 @@ test("assemble-release refuses a signing key that does not match the embedded up
     const staging = join(temp, "staging");
     mkdirSync(staging);
     const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
-    const names = [
-      macosAarch64DmgName(),
-      macosX64DmgName(),
-      windowsSetupName(),
-      `Penglai_${PRODUCT_VERSION}_uos_loong64.deb`,
-    ];
+    const names = RELEASE_TARGETS.map((row) => row.installer);
     const nativeEvidence = join(temp, "native-evidence");
     mkdirSync(nativeEvidence);
     const assets = names.map((name, index) => {
       const bytes = Buffer.from(`native-fixture-${index}`);
       writeFileSync(join(staging, name), bytes);
-      const target = ["darwin-aarch64", "darwin-x86_64", "win32-x86_64", "linux-loong64"][index];
+      const target = RELEASE_TARGETS[index].key;
       writeFileSync(
         join(nativeEvidence, `local-installer-${target}.json`),
         JSON.stringify({ target, sourceSha, installer: name, sha256: sha256(bytes), treeDirty: false }),
@@ -121,6 +116,43 @@ test("assemble-release refuses a signing key that does not match the embedded up
     assert.equal(update.releaseManifestSha256, sha256(readFileSync(join(staging, "release-manifest.json"))));
     assert.notEqual(update.releaseManifestSha256, sha256(readFileSync(join(staging, "update-manifest-v1.json"))));
     assert.equal(readdirSync(staging).includes("SHA256SUMS"), false);
+    assert.deepEqual(Object.keys(update.platforms).sort(), [...NATIVE_INSTALLED_TARGETS].sort());
+    assert.equal(Object.hasOwn(update.platforms, "darwin-x86_64"), false);
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+});
+
+test("assemble-release refuses an extra Intel installer and a missing selected target", () => {
+  const temp = mkdtempSync(join(tmpdir(), "penglai-assemble-exact-set-"));
+  try {
+    const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
+    const extra = join(temp, "extra");
+    mkdirSync(extra);
+    for (const row of RELEASE_TARGETS) {
+      writeFileSync(join(extra, row.installer), Buffer.from(row.key));
+    }
+    writeFileSync(join(extra, macosX64DmgName()), Buffer.from("intel"));
+    const extraRun = spawnSync(
+      process.execPath,
+      ["--import", "tsx", "scripts/assemble-release.mjs", "--staging", extra, "--source-sha", sourceSha],
+      { cwd: ROOT, encoding: "utf8" },
+    );
+    assert.equal(extraRun.status, 1);
+    assert.match(extraRun.stderr, /staging must initially contain only the contract installers/);
+
+    const missing = join(temp, "missing");
+    mkdirSync(missing);
+    for (const row of RELEASE_TARGETS.filter((entry) => entry.key !== "linux-loong64")) {
+      writeFileSync(join(missing, row.installer), Buffer.from(row.key));
+    }
+    const missingRun = spawnSync(
+      process.execPath,
+      ["--import", "tsx", "scripts/assemble-release.mjs", "--staging", missing, "--source-sha", sourceSha],
+      { cwd: ROOT, encoding: "utf8" },
+    );
+    assert.equal(missingRun.status, 1);
+    assert.match(missingRun.stderr, /staging must initially contain only the contract installers/);
   } finally {
     rmSync(temp, { recursive: true, force: true });
   }

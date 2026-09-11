@@ -10,9 +10,11 @@ workflow. Codex is PM and GUI acceptance operator and independently accepts
 consequential evidence. Grok 4.6 xhigh owns product implementation, source
 technical review, and ordinary repair. This worker phase ends at local source
 plus the current native-lifecycle contract. Later manager-reviewed phases own
-PR/main freeze, the exact four-target native set, immutable publication, and
+PR/main freeze, the exact three-target native set, immutable publication, and
 public-byte readback. Per-phase source-only limits are sequencing, not a new
-authorization question.
+authorization question. Owner 2026-09-11 superseded the former four-target
+requirement for this version: Intel Mac (`darwin-x86_64`) is excluded from
+0.6.1 publication.
 
 Public README and website download tables remain on immutable `v0.6.0` until
 immutable `v0.6.1` GitHub Release bytes exist. Staged 0.6.1 public copy lives
@@ -29,7 +31,7 @@ in `docs/0.6.1/` and is not a public download claim.
 - Class-level repairs with regression tests: IM completed-turn cold-session
   recovery through official `SessionHandle` / inspect; `describeSessionModels`
   existence proof; runtime HTTP liveness bound to current process inventory;
-  native aggregate and publication input for exact four targets and eleven
+  native aggregate and publication input for exact three targets and ten
   assets; UOS Node closure identity and dependency/preflight truth; signed
   catalog identity+digest plugin preservation; official `deepseek-flash`
   onboarding without model-id exceptions.
@@ -46,8 +48,12 @@ in `docs/0.6.1/` and is not a public download claim.
   `606ced1` (not npm 4.18.1 bytes); official RemoteError/preset classification;
   optional Darwin-only iMessage private text default off. Telegram Rich Draft,
   dsh-im management HTTP, WhatsApp, wecom-app, and Office-as-IM stay out.
-- Four targets remain `darwin-aarch64`, `darwin-x86_64`, `win32-x86_64`,
-  `linux-loong64` UOS 20 old-world. Deterministic `test:soak` remains required.
+- Selected targets are `darwin-aarch64`, `win32-x86_64`, and `linux-loong64`
+  UOS 20 old-world. Intel Mac (`darwin-x86_64`) is excluded from 0.6.1
+  publication, native matrix, required evidence, and updater coverage.
+  Exact assets are ten: three installers plus the same seven metadata
+  files. Missing any selected target still fails; adding Intel to this
+  version's exact set still fails. Deterministic `test:soak` remains required.
   Two-hour installed soak remains excluded. Old-version installed upgrade
   acceptance is `OWNER_EXCLUDED`; the current workflow does not fetch previous
   installers and must not relabel unrun upgrades PASS. Current Mac/Windows
@@ -58,13 +64,13 @@ in `docs/0.6.1/` and is not a public download claim.
   `OWNER_POST_RELEASE`: Owner will test the published installer. Package/ABI
   evidence is distinct and still required. The 0.6.0 UOS `OWNER_POST_RELEASE`
   record is not a 0.6.1 native PASS and is not a blanket future exception.
-  Four exact targets remain required. Credential-free wizard-to-API-boundary
-  evidence needs no personal account credentials; real provider-account
-  acceptance stays supplemental per `docs/ACCEPTANCE.md`.
+  Do not relabel the failed native34542847487 Intel job PASS. Credential-free
+  wizard-to-API-boundary evidence needs no personal account credentials; real
+  provider-account acceptance stays supplemental per `docs/ACCEPTANCE.md`.
 
 ## Out of scope for this source phase
 
-- PR, `main` merge, four-target native CI dispatch, release tag, asset upload,
+- PR, `main` merge, three-target native CI dispatch, release tag, asset upload,
   or website public-byte deploy.
 - Live IM messages and Owner/PM live credential tests.
 - Claiming UOS native install/startup/function PASS.

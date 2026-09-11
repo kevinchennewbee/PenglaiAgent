@@ -210,6 +210,52 @@ test("R56-UPD-001 update and release manifest identities stay distinct", () => {
   );
 });
 
+test("historical 0.6.0 updater manifests with Intel Mac still parse", () => {
+  const now = Date.parse("2026-09-02T00:00:00.000Z");
+  const parsed = parseAppUpdateManifest(
+    {
+      schema: "penglai.app-update.v1",
+      sequence: 9,
+      version: "0.6.0",
+      channel: "stable",
+      releaseTag: "v0.6.0",
+      issuedAt: "2026-09-01T00:00:00.000Z",
+      expiresAt: "2026-10-01T00:00:00.000Z",
+      signingKeyId: "k",
+      minimumSourceVersion: "0.5.1",
+      notesUrl: "https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.0",
+      candidateSourceSha: "a".repeat(64),
+      publicExportTreeSha256: "b".repeat(64),
+      platforms: {
+        "darwin-aarch64": {
+          assetId: 1,
+          url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_macos_aarch64.dmg",
+          size: 10,
+          sha256: "d".repeat(64),
+          signature: "c2ln",
+        },
+        "darwin-x86_64": {
+          assetId: 2,
+          url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_macos_x64.dmg",
+          size: 11,
+          sha256: "e".repeat(64),
+          signature: "c2ln",
+        },
+        "win32-x86_64": {
+          assetId: 3,
+          url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.0/Penglai_0.6.0_windows_x64_setup.exe",
+          size: 12,
+          sha256: "f".repeat(64),
+          signature: "c2ln",
+        },
+      },
+      migration: { fromSchema: 3, toSchema: 3, backupRequired: true, rollbackCompatible: true },
+    },
+    now,
+  );
+  assert.deepEqual(Object.keys(parsed.platforms).sort(), ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"]);
+});
+
 test("UF-04 signed catalog accepts https plugin links and rejects unsafe ones", () => {
   const now = Date.parse("2026-08-22T00:00:00.000Z");
   const base = catalogJson();

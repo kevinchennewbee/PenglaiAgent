@@ -37,7 +37,7 @@ test("R50-TRUTH-001 identity pins are 0.6.1", () => {
   });
 });
 
-test("R50-TRUTH-002 candidateKind trustTier generation and four exact release targets", () => {
+test("R50-TRUTH-002 candidateKind trustTier generation and three exact release targets", () => {
   const id = emptyIdentity("a".repeat(40), false);
   const checked = assertReleaseIdentity(id);
   assert.equal(checked.candidateKind, CANDIDATE_KIND);
@@ -45,19 +45,19 @@ test("R50-TRUTH-002 candidateKind trustTier generation and four exact release ta
   assert.equal(checked.generationId, GENERATION_ID);
   assert.deepEqual(
     checked.targets.map((t) => t.key),
-    ["darwin-aarch64", "darwin-x86_64", "win32-x86_64", "linux-loong64"],
+    ["darwin-aarch64", "win32-x86_64", "linux-loong64"],
   );
   assert.deepEqual(
     checked.targets.map((t) => t.installer),
     RELEASE_TARGETS.map((t) => t.installer),
   );
-  assert.equal(checked.targets.length, 4);
+  assert.equal(checked.targets.length, 3);
   assert.equal(checked.dsh, "0.1.5-rc.1");
   recordAssertion({
     acceptanceId: "R50-TRUTH-002",
     runnerId: "release-identity.identity",
     testId: "identity-contract-fields",
-    assertionId: "kind-trust-generation-four-targets",
+    assertionId: "kind-trust-generation-three-targets",
     status: "PASS",
     candidateSourceSha: "a".repeat(40),
     exitCode: 0,

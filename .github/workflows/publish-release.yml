@@ -96,7 +96,7 @@ jobs:
           PENGLAI_NATIVE_RUN_ID: ${{ inputs.native_run_id }}
           PENGLAI_RELEASE_ID: ${{ inputs.release_id }}
         run: node --import tsx scripts/verify-publication-input.mjs
-      - name: Read back all eleven draft assets and verify signatures
+      - name: Read back all ten draft assets and verify signatures
         id: draft
         env:
           GITHUB_TOKEN: ${{ github.token }}

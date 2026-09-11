@@ -66,13 +66,8 @@ function releaseTargets(source) {
     arch: match[3],
     installer: match[4],
   }));
-  if (
-    rows.length !== 4 ||
-    new Set(rows.map((row) => row.key)).size !== rows.length
-  ) {
-    throw new Error(
-      "release pin RELEASE_TARGETS must contain four unique closed rows",
-    );
+  if (rows.length < 1 || new Set(rows.map((row) => row.key)).size !== rows.length) {
+    throw new Error("release pin RELEASE_TARGETS must contain unique closed rows");
   }
   return rows;
 }

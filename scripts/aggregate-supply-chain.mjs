@@ -2,10 +2,11 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { NATIVE_INSTALLED_TARGETS } from "./lib/release-targets.mjs";
 
 const ROOT = process.cwd();
 const GENERATED = join(ROOT, "evidence", "generated");
-const TARGETS = ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"];
+const TARGETS = [...NATIVE_INSTALLED_TARGETS];
 const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 
 function fail(message) {

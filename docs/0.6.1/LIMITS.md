@@ -5,13 +5,13 @@ limits. They do not rewrite published 0.5.x or 0.6.0 records.
 
 ## UOS native host
 
-UnionTech UOS 20 LoongArch remains the fourth packaged target. Artifact
+UnionTech UOS 20 LoongArch remains a packaged target. Artifact
 integrity, architecture/old-world ABI, target Node/runtime identity,
 dependencies, sandbox/lifecycle preparation, and closure still require
 verification. Native install, startup, and function on a physical UOS host
 are `OWNER_POST_RELEASE`: the Owner will test the published installer.
 That is not a native PASS and not an unavailable-host waiver that skips
-the fourth artifact.
+the UOS artifact. Intel Mac is excluded from 0.6.1 publication.
 
 Old-version installed upgrade acceptance is `OWNER_EXCLUDED`. The current
 workflow does not fetch previous installers and does not relabel unrun
