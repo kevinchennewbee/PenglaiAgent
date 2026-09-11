@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>蓬莱 0.6.1 | 把该做的事，留在自己的电脑上</title>
-  <meta name="description" content="蓬莱 0.6.1 把官方 DeepSeek Harness 0.1.5-rc.1 装进个人电脑，办公、记忆、消息连接与本地语音都在同一个客户端里。支持 Apple 芯片、Intel Mac、Windows x64 与统信 UOS 20 龙芯。">
+  <meta name="description" content="蓬莱 0.6.1 把官方 DeepSeek Harness 0.1.5-rc.1 装进个人电脑，办公、记忆、消息连接与本地语音都在同一个客户端里。支持 Apple 芯片、Windows x64 与统信 UOS 20 龙芯。">
   <meta property="og:title" content="蓬莱 0.6.1">
   <meta property="og:description" content="官方 DeepSeek Harness，装进你的电脑。办公和记忆默认开启。第一条真实回复之后，引导才算完成。">
   <meta name="theme-color" content="#F3EEE4">
@@ -51,7 +51,6 @@
           </div>
           <p class="meta-row">
             <span>Apple 芯片</span>
-            <span>Intel Mac</span>
             <span>Windows x64</span>
             <span>UOS 20 龙芯</span>
             <span>MIT</span>
@@ -174,7 +173,7 @@
         <h2>七步引导，走到真实回复才算完成。</h2>
         <p>选择语言和外观，阅读本地数据边界，从官方模型列表选择供应商和模型，测试自己的 API 密钥，选择真实 Workspace，然后发送第一条消息。全新安装包含官方 <code>deepseek-flash</code>。选文件夹的窗口留在蓬莱里，可以取消或重试。可以返回，关掉窗口之后也能接着做。密钥失败不会被记成成功。应用数据目录和安装目录不能当作 Workspace。</p>
         <ul class="workflow-list">
-          <li>请使用对应安装包。Apple 芯片、Intel、Windows 与 UOS 不要混用。</li>
+          <li>请使用对应安装包。Apple 芯片、Windows 与 UOS 不要混用。</li>
           <li>升级使用同平台安装包手动覆盖，不会静默更新。</li>
           <li>默认卸载保留用户数据。外部 Workspace 与 <code>Penglai/0.5</code> 代际会留下。</li>
         </ul>
@@ -189,24 +188,19 @@
         <p><strong>数据去哪</strong> 没有蓬莱账号、蓬莱运营的遥测后端或云端记忆同步。官方 DSH 自带一个休眠的 DeepSeek OTLP 地址，蓬莱会硬性禁用。模型调用仍会把本次任务需要的内容发给你选择的供应商。</p>
         <p><strong>哪些事要单独确认</strong> 办公保存、导出与回传、记忆个人化、插件安装和外发消息，都走与动作绑定的确认。诊断不得包含凭据、聊天正文、二维码或私人绝对路径。</p>
         <p><strong>签名不是系统背书</strong> macOS 是 ad-hoc 签名、未公证；Windows 没有 Authenticode。Gatekeeper 或 SmartScreen 可能提醒。蓬莱 Ed25519 保护升级和插件字节，不是 Apple 或 Microsoft 发布者身份。</p>
-        <p><strong>UOS 是第四端，不是已完成的真机声明</strong> 统信 UOS 20 龙芯的安装包是 <code>Penglai_0.6.1_uos_loong64.deb</code>。该机上的安装、启动和功能仍是 Owner 发布后测试（<code>OWNER_POST_RELEASE</code>）。Mac/Windows 内嵌 Node 22.23.2 与 Electron 43.6.0（Chromium 150）。UOS 使用龙芯 Node 22.16.0 与 Electron 31.7.7（Chromium 126），已经停止维护。记忆默认开启，并带入 Mnemon 引擎。MOSS-TTS 在龙芯上不能启用。本页不宣称四端原生界面全部 PASS。</p>
+        <p><strong>UOS 是打包目标，不是已完成的真机声明</strong> 统信 UOS 20 龙芯的安装包是 <code>Penglai_0.6.1_uos_loong64.deb</code>。该机上的安装、启动和功能仍是 Owner 发布后测试（<code>OWNER_POST_RELEASE</code>）。Mac/Windows 内嵌 Node 22.23.2 与 Electron 43.6.0（Chromium 150）。UOS 使用龙芯 Node 22.16.0 与 Electron 31.7.7（Chromium 126），已经停止维护。记忆默认开启，并带入 Mnemon 引擎。MOSS-TTS 在龙芯上不能启用。本页不宣称三端原生界面全部 PASS。</p>
       </div>
     </section>
 
     <section class="section download" id="download" data-reveal>
       <p class="eyebrow">Penglai 0.6.1</p>
       <h2>选和这台机器对应的安装包。</h2>
-      <p class="download-hint" id="downloadHint" hidden data-mac="当前浏览器像是 Mac。M 系列一般选 Apple 芯片；若「关于本机」仍写 Intel，请用 Intel 包。" data-windows="当前浏览器像是 Windows。请使用 64 位安装器。" data-linux="当前浏览器像是 Linux。公开的 Linux 包只覆盖统信 UOS 20 龙芯。"></p>
+      <p class="download-hint" id="downloadHint" hidden data-mac="当前浏览器像是 Mac。0.6.1 的 Mac 安装包是 Apple 芯片。Intel Mac 不是 0.6.1 目标。" data-windows="当前浏览器像是 Windows。请使用 64 位安装器。" data-linux="当前浏览器像是 Linux。公开的 Linux 包只覆盖统信 UOS 20 龙芯。"></p>
       <div class="download-grid">
         <a data-family="mac" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_macos_aarch64.dmg">
           <strong>macOS · Apple 芯片</strong>
           <span>GitHub · macOS 13+ · M1 及更新</span>
           <em>Penglai_0.6.1_macos_aarch64.dmg</em>
-        </a>
-        <a data-family="mac" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_macos_x64.dmg">
-          <strong>macOS · Intel</strong>
-          <span>GitHub · x86_64 Mac</span>
-          <em>Penglai_0.6.1_macos_x64.dmg</em>
         </a>
         <a data-family="windows" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_windows_x64_setup.exe">
           <strong>Windows · x64</strong>
@@ -219,7 +213,7 @@
           <em>Penglai_0.6.1_uos_loong64.deb</em>
         </a>
       </div>
-      <p class="note-panel">权威公开下载源是不可变 GitHub Release：<a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1">v0.6.1</a>。请用该页的 <code>SHA256SUMS</code> 核对文件。Linux amd64 与 Windows ARM 不是目标。更新不会静默执行。已发布的 0.5.10、0.5.11、0.5.12、0.6.0 保持不可变。</p>
+      <p class="note-panel">权威公开下载源是不可变 GitHub Release：<a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1">v0.6.1</a>。请用该页的 <code>SHA256SUMS</code> 核对文件。发布是三个安装包、十个文件。签名升级覆盖 Apple 芯片和 Windows x64。Intel Mac 不是 0.6.1 安装目标。Linux amd64 与 Windows ARM 不是目标。更新不会静默执行。已发布的 0.5.10、0.5.11、0.5.12、0.6.0 保持不可变。</p>
       <div class="actions">
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/RELEASE_NOTES_0.6.1.md">发布说明</a>
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">安全说明</a>
@@ -230,7 +224,7 @@
       <p class="eyebrow">为什么叫蓬莱</p>
       <blockquote>我做了十多年网络、安全和运维，却不是软件开发者。蓬莱一开始就想证明一件事：普通人应该能从自己已经有的电脑，找到真正能用的助手。</blockquote>
       <p>从命令行到窗口，再到每个人口袋里的手机，计算机一直在降低使用门槛。Agent 也应该走同一条路。会发消息，就应该能找到自己的助手；它替你做了什么、能看什么、花了多少，也应该讲得清楚。</p>
-      <p>蓬莱已经重做过不止一次。0.5 最重要的决定，是停止再造一个 Agent，转而站在 DeepSeek Harness 上。0.6.1 把同一件事做到四台电脑上，包括统信 UOS 20 龙芯。旧版本留在 Git 历史里讲这段路，但不会和新的核心混在一起。</p>
+      <p>蓬莱已经重做过不止一次。0.5 最重要的决定，是停止再造一个 Agent，转而站在 DeepSeek Harness 上。0.6.1 把同一件事做到三台电脑上，包括统信 UOS 20 龙芯。旧版本留在 Git 历史里讲这段路，但不会和新的核心混在一起。</p>
       <p class="signature">陈克文 / Kevin Chen</p>
     </section>
 
@@ -244,7 +238,7 @@
         </article>
         <article>
           <h3>现在该下载哪个版本？</h3>
-          <p>本页描述的是 Penglai 0.6.1。请从不可变 <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1">v0.6.1</a> GitHub Release 下载对应安装包。已发布的 0.5.10、0.5.11、0.5.12、0.6.0 仍是不可变历史版本。</p>
+          <p>本页描述的是 Penglai 0.6.1。请从不可变 <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1">v0.6.1</a> GitHub Release 下载对应安装包。Intel Mac 不是 0.6.1 安装目标。已发布的 0.5.10、0.5.11、0.5.12、0.6.0 仍是不可变历史版本。</p>
         </article>
         <article>
           <h3>为什么 Gatekeeper 会提示？</h3>

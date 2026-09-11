@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Penglai 0.6.1 | Make room for the work that matters</title>
-  <meta name="description" content="Penglai 0.6.1 installs official DeepSeek Harness 0.1.5-rc.1 on a personal computer, with Office, Memory, messaging, and local voice. Apple Silicon, Intel Mac, Windows x64, and UnionTech UOS 20 LoongArch.">
+  <meta name="description" content="Penglai 0.6.1 installs official DeepSeek Harness 0.1.5-rc.1 on a personal computer, with Office, Memory, messaging, and local voice. Apple Silicon, Windows x64, and UnionTech UOS 20 LoongArch.">
   <meta property="og:title" content="Penglai 0.6.1">
   <meta property="og:description" content="Official DeepSeek Harness, installed on your computer. Office and Memory start on. You finish setup after the first real reply.">
   <meta name="theme-color" content="#F3EEE4">
@@ -52,7 +52,6 @@
           </div>
           <p class="meta-row">
             <span>Apple Silicon</span>
-            <span>Intel Mac</span>
             <span>Windows x64</span>
             <span>UOS 20 LoongArch</span>
             <span>MIT</span>
@@ -175,7 +174,7 @@
         <h2>Seven steps, complete only after a real reply.</h2>
         <p>Choose language and appearance, read the local-data boundary, pick a provider and model from the official catalog, test your own API key, choose a real Workspace, then send the first message. Fresh setup includes official <code>deepseek-flash</code>. Folder browse stays in the Penglai window; you can cancel or retry. You can go back and resume after restart. A failed API key is never recorded as success. The app data directory and the install directory cannot be Workspaces.</p>
         <ul class="workflow-list">
-          <li>Use the matching installer. Do not mix Apple Silicon, Intel, Windows, or UOS packages.</li>
+          <li>Use the matching installer. Do not mix Apple Silicon, Windows, or UOS packages.</li>
           <li>Upgrade with the same-platform installer as a manual overlay. Updates are never silent.</li>
           <li>Default uninstall keeps user data. External Workspaces and the <code>Penglai/0.5</code> generation remain.</li>
         </ul>
@@ -190,24 +189,19 @@
         <p><strong>Where data goes</strong> There is no Penglai account, Penglai-operated telemetry backend, or cloud memory sync. Official DSH bundles a dormant DeepSeek OTLP endpoint; Penglai hard-disables it. Model calls still send the context needed for that task to the provider you selected.</p>
         <p><strong>What needs a confirmation</strong> Office save, export, and return, personal Memory, plugin install, and outbound messaging use a confirmation bound to that action. Diagnostics must not contain credentials, chat bodies, QR codes, or private absolute paths.</p>
         <p><strong>Signatures are not an OS endorsement</strong> macOS packages are ad-hoc signed and not notarized. Windows has no Authenticode. Gatekeeper or SmartScreen may warn. Penglai Ed25519 signatures protect updater and plugin bytes; they are not Apple or Microsoft publisher identity.</p>
-        <p><strong>UOS is a fourth target, not a finished native claim</strong> UnionTech UOS 20 LoongArch is packaged as <code>Penglai_0.6.1_uos_loong64.deb</code>. Native install, startup, and function on that host remain Owner post-publication testing (<code>OWNER_POST_RELEASE</code>). Mac and Windows embed Node 22.23.2 and Electron 43.6.0 (Chromium 150). UOS uses Loongson Node 22.16.0 and Electron 31.7.7 (Chromium 126). That runtime is unmaintained. Memory stays on, with the packed Mnemon engine. MOSS-TTS cannot be enabled on LoongArch. This page does not claim a four-target native GUI PASS.</p>
+        <p><strong>UOS is a packaged target, not a finished native claim</strong> UnionTech UOS 20 LoongArch is packaged as <code>Penglai_0.6.1_uos_loong64.deb</code>. Native install, startup, and function on that host remain Owner post-publication testing (<code>OWNER_POST_RELEASE</code>). Mac and Windows embed Node 22.23.2 and Electron 43.6.0 (Chromium 150). UOS uses Loongson Node 22.16.0 and Electron 31.7.7 (Chromium 126). That runtime is unmaintained. Memory stays on, with the packed Mnemon engine. MOSS-TTS cannot be enabled on LoongArch. This page does not claim a three-target native GUI PASS.</p>
       </div>
     </section>
 
     <section class="section download" id="download" data-reveal>
       <p class="eyebrow">Penglai 0.6.1</p>
       <h2>Choose the installer that matches the machine.</h2>
-      <p class="download-hint" id="downloadHint" hidden data-mac="This browser looks like a Mac. Apple Silicon is the usual choice on M-series machines; use Intel if About This Mac still says Intel." data-windows="This browser looks like Windows. Use the 64-bit installer." data-linux="This browser looks like Linux. The public Linux package is UnionTech UOS 20 LoongArch only."></p>
+      <p class="download-hint" id="downloadHint" hidden data-mac="This browser looks like a Mac. Apple Silicon is the 0.6.1 Mac installer. Intel Mac is not a 0.6.1 target." data-windows="This browser looks like Windows. Use the 64-bit installer." data-linux="This browser looks like Linux. The public Linux package is UnionTech UOS 20 LoongArch only."></p>
       <div class="download-grid">
         <a data-family="mac" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_macos_aarch64.dmg">
           <strong>macOS · Apple Silicon</strong>
           <span>GitHub · macOS 13+ · M1 and later</span>
           <em>Penglai_0.6.1_macos_aarch64.dmg</em>
-        </a>
-        <a data-family="mac" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_macos_x64.dmg">
-          <strong>macOS · Intel</strong>
-          <span>GitHub · x86_64 Mac</span>
-          <em>Penglai_0.6.1_macos_x64.dmg</em>
         </a>
         <a data-family="windows" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_windows_x64_setup.exe">
           <strong>Windows · x64</strong>
@@ -220,7 +214,7 @@
           <em>Penglai_0.6.1_uos_loong64.deb</em>
         </a>
       </div>
-      <p class="note-panel">The immutable GitHub Release is the authoritative public download source: <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1">v0.6.1</a>. Check the file against <code>SHA256SUMS</code> on that page. Linux amd64 and Windows ARM are not targets. Updates are never silent. Published 0.5.10, 0.5.11, 0.5.12, and 0.6.0 remain immutable.</p>
+      <p class="note-panel">The immutable GitHub Release is the authoritative public download source: <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1">v0.6.1</a>. Check the file against <code>SHA256SUMS</code> on that page. The release is three installers and ten assets. The signed updater covers Apple Silicon and Windows x64. Intel Mac is not a 0.6.1 installer. Linux amd64 and Windows ARM are not targets. Updates are never silent. Published 0.5.10, 0.5.11, 0.5.12, and 0.6.0 remain immutable.</p>
       <div class="actions">
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/RELEASE_NOTES_0.6.1.md">Release notes</a>
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">Security notes</a>
@@ -231,7 +225,7 @@
       <p class="eyebrow">Why Penglai</p>
       <blockquote>I spent more than ten years around networking, security, and operations, but I was not a software developer. Penglai began with one stubborn idea: ordinary people should be able to reach a real assistant from the computer they already have.</blockquote>
       <p>Computers travelled from command lines to windows and then into everyone's pocket. Agents should make the same trip. If I can send a message, I should be able to reach my own assistant. If it acts for me, I should be able to see what it was allowed to do, what actually happened, and what it cost.</p>
-      <p>Penglai has been rebuilt more than once. The important decision in 0.5 was to stop building another agent and stand on DeepSeek Harness instead. 0.6.1 keeps that decision and puts the same product on four computers, including UnionTech UOS 20 LoongArch. Older generations remain in Git history; their runtimes are not mixed into this core.</p>
+      <p>Penglai has been rebuilt more than once. The important decision in 0.5 was to stop building another agent and stand on DeepSeek Harness instead. 0.6.1 keeps that decision and puts the same product on three computers, including UnionTech UOS 20 LoongArch. Older generations remain in Git history; their runtimes are not mixed into this core.</p>
       <p class="signature">Kevin Chen / 陈克文</p>
     </section>
 
@@ -245,7 +239,7 @@
         </article>
         <article>
           <h3>Which version should I download?</h3>
-          <p>This page describes Penglai 0.6.1. Download the matching installer from the immutable <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1">v0.6.1</a> GitHub Release. Published 0.5.10, 0.5.11, 0.5.12, and 0.6.0 remain historical and immutable.</p>
+          <p>This page describes Penglai 0.6.1. Download the matching installer from the immutable <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1">v0.6.1</a> GitHub Release. Intel Mac is not a 0.6.1 installer. Published 0.5.10, 0.5.11, 0.5.12, and 0.6.0 remain historical and immutable.</p>
         </article>
         <article>
           <h3>Why does Gatekeeper warn?</h3>
