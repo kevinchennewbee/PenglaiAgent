@@ -11,7 +11,7 @@ Status: source phase. `[x]` requires implementation plus captured evidence.
 - [x] Pin the 279-package registry cohort into workspace, lockfile, and
       release identity.
 - [x] Class-level repairs: IM inspect recovery, session existence,
-      generation-bound inventory, four-target publication input, UOS Node
+      generation-bound inventory, three-target publication input, UOS Node
       credential and Depends, signed overlay preservation, official Flash
       catalog consumption.
 - [x] IM 0.6.1 current-dsh-im adaptation in this isolated checkout: inbound
@@ -27,8 +27,8 @@ Status: source phase. `[x]` requires implementation plus captured evidence.
 - [ ] Representative Apple Silicon package after the manager supplies the
       accepted native-proof descendant. Do not package from this source SHA
       while native-proof follow-up is still open.
-- [ ] Remaining manager phases: PR/main freeze, four-target natives
-      executing `verify:fresh-install-uninstall` on Mac/Windows, UOS
+- [ ] Remaining manager phases: PR/main freeze, three-target natives
+      executing `verify:fresh-install-uninstall` on Apple Silicon and Windows, UOS
       package/ABI, immutable publication, public-byte readback. UOS native
       install/startup/function is `OWNER_POST_RELEASE` (Owner tests the
       published installer); not a 0.6.1 native PASS. Old-version installed

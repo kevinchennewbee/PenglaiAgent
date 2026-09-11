@@ -2,16 +2,16 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { evaluateLiveEvidence } from "./live-evidence.js";
+import { NATIVE_INSTALLED_TARGET_KEYS } from "./pins.js";
 
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const runId = (index: number) => `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
 
 function validEvidence() {
-  const nativeInstallers = [
-    "darwin-aarch64",
-    "darwin-x86_64",
-    "win32-x86_64",
-  ].map((target, index) => ({ target, installerSha256: String(index + 1).repeat(64) }));
+  const nativeInstallers = [...NATIVE_INSTALLED_TARGET_KEYS].map((target, index) => ({
+    target,
+    installerSha256: String(index + 1).repeat(64),
+  }));
   return {
     schemaVersion: 3,
     scope: "release-native-live-set",
@@ -83,7 +83,7 @@ test("stale, duplicate, unknown, or sensitive live evidence is rejected", () => 
   assert.equal(evaluateLiveEvidence(unknown, "0.5.10").verdict, "FAIL");
 });
 
-test("live evidence is bound to exact source and all three installer hashes", () => {
+test("live evidence is bound to exact source and all required native installer hashes", () => {
   const evidence = validEvidence();
   const expected = {
     sourceSha: "a".repeat(40),

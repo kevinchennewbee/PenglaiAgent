@@ -90,10 +90,6 @@ jobs:
             target: darwin-aarch64
             package: package:dmg:arm
             installer: Penglai_0.6.1_macos_aarch64.dmg
-          - runner: macos-15-intel
-            target: darwin-x86_64
-            package: package:dmg:intel
-            installer: Penglai_0.6.1_macos_x64.dmg
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 300
     steps:
@@ -435,7 +431,7 @@ jobs:
             evidence/generated/public-export.json
 
   aggregate:
-    name: Exact four-target evidence aggregate
+    name: Exact three-target evidence aggregate
     if: ${{ inputs.mode == 'native' }}
     needs: [macos, windows, linux]
     runs-on: macos-15
@@ -466,10 +462,6 @@ jobs:
           path: .native/darwin-aarch64
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.6.1-darwin-x86_64
-          path: .native/darwin-x86_64
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
           name: penglai-0.6.1-win32-x86_64
           path: .native/win32-x86_64
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -480,7 +472,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p evidence/generated dist
-          find .native -type f \( -name '*-darwin-aarch64.json' -o -name '*-darwin-x86_64.json' -o -name '*-win32-x86_64.json' -o -name '*-linux-loong64.json' \) -exec cp {} evidence/generated/ \;
+          find .native -type f \( -name '*-darwin-aarch64.json' -o -name '*-win32-x86_64.json' -o -name '*-linux-loong64.json' \) -exec cp {} evidence/generated/ \;
           # Target uploads preserve a dist/ prefix. Collect every contract
           # installer from its artifact tree rather than a flattened name.
           node scripts/collect-native-installers.mjs

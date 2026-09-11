@@ -13,16 +13,17 @@ automation, and one local Apple Silicon representative app for Codex GUI
 testing.
 
 Owner authorized the full 0.6.1 workflow, including later PR/`main` freeze,
-four-target native CI, immutable publication, README and existing websites.
+three-target native CI, immutable publication, README and existing websites.
+Owner 2026-09-11 excluded Intel Mac from this version.
 Per-phase source-only limits are sequencing, not a requirement to re-ask
 for that authorization.
 
 ## Out of this worker phase
 
-PR, `main` merge, four-target native CI dispatch, tag, upload, site deploy,
+PR, `main` merge, three-target native CI dispatch, tag, upload, site deploy,
 live IM, and UOS native PASS. Those remain manager-managed after source
 acceptance. UOS native install/startup/function is `OWNER_POST_RELEASE`;
-the Owner tests the published installer. Four exact targets remain required.
+the Owner tests the published installer. Three exact targets remain required.
 Old-version installed upgrade and previous-installer downloads are
 `OWNER_EXCLUDED`. No two-hour soak.
 

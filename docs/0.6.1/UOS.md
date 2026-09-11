@@ -7,7 +7,7 @@ Owner authorization 2026-09-10: there is no available UOS native test
 environment; the Owner will manually test the published UOS installer.
 0.6.1 native install/startup/function is `OWNER_POST_RELEASE`. Do not
 require a pre-publication UOS host, mark PASS, or treat this as a missing
-fourth artifact.
+selected-target artifact.
 
 The 0.6.0 `OWNER_POST_RELEASE` record is historical. It is not a 0.6.1 native
 PASS and is not a blanket future exception.

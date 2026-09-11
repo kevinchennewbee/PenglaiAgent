@@ -1,5 +1,10 @@
 import { PenglaiError } from "@penglai/contracts";
-import { RELEASE_TARGETS, type ReleaseTargetKey } from "./pins.js";
+import { EXCLUDED_CURRENT_RELEASE_TARGET_KEY, RELEASE_TARGETS, type ReleaseTargetKey } from "./pins.js";
+
+const PREFLIGHT_TARGET_SPECS = [
+  ...RELEASE_TARGETS,
+  { key: EXCLUDED_CURRENT_RELEASE_TARGET_KEY, platform: "darwin", arch: "x64" },
+] as const;
 
 export interface HostPreflight {
   platform: "darwin" | "win32" | "linux" | string;
@@ -10,15 +15,18 @@ export interface HostPreflight {
 }
 
 export interface TargetPreflight {
-  target: ReleaseTargetKey;
+  target: ReleaseTargetKey | typeof EXCLUDED_CURRENT_RELEASE_TARGET_KEY;
   verdict: "READY" | "BLOCKED";
   reason?: string;
   canCrossPackage: boolean;
   nativeEvidenceAllowed: boolean;
 }
 
-export function evaluateTargetPreflight(host: HostPreflight, target: ReleaseTargetKey): TargetPreflight {
-  const spec = RELEASE_TARGETS.find((t) => t.key === target);
+export function evaluateTargetPreflight(
+  host: HostPreflight,
+  target: ReleaseTargetKey | typeof EXCLUDED_CURRENT_RELEASE_TARGET_KEY,
+): TargetPreflight {
+  const spec = PREFLIGHT_TARGET_SPECS.find((t) => t.key === target);
   if (!spec) throw new PenglaiError("INVALID_INPUT", `unknown target ${target}`);
   const sameOs = host.platform === spec.platform;
   const sameArch = host.arch === spec.arch;

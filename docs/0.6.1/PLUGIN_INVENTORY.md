@@ -17,7 +17,7 @@ Official DSH pin: npm `0.1.5-rc.1` / `dsh-v0.1.5-rc.1` /
 | Shared types / remotes | update | Consume rc.1 panel and session APIs. Conversation composer slots remain; global panels use `sidebar.panellist` / `main`. |
 | Experimental Agent Teams | not enabled | Present in the official npm graph; Penglai profile does not add them. |
 
-Native engine compatibility on all four targets remains decisive. No
+Native engine compatibility on the three selected targets remains decisive. No
 `--no-sandbox`, no disabling Office/Memory, and no unconstrained execution to
 show a window. UOS native install/startup/function is `OWNER_POST_RELEASE`
 (Owner tests the published installer) and is not a 0.6.1 native PASS.

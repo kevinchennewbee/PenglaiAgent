@@ -92,7 +92,7 @@ test("one native arm64 assertion cannot close the Mac/Windows installed ID", () 
   const installedAll = entry("R50-CORE-001", "installed/all");
   assert.deepEqual(
     requiredSlots(installedAll).map((s) => s.target),
-    ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"],
+    ["darwin-aarch64", "win32-x86_64"],
   );
   const manifest = evaluateEvidenceV2({
     registry: [installedAll],
@@ -111,14 +111,14 @@ test("one native arm64 assertion cannot close the Mac/Windows installed ID", () 
     ],
   });
   assert.notEqual(manifest.results[0]?.status, "PASS");
-  assert.deepEqual(manifest.ids[0]?.missingTargets, ["darwin-x86_64", "win32-x86_64"]);
+  assert.deepEqual(manifest.ids[0]?.missingTargets, ["win32-x86_64"]);
 });
 
 test("packaging evidence expands to every declared target", () => {
   for (const runner of ["artifact", "build", "closure", "signing"]) {
     assert.deepEqual(
       requiredSlots(entry("R50-DIST-001", `${runner}/all`)).map((slot) => slot.target),
-      ["darwin-aarch64", "darwin-x86_64", "win32-x86_64", "linux-loong64"],
+      ["darwin-aarch64", "win32-x86_64", "linux-loong64"],
     );
   }
 });

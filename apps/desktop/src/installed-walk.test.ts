@@ -285,7 +285,9 @@ test("native release workflow proves bundled optional plugins across restart", (
   );
   assert.match(windowsWorkflow, /actualSize -eq \$expectedSize -and \$actual -eq \$expected/);
   assert.match(macosWorkflow, /Penglai_0\.6\.1_macos_aarch64\.dmg/);
-  assert.match(macosWorkflow, /Penglai_0\.6\.1_macos_x64\.dmg/);
+  assert.doesNotMatch(macosWorkflow, /Penglai_0\.6\.1_macos_x64\.dmg/);
+  assert.doesNotMatch(macosWorkflow, /macos-15-intel/);
+  assert.doesNotMatch(macosWorkflow, /darwin-x86_64/);
   assert.match(windowsWorkflow, /Penglai_0\.6\.1_windows_x64_setup\.exe/);
   assert.match(linuxWorkflow, /package:linux-deb/);
   assert.match(linuxWorkflow, /OWNER_POST_RELEASE/);

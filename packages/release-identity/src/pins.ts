@@ -138,12 +138,6 @@ export const RELEASE_TARGETS = [
     installer: "Penglai_0.6.1_macos_aarch64.dmg",
   },
   {
-    key: "darwin-x86_64",
-    platform: "darwin",
-    arch: "x64",
-    installer: "Penglai_0.6.1_macos_x64.dmg",
-  },
-  {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
@@ -159,10 +153,12 @@ export const RELEASE_TARGETS = [
 
 export type ReleaseTargetKey = (typeof RELEASE_TARGETS)[number]["key"];
 
+/** Known packaging/host key retained for historical validation. Not a 0.6.1 release target. */
+export const EXCLUDED_CURRENT_RELEASE_TARGET_KEY = "darwin-x86_64" as const;
+
 /** Mac/Windows native install/lifecycle gates. linux-loong64 host evidence remains OWNER_POST_RELEASE, not a 0.6.1 PASS. */
 export const NATIVE_INSTALLED_TARGET_KEYS = [
   "darwin-aarch64",
-  "darwin-x86_64",
   "win32-x86_64",
 ] as const satisfies readonly ReleaseTargetKey[];
 
@@ -197,22 +193,6 @@ export const RUNTIME_INPUTS = [
     archive: "zip",
     url: `https://github.com/electron/electron/releases/download/v${PINNED_ELECTRON}/electron-v${PINNED_ELECTRON}-darwin-arm64.zip`,
     sha256: PINNED_ELECTRON_DARWIN_ARM64_SHA256,
-  },
-  {
-    kind: "node" as const,
-    target: "darwin-x86_64" as const,
-    filename: `node-v${PINNED_NODE}-darwin-x64.tar.gz`,
-    archive: "tar.gz",
-    url: `https://nodejs.org/dist/v${PINNED_NODE}/node-v${PINNED_NODE}-darwin-x64.tar.gz`,
-    sha256: PINNED_NODE_DARWIN_X64_SHA256,
-  },
-  {
-    kind: "electron" as const,
-    target: "darwin-x86_64" as const,
-    filename: `electron-v${PINNED_ELECTRON}-darwin-x64.zip`,
-    archive: "zip",
-    url: `https://github.com/electron/electron/releases/download/v${PINNED_ELECTRON}/electron-v${PINNED_ELECTRON}-darwin-x64.zip`,
-    sha256: PINNED_ELECTRON_DARWIN_X64_SHA256,
   },
   {
     kind: "node" as const,

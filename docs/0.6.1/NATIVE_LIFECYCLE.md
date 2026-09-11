@@ -1,8 +1,8 @@
 # Penglai 0.6.1 native lifecycle gate
 
 Current 0.6.1 native lifecycle is fresh install, restart/resume, and default
-uninstall on Apple Silicon, Intel Mac, and Windows x64. This is not a public
-download claim.
+uninstall on Apple Silicon and Windows x64. Intel Mac is excluded from 0.6.1
+publication. This is not a public download claim.
 
 ## Required now
 
@@ -60,7 +60,7 @@ behavior. Unrun upgrade paths are not PASS.
 
 ## Later manager phases
 
-This worker phase is local source. PR, `main` merge, four-target native CI,
+This worker phase is local source. PR, `main` merge, three-target native CI,
 immutable publication, and website readback stay manager-managed after
 acceptance. Credential-free native wizard-to-API-boundary evidence does not
 need personal account credentials. Real provider-account acceptance remains
