@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatSecretHits, FIXTURE_MARKER, lineLooksLikeDetector, scanText } from "./secret-scan.mjs";
+import { formatSecretHits, FIXTURE_MARKER, isImmutablePublicationRecord, lineLooksLikeDetector, scanIdentityText, scanText } from "./secret-scan.mjs";
 
 const SAMPLE_KEY = `sk-${"abcdefghijklmnopqrstuvwxyz012345"}`;
 
@@ -58,4 +58,96 @@ test("URLs and unrelated detector calls cannot suppress concrete credentials", (
     `const key = "sk-${"a".repeat(20)}"; other.includes(key);`,
   ];
   for (const example of examples) assert.ok(scanText("config.ts", example).length > 0);
+});
+
+test("R56-SEC-007 owner absolute paths in tracked text are hits", () => {
+  const hits = scanIdentityText(
+    "docs/notes.md",
+    [
+      ["Repo lives at ", "/Users/kevin-private/repo", "."].join(""), // penglai-test-fixture
+      ["Backup on ", "/Volumes/MyDrive/backup", "."].join(""), // penglai-test-fixture
+      ["Windows copy ", "C:\\Users\\kevin\\secret", "."].join(""), // penglai-test-fixture
+    ].join("\n"),
+  );
+  assert.deepEqual(
+    hits.map((hit) => hit.rule),
+    ["owner-absolute-path", "owner-absolute-path", "owner-absolute-path"],
+  );
+  assert.deepEqual(
+    hits.map((hit) => hit.line),
+    [1, 2, 3],
+  );
+});
+
+test("R56-SEC-007 personal webmail addresses in tracked text are hits", () => {
+  const hits = scanIdentityText(
+    "docs/contact.md",
+    [
+      ["Owner contact ", "200705279@qq.com"].join(""), // penglai-test-fixture
+      ["Backup ", "owner@gmail.com"].join(""), // penglai-test-fixture
+    ].join("\n"),
+  );
+  assert.deepEqual(
+    hits.map((hit) => hit.rule),
+    ["personal-email", "personal-email"],
+  );
+});
+
+test("R56-SEC-007 synthetic fixture identities are not owner leaks", () => {
+  const text = [
+    ["path ", "/Users/owner/project"].join(""),
+    ["path ", "/Users/example/work"].join(""),
+    ["volume ", "/Volumes/Penglai"].join(""),
+    ["volume ", "/Volumes/private-owner-drive/x"].join(""),
+    ["windows ", "C:\\Users\\runner\\work"].join(""),
+    ["mail ", "owner@example.com"].join(""),
+    ["mail ", "friend@example.com"].join(""),
+    ["mail ", "275234764+kevinchennewbee@users.noreply.github.com"].join(""),
+  ].join("\n");
+  assert.deepEqual(scanIdentityText("packages/demo/src/demo.test.ts", text), []);
+});
+
+test("R56-SEC-008 identity scanner never echoes the leaked value", () => {
+  const hits = scanIdentityText("notes.md", ["x ", "/Users/kevin-private/repo"].join("")); // penglai-test-fixture
+  const report = formatSecretHits(hits);
+  assert.match(report, /notes.md:1 rule=owner-absolute-path category=owner-path/);
+  assert.equal(report.includes("kevin-private"), false);
+});
+
+test("R56-SEC-007 frozen publication records are exempt (release gate forbids editing them)", () => {
+  const line = ["see ", "/Volumes/private-drive/repo", " for the historical checkout"].join(""); // penglai-test-fixture
+  // A frozen record keeps its historical text; the release gate rejects any edit.
+  assert.deepEqual(scanIdentityText("docs/0.6.0/PLAN.md", line), []);
+  assert.deepEqual(scanIdentityText("docs/0.5.10/PLAN.md", line), []);
+  assert.deepEqual(scanIdentityText("docs/RELEASE_NOTES_0.6.0.md", line), []);
+  // Live documents are still fail-closed.
+  assert.equal(scanIdentityText("docs/PRODUCT.md", line).length, 1);
+  assert.equal(scanIdentityText("docs/0.6.1/ACCEPTANCE_DELTA.md", line).length, 1);
+  assert.equal(scanIdentityText("README.md", line).length, 1);
+});
+
+test("immutable record classification matches the release-adaptation frozen set", () => {
+  for (const rel of [
+    "docs/0.5.8/SOMETHING.md",
+    "docs/0.5.9/SOMETHING.md",
+    "docs/0.5.10/SOMETHING.md",
+    "docs/0.6.0/PLAN.md",
+    "docs/PUBLICATION_MANIFEST_0.5.8.md",
+    "docs/RELEASE_NOTES_0.5.10.md",
+    "docs/PUBLICATION_MANIFEST_0.5.11.md",
+    "docs/PUBLICATION_MANIFEST_0.6.0.md",
+    "docs/RELEASE_NOTES_0.6.0.md",
+    "docs/PUBLICATION_0.6.0.md",
+  ]) {
+    assert.equal(isImmutablePublicationRecord(rel), true, rel);
+  }
+  for (const rel of [
+    "docs/PRODUCT.md",
+    "docs/0.6.1/ACCEPTANCE_DELTA.md",
+    "docs/0.5.12/ACTIVE.md",
+    "docs/RELEASE_NOTES_0.6.1.md",
+    "website/index.html",
+  ]) {
+    assert.equal(isImmutablePublicationRecord(rel), false, rel);
+  }
 });

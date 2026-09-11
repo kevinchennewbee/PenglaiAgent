@@ -57,6 +57,117 @@ export const SECRET_RULES = Object.freeze([
   },
 ]);
 
+// Owner identity leak rules. Absolute home/volume paths and personal webmail
+// addresses in tracked text are owner data, never product data. This is a
+// fail-closed gate: any concrete path segment outside the synthetic vocabulary
+// below is a hit, so a new real username is caught without enumerating it.
+export const SYNTHETIC_PATH_SEGMENTS = Object.freeze([
+  "owner",
+  "example",
+  "alice",
+  "bob",
+  "carol",
+  "dave",
+  "jane",
+  "john",
+  "user",
+  "test",
+  "sample",
+  "demo",
+  "me",
+  "you",
+  "private",
+  "secret",
+  "test-owner",
+  "random-builder",
+  "cloudtest",
+  "runner",
+  "build",
+  "srv",
+  "drive",
+  "private-owner",
+  "private-owner-drive",
+  // DMG volume label used by scripts/build-local-dmg.mjs, not a real path.
+  "penglai",
+]);
+
+export const PERSONAL_EMAIL_DOMAINS = Object.freeze([
+  "qq.com",
+  "vip.qq.com",
+  "foxmail.com",
+  "163.com",
+  "126.com",
+  "yeah.net",
+  "sina.com",
+  "sina.cn",
+  "sohu.com",
+  "139.com",
+  "189.cn",
+  "tom.com",
+  "gmail.com",
+  "googlemail.com",
+  "outlook.com",
+  "hotmail.com",
+  "live.com",
+  "icloud.com",
+  "me.com",
+  "yahoo.com",
+]);
+
+const UNIX_OWNER_PATH = /\/(?:Users|Volumes)\/([A-Za-z0-9][A-Za-z0-9._-]*)/g;
+const WINDOWS_OWNER_PATH = /C:\\Users\\([A-Za-z0-9][A-Za-z0-9._-]*)/gi;
+const EMAIL_ADDRESS = /\b[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})\b/g;
+
+export function scanIdentityText(rel, text) {
+  const hits = [];
+  const file = rel.replaceAll("\\", "/");
+  if (isImmutablePublicationRecord(file)) return hits;
+  const lines = String(text).split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (FIXTURE_MARKER.test(line)) continue;
+    for (const re of [UNIX_OWNER_PATH, WINDOWS_OWNER_PATH]) {
+      re.lastIndex = 0;
+      let match;
+      while ((match = re.exec(line)) !== null) {
+        const segment = (match[1] ?? "").toLowerCase();
+        if (segment && !SYNTHETIC_PATH_SEGMENTS.includes(segment)) {
+          hits.push({ rule: "owner-absolute-path", category: "owner-path", file, line: index + 1 });
+          break;
+        }
+      }
+    }
+    EMAIL_ADDRESS.lastIndex = 0;
+    let email;
+    while ((email = EMAIL_ADDRESS.exec(line)) !== null) {
+      if (PERSONAL_EMAIL_DOMAINS.includes((email[1] ?? "").toLowerCase())) {
+        hits.push({ rule: "personal-email", category: "personal-email", file, line: index + 1 });
+        break;
+      }
+    }
+  }
+  return hits;
+}
+
+// Published immutable release records are frozen by policy and enforced by
+// scripts/verify-release-adaptation.mjs, which fails any later release that
+// rewrites them. An owner path already frozen inside one of these records can
+// therefore not be edited out without breaking the release gate. The identity
+// rule skips exactly these paths (a known, accepted condition) instead of
+// demanding an edit that policy forbids; every other tracked path stays
+// fail-closed.
+const IMMUTABLE_PUBLICATION_RECORD = [
+  /^docs\/0\.5\.(?:8|9|10)\//,
+  /^docs\/0\.6\.0\//,
+  /^docs\/(?:PUBLICATION|PUBLICATION_MANIFEST|RELEASE_NOTES)_0\.5\.(?:8|10|11)\.md$/,
+  /^docs\/(?:PUBLICATION|PUBLICATION_MANIFEST|RELEASE_NOTES)_0\.6\.0\.md$/,
+];
+
+export function isImmutablePublicationRecord(rel) {
+  const file = rel.replaceAll("\\", "/");
+  return IMMUTABLE_PUBLICATION_RECORD.some((re) => re.test(file));
+}
+
 const SKIP_PATH =
   /^(?:node_modules\/|.*\/node_modules\/|dist\/|.*\/dist\/|\.git\/|pnpm-lock\.yaml$|package-lock\.json$|.*\.(?:png|jpg|jpeg|webp|gif|icns|ico|woff2?|dylib|dll|node|wasm|tgz|tar\.gz|zip)$|.*\.so(?:\.\d+)*$|(?:.*\/)?mnemon(?:\.exe)?$)/;
 
@@ -147,6 +258,7 @@ export function scanRepository(root) {
       continue;
     }
     hits.push(...scanText(rel, text));
+    hits.push(...scanIdentityText(rel, text));
   }
   return hits;
 }
