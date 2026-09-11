@@ -102,6 +102,10 @@ test("website keeps the full bilingual visual site during publication preparatio
     assert.match(html, /shots\/0\.5\.5\/plugin-center\.png/);
     assert.match(html, /shots\/0\.5\.5\/office\.png/);
     assert.match(html, /shots\/0\.5\.5\/memory\.png/);
+    assert.match(html, /https:\/\/82\.156\.107\.151\/releases\/v0\.6\.1\/Penglai_0\.6\.1_macos_aarch64\.dmg/);
+    assert.match(html, /https:\/\/82\.156\.107\.151\/releases\/v0\.6\.1\/Penglai_0\.6\.1_windows_x64_setup\.exe/);
+    assert.match(html, /https:\/\/82\.156\.107\.151\/releases\/v0\.6\.1\/Penglai_0\.6\.1_uos_loong64\.deb/);
+    assert.match(html, /in-app updates still use GitHub|应用内更新仍走 GitHub/);
   }
   assert.match(css, /\.download-grid/);
   assert.match(css, /\.site-nav/);
