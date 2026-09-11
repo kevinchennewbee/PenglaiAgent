@@ -188,7 +188,7 @@
         <p><strong>Where data goes</strong> There is no Penglai account, Penglai-operated telemetry backend, or cloud memory sync. Official DSH bundles a dormant DeepSeek OTLP endpoint; Penglai hard-disables it. Model calls still send the context needed for that task to the provider you selected.</p>
         <p><strong>What needs a confirmation</strong> Office save, export, and return, personal Memory, plugin install, and outbound messaging use a confirmation bound to that action. Diagnostics must not contain credentials, chat bodies, QR codes, or private absolute paths.</p>
         <p><strong>Signatures are not an OS endorsement</strong> macOS packages are ad-hoc signed and not notarized. Windows has no Authenticode. Gatekeeper or SmartScreen may warn. Penglai Ed25519 signatures protect updater and plugin bytes; they are not Apple or Microsoft publisher identity.</p>
-        <p><strong>UOS is a packaged target, not a finished native claim</strong> UnionTech UOS 20 LoongArch is packaged as <code>Penglai_0.6.1_uos_loong64.deb</code>. Native install, startup, and function on that host remain Owner post-publication testing (<code>OWNER_POST_RELEASE</code>). Mac and Windows embed Node 22.23.2 and Electron 43.6.0 (Chromium 150). UOS uses Loongson Node 22.16.0 and Electron 31.7.7 (Chromium 126). That runtime is unmaintained. Memory stays on, with the packed Mnemon engine. MOSS-TTS cannot be enabled on LoongArch. This page does not claim a three-target native GUI PASS.</p>
+        <p><strong>UOS is a packaged target, not a finished native claim</strong> UnionTech UOS 20 LoongArch is packaged as <code>Penglai_0.6.1_uos_loong64.deb</code>. Native install, startup, and function on that host remain Owner post-publication testing (<code>OWNER_POST_RELEASE</code>). Mac and Windows embed Node 22.23.2 and Electron 43.6.0 (Chromium 150). UOS uses Loongson Node 22.16.0 and Electron 31.7.7 (Chromium 126). That runtime is unmaintained. Memory stays on, with the packed Mnemon engine. MOSS-TTS cannot be enabled on LoongArch. Native Windows checks used the hosted runner's existing security configuration; default Defender-on Windows was not verified. This page does not claim a three-target native GUI PASS.</p>
       </div>
     </section>
 
@@ -199,21 +199,24 @@
       <div class="download-grid">
         <a data-family="mac" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_macos_aarch64.dmg">
           <strong>macOS · Apple Silicon</strong>
-          <span>GitHub · macOS 13+ · M1 and later</span>
+          <span>GitHub · 271.2 MiB · macOS 13+ · M1 and later</span>
           <em>Penglai_0.6.1_macos_aarch64.dmg</em>
+          <code>91393e2e760871694e836c2582b903f6fee509e9fa11391724567e472f9946e9</code>
         </a>
         <a data-family="windows" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_windows_x64_setup.exe">
           <strong>Windows · x64</strong>
-          <span>GitHub · 64-bit installer</span>
+          <span>GitHub · 354.1 MiB · 64-bit installer</span>
           <em>Penglai_0.6.1_windows_x64_setup.exe</em>
+          <code>d4fb670edea847024abcb2a1ac760cc2f7c5814d0c60f77f80ec647c59f51791</code>
         </a>
         <a data-family="linux" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_uos_loong64.deb">
           <strong>UOS 20 · LoongArch</strong>
-          <span>GitHub · UOS 20 Professional 1070, old-world. Native function is Owner post-publication.</span>
+          <span>GitHub · 279.5 MiB · UOS 20 Professional 1070, old-world. Native function is Owner post-publication.</span>
           <em>Penglai_0.6.1_uos_loong64.deb</em>
+          <code>cd38c06e37151f226e7f9eb2519dba0800fc9ed7f4449d2b7edd5a282efb5934</code>
         </a>
       </div>
-      <p class="note-panel">The immutable GitHub Release is the authoritative public download source: <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1">v0.6.1</a>. Check the file against <code>SHA256SUMS</code> on that page. The release is three installers and ten assets. The signed updater covers Apple Silicon and Windows x64. Intel Mac is not a 0.6.1 installer. Linux amd64 and Windows ARM are not targets. Updates are never silent. Published 0.5.10, 0.5.11, 0.5.12, and 0.6.0 remain immutable.</p>
+      <p class="note-panel">The immutable GitHub Release is the authoritative public download source: <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1">v0.6.1</a>. All three installers come from source <code>7ad7c29ecda5d9e867fdde0fe3fefd5c42d3ab1b</code>. Check the file against <code>SHA256SUMS</code> on that page. The release is three installers and ten assets. The signed updater covers Apple Silicon and Windows x64. Intel Mac is not a 0.6.1 installer. Linux amd64 and Windows ARM are not targets. Updates are never silent. Published 0.5.10, 0.5.11, 0.5.12, and 0.6.0 remain immutable.</p>
       <div class="actions">
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/RELEASE_NOTES_0.6.1.md">Release notes</a>
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">Security notes</a>

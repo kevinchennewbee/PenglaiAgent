@@ -10,8 +10,8 @@ Official DeepSeek Harness, installed on a personal computer.
 
 **Penglai 0.6.1** is the current public download. It installs official DeepSeek Harness `0.1.5-rc.1` (tag `dsh-v0.1.5-rc.1`, commit `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`, 279 npm packages) on Apple Silicon, Windows x64, and UnionTech UOS 20 LoongArch. DSH remains the only agent core. Office and Memory are enabled by default.
 
-Download the immutable release: [`v0.6.1`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1). Published v0.5.10, v0.5.11, v0.5.12, and v0.6.0 tags stay immutable.
-[Release notes](docs/RELEASE_NOTES_0.6.1.md) · [Acceptance delta](docs/0.6.1/ACCEPTANCE_DELTA.md)
+Download the immutable release: [`v0.6.1`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1), built from source `7ad7c29ecda5d9e867fdde0fe3fefd5c42d3ab1b`. Published v0.5.10, v0.5.11, v0.5.12, and v0.6.0 tags stay immutable.
+[Release notes](docs/RELEASE_NOTES_0.6.1.md) · [Publication manifest](docs/PUBLICATION_MANIFEST_0.6.1.md) · [Acceptance delta](docs/0.6.1/ACCEPTANCE_DELTA.md)
 
 <p align="center">
   <img src="website/shots/0.5.5/welcome.png" width="78%" alt="Penglai first-run welcome: language, appearance, and a seven-step guide">
@@ -69,19 +69,25 @@ WeChat and Feishu can send files into the bound conversation. If that conversati
 
 ## Download
 
-Use the matching file. Do not mix platforms. Check the downloaded installer against `SHA256SUMS` on [`v0.6.1`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1). GitHub Releases is the authoritative source. Linux amd64 and Windows ARM are not targets. Intel Mac is not a 0.6.1 installer; published 0.6.0 remains immutable.
+Use the matching file. Do not mix platforms. Check the downloaded installer against `SHA256SUMS` on [`v0.6.1`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1). GitHub Releases is the authoritative source. Linux amd64 and Windows ARM are not targets. Intel Mac is not a 0.6.1 installer; published 0.6.0 remains immutable. All three installers were built from source `7ad7c29ecda5d9e867fdde0fe3fefd5c42d3ab1b`.
 
 ### Apple Silicon, macOS 13+
 
 [`Penglai_0.6.1_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_macos_aarch64.dmg)
 
+284,369,412 bytes · SHA-256 `91393e2e760871694e836c2582b903f6fee509e9fa11391724567e472f9946e9`
+
 ### Windows 10+ x64
 
 [`Penglai_0.6.1_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_windows_x64_setup.exe)
 
+371,266,017 bytes · SHA-256 `d4fb670edea847024abcb2a1ac760cc2f7c5814d0c60f77f80ec647c59f51791`
+
 ### UnionTech UOS 20 LoongArch
 
 [`Penglai_0.6.1_uos_loong64.deb`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_uos_loong64.deb)
+
+293,074,470 bytes · SHA-256 `cd38c06e37151f226e7f9eb2519dba0800fc9ed7f4449d2b7edd5a282efb5934`
 
 The UOS package is published with that three-installer, ten-asset set. The signed updater covers Apple Silicon and Windows x64. Physical UOS install, startup, and function remain Owner post-publication testing (`OWNER_POST_RELEASE`), not PASS. Mac and Windows packages embed Node `22.23.2` and Electron `43.6.0` (Chromium 150). The UOS runtime is Loongson Node `22.16.0` and Electron `31.7.7` (Chromium 126). That Electron train is unmaintained. It does not provide the same security as Mac/Windows Electron 43 / Chromium 150.
 
@@ -114,11 +120,13 @@ Upgrade with the same-platform installer as a manual overlay. Default uninstall 
 - UnionTech UOS 20 LoongArch is a packaged target. Native install, startup, and function on a physical UOS host remain `OWNER_POST_RELEASE`. The 0.6.0 UOS record is historical for that release only.
 - UOS Electron 31.7.7 / Chromium 126 is unmaintained. UOS Node is vendor `22.16.0`, not the Mac/Windows `22.23.2`. Memory stays on for UOS, with the packed Mnemon engine. MOSS-TTS cannot be enabled on LoongArch.
 - Optional macOS iMessage is default off. Native live use is not claimed (`LIVE_NOT_RUN`). Windows and UOS never call macOS Messages helpers.
-- This page does not claim a three-target native GUI PASS or live provider replies on every target.
+- File, image, Office, and Memory GUI journeys were completed on the preceding 0.6.1 package; the relevant product files are unchanged in this release. A new Workspace live conversation on the final package was not run. Live account repeats are supplemental. Optional account IM was not run.
+- Native Windows checks used the hosted runner's existing security configuration. A default installation with Defender enabled was not verified.
+- This page does not claim a three-target native GUI PASS.
 
 ## Further reading
 
-[Product](docs/PRODUCT.md) · [Architecture](docs/ARCHITECTURE.md) · [Plugin Center](docs/PLUGIN_CENTER.md) · [Security](SECURITY.md) · [0.6.1 notes](docs/RELEASE_NOTES_0.6.1.md) · [Acceptance delta](docs/0.6.1/ACCEPTANCE_DELTA.md)
+[Product](docs/PRODUCT.md) · [Architecture](docs/ARCHITECTURE.md) · [Plugin Center](docs/PLUGIN_CENTER.md) · [Security](SECURITY.md) · [0.6.1 notes](docs/RELEASE_NOTES_0.6.1.md) · [Publication manifest](docs/PUBLICATION_MANIFEST_0.6.1.md) · [Acceptance delta](docs/0.6.1/ACCEPTANCE_DELTA.md)
 
 ## Why it is called Penglai
 
@@ -168,7 +176,7 @@ DSH 始终是唯一的 Agent 核心。Agent loop、模型、工具、审批、Wo
        → DeepSeek Harness（模型、工具、Workspace、Session、会话）
 ```
 
-**Penglai 0.6.1** 是当前公开下载版本，使用官方 DeepSeek Harness `0.1.5-rc.1`（tag `dsh-v0.1.5-rc.1`，commit `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`，279 包）。办公和记忆默认开启。三个安装包面向 Apple 芯片、Windows x64 和统信 UOS 20 龙芯。正式下载见不可变发行版 [`v0.6.1`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1)。已发布的 v0.5.10、v0.5.11、v0.5.12、v0.6.0 保持不可变。
+**Penglai 0.6.1** 是当前公开下载版本，使用官方 DeepSeek Harness `0.1.5-rc.1`（tag `dsh-v0.1.5-rc.1`，commit `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`，279 包）。办公和记忆默认开启。三个安装包面向 Apple 芯片、Windows x64 和统信 UOS 20 龙芯。正式下载见不可变发行版 [`v0.6.1`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1)，源码 `7ad7c29ecda5d9e867fdde0fe3fefd5c42d3ab1b`。已发布的 v0.5.10、v0.5.11、v0.5.12、v0.6.0 保持不可变。
 
 ## 怎么用
 
@@ -205,19 +213,25 @@ DSH 始终是唯一的 Agent 核心。Agent loop、模型、工具、审批、Wo
 
 ## 下载
 
-请使用对应安装包，不要混用。下载后用 [`v0.6.1`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1) 页的 `SHA256SUMS` 核对。权威公开源是 GitHub Release。Linux amd64 与 Windows ARM 不是目标。Intel Mac 不是 0.6.1 安装目标；已发布的 0.6.0 保持不可变。
+请使用对应安装包，不要混用。下载后用 [`v0.6.1`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1) 页的 `SHA256SUMS` 核对。权威公开源是 GitHub Release。Linux amd64 与 Windows ARM 不是目标。Intel Mac 不是 0.6.1 安装目标；已发布的 0.6.0 保持不可变。三个安装包来自源码 `7ad7c29ecda5d9e867fdde0fe3fefd5c42d3ab1b`。
 
 ### Apple 芯片，macOS 13+
 
 [`Penglai_0.6.1_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_macos_aarch64.dmg)
 
+284,369,412 字节 · SHA-256 `91393e2e760871694e836c2582b903f6fee509e9fa11391724567e472f9946e9`
+
 ### Windows 10+ x64
 
 [`Penglai_0.6.1_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_windows_x64_setup.exe)
 
+371,266,017 字节 · SHA-256 `d4fb670edea847024abcb2a1ac760cc2f7c5814d0c60f77f80ec647c59f51791`
+
 ### 统信 UOS 20 龙芯
 
 [`Penglai_0.6.1_uos_loong64.deb`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_uos_loong64.deb)
+
+293,074,470 字节 · SHA-256 `cd38c06e37151f226e7f9eb2519dba0800fc9ed7f4449d2b7edd5a282efb5934`
 
 UOS 安装包已随另外两个安装包一起发布，整集为十个文件。签名升级覆盖 Apple 芯片和 Windows x64。龙芯真机安装/启动/功能仍是 Owner 发布后测试（`OWNER_POST_RELEASE`），不是 PASS。Mac/Windows 包内是 Node `22.23.2` 与 Electron `43.6.0`（Chromium 150）。UOS 运行时是龙芯 Node `22.16.0` 与 Electron `31.7.7`（Chromium 126），已经停止维护。其安全维护水平与 Mac/Windows 使用的 Electron 43 / Chromium 150 不同。
 
@@ -244,11 +258,13 @@ UOS 安装包已随另外两个安装包一起发布，整集为十个文件。�
 - 统信 UOS 20 龙芯是打包目标。真机安装/启动/功能仍是 `OWNER_POST_RELEASE`。0.6.0 的 UOS 记录只属于那一次发布。
 - UOS 的 Electron 31.7.7 / Chromium 126 已经停止维护。UOS 的 Node 是厂商 `22.16.0`，不是 Mac/Windows 的 `22.23.2`。UOS 上记忆默认开启，并带入 Mnemon 引擎。MOSS-TTS 在龙芯上不能启用。
 - 可选的 macOS iMessage 默认关闭。真机 live 未取证（`LIVE_NOT_RUN`）。Windows 与 UOS 不会调用 macOS Messages 助手。
-- 本页不宣称三端原生界面全部 PASS，也不宣称每个目标都有真实模型回复。
+- 文件、图片、办公与记忆界面流程已在前一份 0.6.1 包上完成，相关产品文件在本版未改。最终包上的新增 Workspace 真实会话未运行。真实账号复测是补充项。可选账号消息未运行。
+- Windows 原生检查使用托管运行器现有安全配置，尚未验证默认开启 Defender 的系统。
+- 本页不宣称三端原生界面全部 PASS。
 
 ## 继续阅读
 
-[产品契约](docs/PRODUCT.md) · [架构](docs/ARCHITECTURE.md) · [插件中心](docs/PLUGIN_CENTER.md) · [安全说明](SECURITY.md) · [0.6.1 说明](docs/RELEASE_NOTES_0.6.1.md) · [验收增量](docs/0.6.1/ACCEPTANCE_DELTA.md)
+[产品契约](docs/PRODUCT.md) · [架构](docs/ARCHITECTURE.md) · [插件中心](docs/PLUGIN_CENTER.md) · [安全说明](SECURITY.md) · [0.6.1 说明](docs/RELEASE_NOTES_0.6.1.md) · [发布清单](docs/PUBLICATION_MANIFEST_0.6.1.md) · [验收增量](docs/0.6.1/ACCEPTANCE_DELTA.md)
 
 ## 为什么叫蓬莱
 

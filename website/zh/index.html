@@ -188,7 +188,7 @@
         <p><strong>数据去哪</strong> 没有蓬莱账号、蓬莱运营的遥测后端或云端记忆同步。官方 DSH 自带一个休眠的 DeepSeek OTLP 地址，蓬莱会硬性禁用。模型调用仍会把本次任务需要的内容发给你选择的供应商。</p>
         <p><strong>哪些事要单独确认</strong> 办公保存、导出与回传、记忆个人化、插件安装和外发消息，都走与动作绑定的确认。诊断不得包含凭据、聊天正文、二维码或私人绝对路径。</p>
         <p><strong>签名不是系统背书</strong> macOS 是 ad-hoc 签名、未公证；Windows 没有 Authenticode。Gatekeeper 或 SmartScreen 可能提醒。蓬莱 Ed25519 保护升级和插件字节，不是 Apple 或 Microsoft 发布者身份。</p>
-        <p><strong>UOS 是打包目标，不是已完成的真机声明</strong> 统信 UOS 20 龙芯的安装包是 <code>Penglai_0.6.1_uos_loong64.deb</code>。该机上的安装、启动和功能仍是 Owner 发布后测试（<code>OWNER_POST_RELEASE</code>）。Mac/Windows 内嵌 Node 22.23.2 与 Electron 43.6.0（Chromium 150）。UOS 使用龙芯 Node 22.16.0 与 Electron 31.7.7（Chromium 126），已经停止维护。记忆默认开启，并带入 Mnemon 引擎。MOSS-TTS 在龙芯上不能启用。本页不宣称三端原生界面全部 PASS。</p>
+        <p><strong>UOS 是打包目标，不是已完成的真机声明</strong> 统信 UOS 20 龙芯的安装包是 <code>Penglai_0.6.1_uos_loong64.deb</code>。该机上的安装、启动和功能仍是 Owner 发布后测试（<code>OWNER_POST_RELEASE</code>）。Mac/Windows 内嵌 Node 22.23.2 与 Electron 43.6.0（Chromium 150）。UOS 使用龙芯 Node 22.16.0 与 Electron 31.7.7（Chromium 126），已经停止维护。记忆默认开启，并带入 Mnemon 引擎。MOSS-TTS 在龙芯上不能启用。Windows 原生检查使用托管运行器现有安全配置，尚未验证默认开启 Defender 的系统。本页不宣称三端原生界面全部 PASS。</p>
       </div>
     </section>
 
@@ -199,21 +199,24 @@
       <div class="download-grid">
         <a data-family="mac" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_macos_aarch64.dmg">
           <strong>macOS · Apple 芯片</strong>
-          <span>GitHub · macOS 13+ · M1 及更新</span>
+          <span>GitHub · 271.2 MiB · macOS 13+ · M1 及更新</span>
           <em>Penglai_0.6.1_macos_aarch64.dmg</em>
+          <code>91393e2e760871694e836c2582b903f6fee509e9fa11391724567e472f9946e9</code>
         </a>
         <a data-family="windows" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_windows_x64_setup.exe">
           <strong>Windows · x64</strong>
-          <span>GitHub · 64 位安装器</span>
+          <span>GitHub · 354.1 MiB · 64 位安装器</span>
           <em>Penglai_0.6.1_windows_x64_setup.exe</em>
+          <code>d4fb670edea847024abcb2a1ac760cc2f7c5814d0c60f77f80ec647c59f51791</code>
         </a>
         <a data-family="linux" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_uos_loong64.deb">
           <strong>UOS 20 · 龙芯</strong>
-          <span>GitHub · 统信 UOS 20 专业版 1070，旧世界。真机功能为 Owner 发布后测试。</span>
+          <span>GitHub · 279.5 MiB · 统信 UOS 20 专业版 1070，旧世界。真机功能为 Owner 发布后测试。</span>
           <em>Penglai_0.6.1_uos_loong64.deb</em>
+          <code>cd38c06e37151f226e7f9eb2519dba0800fc9ed7f4449d2b7edd5a282efb5934</code>
         </a>
       </div>
-      <p class="note-panel">权威公开下载源是不可变 GitHub Release：<a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1">v0.6.1</a>。请用该页的 <code>SHA256SUMS</code> 核对文件。发布是三个安装包、十个文件。签名升级覆盖 Apple 芯片和 Windows x64。Intel Mac 不是 0.6.1 安装目标。Linux amd64 与 Windows ARM 不是目标。更新不会静默执行。已发布的 0.5.10、0.5.11、0.5.12、0.6.0 保持不可变。</p>
+      <p class="note-panel">权威公开下载源是不可变 GitHub Release：<a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1">v0.6.1</a>。三个安装包来自源码 <code>7ad7c29ecda5d9e867fdde0fe3fefd5c42d3ab1b</code>。请用该页的 <code>SHA256SUMS</code> 核对文件。发布是三个安装包、十个文件。签名升级覆盖 Apple 芯片和 Windows x64。Intel Mac 不是 0.6.1 安装目标。Linux amd64 与 Windows ARM 不是目标。更新不会静默执行。已发布的 0.5.10、0.5.11、0.5.12、0.6.0 保持不可变。</p>
       <div class="actions">
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/RELEASE_NOTES_0.6.1.md">发布说明</a>
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">安全说明</a>
