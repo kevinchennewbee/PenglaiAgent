@@ -628,6 +628,19 @@ html[lang="zh-CN"] h2 {
   font-size: 0.98rem;
 }
 
+.quiet {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.download-grid-mirror {
+  margin-top: 0.4rem;
+  margin-bottom: 1.4rem;
+}
+
+.download-grid-mirror a { background: rgba(255, 253, 248, 0.42); }
+
 .centered { justify-content: center; }
 
 .story { max-width: 42rem; }
