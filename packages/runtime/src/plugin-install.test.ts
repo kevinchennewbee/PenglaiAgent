@@ -181,7 +181,7 @@ function newerOfficePackage(dest: string): {
           provenanceClass: "penglai-first-party",
           license: "MIT",
           dsh: { exact: pkg.penglaiPlugin.dshExact },
-          minPenglai: "0.6.1",
+          minPenglai: "0.6.2",
           capabilities: [],
           permissions: [],
           defaultEnabled: false,
@@ -348,6 +348,6 @@ test("installFirstPartyPlugins isolates a newer overlay whose embedded DSH pin d
   const restored = JSON.parse(readFileSync(join(dest, "package.json"), "utf8")) as {
     penglaiPlugin: { dshExact: string };
   };
-  assert.equal(restored.penglaiPlugin.dshExact, "0.1.5-rc.1");
+  assert.equal(restored.penglaiPlugin.dshExact, "0.1.5-rc.2");
 });
 

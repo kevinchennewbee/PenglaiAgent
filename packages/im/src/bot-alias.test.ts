@@ -41,7 +41,7 @@ test("store preserves original name, restores empty alias, and does not rewrite 
 
 test("online alias remote does not reconnect adapters or change route identity", async () => {
   const dsh = {
-    version: "0.1.5-rc.1",
+    version: "0.1.5-rc.2",
     getAgent: () => undefined,
     listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
   };

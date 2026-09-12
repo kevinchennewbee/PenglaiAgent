@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "kind": "penglai-0.6.2-development-cohort-freeze",
+  "status": "development-frozen",
+  "publicRelease": {
+    "productVersion": "0.6.2",
+    "tag": "v0.6.2",
+    "immutable": false
+  },
+  "previousPublicRelease": {
+    "productVersion": "0.6.1",
+    "tag": "v0.6.1",
+    "immutable": true
+  },
+  "development": {
+    "versionLabel": "0.6.2",
+    "publicationAuthorized": false,
+    "identityRetitled": true
+  },
+  "dsh": {
+    "version": "0.1.5-rc.2",
+    "tag": "dsh-v0.1.5-rc.2",
+    "commit": "fb2c4b9e698e30edb738bca4cf0618587db7d203",
+    "packageCount": 279,
+    "tarballSha256": "f4c54839d69e82bf1c3a5a41a910c3ce1405cd9e9d97d753c0c04f406c7d7480",
+    "closureManifestSha256": "aae93e0a7a84be840738f0a237ec3cefe06d5ef4006efd79ee4986d332d830ae",
+    "successorReview": {
+      "boundary": "later-than-dsh-v0.1.5-rc.2",
+      "reason": "Any later DSH generation requires a new atomic cohort and release review."
+    }
+  },
+  "runtime": {
+    "node": "22.23.2",
+    "electron": "43.6.0",
+    "pnpm": "11.7.0"
+  },
+  "migration": {
+    "homeGeneration": "copy the verified 0.1.5-rc.1 home into an isolated 0.1.5-rc.2 generation and activate only after health checks",
+    "center": "rebuild and sign every first-party plugin for exact DSH 0.1.5-rc.2",
+    "windowsUpgrade": "transactional 0.6.1 to 0.6.2 replacement with rollback and owner-data preservation",
+    "mixedDshGenerations": "forbidden"
+  }
+}

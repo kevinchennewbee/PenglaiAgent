@@ -34,7 +34,7 @@ if (
 }
 const ortReq = createRequire(join(ort.root, "package.json"));
 const admZip = packageRoot("adm-zip", ortReq, ort.root);
-if (admZip.metadata.version !== "0.6.0" || admZip.metadata.license !== "MIT") {
+if (admZip.metadata.version !== "0.6.1" || admZip.metadata.license !== "MIT") {
   console.error("onnxruntime-node adm-zip security override drift");
   process.exit(1);
 }

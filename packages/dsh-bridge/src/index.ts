@@ -17,8 +17,8 @@ import type { AgentCallOptions, AgentPort, DirectoryPort } from "@penglai/routin
 import { BridgeOperationGate, type BridgeCallOptions } from "./operations.js";
 import type { DshAgentLike, DshHost } from "./owner-ports.js";
 
-export const PINNED_DSH = "0.1.5-rc.1";
-export const PINNED_DSH_COMMIT = "183f08e9c6dde7e36cd2318eaee70b0da08fb35e";
+export const PINNED_DSH = "0.1.5-rc.2";
+export const PINNED_DSH_COMMIT = "fb2c4b9e698e30edb738bca4cf0618587db7d203";
 
 const ASR_LANGUAGES = new Set<PenglaiAsrLanguage>(["zh", "en", "ja", "ko", "yue", "auto"]);
 const ASR_EMOTIONS = new Set<PenglaiAsrEmotion>([

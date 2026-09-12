@@ -152,9 +152,10 @@ export function assertNoLatestDownloads(text: string): void {
   }
 }
 
-export const COHORT_FREEZE_KIND = "penglai-0.6.1-development-cohort-freeze" as const;
+export const COHORT_FREEZE_KIND = "penglai-0.6.2-development-cohort-freeze" as const;
 export const PUBLISHED_0512_FREEZE_KIND = "penglai-0.5.12-development-cohort-freeze" as const;
-export const REJECTED_DSH_SUCCESSOR_TAG = "dsh-v0.1.3-alpha.1" as const;
+export const PUBLISHED_0512_REJECTED_DSH_SUCCESSOR_TAG = "dsh-v0.1.3-alpha.1" as const;
+export const NEXT_DSH_REVIEW_BOUNDARY = "later-than-dsh-v0.1.5-rc.2" as const;
 
 export interface CohortFreezeRecord {
   schema: 1;
@@ -163,7 +164,7 @@ export interface CohortFreezeRecord {
   publicRelease: { productVersion: string; tag: string; immutable: boolean };
   previousPublicRelease?: { productVersion: string; tag: string; immutable: true };
   development: {
-    versionLabel: "0.6.1";
+    versionLabel: "0.6.2";
     publicationAuthorized: boolean;
     identityRetitled: boolean;
   };
@@ -174,7 +175,7 @@ export interface CohortFreezeRecord {
     packageCount: number;
     tarballSha256: string;
     closureManifestSha256: string;
-    rejectedSuccessor: { tag: string; reason: string };
+    successorReview: { boundary: string; reason: string };
   };
   runtime: { node: string; electron: string; pnpm: string };
   migration: {
@@ -201,31 +202,31 @@ export function assertCohortFreeze(input: {
   }
   if (freeze.status === "publication-authorized") {
     if (freeze.development.publicationAuthorized !== true || freeze.development.identityRetitled !== true) {
-      throw new PenglaiError("SECURITY_POLICY", "publication-authorized freeze must retitle 0.6.1");
+      throw new PenglaiError("SECURITY_POLICY", "publication-authorized freeze must retitle 0.6.2");
     }
     if (freeze.publicRelease.immutable !== true) {
       throw new PenglaiError("SECURITY_POLICY", "current public identity must stay immutable once tagged");
     }
     if (
-      freeze.previousPublicRelease?.productVersion !== "0.6.0" ||
-      freeze.previousPublicRelease.tag !== "v0.6.0" ||
+      freeze.previousPublicRelease?.productVersion !== "0.6.1" ||
+      freeze.previousPublicRelease.tag !== "v0.6.1" ||
       freeze.previousPublicRelease.immutable !== true
     ) {
-      throw new PenglaiError("SECURITY_POLICY", "published 0.6.0 identity must stay immutable");
+      throw new PenglaiError("SECURITY_POLICY", "published 0.6.1 identity must stay immutable");
     }
   } else if (freeze.status === "development-frozen") {
     if (freeze.development.publicationAuthorized !== false || freeze.development.identityRetitled !== true) {
-      throw new PenglaiError("SECURITY_POLICY", "0.6.1 identity is retitled and development-frozen until publication");
+      throw new PenglaiError("SECURITY_POLICY", "0.6.2 identity is retitled and development-frozen until publication");
     }
     if (freeze.publicRelease.immutable === true) {
-      throw new PenglaiError("SECURITY_POLICY", "0.6.1 public identity is not immutable until the GitHub Release exists");
+      throw new PenglaiError("SECURITY_POLICY", "0.6.2 public identity is not immutable until the GitHub Release exists");
     }
     if (
-      freeze.previousPublicRelease?.productVersion !== "0.6.0" ||
-      freeze.previousPublicRelease.tag !== "v0.6.0" ||
+      freeze.previousPublicRelease?.productVersion !== "0.6.1" ||
+      freeze.previousPublicRelease.tag !== "v0.6.1" ||
       freeze.previousPublicRelease.immutable !== true
     ) {
-      throw new PenglaiError("SECURITY_POLICY", "published 0.6.0 identity must stay immutable");
+      throw new PenglaiError("SECURITY_POLICY", "published 0.6.1 identity must stay immutable");
     }
   } else {
     throw new PenglaiError("INVALID_INPUT", "cohort freeze identity");
@@ -256,8 +257,11 @@ export function assertCohortFreeze(input: {
   ) {
     throw new PenglaiError("DSH_CONTRACT_DRIFT", "cohort freeze does not match release-contract DSH identity");
   }
-  if (freeze.dsh.rejectedSuccessor.tag !== REJECTED_DSH_SUCCESSOR_TAG || !freeze.dsh.rejectedSuccessor.reason.trim()) {
-    throw new PenglaiError("SECURITY_POLICY", "incomplete DSH successor must stay rejected");
+  if (
+    freeze.dsh.successorReview.boundary !== NEXT_DSH_REVIEW_BOUNDARY ||
+    !freeze.dsh.successorReview.reason.trim()
+  ) {
+    throw new PenglaiError("SECURITY_POLICY", "later DSH successors require a new release review");
   }
   if (
     freeze.runtime.node !== PINNED_NODE ||

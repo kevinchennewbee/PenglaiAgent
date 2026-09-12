@@ -54,7 +54,7 @@ export function classifyLicense(name, declaredLicense, version = "") {
   }
   if (
     ((/^@img\/sharp-libvips-/.test(name) && version === "1.3.3") ||
-      (name === "@img/sharp-win32-x64" && version === "0.35.4")) &&
+      (/^@img\/sharp-(?:(?:darwin|linux|linuxmusl|win32)-[a-z0-9]+|wasm32)$/.test(name) && version === "0.35.4")) &&
     /LGPL-/.test(license)
   ) {
     return {

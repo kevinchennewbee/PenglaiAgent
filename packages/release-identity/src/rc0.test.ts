@@ -111,14 +111,14 @@ test("R50-TRUTH-007 / R50-E2E-008 aggregator lists all hard kinds and propagates
   assert.equal(listedSubgateNames().includes("verify:soak"), false);
   assert.equal(listedSubgateNames().includes("verify:evidence"), false);
   assert.equal(listedSubgateNames().includes("verify:fresh-install-uninstall"), true);
-  assert.equal(listedSubgateNames().includes("verify:upgrade-uninstall"), false);
-  assert.equal(CURRENT_NATIVE_LIFECYCLE.requiredGate, "verify:fresh-install-uninstall");
-  assert.equal(CURRENT_NATIVE_LIFECYCLE.olderInstalledUpgradeStatus, "OWNER_EXCLUDED");
-  assert.equal(CURRENT_NATIVE_LIFECYCLE.fetchPreviousInstallers, false);
+  assert.equal(listedSubgateNames().includes("verify:upgrade-uninstall"), true);
+  assert.equal(CURRENT_NATIVE_LIFECYCLE.requiredGate, "verify:upgrade-uninstall");
+  assert.equal(CURRENT_NATIVE_LIFECYCLE.olderInstalledUpgradeStatus, "REQUIRED");
+  assert.equal(CURRENT_NATIVE_LIFECYCLE.fetchPreviousInstallers, true);
   assert.equal(CURRENT_NATIVE_LIFECYCLE.nativeUosStatus, "OWNER_POST_RELEASE");
   assert.deepEqual(
     OWNER_EXCLUDED_SUBGATES.map((gate) => gate.name),
-    ["verify:upgrade-uninstall"],
+    [],
   );
   assert.deepEqual(
     SUPPLEMENTAL_ACCEPTANCE_SUBGATES.map((gate) => gate.name),
@@ -177,6 +177,7 @@ test("R50-TRUTH-007 / R50-E2E-008 aggregator lists all hard kinds and propagates
   assert.equal(applicable.verdict, "PASS");
   assert.ok(applicable.deferred.includes("verify:installed"));
   assert.ok(applicable.deferred.includes("verify:fresh-install-uninstall"));
+  assert.ok(applicable.deferred.includes("verify:upgrade-uninstall"));
   const masked = releaseVerdictFrom(applicable, {
     verdict: "INCOMPLETE",
     exitCode: EXIT_BY_VERDICT.INCOMPLETE,
@@ -229,15 +230,14 @@ test("INCOMPLETE exit contract is non-zero unless --report", () => {
   assert.equal(exitCodeForVerdict("INCOMPLETE", true), 0);
 });
 
-test("OWNER_EXCLUDED older upgrade PASS cannot masquerade as current release evidence", () => {
-  const injectedUpgradePass = evaluateReleaseAggregation({
-    records: [
-      ...HARD_SUBGATES.map((gate) => ({ name: gate.name, exit: 0, verdict: "PASS" })),
-      { name: "verify:upgrade-uninstall", exit: 0, verdict: "PASS" },
-    ],
+test("required older upgrade evidence cannot be omitted from the current release", () => {
+  const missingUpgrade = evaluateReleaseAggregation({
+    records: HARD_SUBGATES
+      .filter((gate) => gate.name !== "verify:upgrade-uninstall")
+      .map((gate) => ({ name: gate.name, exit: 0, verdict: "PASS" })),
   });
-  assert.equal(injectedUpgradePass.verdict, "FAIL");
-  assert.ok(injectedUpgradePass.failReasons.some((row) => row.includes("OWNER_EXCLUDED")));
+  assert.equal(missingUpgrade.verdict, "INCOMPLETE");
+  assert.ok(missingUpgrade.missingGates.includes("verify:upgrade-uninstall"));
 });
 
 test("community-verified cannot Waive missing notary into PASS", () => {
@@ -280,12 +280,12 @@ test("build inputs reject dirty named SHA and HEAD drift", () => {
   );
 });
 
-test("GitHub Actions is AVAILABLE for the 0.6.1 source candidate", () => {
+test("GitHub Actions is AVAILABLE for the 0.6.2 source candidate", () => {
   assert.equal(GITHUB_ACTIONS_STATUS, "AVAILABLE");
 });
 
-test("product version is 0.6.1 and registry count matches the document", () => {
-  assert.equal(PRODUCT_VERSION, "0.6.1");
+test("product version is 0.6.2 and registry count matches the document", () => {
+  assert.equal(PRODUCT_VERSION, "0.6.2");
   const md = readFileSync(join(root, "docs/ACCEPTANCE.md"), "utf8");
   const ids = parseAcceptanceIds(md);
   const entries = assertRegistryConsistent(md);

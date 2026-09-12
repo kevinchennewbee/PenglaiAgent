@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /** Rebuild fs-ext after ignore-scripts installs when that package is present.
- *  Official DSH 0.1.5-rc.1 JSONL persistence uses native prebuilds instead
+ *  Official DSH 0.1.5-rc.2 JSONL persistence uses native prebuilds instead
  *  of fs-ext; absence is success, not a missing-binding failure. */
 
 import { existsSync } from "node:fs";

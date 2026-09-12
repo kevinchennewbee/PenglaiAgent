@@ -247,6 +247,23 @@ const installerRows = installers.map(({ target, name }) => {
   ) {
     fail(`GitHub asset or native evidence identity mismatch for ${name}`);
   }
+  if (target === "linux-loong64") {
+    const proofPath = join(nativeEvidenceDir, "verify-uos-package-linux-loong64.json");
+    if (!existsSync(proofPath)) fail("verified UOS package evidence is missing");
+    const proof = readJson(proofPath, "verified UOS package evidence");
+    if (
+      proof.command !== "verify:uos-package" ||
+      proof.verdict !== "PASS" ||
+      proof.target !== target ||
+      proof.sourceSha !== sourceSha ||
+      proof.installer !== name ||
+      proof.installerSha256 !== digest ||
+      proof.nativeUos?.status !== "OWNER_POST_RELEASE" ||
+      proof.nativeUos?.claimedPass !== false
+    ) {
+      fail("UOS package evidence is stale, incomplete, or overclaims native acceptance");
+    }
+  }
   return { target, name, path, bytes, size: bytes.length, sha256: digest, assetId: asset.id };
 });
 

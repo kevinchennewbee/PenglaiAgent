@@ -210,3 +210,14 @@ test("evidence redaction covers key url base64 and unicode shreds", () => {
   assert.equal(out.includes("https://evil.example"), false);
   assert.equal(out.includes("\u200B"), false);
 });
+
+test("evidence redaction covers provider tokens and named credentials", () => {
+  const github = ["github_", `pat_${"a".repeat(32)}`].join("");
+  const slack = ["xoxb-", "b".repeat(24)].join("");
+  const telegram = ["123456789:", "c".repeat(32)].join("");
+  const refresh = ["refresh_", "token=rotating-secret-value"].join("");
+  const out = redactEvidenceText(`${github} ${slack} ${telegram} ${refresh} Authorization: Basic YWxpY2U6c2VjcmV0`); // penglai-test-fixture
+  for (const secret of [github, slack, telegram, "rotating-secret-value", "YWxpY2U6c2VjcmV0"]) {
+    assert.equal(out.includes(secret), false);
+  }
+});

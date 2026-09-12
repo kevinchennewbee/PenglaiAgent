@@ -16,10 +16,11 @@ concurrency:
 jobs:
   source:
     name: Full source gates
-    # The product ships only native macOS/Windows targets. Several source gates
-    # execute the pinned Mnemon helper and target-bound plugin catalog, so run
+    # Several source gates execute the pinned Mnemon helper and target-bound
+    # plugin catalog, so run
     # the aggregate suite on a real supported host; the separate native release
-    # workflow independently covers Intel macOS and Windows.
+    # workflow independently covers Apple Silicon macOS, Windows x64, and the
+    # UOS LoongArch package boundary.
     runs-on: macos-15
     timeout-minutes: 90
     steps:
@@ -29,11 +30,11 @@ jobs:
           # Pull-request jobs otherwise test GitHub's synthetic merge commit,
           # which cannot serve as the immutable release candidate identity.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Check out immutable official DSH 0.1.5-rc.1 source
+      - name: Check out immutable official DSH 0.1.5-rc.2 source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: deepseek-ai/DeepSeek-Harness
-          ref: 183f08e9c6dde7e36cd2318eaee70b0da08fb35e
+          ref: fb2c4b9e698e30edb738bca4cf0618587db7d203
           path: upstream-dsh
           fetch-depth: 1
       - name: Prepare authoritative main identity
@@ -91,8 +92,8 @@ jobs:
           pnpm verify:moss-real
           pnpm verify:clean-clone
 
-  # Focused Windows PR check for the four files macOS-only Source CI missed.
-  # This is not four-target native installer acceptance.
+  # Focused Windows PR check for the four files macOS-only Source CI misses.
+  # This is not native installer acceptance.
   windows-source-regression:
     name: Windows focused source regression
     runs-on: windows-2022

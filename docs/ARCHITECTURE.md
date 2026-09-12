@@ -1,4 +1,4 @@
-# Penglai 0.6.1 architecture
+# Penglai 0.6.2 architecture
 
 ## English
 
@@ -22,7 +22,7 @@ Penglai.app / Penglai.exe
       └─ companion / hidden budget control / hidden conformance fixture
 ```
 
-0.6.1 development pins official DSH `0.1.5-rc.1`. Official DSH is the single runtime authority. Penglai does not own a second
+0.6.2 development pins official DSH `0.1.5-rc.2`. Official DSH is the single runtime authority. Penglai does not own a second
 provider registry, agent loop, Workspace/Session store, tool executor, approval
 system, or conversation renderer. The bootstrap wizard disappears after
 completion; the long-lived main window is official DSH Web with DSH client
@@ -123,16 +123,16 @@ after a real official DSH reply and a successful switch to official DSH Web.
 ### 5. Profile composition
 
 The complete official npm cohort contains 279 verified packages pinned to
-`dsh-v0.1.5-rc.1` at `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`.
+`dsh-v0.1.5-rc.2` at `fb2c4b9e698e30edb738bca4cf0618587db7d203`.
 Official DSH bytes are unmodified; Penglai composes official client slots.
 Session recovery consumers use official inspect / SessionHandle reads and fail on missing capability.
-Previous Home generations are copied into `0.1.5-rc.1` before a health-verified
+Previous Home generations are copied into `0.1.5-rc.2` before a health-verified
 activation; rollback restores the previous pointer and preserves its data.
 Session V3 upgrades write a successor log and keep the original bytes.
 
 Fresh profile invariants:
 
-- official DSH `0.1.5-rc.1` is pinned with exact npm integrity and source tag;
+- official DSH `0.1.5-rc.2` is pinned with exact npm integrity and source tag;
 - Plugin Center, Office, and Memory are installed and active;
 - IM, ASR, MOSS-TTS, and Companion are present in the installer but disabled;
 - the reference fixture and budget control are internal/hidden; and
@@ -286,13 +286,14 @@ readback downloads and verifies the immutable bytes again.
 
 ## 中文摘要
 
-0.5.10 仍以 official DSH 为唯一 Agent/模型/工具/审批/Workspace/Session/Turn/UI
+0.6.2 仍以 official DSH `0.1.5-rc.2` 为唯一 Agent/模型/工具/审批/Workspace/Session/Turn/UI
 核心。Electron Main 负责进程、Owner Broker、OS 权限、升级和卸载；renderer 只能用
 窄 preload 与 typed Remote，不能读文件、密钥或任意 IPC。
 
 办公、IM 文件与持久附件统一使用绑定 scope 的 `artifact:<uuid>`；确认与具体动作、
 对象、Workspace/Session、摘要、目标和 revision 绑定，真实写入/发送/事务成功后才完成。
-official DSH 0.1.2-rc.1 没有通用 file Turn，0.5.10 不做 DOM hack 或第二会话表示。
+official DSH rc.2 的 file/image Turn 与附件服务是唯一会话附件路径；0.6.2 不做
+DOM hack 或第二会话表示。
 
 记忆在 official `turn/end` 运行禁用工具的 official curator Agent，Host 做封闭格式和
 本地风险校验；安全项目事实只自动写当前 Workspace。`agent/pre-step` 只召回当前
@@ -303,6 +304,6 @@ IM 始终只有一个 `@penglai/im` 控制平面。微信、飞书、钉钉、�
 Manifest/Token，不伪造二维码。WhatsApp 不展示、不支持、不列为规划，也不捆绑运行时。ASR 麦克风需要当前手势并只申请 audio；TTS 试听和 Read 共用一个可观测播放
 状态机，Read 朗读原文。
 
-三端安装包必须来自同一干净 SHA 和 public-export tree，在对应原生 runner 验收。
+0.6.2 三端安装包必须来自同一干净 SHA 和 public-export tree，在对应原生 runner 验收。
 升级 manifest、release manifest、GitHub asset ID、大小、哈希和三端签名相互绑定；
 正式发布后再从公网下载十个资产逐字节回读。

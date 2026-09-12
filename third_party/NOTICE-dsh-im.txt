@@ -1,7 +1,7 @@
 dsh-im
 https://github.com/xmanrui/dsh-im
 
-Penglai 0.6.1 does not install dsh-im as a runtime and does not copy generated
+Penglai 0.6.2 does not install dsh-im as a runtime and does not copy generated
 lib/, bin/, or cordis.patch.yml. Selected channel authentication and transport
 ideas may be rewritten into @penglai/im under the MIT license below.
 Connection /api management is already implemented as Typert penglaiIm remotes.

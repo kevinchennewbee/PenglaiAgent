@@ -552,6 +552,54 @@
   v0.6.1 回读前仍指向 v0.6.0。后续 PR/`main`/三端原生/不可变发布仍由
   manager 在审查后执行。
 
+### D-074 — 0.6.1 发布收口：不可变十附件与保留限制
+
+- 日期：2026-09-11。
+- 决定：v0.6.1 已从 source SHA
+  `7ad7c29ecda5d9e867fdde0fe3fefd5c42d3ab1b` 完成三目标、十附件不可变发布及
+  公网回读；README 与既有网站已切到该公开版本。其 tag、附件和历史证据保持
+  不可变。
+- 保留边界：UOS 真机安装/启动/功能仍为 `OWNER_POST_RELEASE`；旧版本已安装升级
+  与两小时 installed soak 仍为 `OWNER_EXCLUDED`；未执行的真实账号与可选 iMessage
+  验收仍按 `LIVE_NOT_RUN` 记录。发布完成不把这些项目改写为 PASS。
+- 后果：`docs/0.6.1/PUBLIC_COPY.md` 与
+  `docs/PUBLICATION_MANIFEST_0.6.1.md` 是公开事实入口；原 source-phase 文档改为
+  已发布记录，不再显示 v0.6.0 是当前下载。
+
+### D-075 — 2026-09-12 上游复核：暂不启动 0.6.2，先收紧公开仓库隐私
+
+- 日期：2026-09-12。
+- 决定：Owner 授权更新文档、记忆和 token/隐私修复，但明确不发布新版本。官方
+  DSH `0.1.5-rc.2` 仍在 npm `next`，相对 rc.1 是四个反馈/文件展示类提交，发现的
+  cohort 拓扑仍为 279 个包；没有识别出要求紧急全流程发布的核心修复。因此保留
+  v0.6.1，不建立或发布 0.6.2 候选。
+- 隐私：Penglai 继续固定 `DSH_TELEMETRY_DISABLED=1` 且不传 telemetry mode/URL。
+  上游反馈弹窗关于附带当前会话记录的通用文案不符合本地-only 部署表达；未来采用
+  前必须让文案与真实传输一致、关闭入口，或完成独立同意/目的地/字段/retention
+  设计和验收。公开仓库的 secret scanner、evidence 与启动错误脱敏补齐现代 `sk-`、
+  GitHub、Slack、Telegram、Authorization 与命名 token 字段。
+- 后果：完整复核见 `docs/UPSTREAM_REVIEW_2026-09-12.md`。以后如果采用 rc.2、
+  后续 DSH 或 dsh-im 能力，必须原子迁移完整 cohort，并重跑 source、closure、
+  profile/plugin、native、publication 与 public readback；禁止只换部分包或安装包。
+
+### D-076 — 0.6.2 采用 DSH rc.2，恢复升级并完成全流程发布
+
+- 日期：2026-09-12。
+- 决定：Owner 授权 Penglai 0.6.2 采用官方 DSH `0.1.5-rc.2` 完整 279 包 npm
+  cohort，完成开发、修复、正常测试、PR/`main` 合并、三目标构建、不可变发布、
+  README/既有官网更新与公开回读。反馈功能保留，但必须如实表明只保存在本机且不
+  上传会话内容；公开证据、文档与日志必须脱敏。
+- 升级：恢复并强制 Apple Silicon 与 Windows x64 的 0.6.1 到 0.6.2 安装版升级
+  验收；逐项保留 DSH 设置、会话、插件启用状态与记忆数据。两小时安装版测试仍为
+  `OWNER_EXCLUDED`。
+- UOS：发布一个自带 Electron、Node、完整 DSH、全部第一方插件、Office、Memory、
+  Mnemon 与本地依赖的完整 `loongarch64` 安装包。包、ABI 与闭包必须在发布前通过；
+  真机安装、启动、界面、文件选择器、休眠恢复与功能仍为 `OWNER_POST_RELEASE`，
+  由 Owner 在发布后测试。公开说明 `libatomic1` 依赖、`bubblewrap` 建议、龙芯无
+  MOSS、iMessage 仅 Mac、Electron 31 维护状态与上述真机待验边界。
+- 体验：README 与官网改为亲切、笃定、面向普通用户的中英文表达，减少工程报告式
+  堆砌，但不得弱化安全边界或虚构公开/真机证据。
+
 ## Superseded
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。

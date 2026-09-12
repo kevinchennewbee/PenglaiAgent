@@ -4,7 +4,47 @@ window.__ModuleLoader__.load({
     const module = { exports: {} };
     const React = require("react");
     const jsx = require("react/jsx-runtime");
+    const officialFeedbackClient = require(
+      "@deepseek-ai/dsh-client-ui-message-feedback/client",
+    );
     const inject = ["remote"];
+
+    const LOCAL_FEEDBACK_HINT = Object.freeze({
+      zh: "反馈只保存在这台电脑上，不会上传对话内容。",
+      en: "Feedback stays on this computer. No conversation content is uploaded.",
+    });
+
+    function applyLocalFeedback(ctx) {
+      const locale = new Proxy(ctx.locale, {
+        get(target, property, receiver) {
+          if (property !== "register")
+            return Reflect.get(target, property, receiver);
+          return (namespace, dictionaries) => {
+            if (namespace !== "feedback")
+              return target.register(namespace, dictionaries);
+            const localOnly = Object.fromEntries(
+              Object.entries(dictionaries).map(([language, dictionary]) => [
+                language,
+                {
+                  ...dictionary,
+                  "dialog.hint":
+                    LOCAL_FEEDBACK_HINT[language] ??
+                    LOCAL_FEEDBACK_HINT.en,
+                },
+              ]),
+            );
+            return target.register(namespace, localOnly);
+          };
+        },
+      });
+      const localContext = new Proxy(ctx, {
+        get(target, property, receiver) {
+          if (property === "locale") return locale;
+          return Reflect.get(target, property, receiver);
+        },
+      });
+      return officialFeedbackClient.apply(localContext);
+    }
 
     function strictJson(value, path = "$", depth = 0, seen = new Set()) {
       if (
@@ -2213,6 +2253,7 @@ window.__ModuleLoader__.load({
       const disposeRemote = await ctx.remote.$mount(
         PENGLAI_REMOTE_CONTRIBUTION,
       );
+      const feedbackFiber = ctx.inject(["locale"], applyLocalFeedback);
       const viewFiber = ctx.inject(
         [
           "slots",
@@ -2225,18 +2266,23 @@ window.__ModuleLoader__.load({
         applyView,
       );
       try {
-        await viewFiber;
+        await Promise.all([feedbackFiber, viewFiber]);
       } catch (error) {
+        await Promise.allSettled([
+          feedbackFiber.dispose(),
+          viewFiber.dispose(),
+        ]);
         await disposeRemote();
         throw error;
       }
       return async () => {
+        await feedbackFiber.dispose();
         await viewFiber.dispose();
         await disposeRemote();
       };
     }
 
-    module.exports = { apply, inject };
+    module.exports = { apply, inject, applyLocalFeedback, LOCAL_FEEDBACK_HINT };
     return module.exports;
   },
 });

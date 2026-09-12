@@ -4,7 +4,7 @@
 
 Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settings.plugins.tab`。它不是 Electron 外壳里的第二商店，也不是一个只写 `desired.json` 的状态页。
 
-## 2. 0.5.x 内置 catalog
+## 2. 0.5 数据代际内置 catalog（当前开发候选 v0.6.2）
 
 只允许 app 内签入并离线验证的包：
 
@@ -34,7 +34,9 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 
 0.5.1 起，Center 只从公开仓库 `kevinchennewbee/PenglaiPluginRegistry` 的不可变 GitHub Release 发现远程插件。目录 JSON 与每个 tar 包分别使用内置 Ed25519 信任根验签；sequence 只能前进，断网时只读已验签的 last-good。远程包默认关闭，用户确认权限后才安装；包先写入用户私有的 `Penglai/0.5/plugins/packages`，不得修改应用内置插件目录。
 
-0.5.7 将 `@penglai/office` 与 `@penglai/memory` 作为 fresh-install required-builtin。远程不可变目录 [`plugin-catalog-v1.000006`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000006) 不列下载插件，并用精确 id/version/SHA 撤销已被完整蓬莱办公替代的 `@penglai/office-reader` 0.1.3。已安装的旧 Reader 会在 DSH loader 启动前停用；历史 000005 Release 保持不可变。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端；插件包更新成功后，0.5.7 只会在已授权且事务身份完全匹配时重启内置 DSH，以免 Node 模块缓存继续运行旧代码。GitHub REST 的匿名限流只允许回退到版本化 Release Atom 发现；最终信任仍来自精确 tag、目录签名、package 签名、asset id、size 与 SHA-256，绝不信任 mutable `latest`。
+0.5.7 首次将 `@penglai/office` 与 `@penglai/memory` 设为 fresh-install required-builtin；
+该边界延续到当前 v0.6.2 候选；当前公开版本仍是 v0.6.1，直到 v0.6.2
+不可变附件发布并回读。远程不可变目录 [`plugin-catalog-v1.000006`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000006) 不列下载插件，并用精确 id/version/SHA 撤销已被完整蓬莱办公替代的 `@penglai/office-reader` 0.1.3。已安装的旧 Reader 会在 DSH loader 启动前停用；历史 000005 Release 保持不可变。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端；插件包更新成功后，当前客户端只会在已授权且事务身份完全匹配时重启内置 DSH，以免 Node 模块缓存继续运行旧代码。GitHub REST 的匿名限流只允许回退到版本化 Release Atom 发现；最终信任仍来自精确 tag、目录签名、package 签名、asset id、size 与 SHA-256，绝不信任 mutable `latest`。
 
 安装包离线携带这些 tarball 是为了让普通用户无需联网取代码即可选择扩展。fresh profile 安装 Center、Office 与 Memory；其余可选插件仅在用户点击“安装并启用”后才校验、写入、加载。完成 BYOK 后 official DSH、Office 与 Memory 必须独立可用；任一可选插件 absent/disabled/unconfigured 都不得阻断 DSH core、已安装 IM 的 text 链或无关插件。
 
@@ -45,9 +47,9 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 ```json
 {
   "id": "@penglai/im",
-  "version": "0.5.7",
-  "dshRange": "exact-tested-range",
-  "platforms": ["darwin-arm64", "darwin-x64", "win32-x64"],
+  "version": "0.6.2",
+  "dshRange": "0.1.5-rc.2",
+  "platforms": ["darwin-aarch64", "win32-x86_64", "linux-loong64"],
   "capabilities": ["settings-ui", "im-weixin", "im-feishu"],
   "permissions": ["credentials-service", "local-database", "outbound-network"],
   "source": "bundled-first-party",

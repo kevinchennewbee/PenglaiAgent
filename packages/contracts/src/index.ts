@@ -26,7 +26,7 @@ export * from "./center-journal.js";
 export * from "./usage-projection.js";
 
 export const SCHEMA_VERSION = 13;
-export const RELEASE = "0.6.1";
+export const RELEASE = "0.6.2";
 
 export const CONFIG = Object.freeze({
   pairingTtlMs: 5 * 60_000,
@@ -906,6 +906,11 @@ export function redactEvidenceText(text: string): string {
   return redactPrivateKeyBlocks(text)
     .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, "[redacted]")
     .replace(/\bwxp_[A-Za-z0-9_-]{8,}\b/g, "[redacted]")
+    .replace(/\b(?:github_pat_[A-Za-z0-9_]{10,}|gh[oprsu]_[A-Za-z0-9]{10,})\b/gi, "[redacted]")
+    .replace(/\bxox[baprs]-[A-Za-z0-9-]{10,}\b/gi, "[redacted]")
+    .replace(/\b\d{6,12}:[A-Za-z0-9_-]{20,}\b/g, "[redacted]")
+    .replace(/Authorization\s*[:=]\s*(?:Bearer|Basic|Token)\s+[A-Za-z0-9._~+/=-]{8,}/gi, "Authorization:[redacted]")
+    .replace(/(api[_-]?key|client[_-]?secret|app[_-]?secret|access[_-]?token|refresh[_-]?token|bot[_-]?token|token|password)\s*[:=]\s*(?:["'][^"']{6,}["']|[^\s,;&]{8,})/gi, "$1=[redacted]")
     .replace(/[A-Za-z0-9+/]{40,}={0,2}/g, "[redacted-b64]")
     .replace(/https?:\/\/[^\s]+/gi, "[redacted-url]")
     .replace(/transcript["']?\s*[:=]\s*["'][^"']{8,}/gi, "transcript:[redacted]")

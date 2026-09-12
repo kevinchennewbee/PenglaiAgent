@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { readVerifiedRegularFile } from "./verified-file.mjs";
+import { readVerifiedRegularFile, updateVerifiedRegularFile } from "./verified-file.mjs";
 
 test("verified file reads bind bytes and metadata to one regular-file handle", (t) => {
   const root = mkdtempSync(join(tmpdir(), "penglai-verified-file-"));
@@ -13,6 +13,8 @@ test("verified file reads bind bytes and metadata to one regular-file handle", (
   const result = readVerifiedRegularFile(file);
   assert.equal(result.bytes.toString("utf8"), "verified bytes");
   assert.equal(result.stat.isFile(), true);
+  updateVerifiedRegularFile(file, (bytes) => Buffer.concat([bytes, Buffer.from(" updated")]));
+  assert.equal(readFileSync(file, "utf8"), "verified bytes updated");
 
   const link = join(root, "payload-link.bin");
   try {
@@ -25,4 +27,5 @@ test("verified file reads bind bytes and metadata to one regular-file handle", (
     throw error;
   }
   assert.throws(() => readVerifiedRegularFile(link));
+  assert.throws(() => updateVerifiedRegularFile(link, () => "rejected"));
 });

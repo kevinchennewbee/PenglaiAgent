@@ -24,6 +24,7 @@ import {
   DSH_HOME_ALPHA2_VERSION,
   DSH_HOME_PREVIOUS_VERSION,
   DSH_HOME_ALPHA13_VERSION,
+  DSH_HOME_RC1_VERSION,
   DSH_HOME_JSONL_COMPRESSION,
   DSH_HOME_TARGET_VERSION,
   isHistoricalSessionLogName,
@@ -42,7 +43,7 @@ import {
 const FIXTURE_CREDENTIAL =
   "DEEPSEEK_API_KEY: penglai-test-fixture-key-not-real\n";
 
-test("0.5.11 rc.1 active generation upgrades to 0.1.5-rc.1 and restores its exact pointer on rollback", () => {
+test("0.5.11 rc.1 active generation upgrades to 0.1.5-rc.2 and restores its exact pointer on rollback", () => {
   const root = fixtureRoot();
   const previousHome = join(root, "dsh-homes", `dsh-v${DSH_HOME_PREVIOUS_VERSION}`);
   mkdirSync(previousHome, { recursive: true, mode: 0o700 });
@@ -73,7 +74,7 @@ test("0.5.11 rc.1 active generation upgrades to 0.1.5-rc.1 and restores its exac
   assert.deepEqual(prepareDshHomeForBoot({ userRoot: root }), plan, "prepared migration must resume with old pointer still active");
   activateDshHomeBootPlan({ userRoot: root, plan, validation: validProof() });
   assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_TARGET_VERSION);
-  writeFileSync(join(plan.dshHome, "new-generation-only"), "0.1.5-rc.1 state");
+  writeFileSync(join(plan.dshHome, "new-generation-only"), "0.1.5-rc.2 state");
   rollbackDshHomeUpgrade({ userRoot: root, operationId: plan.operationId!, reason: "restore previous version" });
   assert.deepEqual(JSON.parse(readFileSync(pointer, "utf8")), {
     ...previous,
@@ -82,6 +83,68 @@ test("0.5.11 rc.1 active generation upgrades to 0.1.5-rc.1 and restores its exac
   assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_PREVIOUS_VERSION);
   assert.equal(existsSync(join(previousHome, "new-generation-only")), false);
   assert.equal(readFileSync(join(root, "dsh-home", "settings.yaml"), "utf8"), "locale:\n  preference: zh\n");
+});
+
+test("0.6.1 rc.1 active generation migrates to rc.2 without changing the original home", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-rc1-upgrade-"));
+  const previousHome = join(root, "dsh-homes", `dsh-v${DSH_HOME_RC1_VERSION}`);
+  mkdirSync(join(previousHome, "storages", "sessions"), {
+    recursive: true,
+    mode: 0o700,
+  });
+  const settings = "locale:\n  preference: zh\n";
+  const session = legalSessionJsonl("rc1-owner-session");
+  writeFileSync(join(previousHome, "settings.yaml"), settings, { mode: 0o600 });
+  writeFileSync(
+    join(previousHome, "storages", "sessions", "session.jsonl"),
+    session,
+    { mode: 0o600 },
+  );
+  const previous = {
+    schema: 1,
+    activeVersion: DSH_HOME_RC1_VERSION,
+    homeRelative: `dsh-homes/dsh-v${DSH_HOME_RC1_VERSION}`,
+    activationKind: "fresh",
+    activatedAt: "2026-09-10T00:00:00.000Z",
+    targetDigest: "c".repeat(64),
+  };
+  writeFileSync(
+    join(previousHome, ".penglai-dsh-home.json"),
+    JSON.stringify({
+      schema: 1,
+      kind: "fresh",
+      dshVersion: DSH_HOME_RC1_VERSION,
+      state: "active",
+      preparedAt: previous.activatedAt,
+      activatedAt: previous.activatedAt,
+      targetDigest: previous.targetDigest,
+    }),
+  );
+  writeFileSync(join(root, "dsh-home-active.json"), JSON.stringify(previous));
+
+  const plan = prepareDshHomeForBoot({
+    userRoot: root,
+    availableBytes: 1024 * 1024 * 1024,
+    reserveBytes: 0,
+  });
+
+  assert.equal(plan.kind, "migration-prepared");
+  assert.equal(
+    readFileSync(join(plan.dshHome, "settings.yaml"), "utf8"),
+    settings,
+  );
+  assert.equal(
+    readFileSync(join(plan.dshHome, "storages", "sessions", "session.jsonl"), "utf8"),
+    session,
+  );
+  assert.equal(readFileSync(join(previousHome, "settings.yaml"), "utf8"), settings);
+  activateDshHomeBootPlan({ userRoot: root, plan, validation: validProof() });
+  assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_TARGET_VERSION);
+  assert.equal(readFileSync(join(previousHome, "settings.yaml"), "utf8"), settings);
+  assert.equal(
+    readFileSync(join(previousHome, "storages", "sessions", "session.jsonl"), "utf8"),
+    session,
+  );
 });
 
 function fixtureRoot(): string {
@@ -141,7 +204,7 @@ function validProof() {
   };
 }
 
-test("P059-DATA-001 prepares an isolated 0.1.5-rc.1 working home and leaves 0.5.8 alpha.1 bytes untouched", () => {
+test("P059-DATA-001 prepares an isolated 0.1.5-rc.2 working home and leaves 0.5.8 alpha.1 bytes untouched", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   const originalCredential = readFileSync(
@@ -331,7 +394,7 @@ test("P059-DATA-005 source mutation during validation blocks activation", () => 
         operationId: "upgrade06",
         validation: validProof(),
       }),
-    /previous DSH home changed during 0.1.5-rc.1 validation/,
+    /previous DSH home changed during 0.1.5-rc.2 validation/,
   );
   assert.equal(readActiveDshHome(root), undefined);
 });
@@ -540,7 +603,7 @@ test("P059-DATA-004A migration activation recovers a crash before the active poi
   assert.deepEqual(readActiveDshHome(root), activated);
 });
 
-test("P059-DATA-013 fresh 0.5.12 installs boot and activate only the 0.1.5-rc.1 generation", () => {
+test("P059-DATA-013 fresh 0.5.12 installs boot and activate only the 0.1.5-rc.2 generation", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-fresh-"));
   const paths = resolveDshHomeUpgradePaths(root);
   const prepared = prepareDshHomeForBoot({
@@ -607,7 +670,7 @@ test("fresh activation digest excludes regenerated first-party profile runtime t
   assert.equal(activated[0].targetDigest, activated[1].targetDigest);
 });
 
-test("P059-DATA-014 0.5.8 alpha.1 upgrades boot a resumable isolated 0.1.5-rc.1 generation", () => {
+test("P059-DATA-014 0.5.8 alpha.1 upgrades boot a resumable isolated 0.1.5-rc.2 generation", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   const prepared = prepareDshHomeForBoot({
@@ -631,7 +694,7 @@ test("P059-DATA-014 0.5.8 alpha.1 upgrades boot a resumable isolated 0.1.5-rc.1 
   );
 });
 
-test("0.5.9 alpha.2 active generation copies a legal session log into 0.1.5-rc.1", () => {
+test("0.5.9 alpha.2 active generation copies a legal session log into 0.1.5-rc.2", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-alpha2-"));
   const previousHome = join(root, "dsh-homes", `dsh-v${DSH_HOME_ALPHA2_VERSION}`);
   mkdirSync(join(previousHome, "storages", "sessions"), { recursive: true, mode: 0o700 });
@@ -993,7 +1056,7 @@ test("historical session log names include v0 jsonl and every v2 generation suff
   assert.equal(isHistoricalSessionLogName("session.v2.jsonl.bak"), false);
 });
 
-test("0.5.12 0.1.3-alpha.2 homes upgrade to 0.1.5-rc.1 without deleting session.v2.jsonl*", () => {
+test("0.5.12 0.1.3-alpha.2 homes upgrade to 0.1.5-rc.2 without deleting session.v2.jsonl*", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-alpha13-v2-"));
   const previousHome = join(root, "dsh-homes", `dsh-v${DSH_HOME_ALPHA13_VERSION}`);
   const sessionDir = join(
@@ -1214,7 +1277,7 @@ function livedInAlpha13Home(options: { userStateSymlink?: boolean } = {}): {
   return { root, previousHome, appRuntime };
 }
 
-test("lived-in 0.5.12 DSH module-fallback and profile node_modules runtime links do not block 0.1.5-rc.1 copy", (context) => {
+test("lived-in 0.5.12 DSH module-fallback and profile node_modules runtime links do not block 0.1.5-rc.2 copy", (context) => {
   if (process.platform === "win32") {
     context.skip("ordinary Windows users cannot create this symlink fixture");
     return;
@@ -1430,6 +1493,5 @@ test("PM 498-link 0.1.3-alpha.2 descriptor copies through Home without SECURITY_
   assert.equal(existsSync(join(plan.dshHome, "profiles", "web", "node_modules")), false);
   assert.equal(existsSync(join(root, "dsh-home-migrations", `${plan.operationId}.json`)), true);
 });
-
 
 

@@ -62,10 +62,10 @@ function packageJsonFor(packageName, resolver = mossReq, fromDir) {
 
 const licenses = [
   { name: "penglaiagent", license: "MIT" },
-  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.5-rc.1" },
-  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.5-rc.1" },
-  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.5-rc.1" },
-  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.5-rc.1" },
+  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.5-rc.2" },
+  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.5-rc.2" },
+  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.5-rc.2" },
+  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.5-rc.2" },
   { name: "Tencent openclaw-weixin protocol reference", license: "MIT", commit: "cef0bfc390393f716903e16d50408118047f87e0" },
   { name: "typescript", license: "Apache-2.0" },
   { name: "tsx", license: "MIT" },
@@ -432,7 +432,9 @@ const leftoverOfficeSharpRows = productionInventory.filter(
 const dshSharpRows = productionInventory.filter(
   (row) =>
     (/^@img\/sharp-libvips-/.test(row.name) && row.version === "1.3.3") ||
-    (row.name === "@img/sharp-win32-x64" && row.version === "0.35.4"),
+    (/^@img\/sharp-(?:(?:darwin|linux|linuxmusl|win32)-[a-z0-9]+|wasm32)$/.test(row.name) &&
+      row.version === "0.35.4" &&
+      /LGPL-/.test(row.declaredLicense)),
 );
 const lgplOffer = readFileSync("docs/0.5.10/LGPL_SOURCE_OFFER.md", "utf8");
 for (const [path, expectedSha256] of SHARP_LEGAL_FILES) {
@@ -452,7 +454,20 @@ if (
   !lgplOffer.includes("426af3f44246fce9cfa8dd51a353aa4dfd48c553")
   || !lgplOffer.includes("licenses/sharp/")
 ) {
-  throw new Error("sharp/libvips distribution boundary drift");
+  throw new Error(
+    `sharp/libvips distribution boundary drift: ${JSON.stringify({
+      leftoverOfficeSharpRows: leftoverOfficeSharpRows.map((row) => `${row.name}@${row.version}`),
+      dshSharpRows: dshSharpRows.map((row) => `${row.name}@${row.version}:${row.disposition}`),
+      hasDisabledImage: packScript.includes("penglai-office-disabled-image"),
+      rejectsSharpRequire: packScript.includes('runtime.includes(\'require("sharp")\')'),
+      hasDisabledCloudZip: packScript.includes("penglai-office-disabled-cloud-zip"),
+      sourceOfferComplete:
+        lgplOffer.includes("7f1a0a22cc285fe180766f4935d50b55af6e8432") &&
+        lgplOffer.includes("6e5971d333377743163edc3ad9e5d0b897abcbc9") &&
+        lgplOffer.includes("426af3f44246fce9cfa8dd51a353aa4dfd48c553") &&
+        lgplOffer.includes("licenses/sharp/"),
+    })}`,
+  );
 }
 
 const result = {

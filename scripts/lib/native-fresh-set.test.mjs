@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./repo.mjs";
@@ -296,20 +295,18 @@ test("fresh lifecycle set requires every Mac/Windows target and rejects a UOS na
   assert.ok(withUos.failReasons.includes("fabricated/deferred native PASS"));
 });
 
-test("current 0.6.1 native workflow does not fetch previous installers", () => {
+test("current 0.6.2 native workflow restores the pinned 0.6.1 upgrade path", () => {
   const workflow = readFileSync(join(ROOT, ".github/workflows/native-release-candidate.yml"), "utf8");
   assert.match(workflow, /verify:fresh-install-uninstall/);
-  assert.doesNotMatch(workflow, /fetch-upgrade-sources/);
-  assert.doesNotMatch(workflow, /previous: Penglai_/);
+  assert.match(workflow, /fetch:upgrade-sources/);
+  assert.match(workflow, /Fetch immutable 0\.6\.1 installer/);
   assert.doesNotMatch(workflow, /Penglai_0\.5\.12_macos/);
-  assert.doesNotMatch(workflow, /pnpm verify:upgrade-uninstall/);
-  const fetch = spawnSync(process.execPath, [join(ROOT, "scripts/fetch-upgrade-sources.mjs")], {
-    cwd: ROOT,
-    encoding: "utf8",
-  });
-  assert.equal(fetch.status, 2);
-  assert.match(fetch.stderr, /OWNER_EXCLUDED/);
-  assert.doesNotMatch(fetch.stderr, /"verdict":"PASS"/);
+  assert.match(workflow, /pnpm verify:upgrade-uninstall/);
+  const sources = JSON.parse(
+    readFileSync(join(ROOT, "docs", PRODUCT_VERSION, "UPGRADE_SOURCES.json"), "utf8"),
+  );
+  assert.equal(sources.currentWorkflow.fetchPreviousInstallers, true);
+  assert.deepEqual(sources.sources.map((row) => row.version), ["0.6.1"]);
 });
 
 function normalizeNewlines(text) {

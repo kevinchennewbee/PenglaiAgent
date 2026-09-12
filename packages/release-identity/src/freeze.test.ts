@@ -16,8 +16,9 @@ import {
 import {
   assertCohortFreeze,
   COHORT_FREEZE_KIND,
+  NEXT_DSH_REVIEW_BOUNDARY,
   PUBLISHED_0512_FREEZE_KIND,
-  REJECTED_DSH_SUCCESSOR_TAG,
+  PUBLISHED_0512_REJECTED_DSH_SUCCESSOR_TAG,
   type CohortFreezeRecord,
 } from "./freeze.js";
 
@@ -33,7 +34,7 @@ function loadPublished0512Freeze() {
 }
 
 function loadDevelopmentFreeze(): CohortFreezeRecord {
-  return JSON.parse(readFileSync(join(root, "docs/0.6.1/COHORT_FREEZE.json"), "utf8")) as CohortFreezeRecord;
+  return JSON.parse(readFileSync(join(root, "docs/0.6.2/COHORT_FREEZE.json"), "utf8")) as CohortFreezeRecord;
 }
 
 function loadContract() {
@@ -54,13 +55,13 @@ test("0.5.12 publication-authorized freeze stays immutable and is not the 0.6 de
   assert.equal(freeze.dsh.version, "0.1.3-alpha.2");
   assert.equal(freeze.dsh.tag, "dsh-v0.1.3-alpha.2");
   assert.equal(freeze.dsh.commit, "82a5fd61a7cf5c293cec4bdff68f455398d685e9");
-  assert.equal(freeze.dsh.rejectedSuccessor.tag, REJECTED_DSH_SUCCESSOR_TAG);
-  assert.equal(productVersion, "0.6.1");
+  assert.equal(freeze.dsh.rejectedSuccessor.tag, PUBLISHED_0512_REJECTED_DSH_SUCCESSOR_TAG);
+  assert.equal(productVersion, "0.6.2");
   assert.equal(productVersion, PRODUCT_VERSION);
-  assert.equal(releaseContract.publication.tag, "v0.6.1");
+  assert.equal(releaseContract.publication.tag, "v0.6.2");
   assert.equal(freeze.previousPublicRelease?.tag, "v0.5.11");
-  assert.equal(readFileSync(join(root, "packages/contracts/src/index.ts"), "utf8").includes('export const RELEASE = "0.6.1"'), true);
-  assert.equal(PINNED_DSH, "0.1.5-rc.1");
+  assert.equal(readFileSync(join(root, "packages/contracts/src/index.ts"), "utf8").includes('export const RELEASE = "0.6.2"'), true);
+  assert.equal(PINNED_DSH, "0.1.5-rc.2");
   assert.notEqual(freeze.dsh.version, PINNED_DSH);
   assert.equal(releaseContract.dshVersion, PINNED_DSH);
   const development = loadDevelopmentFreeze();
@@ -72,10 +73,11 @@ test("0.5.12 publication-authorized freeze stays immutable and is not the 0.6 de
   assert.equal(development.dsh.packageCount, PINNED_DSH_CLOSURE_PACKAGE_COUNT);
   assert.equal(development.dsh.tarballSha256, PINNED_DSH_TARBALL_SHA256);
   assert.equal(development.dsh.closureManifestSha256, PINNED_DSH_CLOSURE_MANIFEST_SHA256);
-  assert.equal(development.publicRelease.tag, "v0.6.1");
+  assert.equal(development.publicRelease.tag, "v0.6.2");
   assert.equal(development.publicRelease.immutable, false);
-  assert.equal(development.previousPublicRelease?.tag, "v0.6.0");
+  assert.equal(development.previousPublicRelease?.tag, "v0.6.1");
   assert.equal(development.previousPublicRelease?.immutable, true);
+  assert.equal(development.dsh.successorReview.boundary, NEXT_DSH_REVIEW_BOUNDARY);
 });
 
 test("cohort freeze rejects mixed DSH generations and rewriting v0.5.12", () => {
@@ -105,7 +107,7 @@ test("cohort freeze rejects mixed DSH generations and rewriting v0.5.12", () => 
         productVersion,
         releaseContract,
       }),
-    /published 0.6.0 identity must stay immutable/,
+    /published 0.6.1 identity must stay immutable/,
   );
   assert.throws(
     () =>

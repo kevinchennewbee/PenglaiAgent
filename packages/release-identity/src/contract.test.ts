@@ -22,7 +22,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 test("R50-DIST-001 committed release-contract pins three targets and hashed downloads", () => {
   const raw = JSON.parse(readFileSync(join(root, "release-contract.json"), "utf8"));
   const contract = assertReleaseContract(raw);
-  assert.equal(contract.dshVersion, "0.1.5-rc.1");
+  assert.equal(contract.dshVersion, "0.1.5-rc.2");
   assert.deepEqual(
     contract.targets.map((row) => row.key),
     ["darwin-aarch64", "win32-x86_64", "linux-loong64"],
@@ -32,7 +32,7 @@ test("R50-DIST-001 committed release-contract pins three targets and hashed down
   assert.equal(contract.exactAssets.length, 10);
   assert.ok(updaterRequiresIndependentSignature(contract));
   assert.deepEqual(contract.exactAssets, [...EXACT_RELEASE_ASSETS]);
-  assert.equal(contract.exactAssets.includes("Penglai_0.6.1_macos_x64.dmg"), false);
+  assert.equal(contract.exactAssets.includes("Penglai_0.6.2_macos_x64.dmg"), false);
   assert.doesNotThrow(() => assertCanonicalUpdaterManifestUrl(contract.updaterManifestUrl));
   assert.doesNotThrow(() => assertCanonicalUpdaterManifestUrl(contract.updaterManifestSignatureUrl, true));
   for (const input of contract.runtimeInputs) {
@@ -51,7 +51,7 @@ test("R50-DIST-001 committed release-contract pins three targets and hashed down
   });
 });
 
-test("current 0.6.1 exact set rejects a missing selected target and an added Intel target", () => {
+test("current 0.6.2 exact set rejects a missing selected target and an added Intel target", () => {
   const raw = JSON.parse(readFileSync(join(root, "release-contract.json"), "utf8"));
   const missingUos = structuredClone(raw);
   missingUos.targets = raw.targets.filter((row: { key: string }) => row.key !== "linux-loong64");
@@ -66,13 +66,13 @@ test("current 0.6.1 exact set rejects a missing selected target and an added Int
       key: "darwin-x86_64",
       platform: "darwin",
       arch: "x64",
-      installer: "Penglai_0.6.1_macos_x64.dmg",
+      installer: "Penglai_0.6.2_macos_x64.dmg",
     },
     ...raw.targets.slice(1),
   ];
   withIntel.exactAssets = [
     raw.exactAssets[0],
-    "Penglai_0.6.1_macos_x64.dmg",
+    "Penglai_0.6.2_macos_x64.dmg",
     ...raw.exactAssets.slice(1),
   ];
   assert.throws(() => assertReleaseContract(withIntel), /targets/);

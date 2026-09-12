@@ -1,7 +1,7 @@
 # Penglai release runbook index
 
 The current executable runbook is
-[`docs/0.6.1/ACCEPTANCE_DELTA.md`](0.6.1/ACCEPTANCE_DELTA.md) together with
+[`docs/0.6.2/ACCEPTANCE_DELTA.md`](0.6.2/ACCEPTANCE_DELTA.md) together with
 `release-contract.json` and `AGENTS.md`. Historical versioned runbooks remain
 beside their corresponding source and publication records. They do not override
 the current version, exact asset set, native targets, or authorization.

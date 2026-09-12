@@ -31,7 +31,7 @@ writeFileSync(`${dir}/package/sha256.txt`, `${sums}\n`);
 writeFileSync(`${dir}/live-smoke/status.txt`, "BLOCKED_AWAITING_USER_SCAN R1-WX-010 R1-WX-011\n");
 writeFileSync(
   `${dir}/upstream/dsh-probe.json`,
-  JSON.stringify({ pin: "0.1.5-rc.1", commit: "183f08e9c6dde7e36cd2318eaee70b0da08fb35e" }, null, 2),
+  JSON.stringify({ pin: "0.1.5-rc.2", commit: "fb2c4b9e698e30edb738bca4cf0618587db7d203" }, null, 2),
 );
 if (existsSync("evidence/generated/sbom.json")) {
   writeFileSync(`${dir}/supply-chain/sbom.json`, readFileSync("evidence/generated/sbom.json"));
@@ -113,7 +113,7 @@ const manifest = {
   versions: {
     node: process.version,
     pnpm: "11.7.0",
-    dsh: "0.1.5-rc.1",
+    dsh: "0.1.5-rc.2",
     electron: "43.4.0",
     databaseSchema: 2,
   },

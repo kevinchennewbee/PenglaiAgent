@@ -87,6 +87,10 @@ export function wizardUrlForOrigin(origin: string): string {
 export function sanitizeStartupReason(reason: string): string {
   return reason
     .replace(/sk-[A-Za-z0-9_-]{8,}/g, "sk-[redacted]")
-    .replace(/(api[_-]?key|secret|token|password)\s*[:=]\s*\S+/gi, "$1=[redacted]")
+    .replace(/\b(?:github_pat_[A-Za-z0-9_]{10,}|gh[oprsu]_[A-Za-z0-9]{10,})\b/gi, "[redacted]")
+    .replace(/\bxox[baprs]-[A-Za-z0-9-]{10,}\b/gi, "[redacted]")
+    .replace(/\b\d{6,12}:[A-Za-z0-9_-]{20,}\b/g, "[redacted]")
+    .replace(/Authorization\s*[:=]\s*(?:Bearer|Basic|Token)\s+[A-Za-z0-9._~+/=-]{8,}/gi, "Authorization:[redacted]")
+    .replace(/(api[_-]?key|client[_-]?secret|app[_-]?secret|access[_-]?token|refresh[_-]?token|bot[_-]?token|token|secret|password)\s*[:=]\s*(?:["'][^"']{6,}["']|[^\s,;&]{6,})/gi, "$1=[redacted]")
     .slice(0, 400);
 }

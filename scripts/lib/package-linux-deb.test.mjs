@@ -44,8 +44,8 @@ const PNG_1X1 = Buffer.from(
 
 function writePluginCatalog(pluginsDir, extra = {}) {
   mkdirSync(pluginsDir, { recursive: true });
-  const office = "penglai-office-0.6.1.tgz";
-  const memory = "penglai-memory-0.6.1.tgz";
+  const office = "penglai-office-0.6.2.tgz";
+  const memory = "penglai-memory-0.6.2.tgz";
   writeFileSync(join(pluginsDir, office), "office-plugin\n");
   writeFileSync(join(pluginsDir, memory), "memory-plugin\n");
   writeFileSync(
@@ -112,10 +112,10 @@ test("packager fails closed unless the Penglai target key is linux-loong64", () 
 });
 
 test("UOS installer name is packager-owned and in RELEASE_TARGETS", () => {
-  assert.equal(uosDebInstallerName(), "Penglai_0.6.1_uos_loong64.deb");
-  assert.equal(UOS_DEB_INSTALLER_NAME, "Penglai_0.6.1_uos_loong64.deb");
+  assert.equal(uosDebInstallerName(), "Penglai_0.6.2_uos_loong64.deb");
+  assert.equal(UOS_DEB_INSTALLER_NAME, "Penglai_0.6.2_uos_loong64.deb");
   assert.equal(RELEASE_TARGETS.includes("linux-loong64"), true);
-  assert.equal(TARGET_INSTALLERS["linux-loong64"], "Penglai_0.6.1_uos_loong64.deb");
+  assert.equal(TARGET_INSTALLERS["linux-loong64"], "Penglai_0.6.2_uos_loong64.deb");
 });
 
 test("control Architecture is loongarch64 while target key stays linux-loong64", () => {
@@ -159,7 +159,7 @@ test("staged .deb keeps /opt/Penglai, desktop file, and required Office+Memory",
     assert.equal(control.Architecture, "loongarch64");
     assert.equal(control["X-Penglai-Target"], "linux-loong64");
     assert.equal(control.Package, "penglai");
-    assert.equal(control.Version, "0.6.1");
+    assert.equal(control.Version, "0.6.2");
     const data = parseDebDataFiles(deb);
     assert.equal(data.has("opt/Penglai/Penglai"), true);
     assert.equal(data.has("opt/Penglai/chrome-sandbox"), true);
@@ -169,11 +169,11 @@ test("staged .deb keeps /opt/Penglai, desktop file, and required Office+Memory",
     assert.match(desktop, /Exec=\/opt\/Penglai\/Penglai %U/);
     assert.match(desktop, /X-Penglai-Target=linux-loong64/);
     assert.equal(
-      data.has("opt/Penglai/resources/plugins/penglai-office-0.6.1.tgz"),
+      data.has("opt/Penglai/resources/plugins/penglai-office-0.6.2.tgz"),
       true,
     );
     assert.equal(
-      data.has("opt/Penglai/resources/plugins/penglai-memory-0.6.1.tgz"),
+      data.has("opt/Penglai/resources/plugins/penglai-memory-0.6.2.tgz"),
       true,
     );
     assert.deepEqual([...REQUIRED_BUILTIN_PLUGIN_IDS], [
@@ -209,6 +209,25 @@ test("deliverable UOS packager fails closed without DSH Node and flock", () => {
   }
 });
 
+test("release verification reopens the UOS package and requires the complete runtime", () => {
+  const verifier = readFileSync(join(root, "scripts", "verify-uos-package.mjs"), "utf8");
+  for (const required of [
+    "resources/app/electron-main.js",
+    "resources/app/preload-bridge.cjs",
+    "resources/runtime/node/bin/node",
+    "resources/runtime/dsh/lib/bin.js",
+    "resources/profile-seed/web/package.json",
+    "resources/mnemon/mnemon",
+    "usr/share/applications/penglai.desktop",
+    "usr/bin/penglai",
+  ]) {
+    assert.match(verifier, new RegExp(required.replaceAll("/", "\\/")));
+  }
+  assert.match(verifier, /mnemonPin\.binarySha256/);
+  assert.match(verifier, /manifestByPath\.has\(`plugins\/\$\{entry\.packageFile\}`\)/);
+  assert.doesNotMatch(verifier, /mnemonBundled:\s*Boolean/);
+});
+
 test("payload contract refuses missing sandbox or disabled Office/Memory", () => {
   const work = mkdtempSync(join(tmpdir(), "penglai-deb-neg-"));
   try {
@@ -232,13 +251,13 @@ test("payload contract refuses missing sandbox or disabled Office/Memory", () =>
         entries: [
           {
             id: "@penglai/office",
-            packageFile: "penglai-office-0.6.1.tgz",
+            packageFile: "penglai-office-0.6.2.tgz",
             installClass: "optional-first-party",
             defaultEnabled: false,
           },
           {
             id: "@penglai/memory",
-            packageFile: "penglai-memory-0.6.1.tgz",
+            packageFile: "penglai-memory-0.6.2.tgz",
             installClass: "required-builtin",
             defaultEnabled: true,
           },
@@ -405,4 +424,21 @@ test("linux packager overlays this SHA desktop bundle then fail-closes without t
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
+});
+
+test("final UOS artifact is re-verified as one complete local-only package", () => {
+  const verifier = readFileSync(join(root, "scripts/verify-uos-package.mjs"), "utf8");
+  const workflow = readFileSync(join(root, ".github/workflows/native-release-candidate.yml"), "utf8");
+  const assembler = readFileSync(join(root, "scripts/assemble-release.mjs"), "utf8");
+  assert.match(verifier, /parseDebDataFiles\(installerBytes\)/);
+  assert.match(verifier, /runtime-manifest\.json/);
+  assert.match(verifier, /closure-credential\.json/);
+  assert.match(verifier, /exact first-party plugin set/);
+  assert.match(verifier, /libatomic1/);
+  assert.match(verifier, /bubblewrap/);
+  assert.match(verifier, /OWNER_POST_RELEASE/);
+  assert.match(verifier, /claimedPass: false/);
+  assert.match(workflow, /pnpm verify:uos-package/);
+  assert.match(workflow, /verify-uos-package-linux-loong64\.json/);
+  assert.match(assembler, /verified UOS package evidence is missing/);
 });

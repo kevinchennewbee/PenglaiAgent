@@ -312,7 +312,7 @@ const target = parseTargetArg();
 if (target === "linux-loong64") {
   finish("INCOMPLETE", {
     command: COMMAND,
-    reason: "UOS native install/startup/function is OWNER_POST_RELEASE, not a 0.6.1 native PASS",
+    reason: "UOS native install/startup/function is OWNER_POST_RELEASE, not a 0.6.2 native PASS",
     target,
     sourceSha: source.git.head,
     nativeUosStatus: "OWNER_POST_RELEASE",

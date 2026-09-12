@@ -856,7 +856,7 @@ test("MISSING_CREDENTIAL on official turn/end fails as auth without waiting out 
 
 test("stale derived DeepSeek ref remaps to DEEPSEEK_API_KEY before the nonce Turn", async () => {
   const { createPenglaiOnboardingRemoteImpl } = await import("./onboarding-remote.js");
-  const SECRET = "sk-remap-test-value-never-persist";
+  const SECRET = "sk-remap-test-value-never-persist"; // penglai-test-fixture
   const store = new Map<string, string>([["DEEPSEEK_OFFICIAL_API_KEY", SECRET]]);
   const sets: string[] = [];
   const created: number[] = [];
@@ -1046,7 +1046,7 @@ test("stale derived ref without resolve fails closed as auth and does not start 
 
 test("credential re-entry from model-test-v1 drops the stale derived ref and remap failure is surfaced", async () => {
   const { createPenglaiOnboardingRemoteImpl } = await import("./onboarding-remote.js");
-  const SECRET = "sk-reenter-test-value-never-persist";
+  const SECRET = "sk-reenter-test-value-never-persist"; // penglai-test-fixture
   const store = new Map<string, string>([["DEEPSEEK_OFFICIAL_API_KEY", "stale-secret"]]);
   const unsets: string[] = [];
   const impl = createPenglaiOnboardingRemoteImpl({

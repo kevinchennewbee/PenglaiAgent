@@ -36,6 +36,10 @@ test("license policy rejects unknown and copyleft production dependencies", () =
     classifyLicense("@img/sharp-win32-x64", "Apache-2.0 AND LGPL-3.0-or-later", "0.35.4").disposition,
     "lgpl-runtime-source-offer-required",
   );
+  assert.equal(
+    classifyLicense("@img/sharp-wasm32", "Apache-2.0 AND LGPL-3.0-or-later AND MIT", "0.35.4").disposition,
+    "lgpl-runtime-source-offer-required",
+  );
   assert.throws(() => classifyLicense("poppler-pdftoppm", "GPL-2.0-only OR GPL-3.0-only"), /unapproved copyleft/);
   assert.throws(() => classifyLicense("libsignal", "GPL-2.0-only OR GPL-3.0-only"), /unapproved copyleft/);
 });
