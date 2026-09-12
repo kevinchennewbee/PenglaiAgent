@@ -24,6 +24,7 @@ are not substituted for generated release identity.
 | CodeQL run | [34709659600](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34709659600) on the build SHA; zero open alerts at release |
 | Native targets | [34709915417](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34709915417): darwin-aarch64, win32-x86_64, linux-loong64; exact aggregate PASS; Intel Mac excluded |
 | Publish and readback | [34712617415](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34712617415) |
+| Website deploy and readback | [34714111473](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34714111473): sealed website deployed; every public file matched at Cloudflare Pages and GitHub Pages |
 | Trust | community-verified; macOS ad-hoc, not notarized; Windows no Authenticode; UOS Electron 31.7.7 / Chromium 126 and Node 22.16.0 unmaintained, without Mac/Windows security parity |
 | Native UOS | `OWNER_POST_RELEASE` |
 | Signed updater | Apple Silicon and Windows x64 |
