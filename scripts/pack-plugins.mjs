@@ -74,7 +74,6 @@ const packs = [
         "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-settings-general",
-        "@deepseek-ai/dsh-client-ui-message-feedback",
       ],
       platform: "web",
     },
@@ -913,7 +912,7 @@ for (const p of packs) {
       !p.dshClient.inject.includes("@deepseek-ai/dsh-client-ui-settings") ||
       p.dshClient.inject.includes("@deepseek-ai/dsh-client-runtime"))
   ) {
-    console.error("plugin client injection is not the fixed DSH alpha graph", p.id);
+    console.error("plugin client injection is not the fixed DSH graph", p.id);
     process.exit(1);
   }
   const catalogMetadata = FIRST_PARTY_PLUGIN_METADATA.find(

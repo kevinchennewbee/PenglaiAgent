@@ -3,6 +3,25 @@ export function expectedUpgradeSourceVersions(upgradeSources) {
   return upgradeSources.sources.map((row) => String(row.version ?? "")).filter(Boolean).sort();
 }
 
+export function assertNextUpdaterSequence(upgradeSources, currentSequence) {
+  if (!Number.isSafeInteger(currentSequence) || currentSequence < 1) {
+    throw new Error("current updater sequence must be a positive safe integer");
+  }
+  const sources = upgradeSources?.sources;
+  if (!Array.isArray(sources) || sources.length < 1) {
+    throw new Error("at least one immutable previous release is required");
+  }
+  const previous = sources.map((row) => Number(row?.updateSequence));
+  if (previous.some((value) => !Number.isSafeInteger(value) || value < 1)) {
+    throw new Error("every previous release must pin its public updater sequence");
+  }
+  const maximum = Math.max(...previous);
+  if (currentSequence !== maximum + 1) {
+    throw new Error(`updater sequence ${currentSequence} must follow public sequence ${maximum}`);
+  }
+  return maximum;
+}
+
 /** Current-version native workflow scope. Historical sources[] stay immutable pins. */
 export function currentNativeLifecycleScope(upgradeSources) {
   const workflow = upgradeSources?.currentWorkflow;

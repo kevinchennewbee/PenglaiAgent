@@ -79,6 +79,7 @@ const packed = spawnSync(
   [
     "/INPUTCHARSET",
     "UTF8",
+    `/DPENGLAI_VERSION=${PRODUCT_VERSION}`,
     `/DPENGLAI_OUTFILE=${out}`,
     `/DPENGLAI_PAYLOAD=${payload}`,
     `/DPENGLAI_LICENSE=${license}`,

@@ -93,6 +93,7 @@ function readFileForTest() {
     `export const PROFILE_SCHEMA = ${pins.profileSchema};`,
     `export const CATALOG_SCHEMA = ${pins.catalogSchema};`,
     `export const IM_SCHEMA = ${pins.imSchema};`,
+    `export const UPDATER_SEQUENCE = ${pins.updaterSequence};`,
     "export const PUBLICATION_TARGET = Object.freeze({",
     `  repo: "${pins.publication.repo}",`,
     `  tag: "${pins.publication.tag}",`,

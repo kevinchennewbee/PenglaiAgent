@@ -694,6 +694,24 @@ test("P059-DATA-014 0.5.8 alpha.1 upgrades boot a resumable isolated 0.1.5-rc.2 
   );
 });
 
+test("prepared migration is rejected and rebuilt when its source generation changes", () => {
+  const root = fixtureRoot();
+  const paths = resolveDshHomeUpgradePaths(root);
+  const first = prepareDshHomeForBoot({ userRoot: root, reserveBytes: 0 });
+  assert.equal(first.kind, "migration-prepared");
+  writeFileSync(join(paths.sourceHome, "settings.yaml"), "locale:\n  preference: en\n");
+
+  const second = prepareDshHomeForBoot({ userRoot: root, reserveBytes: 0 });
+  assert.equal(second.kind, "migration-prepared");
+  assert.notEqual(second.operationId, first.operationId);
+  const rejected = JSON.parse(
+    readFileSync(join(paths.operationsRoot, `${first.operationId}.json`), "utf8"),
+  );
+  assert.equal(rejected.state, "rejected");
+  assert.match(rejected.rejectionReason, /source DSH home changed/);
+  assert.equal(readFileSync(join(paths.targetHome, "settings.yaml"), "utf8"), "locale:\n  preference: en\n");
+});
+
 test("0.5.9 alpha.2 active generation copies a legal session log into 0.1.5-rc.2", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-alpha2-"));
   const previousHome = join(root, "dsh-homes", `dsh-v${DSH_HOME_ALPHA2_VERSION}`);
@@ -1493,5 +1511,4 @@ test("PM 498-link 0.1.3-alpha.2 descriptor copies through Home without SECURITY_
   assert.equal(existsSync(join(plan.dshHome, "profiles", "web", "node_modules")), false);
   assert.equal(existsSync(join(root, "dsh-home-migrations", `${plan.operationId}.json`)), true);
 });
-
 

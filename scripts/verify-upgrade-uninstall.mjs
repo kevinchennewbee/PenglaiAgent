@@ -14,6 +14,7 @@ import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import {
   exeInside,
+  forceStopChild,
   cleanupRegisteredWindowsInstallerFixture,
   installFromExactDmg,
   launchPackaged,
@@ -22,7 +23,6 @@ import {
   reapWindowsInstallTree,
   resourcesInside,
   sha256File,
-  stopChild,
 } from "./lib/installed-app.mjs";
 import {
   classifyUninstallResidue,
@@ -43,6 +43,11 @@ import {
   parseTargetArg,
 } from "./lib/release-targets.mjs";
 import { currentNativeLifecycleScope, expectedUpgradeSourceVersions } from "./lib/native-upgrade-set.mjs";
+import {
+  classifyApplicationShutdown,
+  requestNativeApplicationClose,
+  waitForChildExitNoKill,
+} from "./lib/native-lifecycle-proof.mjs";
 import { updateVerifiedRegularFile } from "./lib/verified-file.mjs";
 
 const versionIndex = process.argv.indexOf("--previous-version");
@@ -180,7 +185,31 @@ async function boot(app, userData, label) {
   const { launched, gateway, inventory, freshReadiness } = await observeFreshInstalledBoot(
     userData, () => launchPackaged(executable, resources, userData),
   );
-  const [code, signal] = await stopChild(launched.child);
+  const waiting = waitForChildExitNoKill(launched.child, 20_000);
+  const closeRequest = await requestNativeApplicationClose(launched.child, {
+    platform: process.platform,
+  });
+  const waited = await waiting;
+  if (waited.timedOut) {
+    const forced = await forceStopChild(launched.child);
+    fail(`${label} required forced process termination`, {
+      shutdown: { ...closeRequest, ...forced, graceful: false },
+    });
+  }
+  const shutdown = {
+    ...closeRequest,
+    exitCode: waited.code,
+    signal: waited.signal,
+    forced: false,
+    graceful: false,
+  };
+  const classified = classifyApplicationShutdown(shutdown, target);
+  if (!classified.graceful) {
+    fail(`${label} did not complete a normal application shutdown`, {
+      shutdown,
+      classified,
+    });
+  }
   if (process.platform === "win32") {
     const reaped = await reapWindowsInstallTree(app);
     if (!reaped.ok) {
@@ -197,17 +226,16 @@ async function boot(app, userData, label) {
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
     }
   }
-  if (!freshReadiness || !gateway || !inventory || (code !== 0 && signal === null)) {
+  if (!freshReadiness || !gateway || !inventory) {
     fail(`${label} did not boot and exit through the installed runtime`, {
       gateway,
       inventory,
       freshReadiness,
-      code,
-      signal,
+      shutdown,
       outputTail: sanitizeEvidenceText(launched.output(), 2_000),
     });
   }
-  return { gateway, inventory, freshReadiness, exitCode: code, signal };
+  return { gateway, inventory, freshReadiness, shutdown: { ...shutdown, graceful: true } };
 }
 
 function readWindowsSetupLog() {
@@ -245,7 +273,7 @@ function observeWindowsDefender() {
     stderr: sanitizeEvidenceText(String(defender.stderr ?? ""), 200),
   };
   if (defender.status !== 0) {
-    fail("Windows Defender preference could not be observed; 0.5.12 requires default-on realtime monitoring with no Penglai exclusions", {
+    fail("Windows Defender preference could not be observed; native lifecycle requires no Penglai exclusions", {
       defender: lastWindowsDefender,
     });
   }
@@ -371,10 +399,10 @@ if (!previousVersion) {
     previousVersions: upgradePaths.map((record) => record.previous.version),
     current: upgradePaths.at(-1).current, upgradePaths,
     leftover: upgradePaths.flatMap((record) => record.leftover ?? []),
-    upgradePreservedOwnerData: true,
+    upgradePreservedOwnerData: upgradePaths.every((record) => record.upgradePreservedOwnerData === true),
     uninstallRemovedApp: upgradePaths.every((record) => record.uninstallRemovedApp === true),
     uninstallLeftoverNames: upgradePaths.flatMap((record) => record.leftover ?? []),
-    uninstallPreservedOwnerData: true,
+    uninstallPreservedOwnerData: upgradePaths.every((record) => record.uninstallPreservedOwnerData === true),
   });
 }
 if (!sourcePin) fail("unsupported previous version");
@@ -416,6 +444,7 @@ if (target === "win32-x86_64") {
 
 let uninstallLeftoverNames = [];
 let uninstallRemovedApp = false;
+let uninstallMethod = "";
 const previousIdentity = assertVersion(app, previousVersion, "previous install");
 const previousBoot = await boot(app, userData, "previous install");
 const ownerDataFixture = seedOwnerDataForUpgrade(userData, previousVersion);
@@ -470,11 +499,13 @@ if (target === "win32-x86_64") {
   }
   uninstallLeftoverNames = residue.uninstallerOnly.slice();
   uninstallRemovedApp = residue.uninstallRemovedApp;
+  uninstallMethod = "exact NSIS Uninstall.exe /S";
   removeUninstallerResidualOnly(app, residue);
 } else {
   const exactAppRoot = requireExactChild(appRoot, ROOT, "macOS app test root");
   rmSync(exactAppRoot, { recursive: true, force: true });
   uninstallRemovedApp = true;
+  uninstallMethod = "controlled app-copy removal equivalent to the documented Finder Move to Trash step";
 }
 const removed = await waitRemoved(app, 60_000);
 if (!removed || !existsSync(sentinel)) {
@@ -485,6 +516,12 @@ if (!removed || !existsSync(sentinel)) {
   });
 }
 const uninstallPreservation = assertOwnerDataAfterUpgrade(ownerDataFixture, "uninstall");
+const upgradePreservedOwnerData = Object.values(upgradePreservation)
+  .filter((value) => typeof value === "boolean")
+  .every((value) => value === true);
+const uninstallPreservedOwnerData = Object.values(uninstallPreservation)
+  .filter((value) => typeof value === "boolean")
+  .every((value) => value === true);
 
 finish("PASS", {
   command: "verify:upgrade-uninstall",
@@ -504,11 +541,12 @@ finish("PASS", {
     boot: currentBoot,
   },
   leftover: uninstallLeftoverNames,
-  upgradePreservedOwnerData: true,
+  upgradePreservedOwnerData,
   upgradePreservation,
   uninstallRemovedApp,
+  uninstallMethod,
   uninstallLeftoverNames,
-  uninstallPreservedOwnerData: true,
+  uninstallPreservedOwnerData,
   uninstallPreservation,
   defender: lastWindowsDefender,
   uninstallResidualAllowed: uninstallLeftoverNames.length

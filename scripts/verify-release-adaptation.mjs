@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { validateCohortSnapshot, verifyCohortLock } from "./lib/dsh-npm-cohort.mjs";
 import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
+import { assertNextUpdaterSequence } from "./lib/native-upgrade-set.mjs";
 import { ROOT } from "./lib/repo.mjs";
 
 const BASE = "87f6aec04b2b77d45a5c2b280d1b75332a80eb33";
@@ -92,6 +93,11 @@ if (protected061.length > 0) {
 
 if (pins.productVersion !== "0.6.2" || pins.dsh !== "0.1.5-rc.2") {
   fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.6.2/0.1.5-rc.2`);
+}
+try {
+  assertNextUpdaterSequence(readJson("docs/0.6.2/UPGRADE_SOURCES.json"), pins.updaterSequence);
+} catch (error) {
+  fail(error.message);
 }
 if (existsSync(join(ROOT, ".pnpmfile.mjs"))) fail("0.6.2 must not activate the historical alpha.1 source resolver");
 

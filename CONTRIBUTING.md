@@ -2,12 +2,12 @@
 
 Penglai is a desktop distribution of official DeepSeek Harness. Follow the
 current `AGENTS.md` and version contract. Commit, push, PR and merge only with
-the user's applicable authorization. Completed 0.5.10 publication does not
-authorize rewriting that release. 0.5.11 follows the current product contract.
+the user's applicable authorization. Completed releases stay immutable. 0.6.2
+follows the current product contract and acceptance delta.
 
 ## Prerequisites
 
-- Node `22.22.2`
+- Node `22.23.2`
 - pnpm `11.7.0`
 - macOS 13.0+ (macOS 14+ recommended for the current Apple Silicon native runner)
 - Native installed evidence still comes from matching-target installers, not from
@@ -16,17 +16,19 @@ authorize rewriting that release. 0.5.11 follows the current product contract.
 
 ## Required reading before code
 
-Read `PRODUCT_CONSTITUTION.md`, then `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/ACCEPTANCE.md`, and `docs/PUBLICATION_0.5.0.md`. Do not implement a second Agent runtime, a second chat UI, a provider gateway, or a production secret path other than official credentials-local YAML.
+Read `PRODUCT_CONSTITUTION.md`, then `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/ACCEPTANCE.md`, and `docs/0.6.2/ACCEPTANCE_DELTA.md`. Do not implement a second Agent runtime, a second chat UI, a provider gateway, or a production secret path other than official credentials-local YAML.
 
 ## Develop
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm fetch:mnemon-assets
 pnpm typecheck
 pnpm test:unit
 pnpm test:contract
 pnpm test:integration
 pnpm test:security
+pnpm audit:advisories
 ```
 
 Installed evidence must come from the exact installer, not from `dist` staging or a source-tree Electron launch:

@@ -145,6 +145,7 @@ This repository uses Node `22.23.2` and pnpm `11.7.0`.
 ```bash
 corepack enable
 pnpm install --frozen-lockfile
+pnpm fetch:mnemon-assets
 pnpm typecheck
 pnpm test:unit
 pnpm test:contract
@@ -154,6 +155,7 @@ pnpm test:security
 pnpm verify:contracts
 pnpm verify:dependencies
 pnpm audit:secrets
+pnpm audit:advisories
 ```
 
 Native packages must be built on their matching hosts. Start with

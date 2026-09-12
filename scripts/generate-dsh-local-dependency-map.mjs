@@ -10,12 +10,19 @@ import { finish } from "./lib/exit-contract.mjs";
 import { ROOT } from "./lib/repo.mjs";
 
 const write = process.argv.includes("--write");
+const rootPackagePath = join(ROOT, "package.json");
+const rootPackage = JSON.parse(readFileSync(rootPackagePath, "utf8"));
+if (rootPackage.version !== "0.5.8") {
+  finish("BLOCKED", {
+    command: "verify:dsh-local-dependencies",
+    reason: "historical 0.5.8 source-path generator is not valid for the current registry cohort",
+    currentVersion: rootPackage.version,
+  });
+}
 const mapPath = join(ROOT, "docs/0.5.8/DSH_LOCAL_DEPENDENCY_MAP.json");
 const map = buildDshLocalDependencyMap(ROOT);
 const expectedMap = stringifyCanonicalJson(map);
 const stringifyManifest = (value) => `${JSON.stringify(value, null, 2)}\n`;
-const rootPackagePath = join(ROOT, "package.json");
-const rootPackage = JSON.parse(readFileSync(rootPackagePath, "utf8"));
 const preservedOverrides = {
   "@liustack/pptfast>sharp": "0.35.4",
   "exceljs>uuid": "11.1.1",

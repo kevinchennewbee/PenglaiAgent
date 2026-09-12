@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "kind": "penglai-0.6.0-uos20-oldworld-native-addons",
+  "kind": "penglai-0.6.2-uos20-oldworld-native-addons",
   "nativeExecution": "UNRUN",
   "nativeChecks": "OWNER_POST_RELEASE",
   "target": "linux-loong64",

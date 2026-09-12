@@ -5,10 +5,10 @@
 ; Native PASS is reserved for win-x64.
 
 !ifndef PENGLAI_VERSION
-  !define PENGLAI_VERSION "0.6.0"
+  !define PENGLAI_VERSION "0.6.2"
 !endif
 !ifndef PENGLAI_OUTFILE
-  !define PENGLAI_OUTFILE "Penglai_0.6.0_windows_x64_setup.exe"
+  !define PENGLAI_OUTFILE "Penglai_0.6.2_windows_x64_setup.exe"
 !endif
 
 Unicode true

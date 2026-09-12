@@ -39,4 +39,3 @@
   disabled: true
 - id: ui-message-feedback
   name: "@deepseek-ai/dsh-client-ui-message-feedback"
-  disabled: true

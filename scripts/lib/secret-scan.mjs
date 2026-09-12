@@ -134,8 +134,8 @@ export const PERSONAL_EMAIL_DOMAINS = Object.freeze([
   "yahoo.com",
 ]);
 
-const UNIX_OWNER_PATH = /\/(?:Users|Volumes)\/([A-Za-z0-9][A-Za-z0-9._-]*)/g;
-const WINDOWS_OWNER_PATH = /C:\\Users\\([A-Za-z0-9][A-Za-z0-9._-]*)/gi;
+const UNIX_OWNER_PATH = /(?<![A-Za-z0-9:])\/(?:Users|Volumes|home)\/([A-Za-z0-9][A-Za-z0-9._-]*)/g;
+const WINDOWS_OWNER_PATH = /C:[\\/]+Users[\\/]+([A-Za-z0-9][A-Za-z0-9._-]*)/gi;
 const EMAIL_ADDRESS = /\b[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})\b/g;
 
 export function scanIdentityText(rel, text) {
@@ -146,6 +146,8 @@ export function scanIdentityText(rel, text) {
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? "";
     if (FIXTURE_MARKER.test(line)) continue;
+    if (lineLooksLikeDetector(line)) continue;
+    let ownerPathFound = false;
     for (const re of [UNIX_OWNER_PATH, WINDOWS_OWNER_PATH]) {
       re.lastIndex = 0;
       let match;
@@ -153,9 +155,11 @@ export function scanIdentityText(rel, text) {
         const segment = (match[1] ?? "").toLowerCase();
         if (segment && !SYNTHETIC_PATH_SEGMENTS.includes(segment)) {
           hits.push({ rule: "owner-absolute-path", category: "owner-path", file, line: index + 1 });
+          ownerPathFound = true;
           break;
         }
       }
+      if (ownerPathFound) break;
     }
     EMAIL_ADDRESS.lastIndex = 0;
     let email;

@@ -84,7 +84,7 @@ choose Off, Review first, or Smart Workspace organization.
 Personal memory, forgetting, correction, import, authorised-source revoke, and
 SOP promotion use action-specific Owner approval. Source indexing never modifies
 the original files; revoke removes the derived index and leaves the source
-untouched. Mnemon 0.2.4 is the only recall engine and is bundled per target.
+untouched. Mnemon 0.2.8 is the only recall engine and is bundled per target.
 
 ### 6. Office and artifacts
 
@@ -178,10 +178,11 @@ macOS is ad-hoc signed and not notarized. Windows has no Authenticode.
 Gatekeeper or SmartScreen may warn. Penglai Ed25519 signatures protect updater
 and plugin bytes but do not provide Apple or Microsoft publisher identity.
 
-0.5.10 succeeds only when one clean source SHA produces all three native
-installers, source/security/privacy gates pass, installed evidence exists on
-each matching runner, and the immutable ten-asset Release passes public
-byte-for-byte readback. Credential-free gates do not establish an external model
+0.6.2 succeeds only when one clean source SHA produces its exact three
+installers, source/security/privacy gates pass, Mac and Windows installed
+lifecycle evidence passes, the UOS package/ABI/runtime closure passes, and the
+immutable ten-asset Release passes public byte-for-byte readback. Native UOS use
+remains `OWNER_POST_RELEASE`. Credential-free gates do not establish an external model
 reply or account delivery. Account-based results are recorded only when executed.
 Normal functional tests apply; a two-hour installed soak is not required or pending.
 See [the current acceptance delta](0.6.2/ACCEPTANCE_DELTA.md).
@@ -269,7 +270,8 @@ patch 之后硬性禁用该行，因此 owned DSH 进程不会创建 SDK provide
 0.5.0 仍需手动覆盖。默认卸载保留用户数据，完整删除必须按精确类别确认，不能删除
 Workspace、授权源、home/root、旧代数据或越界链接。
 
-macOS 为 ad-hoc 签名且未公证；Windows 没有 Authenticode。0.5.10 只有在同一干净
-源码 SHA 的三端原生包、三端安装证据、隐私门禁和不可变十资产公网回读全部成立，
-且当前 README 与双语官网同步后，才算完成正常发布。无凭据测试不能证明真实模型
+macOS 为 ad-hoc 签名且未公证；Windows 没有 Authenticode。0.6.2 只有在同一干净
+源码 SHA 的三个精确安装包、Mac/Windows 安装生命周期、UOS 包/ABI/运行闭包、
+隐私门禁和不可变十资产公网回读全部成立，且当前 README 与双语官网同步后，才算
+完成正常发布；UOS 真机功能保持 `OWNER_POST_RELEASE`。无凭据测试不能证明真实模型
 Turn 或账号消息送达；账号验证只记录实际执行结果。两小时测试不运行，也不是待办。

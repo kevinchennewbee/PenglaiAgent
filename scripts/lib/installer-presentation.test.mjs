@@ -165,5 +165,10 @@ test("Windows NSIS welcome and header bitmaps are 24-bit branded pages", () => {
   assert.doesNotMatch(nsi, /\/IM Penglai\.exe/);
   assert.match(packager, /PENGLAI_WELCOME_BMP=/);
   assert.match(packager, /PENGLAI_HEADER_BMP=/);
+  assert.match(packager, /`\/DPENGLAI_VERSION=\$\{PRODUCT_VERSION\}`/);
+  assert.match(nsi, /!define PENGLAI_VERSION "0\.6\.2"/);
+  assert.match(nsi, /!define PENGLAI_OUTFILE "Penglai_0\.6\.2_windows_x64_setup\.exe"/);
+  assert.match(nsi, /DisplayVersion" "\$\{PENGLAI_VERSION\}"/);
+  assert.match(nsi, /BrandingText "Penglai \$\{PENGLAI_VERSION\}"/);
   assert.match(packager, /packaging", "nsis-welcome\.bmp"/);
 });

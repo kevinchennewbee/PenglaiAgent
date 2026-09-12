@@ -35,7 +35,7 @@ and 0.6.0 assets have not been changed.
 - Penglai Ed25519 signatures protect installer and updater integrity. They are **not** Apple or Microsoft publisher trust. Signed updater coverage is Apple Silicon and Windows x64.
 - First launch may show an OS reputation warning. Penglai will not tell users to turn off Gatekeeper or SmartScreen.
 - There is **no silent auto-update**. Later 0.5.x upgrades are signed assisted upgrades that the user must confirm.
-- The dependency graph retains the unpatched [adm-zip advisory](https://github.com/advisories/GHSA-vwc7-r8mq-g2x9). Its ONNX installation-script extraction path is disabled in the release build, and Penglai does not call it from the product runtime. Packaged PDF page-image preview remains deferred. The generic sidebar is a plain-text preview, not a DOCX renderer.
+- Production dependencies are checked against the official npm advisory registry in source CI. The patched `adm-zip` 0.6.1 override is also covered by a symlink-overwrite regression. Packaged PDF page-image preview remains deferred. The generic sidebar is a plain-text preview, not a DOCX renderer.
 
 ## Secrets and local data
 
