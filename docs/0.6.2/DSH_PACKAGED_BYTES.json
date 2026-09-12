@@ -1,0 +1,62 @@
+{
+  "schema": 2,
+  "dsh": "0.1.5-rc.2",
+  "source": {
+    "repository": "https://github.com/deepseek-ai/DeepSeek-Harness.git",
+    "tag": "dsh-v0.1.5-rc.2",
+    "commit": "fb2c4b9e698e30edb738bca4cf0618587db7d203",
+    "tree": "bd7dd6d90010a35d3d6ff9f12c1f6207d5b6fe38",
+    "archiveSha256": "86a6c04bd31c8b37ab37417a73a5c65a8cf8d42f8bd80e1da881985200ac21aa",
+    "cohortManifest": "docs/0.6.2/DSH_NPM_COHORT.json"
+  },
+  "mode": "official-npm-cohort-no-source-patch",
+  "officialBytes": [
+    {
+      "id": "web-frontend-index",
+      "relative": "node_modules/@deepseek-ai/dsh-web-frontend/dist/index.html",
+      "sourcePackage": "@deepseek-ai/dsh-web-frontend@0.1.5-rc.2",
+      "integrity": "sha512-o0+dEbtEzchPnNFkKQ4o3/OekEi+PG8CTEwp1eWWg15TRiZbG2OeUKMsQjPpAVCMDnpEwMQ9skdKcwKj4TXAzQ==",
+      "sha256": "08feea36f5f7a805fe3b2b8cb70c286f54f3536eb036f5cc266d2981c4d57cc4"
+    },
+    {
+      "id": "settings-models-client",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js",
+      "sourcePackage": "@deepseek-ai/dsh-client-ui-settings-models@0.1.5-rc.2",
+      "integrity": "sha512-L1vxfbVZEDmGlVuEaJcQb60E36l7BMZoICLJf+D7r8Gwcy8kFckGWKS0fbxsz+3Jvm2L0+lINJESzSMC9pMGNA==",
+      "sha256": "a60fd86357f9fbc6f5276ed0393682f7f2223faedec4f30c719d66e99600b1bb"
+    },
+    {
+      "id": "conversation-client",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js",
+      "sourcePackage": "@deepseek-ai/dsh-client-ui-conversation@0.1.5-rc.2",
+      "integrity": "sha512-VnZ0VrmI7+1JH/iMYV6+FaxCsZrVk4CZIuG+k1HkeevHgUPHe3ghLo8u1Qt9cx00MEH5i3bLOY5Nka3w4mbA6g==",
+      "sha256": "81314dfd95864f2522f8edb812e3f8e08b04a8ef2141913e6e8cbdaae1ffc37f"
+    },
+    {
+      "id": "settings-general-client",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-general/lib/client.js",
+      "sourcePackage": "@deepseek-ai/dsh-client-ui-settings-general@0.1.5-rc.2",
+      "integrity": "sha512-Y/UNa3iwrqLesUVSPLts1xZotenWyybnpU0/oABUt6rkvhDuxVz2w8HltnrVD3ytKzPBSrmlK2vP2YyUaK4z2g==",
+      "sha256": "c5995dba8c3b944a46ebae6bc860b35b8adacd4786105ca636b5b73b84ae396e"
+    },
+    {
+      "id": "message-feedback-client",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-message-feedback/lib/client.js",
+      "sourcePackage": "@deepseek-ai/dsh-client-ui-message-feedback@0.1.5-rc.2",
+      "integrity": "sha512-LSp6c87DLMiO4B0JCpp00QEHI6VEKSLWydAx7DBjWTma397HLGLwKoaOT7kHZ8ZSkei970LmdBCUxcwo2Mc4tQ==",
+      "sha256": "c951bcd9e9fd6e3bf0c788af1c1f53ea66f63131045326ce483570001471a0f5"
+    }
+  ],
+  "brandAssets": [
+    {
+      "name": "logo-64.png",
+      "source": "overlays/dsh-0.1.1-rc.2/brand/logo-64.png",
+      "sha256": "aed9e69c65bc9bba802064f06851cb157283fef587b492223bc0e3b289fd5985"
+    },
+    {
+      "name": "logo-256.png",
+      "source": "overlays/dsh-0.1.1-rc.2/brand/logo-256.png",
+      "sha256": "c40f14d9409428248aa06733453e05d3c91c7f84efd95fa2a5c882d2092deda2"
+    }
+  ]
+}

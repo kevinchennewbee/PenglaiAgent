@@ -1,4 +1,9 @@
-# Penglai 0.5.7 三端平台矩阵
+# Penglai 0.5.7 三端平台矩阵（历史）
+
+> 本文保留 0.5.7 的历史三端合同，不是当前平台事实。当前 0.6.2 候选的精确
+> 目标为 `darwin-aarch64`、`win32-x86_64`、`linux-loong64`；Intel Mac 已由
+> Owner 排除。当前文件名、运行时与证据要求以 `release-contract.json`、
+> `docs/0.6.2/ACCEPTANCE_DELTA.md` 和 `docs/0.6.2/NATIVE_LIFECYCLE.md` 为准。
 
 ## 1. 固定矩阵
 

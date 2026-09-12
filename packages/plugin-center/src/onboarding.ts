@@ -78,7 +78,7 @@ export const OFFICIAL_SETTINGS_PREFERENCE_FIELD = "preference" as const;
 export const OFFICIAL_WELCOME_SETTINGS_NS = "ui-onboarding" as const;
 export const OFFICIAL_WELCOME_ACK_FIELD = "welcomeNoticeVersion" as const;
 export const AGENT_DEFAULT_MODEL_SETTINGS_NS = "agent-default-model" as const;
-/** Exact acknowledgement version exported by the fixed DSH 0.1.5-rc.1 source. */
+/** Exact acknowledgement version exported by the fixed DSH 0.1.5-rc.2 source. */
 export const DSH_WELCOME_NOTICE_VERSION = "2026-08-13.1" as const;
 
 export const ONBOARDING_STEPS = [

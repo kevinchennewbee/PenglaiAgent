@@ -11,10 +11,10 @@
   `release-contract.json`, and current source define the product/release
   contract. Reports are leads; published claims require verified public
   artifact evidence.
-- v0.5.10, v0.5.11, v0.5.12 and v0.6.0 are immutable public history. For
-  0.6.1, `docs/0.6.1/` and the current source govern development work. They
-  are not public-release truth until immutable `v0.6.1` bytes exist, and must
-  not modify or weaken published 0.5.10, 0.5.11, 0.5.12 or 0.6.0.
+- v0.5.10, v0.5.11, v0.5.12, v0.6.0 and v0.6.1 are immutable public history.
+  For 0.6.2, `docs/0.6.2/` and the current source govern development work.
+  They are not public-release truth until immutable `v0.6.2` bytes exist, and
+  must not modify or weaken any published release history.
 
 ## Product boundary
 
@@ -25,9 +25,9 @@
   optional and default off.
 - 0.5.8 is immutable public history built from official DSH
   `dsh-v0.1.2-alpha.1` / `cd5ef8148158c3a752a658978873241fdf8e2bbc`.
-- For 0.6.1, the Owner-fixed upstream baseline is official npm
-  `0.1.5-rc.1`, tag `dsh-v0.1.5-rc.1`, commit
-  `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`. Penglai consumes the complete
+- For 0.6.2, the Owner-fixed upstream baseline is official npm
+  `0.1.5-rc.2`, tag `dsh-v0.1.5-rc.2`, commit
+  `fb2c4b9e698e30edb738bca4cf0618587db7d203`. Penglai consumes the complete
   pinned DSH/vendor/Landlock cohort with exact registry integrity; package
   count is discovered from the graph. It must not mix different DSH
   generations or substitute source paths, Git dependencies, or locally
@@ -56,12 +56,11 @@
   commit/version, digest, license, patch, and reproducible fetch/build procedure.
 - Do not claim installed, native, live, Windows, Intel, notarized, Authenticode,
   or public-release evidence from source tests or cross-build output.
-- 0.6.1 identity, native and publication work lands through `codex/0.6.1`
-  onto later manager-reviewed `main` freeze. The Owner authorized the full
-  0.6.1 workflow; per-phase source-only limits are sequencing. This worker
-  phase does not create a PR, merge, tag, or public download claim. Do not
-  change an existing release tag/asset, publish preview bytes, or deploy a
-  public download claim before public bytes exist.
+- The Owner authorized the full 0.6.2 workflow: reviewed source, PR, `main`
+  freeze, three-target native build, immutable publication, public readback,
+  and README/site update. Do not change an existing release tag or asset,
+  publish preview bytes, or deploy a public download claim before immutable
+  0.6.2 bytes exist.
 
 ## Verification and release
 
@@ -75,10 +74,11 @@
 - The onboarding wizard must never strand a user. Verify fresh install, restart,
   Back/retry, invalid folder rejection, credential failure recovery, first official
   message, and default uninstall on Apple Silicon and Windows x64.
-  Old-version installed upgrade is `OWNER_EXCLUDED` for 0.6.1. UOS native
-  install/startup/function is `OWNER_POST_RELEASE` and must not be labeled PASS;
-  the UOS package/ABI/closure still require verification.
-- Native artifacts for all three selected 0.6.1 targets must come from one clean
+  The 0.6.1 to 0.6.2 installed upgrade is required on Apple Silicon and
+  Windows x64. UOS native install/startup/function is `OWNER_POST_RELEASE` and
+  must not be labeled PASS; the UOS package/ABI/closure still require
+  verification.
+- Native artifacts for all three selected 0.6.2 targets must come from one clean
   `main` SHA. Intel Mac is excluded from this version. Follow the current
   version contract and acceptance delta; publish only the exact asset set in
   `release-contract.json`, then verify immutable public bytes. Missing any
@@ -99,9 +99,9 @@
   `GenericAgent` 仓库混淆。
 - 产品宪法、产品与架构文档、验收清单、当前版本验收增量、发布契约与源码约束产品；
   公开发布声明还须真实附件取证。其他模型的报告只能作为线索。
-- v0.5.10、v0.5.11、v0.5.12、v0.6.0 已不可变。0.6.1 以 `docs/0.6.1/` 与当前源码约束开发；
-  在不可变 `v0.6.1` 公网字节存在前它们不是公开发布事实，也不得修改或削弱已经
-  不可变发布的 0.5.10、0.5.11、0.5.12 或 0.6.0 历史。
+- v0.5.10、v0.5.11、v0.5.12、v0.6.0、v0.6.1 已不可变。0.6.2 以
+  `docs/0.6.2/` 与当前源码约束开发；在不可变 `v0.6.2` 公网字节存在前它们不是
+  公开发布事实，也不得修改或削弱任何已发布历史。
 
 ## 产品边界
 
@@ -111,8 +111,8 @@
   插件；手机消息、语音识别、语音生成、主动陪伴为内置可选插件，默认关闭。
 - 0.5.8 是基于官方 DSH `dsh-v0.1.2-alpha.1` /
   `cd5ef8148158c3a752a658978873241fdf8e2bbc` 的不可变公开历史。
-- 0.6.1 的 Owner 固定上游基线为官方 npm `0.1.5-rc.1`，tag
-  `dsh-v0.1.5-rc.1`、commit `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`。
+- 0.6.2 的 Owner 固定上游基线为官方 npm `0.1.5-rc.2`，tag
+  `dsh-v0.1.5-rc.2`、commit `fb2c4b9e698e30edb738bca4cf0618587db7d203`。
   Penglai 必须消费完整固定且带 registry integrity 的 DSH/vendor/Landlock
   cohort，包数以实际图为准；不得混装不同 DSH 代际，也不得用源码路径、Git
   依赖或本地重打包替代。依赖图、lockfile、runtime closure、profile、插件和
@@ -132,12 +132,12 @@
 - 修能力类别，不写输入特判，不伪造 PASS，不用 mock 冒充生产，不用超时当成功。
 - 禁止提交 API Key、Token、私钥、个人路径、聊天媒体、本地配置或含隐私截图。
 - 源码测试不等于已安装、原生、在线、Windows、Intel、公证或公开发布证据。
-- 0.6.1 身份、原生与发布工作经 `codex/0.6.1` 进入后续 manager 审查的 `main`
-  冻结。Owner 已授权完整 0.6.1 发布流程；分阶段源码限制只是排序。本 worker
-  阶段不创建 PR、不合并、不打 tag、不部署公开下载声明；不得改写既有发布
-  tag/附件，也不得在公网字节存在前部署 0.6.1 下载声明。
+- Owner 已授权 0.6.2 完整流程：源码审查、PR、`main` 冻结、三目标原生构建、
+  不可变发布、公开回读及 README/官网更新。不得改写既有发布 tag/附件，也不得在
+  不可变 0.6.2 公网字节存在前部署公开下载声明。
 - Mac/Windows 安装引导必须验证全新安装、重启续跑、返回/重试、非法目录、凭据
-  失败恢复、首条官方消息和默认卸载。0.6.1 排除旧版本已安装升级验收。UOS 真机
+  失败恢复、首条官方消息和默认卸载。Apple 芯片和 Windows x64 必须完成 0.6.1
+  到 0.6.2 的真实安装版升级验收。UOS 真机
   安装/启动/功能为 `OWNER_POST_RELEASE`，不得标 PASS；UOS 包/ABI/闭包仍须验证。
   三个所选安装包必须来自同一个干净 main SHA。Intel Mac 不在本版。缺任一所选
   目标仍失败；把 Intel 加入本版精确集合仍失败。

@@ -18,15 +18,15 @@ import { FIRST_PARTY_PLUGIN_METADATA } from "../../runtime/src/plugin-catalog.js
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 
-test("release truth pins Penglai 0.6.1", () => {
-  assert.equal(PRODUCT_VERSION, "0.6.1");
+test("release truth pins Penglai 0.6.2", () => {
+  assert.equal(PRODUCT_VERSION, "0.6.2");
 });
 
 test("DSH rc.1 source commit and closure digests are exact", () => {
-  assert.equal(PINNED_DSH, "0.1.5-rc.1");
-  assert.equal(PINNED_DSH_COMMIT, "183f08e9c6dde7e36cd2318eaee70b0da08fb35e");
-  assert.equal(PINNED_DSH_TARBALL_SHA256, "1a79719f1c763918ac30e8194df783a9330c6b12d5f04c950731a3f8a1c3d9d0");
-  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "d82b4650bcd8e55c4adcb476f975169994ffa8fa8476c55f25cf266b5dabeaa9");
+  assert.equal(PINNED_DSH, "0.1.5-rc.2");
+  assert.equal(PINNED_DSH_COMMIT, "fb2c4b9e698e30edb738bca4cf0618587db7d203");
+  assert.equal(PINNED_DSH_TARBALL_SHA256, "f4c54839d69e82bf1c3a5a41a910c3ce1405cd9e9d97d753c0c04f406c7d7480");
+  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "aae93e0a7a84be840738f0a237ec3cefe06d5ef4006efd79ee4986d332d830ae");
 });
 
 test("R55-TRUTH-003 three exact target installers including linux-loong64", () => {
@@ -37,7 +37,7 @@ test("R55-TRUTH-003 three exact target installers including linux-loong64", () =
 });
 
 test("release version has no older tag drift", () => {
-  assert.equal(PRODUCT_VERSION, "0.6.1");
+  assert.equal(PRODUCT_VERSION, "0.6.2");
   assert.equal(PRODUCT_VERSION.includes("0.5.6") || PRODUCT_VERSION.includes("0.5.7"), false);
 });
 
@@ -68,7 +68,7 @@ test("0.5.12 does not ship bundled Poppler pdftoppm", () => {
 });
 
 test("official Web/Agent/Session/Workspace stay on the one fixed DSH core", () => {
-  assert.equal(PINNED_DSH, "0.1.5-rc.1");
+  assert.equal(PINNED_DSH, "0.1.5-rc.2");
 });
 
 test("R55-DSH-002 official attachment/settings/slot seams used", () => {
@@ -158,7 +158,7 @@ test("R55-BUILTIN-011 no orphan resource after lifecycle operations", () => {
 });
 
 test("R55-BUILTIN-012 DSH core remains usable in every state", () => {
-  assert.equal(PINNED_DSH, "0.1.5-rc.1");
+  assert.equal(PINNED_DSH, "0.1.5-rc.2");
 });
 
 test("R55-COMM-001 exact provenance lock", () => {

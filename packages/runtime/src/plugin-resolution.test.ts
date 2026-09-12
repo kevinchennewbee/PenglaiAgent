@@ -134,8 +134,8 @@ test("boot reseeding preserves a newer overlay and refreshes same-version first-
       bundledVersion: "0.5.10",
       bundledSha256: "a".repeat(64),
       catalogSha256: digest,
-      catalogDshExact: "0.1.5-rc.1",
-      pinnedDsh: "0.1.5-rc.1",
+      catalogDshExact: "0.1.5-rc.2",
+      pinnedDsh: "0.1.5-rc.2",
     }),
     true,
   );
@@ -155,8 +155,8 @@ test("boot reseeding preserves a newer overlay and refreshes same-version first-
       bundledVersion: "0.5.10",
       bundledSha256: "a".repeat(64),
       catalogSha256: "c".repeat(64),
-      catalogDshExact: "0.1.5-rc.1",
-      pinnedDsh: "0.1.5-rc.1",
+      catalogDshExact: "0.1.5-rc.2",
+      pinnedDsh: "0.1.5-rc.2",
     }),
     false,
   );
@@ -168,7 +168,7 @@ test("boot reseeding preserves a newer overlay and refreshes same-version first-
       bundledSha256: "a".repeat(64),
       catalogSha256: digest,
       catalogDshExact: "0.1.5-alpha.1",
-      pinnedDsh: "0.1.5-rc.1",
+      pinnedDsh: "0.1.5-rc.2",
     }),
     false,
   );
@@ -206,24 +206,24 @@ test("retention requires a signed catalog record distinct from the overlay claim
   const digest = "b".repeat(64);
   const installed = {
     id: "@penglai/office",
-    version: "0.6.1.1",
+    version: "0.6.2.1",
     overlaySha256: digest,
     dshExact: PINNED_PLUGIN_DSH,
   };
   assert.equal(
     firstPartyRetentionDecision({
       pluginId: "@penglai/office",
-      bundledVersion: "0.6.1",
+      bundledVersion: "0.6.2",
       bundledSha256: "a".repeat(64),
       installed,
-      signed: { version: "0.6.1.1", sha256: digest, dshExact: PINNED_PLUGIN_DSH },
+      signed: { version: "0.6.2.1", sha256: digest, dshExact: PINNED_PLUGIN_DSH },
     }),
     true,
   );
   assert.equal(
     firstPartyRetentionDecision({
       pluginId: "@penglai/office",
-      bundledVersion: "0.6.1",
+      bundledVersion: "0.6.2",
       bundledSha256: "a".repeat(64),
       installed,
     }),
@@ -232,20 +232,20 @@ test("retention requires a signed catalog record distinct from the overlay claim
   assert.equal(
     firstPartyRetentionDecision({
       pluginId: "@penglai/office",
-      bundledVersion: "0.6.1",
+      bundledVersion: "0.6.2",
       bundledSha256: "a".repeat(64),
       installed,
-      signed: { version: "0.6.1.1", sha256: "c".repeat(64), dshExact: PINNED_PLUGIN_DSH },
+      signed: { version: "0.6.2.1", sha256: "c".repeat(64), dshExact: PINNED_PLUGIN_DSH },
     }),
     false,
   );
   assert.equal(
     firstPartyRetentionDecision({
       pluginId: "@penglai/office",
-      bundledVersion: "0.6.1",
+      bundledVersion: "0.6.2",
       bundledSha256: "a".repeat(64),
       installed: { ...installed, dshExact: "0.1.5-alpha.1" },
-      signed: { version: "0.6.1.1", sha256: digest, dshExact: PINNED_PLUGIN_DSH },
+      signed: { version: "0.6.2.1", sha256: digest, dshExact: PINNED_PLUGIN_DSH },
     }),
     false,
   );
@@ -285,7 +285,7 @@ test("first-party retention uses signed catalog identity, not the overlay as bot
 
 function writeMinimalPluginTree(root: string, js: string): { id: string; version: string; target: ReturnType<typeof runtimePluginTarget> } {
   const id = "@penglai/office";
-  const version = "0.6.1-test";
+  const version = "0.6.2-test";
   const target = runtimePluginTarget();
   mkdirSync(join(root, "dist"), { recursive: true });
   writeFileSync(join(root, "dist", "index.js"), js);

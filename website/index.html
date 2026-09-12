@@ -43,8 +43,8 @@
       <div class="hero-inner">
         <div class="hero-copy">
           <p class="eyebrow">Penglai 0.6.1</p>
-          <h1>Make room for the work that matters.</h1>
-          <p class="lead">Penglai installs official DeepSeek Harness on a personal computer. You bring a model key, choose a Workspace, and finish setup only after the first real reply. Office and Memory start on. The rest waits until you ask.</p>
+          <h1>A real assistant, without turning your computer into a project.</h1>
+          <p class="lead">Install Penglai, bring the model key you already use, and begin in a Workspace you choose. Office and Memory are ready. Everything else stays quiet until you invite it.</p>
           <div class="actions">
             <a class="button primary" href="#download">Choose your computer</a>
             <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent">Read the source</a>
@@ -69,19 +69,19 @@
     <section class="use-band wrap" data-reveal>
       <div class="use-grid">
         <article>
-          <h3>Edit the file in front of you</h3>
+          <h3>Open the file. Ask for the change.</h3>
           <p>Office can inspect, create, preview, export, and save DOCX, XLSX, PPTX, and PDF. A write waits for a confirmation bound to that action.</p>
         </article>
         <article>
-          <h3>Remember this project only</h3>
+          <h3>Let one project remember</h3>
           <p>Project memory stays in the current Workspace. Personal memory is a separate choice you confirm. Storage stays on this computer.</p>
         </article>
         <article>
-          <h3>Message when you need it</h3>
+          <h3>Keep the conversation close</h3>
           <p>Weixin, Feishu, and six other channels can join the same official Session. Optional macOS iMessage is private text and default off. WhatsApp is not a product surface.</p>
         </article>
         <article>
-          <h3>Speak only if you install it</h3>
+          <h3>Add a voice later</h3>
           <p>Speech recognition and voice generation stay off until you download their models. Ordinary chat still works without them.</p>
         </article>
       </div>
@@ -89,8 +89,8 @@
 
     <section class="section core" id="product" data-reveal>
       <div>
-        <p class="eyebrow">The core does not change</p>
-        <h2>DeepSeek Harness still owns the conversation.</h2>
+        <p class="eyebrow">One trusted center</p>
+        <h2>One core. No hidden second agent.</h2>
         <div class="gold-rule" aria-hidden="true"></div>
       </div>
       <div>
@@ -107,7 +107,7 @@
     <section class="section split" data-reveal>
       <div class="copy">
         <p class="eyebrow">Penglai Office · on by default</p>
-        <h2>Files enter a Workspace. Writes wait.</h2>
+        <h2>Bring the document. Keep the final say.</h2>
         <p>Office inspects, creates, previews, and exports DOCX, XLSX, PPTX, and PDF. Writes and exports wait for a confirmation bound to that action. You can also attach files in chat; the assistant reads them with tools. Whether a picture is understood as an image depends on the model you selected. The official generic sidebar is a plain-text preview, not a formatted Office viewer.</p>
         <ul class="workflow-list">
           <li>DOCX, XLSX, PPTX, and PDF share one Office path.</li>
@@ -121,7 +121,7 @@
     <section class="section split reverse" data-reveal>
       <div class="copy">
         <p class="eyebrow">Penglai Memory · on by default</p>
-        <h2>This Workspace can remember. The next one cannot.</h2>
+        <h2>Let this project remember, and only this project.</h2>
         <p>Project memory stays in the current Workspace. Another Workspace does not see it. Personal memory is a separate choice you confirm. Memory uses your selected model provider to decide which project facts to keep. Storage stays on this computer.</p>
         <ul class="workflow-list">
           <li>You can turn memory off, or review candidates first.</li>
@@ -133,8 +133,8 @@
     </section>
 
     <section class="section" data-reveal>
-      <p class="eyebrow">Waiting until you ask</p>
-      <h2>Optional tools stay out of the way.</h2>
+      <p class="eyebrow">A calm default</p>
+      <h2>More when you want it. Quiet when you do not.</h2>
       <div class="opt-list">
         <article>
           <div>
@@ -170,7 +170,7 @@
     <section class="section split" id="setup" data-reveal>
       <div class="copy">
         <p class="eyebrow">First launch</p>
-        <h2>Seven steps, complete only after a real reply.</h2>
+        <h2>No scavenger hunt. Seven clear steps.</h2>
         <p>Choose language and appearance, read the local-data boundary, pick a provider and model from the official catalog, test your own API key, choose a real Workspace, then send the first message. Fresh setup includes official <code>deepseek-flash</code>. Folder browse stays in the Penglai window; you can cancel or retry. You can go back and resume after restart. A failed API key is never recorded as success. The app data directory and the install directory cannot be Workspaces.</p>
         <ul class="workflow-list">
           <li>Use the matching installer. Do not mix Apple Silicon, Windows, or UOS packages.</li>
@@ -182,19 +182,23 @@
     </section>
 
     <section class="section limits" id="privacy" data-reveal>
-      <p class="eyebrow">Boundaries, in plain language</p>
-      <h2>No Penglai account. Model calls still leave the computer.</h2>
+      <p class="eyebrow">Nothing hidden in the small print</p>
+      <h2>Clear about what stays here, and what leaves.</h2>
       <div class="limit-grid">
-        <p><strong>Where data goes</strong> There is no Penglai account, Penglai-operated telemetry backend, or cloud memory sync. Official DSH bundles a dormant DeepSeek OTLP endpoint; Penglai hard-disables it. Model calls still send the context needed for that task to the provider you selected.</p>
-        <p><strong>What needs a confirmation</strong> Office save, export, and return, personal Memory, plugin install, and outbound messaging use a confirmation bound to that action. Diagnostics must not contain credentials, chat bodies, QR codes, or private absolute paths.</p>
-        <p><strong>Signatures are not an OS endorsement</strong> macOS packages are ad-hoc signed and not notarized. Windows has no Authenticode. Gatekeeper or SmartScreen may warn. Penglai Ed25519 signatures protect updater and plugin bytes; they are not Apple or Microsoft publisher identity.</p>
-        <p><strong>UOS is a packaged target, not a finished native claim</strong> UnionTech UOS 20 LoongArch is packaged as <code>Penglai_0.6.1_uos_loong64.deb</code>. Native install, startup, and function on that host remain Owner post-publication testing (<code>OWNER_POST_RELEASE</code>). Mac and Windows embed Node 22.23.2 and Electron 43.6.0 (Chromium 150). UOS uses Loongson Node 22.16.0 and Electron 31.7.7 (Chromium 126). That runtime is unmaintained. Memory stays on, with the packed Mnemon engine. MOSS-TTS cannot be enabled on LoongArch. Native Windows checks used the hosted runner's existing security configuration; default Defender-on Windows was not verified. This page does not claim a three-target native GUI PASS.</p>
+        <p><strong>Your work stays yours</strong> Files, memories, settings, and feedback stay on this computer. There is no Penglai account, cloud memory sync, or Penglai telemetry service. A model call still sends the context it needs to the provider you chose.</p>
+        <p><strong>Nothing leaves by surprise</strong> Before Penglai saves or sends something, installs a plugin, or turns a memory personal, it stops and asks about that exact action.</p>
+        <p><strong>A community release</strong> The code and release bytes are open to inspection. macOS and Windows may still show a security warning because this community build does not carry Apple notarization or Microsoft Authenticode.</p>
+        <p><strong>One complete UOS installer</strong> The LoongArch <code>.deb</code> carries the app, Node, official DSH, every first-party plugin, Office, Memory, and Mnemon. It is designed for the same seven-step start; the Owner will verify that experience on a real UOS machine after publication.</p>
       </div>
+      <details class="technical-details">
+        <summary>Technical release boundaries</summary>
+        <p>Official DSH includes a dormant DeepSeek OTLP endpoint; Penglai hard-disables it. Diagnostics must not contain credentials, chat bodies, QR codes, or private absolute paths. Penglai Ed25519 signatures bind updater and plugin bytes, but are not OS publisher identity. Mac and Windows embed Node 22.23.2 and Electron 43.6.0. UOS uses Loongson Node 22.16.0 and Electron 31.7.7 (Chromium 126), requires <code>libatomic1</code>, recommends <code>bubblewrap</code>, and cannot enable MOSS-TTS or iMessage. That Electron/Chromium runtime is unmaintained. UOS native install, startup, UI, file picker, sleep/resume, and function remain <code>OWNER_POST_RELEASE</code>. Default Defender-on Windows was not verified. This page does not claim a three-target native GUI PASS.</p>
+      </details>
     </section>
 
     <section class="section download" id="download" data-reveal>
       <p class="eyebrow">Penglai 0.6.1</p>
-      <h2>Choose the installer that matches the machine.</h2>
+      <h2>Pick your machine. Start there.</h2>
       <p class="download-hint" id="downloadHint" hidden data-mac="This browser looks like a Mac. Apple Silicon is the 0.6.1 Mac installer. Intel Mac is not a 0.6.1 target." data-windows="This browser looks like Windows. Use the 64-bit installer." data-linux="This browser looks like Linux. The public Linux package is UnionTech UOS 20 LoongArch only."></p>
       <div class="download-grid">
         <a data-family="mac" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_macos_aarch64.dmg">
@@ -254,7 +258,7 @@
 
     <section class="section" id="faq" data-reveal>
       <p class="eyebrow">FAQ</p>
-      <h2>Short answers before you install.</h2>
+      <h2>The useful answers, before you install.</h2>
       <div class="faq-grid">
         <article>
           <h3>Is Penglai another agent?</h3>

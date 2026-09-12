@@ -33,6 +33,20 @@ test("assemble-release refuses a signing key that does not match the embedded up
         join(nativeEvidence, `local-installer-${target}.json`),
         JSON.stringify({ target, sourceSha, installer: name, sha256: sha256(bytes), treeDirty: false }),
       );
+      if (target === "linux-loong64") {
+        writeFileSync(
+          join(nativeEvidence, "verify-uos-package-linux-loong64.json"),
+          JSON.stringify({
+            command: "verify:uos-package",
+            verdict: "PASS",
+            target,
+            sourceSha,
+            installer: name,
+            installerSha256: sha256(bytes),
+            nativeUos: { status: "OWNER_POST_RELEASE", claimedPass: false },
+          }),
+        );
+      }
       return { id: 1000 + index, name, size: bytes.length, digest: `sha256:${sha256(bytes)}` };
     });
     const publicExport = join(temp, "public-export-manifest.json");

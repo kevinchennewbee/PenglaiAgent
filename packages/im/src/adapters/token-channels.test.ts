@@ -5,7 +5,7 @@ import { TokenChannelAdapter } from "./token-channels.js";
 test("Slack Telegram Discord connect without QR and refuse send", async () => {
   for (const id of ["slack", "telegram", "discord"] as const) {
     const adapter = new TokenChannelAdapter(id, {
-      resolve: (ref) => (ref === "tok" ? "xoxb-not-a-real-token" : undefined),
+      resolve: (ref) => (ref === "tok" ? "xoxb-not-a-real-token" : undefined), // penglai-test-fixture
     });
     await assert.rejects(() => adapter.beginConnection({ method: "qr" }), /CHANNEL_NO_QR/);
     const begun = await adapter.beginConnection({ method: "token", credentialRef: "tok" });

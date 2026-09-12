@@ -63,7 +63,7 @@ function officialAdapterFunctionTools(
 const validSpecs = {
   docx: {
     format: "docx",
-    title: "Penglai 0.6.1",
+    title: "Penglai 0.6.2",
     sections: [{ paragraphs: ["Reference JADE-061-A; Total 37"] }],
   },
   xlsx: { format: "xlsx", sheets: [{ name: "Sheet1", rows: [["A", 1, true, null]] }] },
@@ -166,7 +166,7 @@ test("office create schema and parser accept every format pathway", () => {
 });
 
 test("office create schema and parser reject extra, missing, and mixed discriminator fields", () => {
-  const liveSpec = { title: "Penglai 0.6.1", body: ["Reference JADE-061-A; Total 37"] };
+  const liveSpec = { title: "Penglai 0.6.2", body: ["Reference JADE-061-A; Total 37"] };
   assert.equal(schemaAccepts(OFFICE_CREATE_SPEC_SCHEMA, liveSpec), false);
   assert.throws(() => parseOfficeCreateSpec(liveSpec), /extra fields: body/);
   const liveCreate = { format: "docx", spec: liveSpec };

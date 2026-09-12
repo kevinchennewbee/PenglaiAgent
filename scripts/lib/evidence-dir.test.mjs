@@ -32,17 +32,30 @@ test("evidence JSON is bounded, cycle-safe, and redacts credentials", () => {
   const fakeCredential = ["sk", "examplecredential123456"].join("-");
   const cyclic = { apiKey: fakeCredential, nested: {} };
   cyclic.nested.self = cyclic;
-  cyclic.message = `provider said Bearer abcdefghijklmnopqrstuvwxyz ${"x".repeat(20_000)}`;
+  const github = ["github_", `pat_${"a".repeat(32)}`].join("");
+  const slack = ["xoxb-", "b".repeat(24)].join("");
+  const telegram = ["123456789:", "c".repeat(32)].join("");
+  cyclic.message =
+    `provider said Bearer abcdefghijklmnopqrstuvwxyz ${github} ${slack} ${telegram} ` +
+    ["refresh_", "token=rotating-secret-value "].join("") +
+    ["/Us", "ers/example/Secret/file.txt /Vol", "umes/PrivateSSD/project/log.json owner", "@example.com "].join("") +
+    "x".repeat(20_000);
   const safe = sanitizeEvidenceValue(cyclic);
   assert.equal(safe.apiKey, "[redacted]");
   assert.equal(safe.nested.self, "[cycle]");
   assert.doesNotMatch(safe.message, /Bearer|abcdefghij/);
+  assert.doesNotMatch(safe.message, /github_|xoxb-|123456789:|rotating-secret-value/);
+  assert.doesNotMatch(safe.message, /\/Users\/example|\/Volumes\/PrivateSSD|owner@example\.com/);
   assert.match(safe.message, /truncated/);
-  writeEvidenceJson(path, cyclic);
+  writeEvidenceJson(path, cyclic, { root: dir });
   const written = readFileSync(path, "utf8");
-  assert.doesNotMatch(written, /examplecredential|Bearer|abcdefghijklmnopqrstuvwxyz/);
+  assert.doesNotMatch(written, /examplecredential|Bearer|abcdefghijklmnopqrstuvwxyz|github_|xoxb-|123456789:|rotating-secret-value|\/Users\/example|\/Volumes\/PrivateSSD|owner@example\.com/);
   assert.match(written, /\[redacted\]/);
-  assert.throws(() => writeEvidenceJson(path, Buffer.from("http-body")), /structured records/);
-  assert.throws(() => writeEvidenceJson(path, new Uint8Array([1, 2, 3])), /structured records/);
-  assert.throws(() => writeEvidenceJson(path, "<script>http</script>"), /structured records/);
+  assert.throws(() => writeEvidenceJson(path, Buffer.from("http-body"), { root: dir }), /structured records/);
+  assert.throws(() => writeEvidenceJson(path, new Uint8Array([1, 2, 3]), { root: dir }), /structured records/);
+  assert.throws(() => writeEvidenceJson(path, "<script>http</script>", { root: dir }), /structured records/);
+  assert.throws(
+    () => writeEvidenceJson(join(dir, "..", "escaped.json"), cyclic, { root: dir }),
+    /escaped its fixed output root/,
+  );
 });

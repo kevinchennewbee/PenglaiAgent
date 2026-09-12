@@ -12,7 +12,7 @@ import { guidedAdapter, type InboundChannelEvent } from "./channel-adapter.js";
 
 test("sidecar inbound followup RemoteError records PRESET_UNAVAILABLE and durable outbox copy", async () => {
   const dsh = {
-    version: "0.1.5-rc.1",
+    version: "0.1.5-rc.2",
     getAgent: () => ({
       id: "agent",
       followup() {

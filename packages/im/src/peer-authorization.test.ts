@@ -11,7 +11,7 @@ import { guidedAdapter, type InboundChannelEvent } from "./channel-adapter.js";
 
 for (const channel of ["dingtalk", "wecom", "qq", "slack", "telegram", "discord", "imessage"] as const) {
   test(`${channel}: private transport alone never authorizes a sender; exact Owner binding does`, async () => {
-    const dsh = { version: "0.1.5-rc.1", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] };
+    const dsh = { version: "0.1.5-rc.2", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] };
     const rt = createRuntime({ dbPath: ":memory:", host: dsh });
     const host = new PenglaiImHost(rt.store, rt.plane,
       { health: () => ({ authState: "idle", hasCredential: false }) } as never,

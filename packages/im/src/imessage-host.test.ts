@@ -10,7 +10,7 @@ import { PenglaiImHost } from "./host.js";
 test("iMessage host inspect and enable never count permission-denied or Windows as connected", async () => {
   let execs = 0;
   const dsh = {
-    version: "0.1.5-rc.1",
+    version: "0.1.5-rc.2",
     getAgent: () => undefined,
     listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
   };

@@ -66,7 +66,7 @@ test("current-commit checkout with a stale alpha label is rejected", () => {
   );
   assert.throws(
     () => assertOfficialDshWorkflowCheckouts(checkouts),
-    /is not pinned to 0\.1\.5-rc\.1/,
+    /is not pinned to 0\.1\.5-rc\.2/,
   );
 });
 

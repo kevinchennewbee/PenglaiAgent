@@ -1,8 +1,13 @@
-# Penglai 0.6.1 安全与隐私合同
+# Penglai 0.6.2 安全与隐私合同
 
 ## 1. 信任目标
 
-0.5保护相互关联的边界：只读target app/runtime、app-private 0.5 DSH profile、official DSH Web本地入口、credentials-local secret、IM因果隔离、厂商网络输入、本地voice/context/memory数据、budget/companion authority、signed assisted update、精确卸载和可公开供应链。0.6.1 development pins official DSH `0.1.5-rc.1`.任何Penglai插件都不能放宽DSH工具权限、sandbox或人工审批。
+0.5 数据代际保护相互关联的边界：只读 target app/runtime、app-private 0.5 DSH
+profile、official DSH Web 本地入口、credentials-local secret、IM 因果隔离、厂商
+网络输入、本地 voice/context/memory 数据、budget/companion authority、signed
+assisted update、精确卸载和可公开供应链。当前 0.6.2 候选固定 official DSH
+`0.1.5-rc.2`；公开下载仍为 v0.6.1，直到不可变 v0.6.2 附件发布并回读。任何
+Penglai 插件都不能放宽 DSH 工具权限、sandbox 或人工审批。
 
 ## 2. 数据分级
 
@@ -60,7 +65,7 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - 同OS用户高权限本地进程可能读取文件，UI/文档必须诚实。
 - permission/ACL invalid、corrupt、write denied、resolve failed全部fail closed；无env/MemoryVault/SQLite/Keychain fallback。
 - 0.4.1 credential不读取、迁移或删除。
-- official DSH 0.1.5-rc.1 源码内含 session-telemetry adapter 和预配置的 DeepSeek OTLP 地址。
+- official DSH 0.1.5-rc.2 源码内含 session-telemetry adapter 和预配置的 DeepSeek OTLP 地址。
   蓬莱不运营该后端；owned DSH 的封闭环境白名单固定注入
   `DSH_TELEMETRY_DISABLED=1`，且不转发 `DSH_TELEMETRY_MODE` 或
   `DSH_TELEMETRY_OTLP_URL`。DSH 会在 profile patch 之后禁用该行，不创建 telemetry
@@ -149,7 +154,8 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - updater private key、Apple/Windows credentials不进Git、命令参数、普通env dump、日志、artifact、evidence。
 - final signing只记录public key id、signature/hash/result。
 - exact三安装包绑定source/export；验收后不重建偷换。
-- public repo/tag/Release/channel在本轮保持未执行。
+- v0.6.2 public repo/tag/Release/channel 在候选阶段保持未执行；发布后必须回读并冻结，
+  后续维护不得覆盖其字节。
 
 ## 15. 日志、诊断与evidence
 
@@ -159,6 +165,16 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - evidence保存nonce digest、opaque ids、source/export/artifact、target/native、时序和result digest。
 - live不得录屏/截图包含QR、账号、App Secret或正文。
 - crash dump/update backup/rotation log同样纳入scanner。
+
+### 15.1 Feedback 与 telemetry
+
+- official DSH cohort 可以包含 feedback/OTel 包，但 Penglai 不运营 telemetry 后端；
+  生产运行时固定注入 `DSH_TELEMETRY_DISABLED=1`，且不得转发 mode 或 exporter URL。
+- 点赞/点踩、分类或备注不等于授权上传会话。只要 telemetry 被禁用，反馈只能留在
+  本地 DSH 状态；UI 不得声称已经发送给 Penglai 或 DeepSeek。
+- 若未来上游 UI 表示反馈会附带当前会话记录，Penglai 在采用该 UI 前必须让文案、
+  可见状态与实际部署一致，或关闭该反馈入口。任何启用远端反馈的变更都需要独立
+  隐私审查、明确同意、目标/字段/retention 披露和新的发布验收。
 
 ## 16. Retention
 
@@ -186,7 +202,7 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 
 - Renderer 的 `ownerConfirmed`、布尔值、UUID 外形或模型文本都不是权限。Office、Memory、IM、Plugin Center 和 artifact persistence 统一消费 Main Owner Broker receipt；receipt 绑定 action/object/Workspace/Session/digest/destination/revision，真实动作成功后才 complete。
 - Artifact ID 是不透明 `artifact:<uuid>`，不是 filesystem path 或 content hash。相同字节跨 Workspace 仍为不同 binding；legacy digest 只有唯一时才可解析。
-- official DSH 0.1.5-rc.1 的通用会话附件能力只按真实接口与安装证据声明。0.6.1 不用 DOM hack、假 image 或第二会话引擎制造普通文件附件；Office/IM 文件走 scope-checked Artifact Service。
+- official DSH 0.1.5-rc.2 的通用会话附件能力只按真实接口与安装证据声明。0.6.2 不用 DOM hack、假 image 或第二会话引擎制造普通文件附件；Office/IM 文件走 scope-checked Artifact Service。
 - macOS 包只声明双语麦克风用途，并剥离 Electron 默认 camera、Bluetooth 与无关 capture permission。Main 只允许由当前用户手势触发的 audio 请求。
 - 0.5.10 的唯一「消息连接」插件提供八个平台的真实连接 adapter；公开能力边界以
   当前产品合同和对应证据为准。微信、飞书、钉钉、企业微信、QQ 只显示供应商真实

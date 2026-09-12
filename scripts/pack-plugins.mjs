@@ -74,6 +74,7 @@ const packs = [
         "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-settings-general",
+        "@deepseek-ai/dsh-client-ui-message-feedback",
       ],
       platform: "web",
     },
@@ -1244,7 +1245,7 @@ for (const p of packs) {
         filename: "packed-office-smoke.pptx",
         theme: { id: "consulting" },
         slides: [
-          { type: "cover", heading: "Penglai Office", subheading: "0.6.1" },
+          { type: "cover", heading: "Penglai Office", subheading: "0.6.2" },
           { type: "ending", heading: "Packed runtime" },
         ],
       }),

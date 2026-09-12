@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Immutable Release tag that must already exist (exactly v0.6.1)
+        description: Immutable Release tag that must already exist (exactly v0.6.2)
         required: true
-        default: v0.6.1
+        default: v0.6.2
         type: string
       deploy_site:
         description: Push the verified website to the gh-pages branch
@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-website-v0.6.1
+  group: deploy-website-v0.6.2
   cancel-in-progress: false
 
 jobs:
@@ -29,12 +29,12 @@ jobs:
     outputs:
       release_sha: ${{ steps.publication.outputs.release_sha }}
     steps:
-      - name: Refuse non-main or non-v0.6.1 dispatch
+      - name: Refuse non-main or non-v0.6.2 dispatch
         shell: bash
         run: |
           test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
           test "$GITHUB_REF" = "refs/heads/main"
-          test "${{ inputs.tag }}" = "v0.6.1"
+          test "${{ inputs.tag }}" = "v0.6.2"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
@@ -78,7 +78,7 @@ jobs:
       - name: Seal the verified website for the write-only deployment job
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: verified-website-v0.6.1-${{ github.sha }}
+          name: verified-website-v0.6.2-${{ github.sha }}
           if-no-files-found: error
           retention-days: 1
           path: website/
@@ -101,7 +101,7 @@ jobs:
       - name: Download the website sealed by the read-only job
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: verified-website-v0.6.1-${{ github.sha }}
+          name: verified-website-v0.6.2-${{ github.sha }}
           path: verified-site
       - name: Deploy the verified website
         env:
@@ -147,7 +147,7 @@ jobs:
       - name: Download the sealed public website
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: verified-website-v0.6.1-${{ github.sha }}
+          name: verified-website-v0.6.2-${{ github.sha }}
           path: verified-site
       - name: Compare Cloudflare and GitHub Pages with every sealed file
         env:
@@ -157,7 +157,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: website-public-readback-v0.6.1-${{ github.sha }}
+          name: website-public-readback-v0.6.2-${{ github.sha }}
           if-no-files-found: error
           retention-days: 90
           path: evidence/generated/website-public-readback.json

@@ -45,7 +45,19 @@ export function upgradeUninstallEvidenceMatches(record, { sourceSha, installerSh
       row.sourceSha === sourceSha &&
       row.current?.installerSha256 === installerSha256 &&
       row.upgradePreservedOwnerData === true &&
+      row.upgradePreservation?.originalSettingsUnchanged === true &&
+      row.upgradePreservation?.migratedSettingsExact === true &&
+      row.upgradePreservation?.originalSessionUnchanged === true &&
+      row.upgradePreservation?.migratedSessionExact === true &&
+      row.upgradePreservation?.pluginDesiredExact === true &&
+      row.upgradePreservation?.memoryExact === true &&
       row.uninstallPreservedOwnerData === true &&
+      row.uninstallPreservation?.originalSettingsUnchanged === true &&
+      row.uninstallPreservation?.migratedSettingsExact === true &&
+      row.uninstallPreservation?.originalSessionUnchanged === true &&
+      row.uninstallPreservation?.migratedSessionExact === true &&
+      row.uninstallPreservation?.pluginDesiredExact === true &&
+      row.uninstallPreservation?.memoryExact === true &&
       row.uninstallRemovedApp === true,
   );
 }

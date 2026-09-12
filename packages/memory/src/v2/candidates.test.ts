@@ -259,7 +259,7 @@ test("auto-workspace uses local risk policy and ignores model confidence", () =>
     sessionId: "s1",
     turnId: "t-secret",
     kind: "constraint",
-    text: "sk-test-not-a-real-key-aaaaaaaa",
+    text: "sk-test-not-a-real-key-aaaaaaaa", // penglai-test-fixture
     rationale: "leak",
     confidence: 0.99,
     sourceDigest: "d".repeat(64),

@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.6.1";
+export const PRODUCT_VERSION = "0.6.2";
 export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
@@ -36,17 +36,17 @@ export const PINNED_NODE_DARWIN_X64_SHA256 =
 export const PINNED_NODE_WIN32_X64_SHA256 =
   "1177b4137ba5adaa56354ae40f1080c7450e8ae09cecb47da459d1c52ac99f97";
 /** Exact official npm pre-release cohort reconciled to the fixed upstream tag. */
-export const PINNED_DSH = "0.1.5-rc.1";
-export const PINNED_DSH_COMMIT = "183f08e9c6dde7e36cd2318eaee70b0da08fb35e";
-export const PINNED_DSH_TAG = "dsh-v0.1.5-rc.1";
+export const PINNED_DSH = "0.1.5-rc.2";
+export const PINNED_DSH_COMMIT = "fb2c4b9e698e30edb738bca4cf0618587db7d203";
+export const PINNED_DSH_TAG = "dsh-v0.1.5-rc.2";
 export const PINNED_DSH_REPOSITORY = "https://github.com/deepseek-ai/DeepSeek-Harness.git";
 export const PINNED_DSH_NPM_INTEGRITY =
-  "sha512-rmNmzQCg3oIc1z8xH7izRSOuy1TNzq+/NILyfM+7e8DKOyV+yBtg47WEsqR2SiIe1ATec3L/rUa1YhIcfQ2XEg==";
-export const PINNED_DSH_NPM_SHASUM = "6bcdb554bf2eef837666e37f5bd5fa494eb053e4";
+  "sha512-8Xc8hCQHcIWRmTCVU/xZdp6/qMsWMeAd2ObChKDEsfhUPJFXx6H0lgeb1DxUMD86HZrrVN+1bCvn1ppjZ/fOxw==";
+export const PINNED_DSH_NPM_SHASUM = "2c78db39568d910868f1e4f34062a4f346d4815d";
 export const PINNED_DSH_TARBALL_SHA256 =
-  "1a79719f1c763918ac30e8194df783a9330c6b12d5f04c950731a3f8a1c3d9d0";
+  "f4c54839d69e82bf1c3a5a41a910c3ce1405cd9e9d97d753c0c04f406c7d7480";
 export const PINNED_DSH_CLOSURE_MANIFEST_SHA256 =
-  "d82b4650bcd8e55c4adcb476f975169994ffa8fa8476c55f25cf266b5dabeaa9";
+  "aae93e0a7a84be840738f0a237ec3cefe06d5ef4006efd79ee4986d332d830ae";
 export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 279;
 export const PINNED_LARK_SDK = "1.73.3";
 export const PINNED_LARK_COMMIT = "af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513";
@@ -125,9 +125,9 @@ export const UPDATER_SEQUENCE = 10;
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.6.1",
-  release: "v0.6.1",
-  channel: "stable-v0.6.1",
+  tag: "v0.6.2",
+  release: "v0.6.2",
+  channel: "stable-v0.6.2",
 });
 
 export const RELEASE_TARGETS = [
@@ -135,46 +135,47 @@ export const RELEASE_TARGETS = [
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.6.1_macos_aarch64.dmg",
+    installer: "Penglai_0.6.2_macos_aarch64.dmg",
   },
   {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
-    installer: "Penglai_0.6.1_windows_x64_setup.exe",
+    installer: "Penglai_0.6.2_windows_x64_setup.exe",
   },
   {
     key: "linux-loong64",
     platform: "linux",
     arch: "loong64",
-    installer: "Penglai_0.6.1_uos_loong64.deb",
+    installer: "Penglai_0.6.2_uos_loong64.deb",
   },
 ] as const;
 
 export type ReleaseTargetKey = (typeof RELEASE_TARGETS)[number]["key"];
 
-/** Known packaging/host key retained for historical validation. Not a 0.6.1 release target. */
+/** Known packaging/host key retained for historical validation. Not a 0.6.2 release target. */
 export const EXCLUDED_CURRENT_RELEASE_TARGET_KEY = "darwin-x86_64" as const;
 
-/** Mac/Windows native install/lifecycle gates. linux-loong64 host evidence remains OWNER_POST_RELEASE, not a 0.6.1 PASS. */
+/** Mac/Windows native install/lifecycle gates. linux-loong64 host evidence remains OWNER_POST_RELEASE, not a 0.6.2 PASS. */
 export const NATIVE_INSTALLED_TARGET_KEYS = [
   "darwin-aarch64",
   "win32-x86_64",
 ] as const satisfies readonly ReleaseTargetKey[];
 
-/** Current 0.6.1 native lifecycle: fresh install/restart/default uninstall. Old-version upgrade is excluded. */
+/** Current 0.6.2 native lifecycle: fresh install and 0.6.1 upgrade on Mac/Windows, restart, rollback, and default uninstall. */
 export const CURRENT_NATIVE_LIFECYCLE = Object.freeze({
-  requiredGate: "verify:fresh-install-uninstall",
-  olderInstalledUpgradeStatus: "OWNER_EXCLUDED",
+  requiredGate: "verify:upgrade-uninstall",
+  olderInstalledUpgradeStatus: "REQUIRED",
   nativeUosStatus: "OWNER_POST_RELEASE",
   twoHourSoak: "OWNER_EXCLUDED",
-  fetchPreviousInstallers: false,
+  fetchPreviousInstallers: true,
   requiredTargets: NATIVE_INSTALLED_TARGET_KEYS,
 });
 
-export const OWNER_EXCLUDED_SUBGATES = [
-  { name: "verify:upgrade-uninstall", kind: "installed-upgrade", status: "OWNER_EXCLUDED" },
-] as const;
+export const OWNER_EXCLUDED_SUBGATES: readonly Readonly<{
+  name: string;
+  status: "OWNER_EXCLUDED";
+}>[] = Object.freeze([]);
 
 /** Vendor archive names stay as published (darwin-x64, win-x64). Selection uses RELEASE_TARGETS.key only. */
 export const RUNTIME_INPUTS = [
@@ -256,6 +257,7 @@ export const HARD_SUBGATES = [
   { name: "verify:signing", kind: "signing", mode: "evidence" },
   { name: "verify:installed", kind: "installed", mode: "evidence" },
   { name: "verify:fresh-install-uninstall", kind: "installed-lifecycle", mode: "evidence" },
+  { name: "verify:upgrade-uninstall", kind: "installed-lifecycle", mode: "evidence" },
   { name: "verify:public-export", kind: "public-export", mode: "evidence" },
   { name: "audit:secrets", kind: "secret", mode: "run" },
 ] as const;

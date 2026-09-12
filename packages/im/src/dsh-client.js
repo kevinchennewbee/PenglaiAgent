@@ -2087,9 +2087,9 @@ window.__ModuleLoader__.load({
             children: [
               t.pageTitle,
               jsx.jsx("span", {
-                "data-penglai-im-version": "0.6.1",
+                "data-penglai-im-version": "0.6.2",
                 style: { marginInlineStart: "8px", fontSize: "0.78em", opacity: 0.72 },
-                children: "Penglai IM 0.6.1",
+                children: "Penglai IM 0.6.2",
               }),
             ],
           }),

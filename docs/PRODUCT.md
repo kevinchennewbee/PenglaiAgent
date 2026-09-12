@@ -1,4 +1,4 @@
-# Penglai 0.6.1 product contract
+# Penglai 0.6.2 product contract
 
 ## English
 
@@ -11,29 +11,30 @@ first run, process supervision, local data boundaries, assisted updates,
 uninstall, and a reviewed set of DSH plugins. It does not ship a second agent,
 provider gateway, session store, or chat page.
 
-Version 0.6.1 targets Apple Silicon, Windows x64, and UnionTech
-UOS 20 `linux-loong64`. Intel Mac is excluded from this version. It consumes official DSH `0.1.5-rc.1` (279-package
-npm cohort). Public README and website download tables stay on published
-v0.6.0 until immutable v0.6.1 GitHub Release bytes are read back. A fresh
+Version 0.6.2 targets Apple Silicon, Windows x64, and UnionTech
+UOS 20 `linux-loong64`. Intel Mac is excluded from this version. It consumes
+official DSH `0.1.5-rc.2` (279-package npm cohort). v0.6.1 remains the current
+public download until immutable v0.6.2 GitHub Release bytes are published and
+read back. A fresh
 user brings a provider credential, selects an official model and Workspace,
 receives a real first DSH reply, and then uses the official DSH Web
-interface. Published 0.5.10, 0.5.11, and 0.5.12 remain immutable.
+interface. Published 0.5.10, 0.5.11, 0.5.12, 0.6.0, and 0.6.1 remain immutable.
 
 ### 2. Supported platforms
 
 | Device | Exact installer |
 | --- | --- |
-| Apple Silicon, macOS 13+ | `Penglai_0.6.1_macos_aarch64.dmg` |
-| Windows 10+ x64 | `Penglai_0.6.1_windows_x64_setup.exe` |
-| UnionTech UOS 20 loong64 | `Penglai_0.6.1_uos_loong64.deb` |
+| Apple Silicon, macOS 13+ | `Penglai_0.6.2_macos_aarch64.dmg` |
+| Windows 10+ x64 | `Penglai_0.6.2_windows_x64_setup.exe` |
+| UnionTech UOS 20 loong64 | `Penglai_0.6.2_uos_loong64.deb` |
 
 The app contains its target Electron, Node, DSH closure, profile seed, bundled
 plugins, licenses, and integrity metadata. It never falls back to a system Node,
 pnpm, Python, ffmpeg, or DSH installation. Every support claim requires a build
-and installed test on the matching native platform. Current 0.6.1 native
-lifecycle is fresh install, restart, and default uninstall on Apple Silicon and Windows.
-Old-version installed upgrade is `OWNER_EXCLUDED`. UOS native
-install/startup/function for 0.6.1 is `OWNER_POST_RELEASE`: the Owner tests
+and installed test on the matching native platform. Current 0.6.2 native
+lifecycle is fresh install, restart, the exact 0.6.1 installed upgrade, and
+default uninstall on Apple Silicon and Windows. UOS native
+install/startup/function for 0.6.2 is `OWNER_POST_RELEASE`: the Owner tests
 the published installer. That is not a native PASS.
 
 ### 3. Fresh-install capability set
@@ -43,7 +44,7 @@ the published installer. That is not a native PASS.
 | Plugin Center | Active | Shows real DSH loader state and signed catalog transactions |
 | Penglai Office | Active | Inspect, create, plan edits, preview, commit, export/return, and undo DOCX/XLSX/PPTX/PDF |
 | Penglai Memory | Active | Automatic current-Workspace memory, explicit personal memory, authorised sources, provenance, and graph views |
-| Mobile Messaging | Disabled | Nine first-party adapters. WeChat/Feishu keep native media. Optional macOS iMessage is private text, default off, Darwin-only. Account connectivity is reported only with actual evidence; iMessage native live is `LIVE_NOT_RUN`. WhatsApp is excluded. |
+| Mobile Messaging | Disabled | Eight established first-party connectors plus optional macOS iMessage (nine adapter implementations). WeChat/Feishu keep native media. iMessage is private text, default off, and Darwin-only. Account connectivity is reported only with actual evidence; iMessage native live is `LIVE_NOT_RUN`. WhatsApp is excluded. |
 | Speech Recognition | Disabled | Local SenseVoice transcription after explicit model installation and microphone action |
 | Voice Generation | Disabled | Local MOSS-TTS preview, conversation Read, and supported channel audio |
 | Companion | Disabled | Opt-in scheduled contact with quiet hours, budget, and an exact IM route |
@@ -98,14 +99,15 @@ Write, export, return, and undo approval binds the exact job, source/result
 digest, destination, Workspace, Session, and revision. Approval completes only
 after the mutation or delivery succeeds.
 
-Official DSH 0.1.5-rc.1 conversation Turns support text, images, and generic
+Official DSH 0.1.5-rc.2 conversation Turns support text, images, and generic
 file parts. A file part is a same-Session `uploadFile` receipt, not raw bytes;
 the model later sees handle text (name, size, harness-owned saved path), not a
-native multimodal file. Penglai has not wired Artifact refs through that official
-receipt path, so it does not claim ordinary composer DOCX/XLSX/PPTX/PDF
-attachments. Official images continue through the official image store. Files
-received through live IM or selected through Office use the scoped artifact
-service without DOM injection or a second conversation engine.
+native multimodal file. The conversation composer accepts ordinary documents;
+the assistant reads their saved bytes with tools. Whether image content is
+understood depends on the selected model's vision support. Penglai's separate
+Artifact refs are not silently converted into composer receipts. Files received
+through live IM or selected through Office use the scoped artifact service
+without DOM injection or a second conversation engine.
 
 ### 7. Messaging
 
@@ -113,7 +115,7 @@ service without DOM injection or a second conversation engine.
 commands, causal routing, persistence, recovery, outbox, and adapter lifecycle.
 Adapters cannot call a parallel agent or guess the current Workspace/Session.
 
-Nine first-party adapters exist in 0.6.1. WeChat and Feishu keep native media.
+Nine first-party adapters exist in 0.6.2. WeChat and Feishu keep native media.
 Slack, Telegram, and Discord use official token/manifest flows and must not
 fake QR. Optional macOS iMessage is private text, default off, Darwin-only, and
 unsupported on Windows/UOS; native live evidence is `LIVE_NOT_RUN`. WhatsApp
@@ -182,7 +184,7 @@ each matching runner, and the immutable ten-asset Release passes public
 byte-for-byte readback. Credential-free gates do not establish an external model
 reply or account delivery. Account-based results are recorded only when executed.
 Normal functional tests apply; a two-hour installed soak is not required or pending.
-See [the current acceptance delta](0.5.10/ACCEPTANCE_DELTA.md).
+See [the current acceptance delta](0.6.2/ACCEPTANCE_DELTA.md).
 
 ## 中文
 
@@ -193,14 +195,14 @@ Agent、模型、工具、审批、Workspace、Session、Turn 和会话 UI。蓬
 首次引导、进程监管、本地数据边界、辅助升级、卸载和经过审核的 DSH 插件，不另造
 Agent、模型网关、Session 存储或聊天页。
 
-0.5.12 公开发布仍固定 DSH `0.1.3-alpha.2`。README 与网站下载表在公开
-v0.6.1 附件回读前保持已发布的 0.6.0。0.6.1 开发树消费官方 DSH `0.1.5-rc.1`
+当前公开版本为 v0.6.1。当前 0.6.2 候选消费官方 DSH `0.1.5-rc.2`
 （279 包），目标为 Apple 芯片、Windows x64，以及统信 UOS 20
-`linux-loong64`（`Penglai_0.6.1_uos_loong64.deb`）。Intel Mac 不在本版发布。用户自备模型密钥，
+`linux-loong64`（`Penglai_0.6.2_uos_loong64.deb`）。Intel Mac 不在本版发布。用户自备模型密钥，
 选择 official 模型和 Workspace，收到第一条真实 DSH 回复后进入 official
-DSH Web。0.6.1 当前原生生命周期是 Apple 芯片与 Windows 全新安装、重启与默认卸载；
-旧版本已安装升级为 `OWNER_EXCLUDED`。UOS 真机安装/启动/功能为
-`OWNER_POST_RELEASE`。已发布的 0.5.10、0.5.11 与 0.5.12 保持不可变。
+DSH Web。0.6.2 当前原生生命周期是 Apple 芯片与 Windows 全新安装、重启、
+0.6.1 到 0.6.2 的真实安装版升级与默认卸载。UOS 真机安装/启动/功能为
+`OWNER_POST_RELEASE`。已发布的 0.5.10、0.5.11、0.5.12、0.6.0 与 0.6.1
+保持不可变。
 
 ### 2. 全新安装
 
@@ -230,15 +232,16 @@ official Agent 沿用当前供应商和模型，输出由 Host 封闭校验。�
 symlink/device/directory、加密/宏、可执行文件、嵌套压缩和 scope 都由 Host 校验。
 
 写入、导出、回传、撤销确认会绑定 job、摘要、目标、Workspace、Session 和 revision，
-只有真实动作成功后才完成。official DSH 0.1.5-rc.1 会话 Turn 支持文字、图片和
+只有真实动作成功后才完成。official DSH 0.1.5-rc.2 会话 Turn 支持文字、图片和
 generic file（同 Session 的 `uploadFile` receipt；模型侧是 handle text，不是原生多模态文件）。
-Penglai 尚未把 Artifact 接到这条官方 receipt 路径，因此不宣称输入框能直接发普通
-DOCX/XLSX/PPTX/PDF。official 图片不变；IM 收到的文件或蓬莱办公选择的 Workspace 文件走
-artifact service，不做 DOM hack 或第二会话引擎。
+会话输入框可以附上普通文档，助手再用工具读取 DSH 保存的文件；图片能否被理解取决于
+所选模型的视觉能力。Penglai 不会把独立 Artifact 引用静默改成会话 receipt。IM
+收到的文件或蓬莱办公选择的 Workspace 文件仍走 scope-checked artifact service，
+不做 DOM hack 或第二会话引擎。
 
 ### 5. IM 与语音
 
-`@penglai/im` 是唯一消息插件。0.6.1 提供九个第一方 adapter。微信和飞书保留原生
+`@penglai/im` 是唯一消息插件。0.6.2 提供九个第一方 adapter。微信和飞书保留原生
 媒体。Slack、Telegram、Discord 走官方 Token/Manifest，禁止伪装扫码。可选 macOS
 iMessage 仅私聊文本、默认关闭、只在 Darwin 可用，Windows/UOS 为不支持；真机 live
 记 `LIVE_NOT_RUN`。WhatsApp 不展示、不支持、不列为规划，也不捆绑运行时。

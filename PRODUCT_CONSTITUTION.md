@@ -39,23 +39,24 @@
 
 ## 当前发行边界
 
-- 当前产品与发布契约为 **Penglai v0.6.1**（D-071）。公开下载身份在不可变
-  `v0.6.1` GitHub Release 回读前仍是已发布的 **v0.6.0**。已发布的
-  **v0.5.10**、**v0.5.11**、**v0.5.12** 与 **v0.6.0** tag 与附件保持不可变。
-  0.6.1 消费官方 DSH `0.1.5-rc.1` 完整 npm cohort（tag
-  `dsh-v0.1.5-rc.1` / commit `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`，
+- 当前产品与发布契约为 **Penglai v0.6.2**（D-076）。公开下载身份在不可变
+  `v0.6.2` GitHub Release 回读前仍是已发布的 **v0.6.1**。已发布的
+  **v0.5.10**、**v0.5.11**、**v0.5.12**、**v0.6.0** 与 **v0.6.1** tag
+  和附件保持不可变。
+  0.6.2 消费官方 DSH `0.1.5-rc.2` 完整 npm cohort（tag
+  `dsh-v0.1.5-rc.2` / commit `fb2c4b9e698e30edb738bca4cf0618587db7d203`，
   279 包）。机器可读候选身份来自 `packages/release-identity/src/pins.ts` 与
   `release-contract.json`。公开下载事实只来自不可变 GitHub Release 回读。
   蓬莱办公与蓬莱记忆为 required-builtin DSH 插件；消息连接、语音识别、
-  语音生成、主动陪伴随包但默认关闭。0.6.1 UOS 20 原生安装/启动/功能为 Owner
+  语音生成、主动陪伴随包但默认关闭。0.6.2 UOS 20 原生安装/启动/功能为 Owner
   发布后验收（`OWNER_POST_RELEASE`）：Owner 将在发布后手动测试安装包。不得标
   PASS，也不得因此省略所选精确目标包。
-- 0.6.1 精确三个 target key：`darwin-aarch64`、`win32-x86_64`、
+- 0.6.2 精确三个 target key：`darwin-aarch64`、`win32-x86_64`、
   `linux-loong64`（统信桌面操作系统 20 专业版 1070 / Loongson-3A6000-HV /
   内核 4.19.0-loongson-3-desktop，旧世界用户态；不是 V25）。Owner 2026-09-11
   排除 `darwin-x86_64`。精确附件十项：三安装包加七项元数据。目标安装包为
-  `Penglai_0.6.1_macos_aarch64.dmg`、
-  `Penglai_0.6.1_windows_x64_setup.exe`、`Penglai_0.6.1_uos_loong64.deb`。
+  `Penglai_0.6.2_macos_aarch64.dmg`、
+  `Penglai_0.6.2_windows_x64_setup.exe`、`Penglai_0.6.2_uos_loong64.deb`。
   禁止把 ARM Electron 改名成 Intel 包；禁止把 Windows 预检、交叉编译、QEMU
   或 linux-x64 写成龙芯 native PASS。缺任一所选目标仍失败；把 Intel 加入本版
   精确集合仍失败。已发布 v0.6.0 四端十一附件保持不可变。
@@ -71,8 +72,20 @@
 - **0.5.11 发布授权**（D-067，已完成）：消费官方 DSH `0.1.2-rc.1` 完整 254 包 npm cohort；当时拒绝用不完整的 `dsh-v0.1.3-alpha.1` 标签混装。公开身份为 **0.5.11**。精确冻结记录见 `docs/0.5.11/COHORT_FREEZE.json`。
 - **0.5.12 全流程授权**（D-068，已完成）：完整开发、上游升级适配、缺陷修复、正常测试、推送与 PR 合并、三端原生构建、精确十项附件不可变发布及 README/既有官网更新与公开回读。官方 DSH `0.1.3-alpha.2` 完整 263 包 npm cohort。该授权已完成。已发布的 0.5.12 tag 与附件不得改写。精确冻结见 `docs/0.5.12/`。
 - **0.6.0 全流程授权**（D-070，已完成公开发布）：官方 DSH `0.1.5-alpha.1`、四端安装包与不可变 `v0.6.0` 附件。该授权已完成。已发布的 0.6.0 tag 与附件不得改写。UOS 真机安装/启动/功能仍为当时记录的 `OWNER_POST_RELEASE`，不是后续版本的自动 PASS。
-- **0.6.1 全流程授权、分阶段执行**（D-071，目标集合由 D-073 取代）：完整开发、官方 DSH `0.1.5-rc.1` 队列与第一方/伴随插件适配、审计缺陷修复、正常确定性测试、本地 `codex/0.6.1` 提交，当前 Apple Silicon/Windows 全新安装/重启/默认卸载门禁，以及供 Codex GUI 验收的 Apple Silicon 代表包。Owner 已授权后续 PR/`main`/三端原生 CI/不可变发布/README 与既有官网；当前 worker 阶段不创建 PR、不合并 `main`、不打 tag、不上传、不部署公开下载。包数以实际依赖图为准。明确排除两小时测试与旧版本已安装升级验收（`OWNER_EXCLUDED`，不得把未跑升级标 PASS）；`test:soak` 保留。UOS 真机安装/启动/功能为 `OWNER_POST_RELEASE`（Owner 发布后测试安装包），不是 native PASS。三目标与架构/ABI/闭包/依赖检查仍要求。精确冻结见 `docs/0.6.1/`。
-- **0.6.1 三目标发布**（D-073）：Owner 指令「不管 intel芯片的，赶紧发布」排除 Intel Mac。0.6.1 精确目标为 `darwin-aarch64`、`win32-x86_64`、`linux-loong64`；精确附件十项。不得把 native34542847487 Intel 失败标 PASS，也不得为 Intel 开 ad hoc 发布旁路。
+- **0.6.1 全流程授权与完成记录**（D-071/D-074，目标集合由 D-073 固定）：官方 DSH `0.1.5-rc.1` 完整 279 包 cohort、第一方/伴随插件适配、确定性门禁、三目标构建、不可变发布、README/官网与公开回读已经完成。两小时测试与旧版本已安装升级为该版 `OWNER_EXCLUDED`；UOS 真机安装/启动/功能仍为 `OWNER_POST_RELEASE`。精确冻结与证据边界见 `docs/0.6.1/`。
+- **0.6.1 三目标发布**（D-073，已完成）：Owner 指令「不管 intel芯片的，赶紧发布」排除 Intel Mac。0.6.1 精确目标为 `darwin-aarch64`、`win32-x86_64`、`linux-loong64`；精确附件十项。不得把 native34542847487 Intel 失败标 PASS，也不得为 Intel 开 ad hoc 发布旁路。
+- **0.6.2 上游复核与隐私维护**（D-075）：2026-09-12 检查到官方 DSH
+  `0.1.5-rc.2` 仍位于 npm `next`，相对 rc.1 是反馈弹窗与文件展示类更新，不含
+  已识别的核心安全/会话修复；当时决定不启动 0.6.2，后由 D-076 明确取代。Penglai 继续硬禁用 DSH
+  telemetry；任何未来反馈 UI 必须先解决“会发送当前会话记录”的部署文案与真实
+  传输边界。若以后采用 rc.2 或后续核心版本，必须原子迁移完整 cohort 并重新执行
+  source、closure、profile/plugin、native、publication 全流程，禁止局部替换安装包。
+- **0.6.2 全流程授权**（D-076）：采用官方 DSH `0.1.5-rc.2` 完整 279 包
+  cohort，恢复 0.6.1 到 0.6.2 的 Apple Silicon/Windows 安装版升级验证，并完成
+  三目标开发、修复、正常测试、合并、构建、发布、README/官网与公开回读。反馈
+  保留但只说明真实本机边界；公开材料与日志必须脱敏。两小时测试仍排除。UOS 一个
+  完整安装包的包/ABI/闭包在发布前验证，真机安装、启动、界面、文件选择器、休眠
+  恢复与功能仍为 `OWNER_POST_RELEASE`。
 - **0.6.1 IM 追踪与可选 iMessage**（D-072）：继续第一方改写追踪 dsh-im，不安装社区 runtime。已采用 rewrite-source 仍是 4.17.1 `464c0a9…`；当前已发布上游是 4.18.1 `d01bd34…`；未发布 `606ced1…` 只作为别名参考，不得写成 v4.18.1 字节。可选 iMessage 仅 Darwin、仅私聊文本、默认关闭；用户未明确启用并授予完全磁盘访问/自动化前，不得读取 Messages 数据或调用 Messages 自动化。权限不足或未配置不得记为已连接。Windows/UOS 只暴露不支持状态，不得调用 macOS helper。WhatsApp、wecom-app 回调、第二套管理 HTTP、Office 当 IM、DOM 注入与第二 Agent 核心仍禁止。Telegram Rich Draft 心跳不适用：保持官方终态投递。
 
 0.5.8 的预览方向不改写已经公开的 0.5.7 tag、Release、附件或历史文档。迁移到新 DSH 时必须从现行源代码与产品表面移除 WhatsApp 的说明卡、channel identity、连接路径、adapter/runtime 接线、Baileys/libsignal 依赖以及任何支持或路线图声明；Git 历史与明确标注为历史的发行审计记录继续保留。移除完成后需用 catalog、依赖闭包、lockfile、SBOM、许可证、安装包内容和用户界面反向证明 WhatsApp 不再属于 Penglai。

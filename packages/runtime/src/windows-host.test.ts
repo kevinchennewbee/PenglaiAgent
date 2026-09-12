@@ -351,10 +351,10 @@ test("NSIS script always preserves user data after in-app exact deletion", () =>
   assert.match(cleanClone, /fetch:mnemon-assets/);
   const artifact = readFileSync(new URL("../../../scripts/verify-artifact.mjs", import.meta.url), "utf8");
   const bundleDesktop = readFileSync(new URL("../../../scripts/bundle-desktop.mjs", import.meta.url), "utf8");
-  assert.match(artifact, /docs\/0\.6\.1\/DSH_PACKAGED_BYTES\.json/);
+  assert.match(artifact, /docs\/0\.6\.2\/DSH_PACKAGED_BYTES\.json/);
   assert.doesNotMatch(artifact, /docs\/0\.5\.12\/DSH_ALPHA_PACKAGED_BYTES\.json/);
   assert.doesNotMatch(artifact, /docs\/0\.5\.10\/DSH_ALPHA_PACKAGED_BYTES\.json/);
-  assert.match(bundleDesktop, /docs\/0\.6\.1\/DSH_PACKAGED_BYTES\.json/);
+  assert.match(bundleDesktop, /docs\/0\.6\.2\/DSH_PACKAGED_BYTES\.json/);
   assert.doesNotMatch(bundleDesktop, /docs\/0\.5\.12\/DSH_ALPHA_PACKAGED_BYTES\.json/);
   const rebuildFsExt = readFileSync(new URL("../../../scripts/rebuild-fs-ext.mjs", import.meta.url), "utf8");
   assert.match(rebuildFsExt, /npm-cli\.js/);

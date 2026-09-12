@@ -51,7 +51,7 @@ function resolvePinnedMnemon(): { path: string; sha256: string; target: string }
   if (!asset) return undefined;
   const candidates = [
     join(REPO_ROOT, "third_party", "mnemon", "bin", asset.target, asset.binaryFilename),
-    join(REPO_ROOT, "dist", "Penglai-v0.6.1-arm64", "Penglai.app", "Contents", "Resources", "mnemon", "mnemon"),
+    join(REPO_ROOT, "dist", "Penglai-v0.6.2-arm64", "Penglai.app", "Contents", "Resources", "mnemon", "mnemon"),
   ];
   for (const explicitPath of candidates) {
     if (!existsSync(explicitPath)) continue;

@@ -81,6 +81,93 @@ function assertVersion(app, expected, label) {
   return identity;
 }
 
+function seedOwnerDataForUpgrade(userData, previousVersion) {
+  if (previousVersion !== "0.6.1") {
+    fail(`native owner-data fixture is undefined for ${previousVersion}`);
+  }
+  const previousHome = join(userData, "dsh-homes", "dsh-v0.1.5-rc.1");
+  const settings = join(previousHome, "settings.yaml");
+  if (!existsSync(settings)) {
+    fail("previous installed boot did not create its pinned DSH settings");
+  }
+  const settingsMarker = "# penglai-native-upgrade-preservation: 0.6.1-to-0.6.2\n";
+  const existingSettings = readFileSync(settings, "utf8");
+  writeFileSync(settings, `${existingSettings.replace(/\n?$/u, "\n")}${settingsMarker}`);
+
+  const sessionRelative = join(
+    "storages",
+    "sessions",
+    "penglai-native-upgrade-preservation.jsonl",
+  );
+  const sourceSession = join(previousHome, sessionRelative);
+  mkdirSync(join(previousHome, "storages", "sessions"), { recursive: true });
+  writeFileSync(
+    sourceSession,
+    `${JSON.stringify({ schema: 1, id: "penglai-native-upgrade-preservation", ownerData: true })}\n`,
+  );
+
+  const desired = join(userData, "plugins", "desired.json");
+  if (!existsSync(desired)) {
+    fail("previous installed boot did not create plugin desired state");
+  }
+  try {
+    JSON.parse(readFileSync(desired, "utf8"));
+  } catch {
+    fail("previous installed plugin desired state is unreadable");
+  }
+
+  const memoryMarker = join(userData, "memory", "penglai-native-upgrade-preservation.json");
+  mkdirSync(join(userData, "memory"), { recursive: true });
+  writeFileSync(
+    memoryMarker,
+    `${JSON.stringify({ schema: 1, ownerData: true, from: previousVersion })}\n`,
+  );
+
+  return {
+    previousHome,
+    currentHome: join(userData, "dsh-homes", "dsh-v0.1.5-rc.2"),
+    settings,
+    sessionRelative,
+    sourceSession,
+    desired,
+    memoryMarker,
+    hashes: {
+      settings: sha256File(settings),
+      session: sha256File(sourceSession),
+      pluginDesired: sha256File(desired),
+      memory: sha256File(memoryMarker),
+    },
+  };
+}
+
+function assertOwnerDataAfterUpgrade(fixture, label) {
+  const migratedSettings = join(fixture.currentHome, "settings.yaml");
+  const migratedSession = join(fixture.currentHome, fixture.sessionRelative);
+  const checks = {
+    originalSettingsUnchanged:
+      existsSync(fixture.settings) && sha256File(fixture.settings) === fixture.hashes.settings,
+    migratedSettingsExact:
+      existsSync(migratedSettings) && sha256File(migratedSettings) === fixture.hashes.settings,
+    originalSessionUnchanged:
+      existsSync(fixture.sourceSession) && sha256File(fixture.sourceSession) === fixture.hashes.session,
+    migratedSessionExact:
+      existsSync(migratedSession) && sha256File(migratedSession) === fixture.hashes.session,
+    pluginDesiredExact:
+      existsSync(fixture.desired) && sha256File(fixture.desired) === fixture.hashes.pluginDesired,
+    memoryExact:
+      existsSync(fixture.memoryMarker) && sha256File(fixture.memoryMarker) === fixture.hashes.memory,
+  };
+  if (Object.values(checks).some((value) => value !== true)) {
+    fail(`${label} did not preserve the installed Owner data contract`, { preservation: checks });
+  }
+  return {
+    ...checks,
+    sourceGeneration: "dsh-v0.1.5-rc.1",
+    targetGeneration: "dsh-v0.1.5-rc.2",
+    fixtureDigests: fixture.hashes,
+  };
+}
+
 async function boot(app, userData, label) {
   const resources = resourcesInside(app, target);
   const executable = exeInside(app, target);
@@ -326,6 +413,7 @@ let uninstallLeftoverNames = [];
 let uninstallRemovedApp = false;
 const previousIdentity = assertVersion(app, previousVersion, "previous install");
 const previousBoot = await boot(app, userData, "previous install");
+const ownerDataFixture = seedOwnerDataForUpgrade(userData, previousVersion);
 if (target === "win32-x86_64") observeWindowsDefender();
 
 if (target === "win32-x86_64") {
@@ -344,6 +432,7 @@ const currentPackage = inspectPackagedCandidate({ app, candidateSha: source.git.
 if (currentPackage.verdict !== "PASS") fail("upgraded installer source identity mismatch", { currentPackage });
 const currentBoot = await boot(app, userData, "upgraded install");
 if (!existsSync(sentinel)) fail("upgrade did not preserve isolated Owner data");
+const upgradePreservation = assertOwnerDataAfterUpgrade(ownerDataFixture, "upgrade");
 
 if (target === "win32-x86_64") {
   await reapWindowsInstallTree(app, 30_000, userData);
@@ -390,6 +479,7 @@ if (!removed || !existsSync(sentinel)) {
     ownerDataPreserved: existsSync(sentinel),
   });
 }
+const uninstallPreservation = assertOwnerDataAfterUpgrade(ownerDataFixture, "uninstall");
 
 finish("PASS", {
   command: "verify:upgrade-uninstall",
@@ -410,9 +500,11 @@ finish("PASS", {
   },
   leftover: uninstallLeftoverNames,
   upgradePreservedOwnerData: true,
+  upgradePreservation,
   uninstallRemovedApp,
   uninstallLeftoverNames,
   uninstallPreservedOwnerData: true,
+  uninstallPreservation,
   defender: lastWindowsDefender,
   uninstallResidualAllowed: uninstallLeftoverNames.length
     ? uninstallLeftoverNames

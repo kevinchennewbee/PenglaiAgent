@@ -23,17 +23,20 @@ export const DSH_HOME_ALPHA2_VERSION = "0.1.2-alpha.2";
 export const DSH_HOME_PREVIOUS_VERSION = "0.1.2-rc.1";
 /** 0.5.12 generation. DSH 0.1.5 homes copy this tree; they never delete its session logs. */
 export const DSH_HOME_ALPHA13_VERSION = "0.1.3-alpha.2";
-/** Published 0.6.0 generation. 0.6.1 copies this tree and keeps original session logs. */
+/** Published 0.6.0 generation. Later DSH homes copy this tree and keep original session logs. */
 export const DSH_HOME_ALPHA15_VERSION = "0.1.5-alpha.1";
-export const DSH_HOME_TARGET_VERSION = "0.1.5-rc.1";
+/** Published 0.6.1 generation. 0.6.2 copies this tree and keeps original session and settings bytes. */
+export const DSH_HOME_RC1_VERSION = "0.1.5-rc.1";
+export const DSH_HOME_TARGET_VERSION = "0.1.5-rc.2";
 type SourceVersion =
   | typeof DSH_HOME_SOURCE_VERSION
   | typeof DSH_HOME_ALPHA2_VERSION
   | typeof DSH_HOME_PREVIOUS_VERSION
   | typeof DSH_HOME_ALPHA13_VERSION
-  | typeof DSH_HOME_ALPHA15_VERSION;
+  | typeof DSH_HOME_ALPHA15_VERSION
+  | typeof DSH_HOME_RC1_VERSION;
 type HomeVersion = SourceVersion | typeof DSH_HOME_TARGET_VERSION;
-export const DSH_HOME_UPGRADE_ID = "dsh-home-to-0.1.5-rc.1";
+export const DSH_HOME_UPGRADE_ID = "dsh-home-to-0.1.5-rc.2";
 /** Official rc.1 v0 logs are plaintext `session.jsonl`. Home copy keeps those bytes and every historical `session.v*.jsonl*` generation. */
 export const DSH_HOME_JSONL_COMPRESSION = "none";
 const HISTORICAL_SESSION_LOG_NAME =
@@ -81,6 +84,7 @@ export interface DshHomeUpgradeJournal {
     | typeof DSH_HOME_PREVIOUS_VERSION
     | typeof DSH_HOME_ALPHA13_VERSION
     | typeof DSH_HOME_ALPHA15_VERSION
+    | typeof DSH_HOME_RC1_VERSION
     | typeof DSH_HOME_TARGET_VERSION;
   state: "prepared" | "active" | "rolled-back" | "rejected";
   sourceRelative: string;
@@ -154,7 +158,8 @@ function isSourceVersion(version: unknown): version is SourceVersion {
     version === DSH_HOME_ALPHA2_VERSION ||
     version === DSH_HOME_PREVIOUS_VERSION ||
     version === DSH_HOME_ALPHA13_VERSION ||
-    version === DSH_HOME_ALPHA15_VERSION
+    version === DSH_HOME_ALPHA15_VERSION ||
+    version === DSH_HOME_RC1_VERSION
   );
 }
 
@@ -172,6 +177,7 @@ function migrationIdFor(version: HomeVersion): string {
   if (version === DSH_HOME_PREVIOUS_VERSION) return "dsh-home-to-0.1.2-rc.1";
   if (version === DSH_HOME_ALPHA13_VERSION) return "dsh-home-to-0.1.3-alpha.2";
   if (version === DSH_HOME_ALPHA15_VERSION) return "dsh-home-to-0.1.5-alpha.1";
+  if (version === DSH_HOME_RC1_VERSION) return "dsh-home-to-0.1.5-rc.1";
   return DSH_HOME_UPGRADE_ID;
 }
 
@@ -190,7 +196,8 @@ function namedGenerationPointerMismatch(
     expectedVersion !== DSH_HOME_TARGET_VERSION ||
     (value.fromVersion !== DSH_HOME_PREVIOUS_VERSION &&
       value.fromVersion !== DSH_HOME_ALPHA13_VERSION &&
-      value.fromVersion !== DSH_HOME_ALPHA15_VERSION)
+      value.fromVersion !== DSH_HOME_ALPHA15_VERSION &&
+      value.fromVersion !== DSH_HOME_RC1_VERSION)
   ) {
     return false;
   }
@@ -1065,7 +1072,7 @@ export function readActiveDshHome(
 }
 
 /**
- * Select the 0.1.5-rc.1 DSH Home used by 0.6.1 by copying the verified
+ * Select the 0.1.5-rc.2 DSH Home used by 0.6.2 by copying the verified
  * active previous generation. Prior mutable state is never used in place. A prepared generation is resumable:
  * the active pointer is written only after the embedded Host and required
  * first-party plugins have been observed healthy.

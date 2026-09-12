@@ -18,27 +18,47 @@ export const SECRET_RULES = Object.freeze([
   {
     id: "bot-token",
     category: "token",
-    re: /bot_token\s*[:=]\s*(?:["'][^"']{6,}["']|[A-Za-z0-9._~+/-]{8,})/i,
+    re: /bot_token\s*[:=]\s*(?:["'][^"']{6,}["']|[A-Za-z0-9._~+/:=-]{8,})/i,
   },
   {
     id: "api-key-sk",
     category: "api-key",
-    re: /\bsk-[A-Za-z0-9]{20,}/,
+    re: /\bsk-[A-Za-z0-9_-]{20,}\b/,
+  },
+  {
+    id: "github-token",
+    category: "token",
+    re: /\b(?:github_pat_[A-Za-z0-9_]{20,}|gh[oprsu]_[A-Za-z0-9]{20,})\b/,
+  },
+  {
+    id: "slack-token",
+    category: "token",
+    re: /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/i,
+  },
+  {
+    id: "telegram-token",
+    category: "token",
+    re: /\b\d{6,12}:[A-Za-z0-9_-]{20,}\b/,
   },
   {
     id: "colon-secret",
     category: "colon-form",
-    re: /(?:API_KEY|SECRET|PASSWORD|ACCESS_TOKEN)\s*:\s*["']?[A-Za-z0-9._+-]{10,}/,
+    re: /(?:API_KEY|CLIENT_SECRET|APP_SECRET|SECRET|PASSWORD|ACCESS_TOKEN|REFRESH_TOKEN)\s*:\s*["']?[A-Za-z0-9._~+/:=-]{8,}/,
   },
   {
     id: "json-secret",
     category: "json-form",
-    re: /"(?:apiKey|api_key|client_secret|access_token|password)"\s*:\s*"[^"]{8,}"/i,
+    re: /"(?:apiKey|api_key|clientSecret|client_secret|appSecret|app_secret|accessToken|access_token|refreshToken|refresh_token|botToken|bot_token|password)"\s*:\s*"[^"]{8,}"/i,
+  },
+  {
+    id: "named-secret",
+    category: "named-form",
+    re: /(?:API_KEY|CLIENT_SECRET|APP_SECRET|ACCESS_TOKEN|REFRESH_TOKEN|PASSWORD)\s*=\s*(?:["'][^"']{6,}["']|[A-Za-z0-9._~+/:=-]{8,})/,
   },
   {
     id: "header-auth",
     category: "header",
-    re: /Authorization\s*[:=]\s*Bearer\s+[A-Za-z0-9._~+/=-]{8,}/i,
+    re: /Authorization\s*[:=]\s*(?:Bearer|Basic|Token)\s+[A-Za-z0-9._~+/=-]{8,}/i,
   },
   {
     id: "voice-ref",
@@ -207,7 +227,7 @@ export function lineLooksLikeDetector(line) {
 }
 
 function hasConcreteApiKey(line) {
-  return /\bsk-[A-Za-z0-9]{20,}/.test(line);
+  return /\bsk-[A-Za-z0-9_-]{20,}\b/.test(line);
 }
 
 export function scanText(rel, text) {

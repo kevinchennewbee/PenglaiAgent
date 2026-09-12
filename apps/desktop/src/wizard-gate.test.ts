@@ -78,10 +78,17 @@ test("preload API includes wizardFinished and wizardPickFolder", () => {
 });
 
 test("startup failure text redacts secret-shaped fragments", () => {
-  const raw = "credentials.set failed: api_key=sk-abcdefghijklmnopqrstuvwxyz012345 token=wx-secret leftover sk-zzzzzzzzzzzzzzzz"; // penglai-test-fixture
+  const github = ["github_", `pat_${"a".repeat(32)}`].join("");
+  const slack = ["xoxb-", "b".repeat(24)].join("");
+  const telegram = ["123456789:", "c".repeat(32)].join("");
+  const refresh = ["refresh_", "token=rotating-secret-value"].join("");
+  const raw = `credentials.set failed: api_key=sk-abcdefghijklmnopqrstuvwxyz012345 token=wx-secret leftover sk-zzzzzzzzzzzzzzzz ${github} ${slack} ${telegram} ${refresh} Authorization: Basic YWxpY2U6c2VjcmV0`; // penglai-test-fixture
   const safe = sanitizeStartupReason(raw);
   assert.equal(safe.includes("sk-abcdefghijklmnopqrstuvwxyz012345"), false); // penglai-test-fixture
   assert.equal(safe.includes("wx-secret"), false);
+  for (const secret of [github, slack, telegram, "rotating-secret-value", "YWxpY2U6c2VjcmV0"]) {
+    assert.equal(safe.includes(secret), false);
+  }
   assert.match(safe, /sk-\[redacted\]/);
   assert.match(safe, /api_key=\[redacted\]/);
   assert.match(safe, /token=\[redacted\]/);

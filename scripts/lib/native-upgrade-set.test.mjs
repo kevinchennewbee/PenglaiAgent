@@ -15,25 +15,35 @@ import {
 const sources = JSON.parse(readFileSync(join(ROOT, "docs", PRODUCT_VERSION, "UPGRADE_SOURCES.json"), "utf8"));
 
 function passingPath(version, sourceSha, installerSha256) {
+  const preservation = {
+    originalSettingsUnchanged: true,
+    migratedSettingsExact: true,
+    originalSessionUnchanged: true,
+    migratedSessionExact: true,
+    pluginDesiredExact: true,
+    memoryExact: true,
+  };
   return {
     verdict: "PASS",
     sourceSha,
     previous: { version, boot: { freshReadiness: true } },
     current: { installerSha256, boot: { freshReadiness: true } },
     upgradePreservedOwnerData: true,
+    upgradePreservation: preservation,
     uninstallPreservedOwnerData: true,
+    uninstallPreservation: preservation,
     uninstallRemovedApp: true,
   };
 }
 
-test("current 0.6.1 workflow excludes previous-installer fetch and native upgrade paths", () => {
+test("current 0.6.2 workflow requires the 0.6.1 native upgrade path", () => {
   const scope = currentNativeLifecycleScope(sources);
-  assert.equal(scope.fetchPreviousInstallers, false);
-  assert.equal(scope.olderInstalledUpgradeStatus, "OWNER_EXCLUDED");
-  assert.equal(scope.requiredLifecycleGate, "verify:fresh-install-uninstall");
+  assert.equal(scope.fetchPreviousInstallers, true);
+  assert.equal(scope.olderInstalledUpgradeStatus, "REQUIRED");
+  assert.equal(scope.requiredLifecycleGate, "verify:upgrade-uninstall");
   assert.equal(scope.nativeUosStatus, "OWNER_POST_RELEASE");
-  assert.equal(currentWorkflowFetchesPreviousInstallers(sources), false);
-  assert.equal(currentWorkflowRequiresNativeUpgradePaths(sources), false);
+  assert.equal(currentWorkflowFetchesPreviousInstallers(sources), true);
+  assert.equal(currentWorkflowRequiresNativeUpgradePaths(sources), true);
   const historical = currentNativeLifecycleScope({ sources: sources.sources });
   assert.equal(historical.fetchPreviousInstallers, true);
   assert.equal(historical.olderInstalledUpgradeStatus, "REQUIRED");
@@ -42,8 +52,7 @@ test("current 0.6.1 workflow excludes previous-installer fetch and native upgrad
 
 test("native upgrade set follows every pinned previous version, not a hardcoded pair", () => {
   const expected = expectedUpgradeSourceVersions(sources);
-  assert.ok(expected.includes("0.5.8"));
-  assert.ok(expected.includes("0.5.11"));
+  assert.deepEqual(expected, ["0.6.1"]);
   assert.equal(expected.length, sources.sources.length);
   assert.deepEqual(expected, [...expected].sort());
   const sourceSha = "a".repeat(40);

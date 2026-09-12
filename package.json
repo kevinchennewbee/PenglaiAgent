@@ -1,6 +1,6 @@
 {
   "name": "penglaiagent",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.7.0",
@@ -81,7 +81,9 @@
     "verify:evidence": "node --import tsx scripts/verify-evidence.mjs",
     "verify:release": "node --import tsx scripts/verify-release.mjs",
     "verify:installed": "node --import tsx scripts/verify-installed.mjs",
+    "fetch:upgrade-sources": "node scripts/fetch-upgrade-sources.mjs",
     "verify:upgrade-uninstall": "node scripts/verify-upgrade-uninstall.mjs",
+    "verify:uos-package": "node scripts/verify-uos-package.mjs",
     "verify:fresh-install-uninstall": "node scripts/verify-fresh-install-uninstall.mjs",
     "assemble:live-evidence": "node --import tsx scripts/assemble-live-evidence.mjs",
     "verify:live": "node --import tsx scripts/verify-live.mjs",
@@ -117,10 +119,10 @@
     "ensure:electron": "node scripts/ensure-electron.mjs"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-api-remotes": "0.1.5-rc.1",
-    "@deepseek-ai/dsh-client-ui-settings": "0.1.5-rc.1",
-    "@deepseek-ai/dsh-client-ui-settings-general": "0.1.5-rc.1",
-    "@deepseek-ai/dsh-client-ui-slots": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-api-remotes": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings-general": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.1.5-rc.2",
     "@types/node": "22.16.5",
     "esbuild": "0.25.9",
     "fflate": "0.8.3",

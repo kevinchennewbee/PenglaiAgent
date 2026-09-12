@@ -303,8 +303,11 @@ test("Penglai settings mounts strict generated-client descriptors before using r
             apply: (ctx: unknown) => Promise<unknown>;
           };
         }) {
-          const exported = mod.factory((name) =>
-            name === "react"
+          const exported = mod.factory((name) => {
+            if (name === "@deepseek-ai/dsh-client-ui-message-feedback/client") {
+              return { apply() {} };
+            }
+            return name === "react"
               ? {
                   useState() {},
                   useEffect() {},
@@ -312,8 +315,8 @@ test("Penglai settings mounts strict generated-client descriptors before using r
                     return value;
                   },
                 }
-              : { jsx() {}, jsxs() {} },
-          );
+              : { jsx() {}, jsxs() {} };
+          });
           application = exported.apply({
             remote: {
               async $mount(value: typeof contribution) {
@@ -861,7 +864,7 @@ test("R50-CENTER-006 desired enabled cannot impersonate loaded/active", () => {
   const host = hostWith({ list: () => [] });
   host.setDesired("@penglai/im", true);
   const im = host.reconcile().find((r) => r.id === "@penglai/im");
-  assert.equal(im?.desired, "0.6.1");
+  assert.equal(im?.desired, "0.6.2");
   assert.equal(im?.loaded, false);
   assert.equal(im?.actual, "failed");
   assert.equal(im?.healthy, false);

@@ -27,6 +27,22 @@ test("R56-SEC-007 colon JSON URL and header forms are in the rule set", () => {
   );
 });
 
+test("public-repo scanner covers modern provider and named credential forms", () => {
+  const text = [
+    ["const github = ", '"github_', `pat_${"a".repeat(32)}";`].join(""),
+    ["const slack = ", '"xoxb-', `${"b".repeat(24)}";`].join(""),
+    ["const telegram = ", '"123456789:', `${"c".repeat(32)}";`].join(""),
+    ["REFRESH_", "TOKEN=rotating-secret-value"].join(""),
+    ["Authorization: ", "Basic YWxpY2U6c2VjcmV0"].join(""),
+    ["const modern = ", `"sk-proj_${"d".repeat(24)}";`].join(""),
+  ].join("\n");
+  const hits = scanText("packages/demo/src/provider.ts", text);
+  assert.deepEqual(
+    hits.map((hit) => hit.rule).sort(),
+    ["api-key-sk", "github-token", "header-auth", "named-secret", "slack-token", "telegram-token"],
+  );
+});
+
 test("R56-SEC-008 scanner evidence never echoes the secret value", () => {
   const hits = scanText("notes.md", `token ${SAMPLE_KEY}`);
   const report = formatSecretHits(hits);
@@ -122,7 +138,7 @@ test("R56-SEC-007 frozen publication records are exempt (release gate forbids ed
   assert.deepEqual(scanIdentityText("docs/RELEASE_NOTES_0.6.0.md", line), []);
   // Live documents are still fail-closed.
   assert.equal(scanIdentityText("docs/PRODUCT.md", line).length, 1);
-  assert.equal(scanIdentityText("docs/0.6.1/ACCEPTANCE_DELTA.md", line).length, 1);
+  assert.equal(scanIdentityText("docs/0.6.2/ACCEPTANCE_DELTA.md", line).length, 1);
   assert.equal(scanIdentityText("README.md", line).length, 1);
 });
 
@@ -143,9 +159,9 @@ test("immutable record classification matches the release-adaptation frozen set"
   }
   for (const rel of [
     "docs/PRODUCT.md",
-    "docs/0.6.1/ACCEPTANCE_DELTA.md",
+    "docs/0.6.2/ACCEPTANCE_DELTA.md",
     "docs/0.5.12/ACTIVE.md",
-    "docs/RELEASE_NOTES_0.6.1.md",
+    "docs/RELEASE_NOTES_0.6.2.md",
     "website/index.html",
   ]) {
     assert.equal(isImmutablePublicationRecord(rel), false, rel);

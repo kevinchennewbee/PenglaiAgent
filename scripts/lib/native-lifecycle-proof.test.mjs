@@ -111,7 +111,7 @@ test("forced stopChild termination is not a graceful application shutdown", asyn
     verdict: "PASS",
     target: liveTarget,
     sourceSha: "a".repeat(40),
-    installer: windowsHost ? "Penglai_0.6.1_windows_x64_setup.exe" : "Penglai_0.6.1_macos_aarch64.dmg",
+    installer: windowsHost ? "Penglai_0.6.2_windows_x64_setup.exe" : "Penglai_0.6.2_macos_aarch64.dmg",
     installerSha256: "b".repeat(64),
     host: windowsHost ? { platform: "win32", arch: "x64" } : { platform: "darwin", arch: "arm64" },
     destination: windowsHost ? "C:\\Users\\runner\\AppData\\Local\\Penglai\\app\\0.5" : "/tmp/Penglai.app",
@@ -251,7 +251,7 @@ test("Node SIGTERM on Windows and taskkill /F are never graceful shutdown proof"
   );
 });
 
-test("publication workflow consumes the current 0.6.1 native evidence set and ten-asset contract", async () => {
+test("publication workflow consumes the current 0.6.2 native evidence set and ten-asset contract", async () => {
   const { EXACT_RELEASE_ASSETS } = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/contract.ts")).href);
   const publish = readFileSync(join(ROOT, ".github/workflows/publish-release.yml"), "utf8");
   const native = readFileSync(join(ROOT, ".github/workflows/native-release-candidate.yml"), "utf8");

@@ -23,7 +23,7 @@ export function finish(verdict, payload = {}) {
     writeFileSync(join("evidence/generated", `${basename}.json`), bytes);
     if (
       typeof rec.target === "string" &&
-      ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"].includes(rec.target)
+      ["darwin-aarch64", "darwin-x86_64", "win32-x86_64", "linux-loong64"].includes(rec.target)
     ) {
       writeFileSync(join("evidence/generated", `${basename}-${rec.target}.json`), bytes);
     }
