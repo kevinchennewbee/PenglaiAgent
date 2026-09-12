@@ -42,7 +42,11 @@ import {
   nativeBlocked,
   parseTargetArg,
 } from "./lib/release-targets.mjs";
-import { currentNativeLifecycleScope, expectedUpgradeSourceVersions } from "./lib/native-upgrade-set.mjs";
+import {
+  currentNativeLifecycleScope,
+  expectedUpgradeSourceVersions,
+  seedUpgradePluginDesiredState,
+} from "./lib/native-upgrade-set.mjs";
 import {
   classifyApplicationShutdown,
   requestNativeApplicationClose,
@@ -117,13 +121,12 @@ function seedOwnerDataForUpgrade(userData, previousVersion) {
   );
 
   const desired = join(userData, "plugins", "desired.json");
-  if (!existsSync(desired)) {
-    fail("previous installed boot did not create plugin desired state");
-  }
   try {
-    JSON.parse(readFileSync(desired, "utf8"));
-  } catch {
-    fail("previous installed plugin desired state is unreadable");
+    seedUpgradePluginDesiredState(desired);
+  } catch (error) {
+    fail("could not seed a valid previous-version plugin preference", {
+      cause: error instanceof Error ? error.message : String(error),
+    });
   }
 
   const memoryMarker = join(userData, "memory", "penglai-native-upgrade-preservation.json");

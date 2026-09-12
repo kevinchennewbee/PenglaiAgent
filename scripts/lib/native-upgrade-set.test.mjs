@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ROOT } from "./repo.mjs";
 import { PRODUCT_VERSION } from "./product.mjs";
@@ -10,6 +11,7 @@ import {
   currentWorkflowFetchesPreviousInstallers,
   currentWorkflowRequiresNativeUpgradePaths,
   expectedUpgradeSourceVersions,
+  seedUpgradePluginDesiredState,
   upgradeUninstallEvidenceMatches,
 } from "./native-upgrade-set.mjs";
 
@@ -58,6 +60,33 @@ test("0.6.2 updater sequence is exactly one after immutable v0.6.1", () => {
     () => assertNextUpdaterSequence({ sources: [{ ...sources.sources[0], updateSequence: undefined }] }, 11),
     /must pin its public updater sequence/,
   );
+});
+
+test("native upgrade seeds an explicit previous-version plugin preference", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-upgrade-desired-"));
+  const desired = join(root, "plugins", "desired.json");
+  try {
+    assert.deepEqual(seedUpgradePluginDesiredState(desired), { "@penglai/im": false });
+    assert.deepEqual(JSON.parse(readFileSync(desired, "utf8")), {
+      "@penglai/im": false,
+    });
+
+    writeFileSync(desired, `${JSON.stringify({ "@penglai/asr": true })}\n`);
+    assert.deepEqual(seedUpgradePluginDesiredState(desired), {
+      "@penglai/asr": true,
+      "@penglai/im": false,
+    });
+
+    mkdirSync(join(root, "invalid"));
+    const invalid = join(root, "invalid", "desired.json");
+    writeFileSync(invalid, `${JSON.stringify({ "@penglai/im": "false" })}\n`);
+    assert.throws(
+      () => seedUpgradePluginDesiredState(invalid),
+      /boolean object/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("native upgrade set follows every pinned previous version, not a hardcoded pair", () => {
