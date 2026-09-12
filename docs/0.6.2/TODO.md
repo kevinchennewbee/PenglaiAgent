@@ -21,7 +21,7 @@ turn an unrun native or public check into PASS.
       and default-uninstall evidence on the exact frozen SHA.
 - [x] Build and verify the exact UOS package on that same SHA.
 - [x] Publish and read back the exact immutable asset set.
-- [ ] Replace candidate wording with observed public sizes, hashes, and source
+- [x] Replace candidate wording with observed public sizes, hashes, and source
       identity; deploy and read back both public websites.
 - [ ] Owner post-release UOS native test: install, start, UI, file picker,
       sleep/resume, model conversation, Office, and Memory.
