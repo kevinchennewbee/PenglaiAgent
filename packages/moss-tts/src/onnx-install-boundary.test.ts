@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -85,7 +95,8 @@ test("adm-zip destination-symlink extraction is not a product or authorized-buil
   assert.match(npmrc, /^ignore-scripts=true$/m);
 
   const workspace = readFileSync(join(root, "pnpm-workspace.yaml"), "utf8");
-  assert.match(workspace, /'onnxruntime-node>adm-zip': '0\.6\.0'/);
+  assert.match(workspace, /'onnxruntime-node>adm-zip': '0\.6\.1'/);
+  assert.match(workspace, /- 'adm-zip@0\.6\.1'/);
 
   const pack = readFileSync(join(root, "scripts/pack-plugins.mjs"), "utf8");
   assert.match(pack, /function vendorMossRuntime/);
@@ -126,4 +137,37 @@ test("adm-zip destination-symlink extraction is not a product or authorized-buil
   const runtime = readFileSync(join(root, "packages/moss-tts/src/third_party/moss_tts/runtime.mjs"), "utf8");
   assert.match(runtime, /from "onnxruntime-node"/);
   assert.doesNotMatch(runtime, /adm-zip|AdmZip|extractEntryTo|extractAllTo/);
+});
+
+test("adm-zip refuses extraction through an existing destination symlink", (context) => {
+  const require = createRequire(import.meta.url);
+  const AdmZip = require("adm-zip") as new () => {
+    addFile(name: string, bytes: Buffer): void;
+    extractAllTo(destination: string, overwrite: boolean): void;
+  };
+  const fixture = mkdtempSync(join(tmpdir(), "penglai-adm-zip-symlink-"));
+  const extractionRoot = join(fixture, "extract");
+  const outsideRoot = join(fixture, "outside");
+  const outsideFile = join(outsideRoot, "payload.txt");
+  mkdirSync(extractionRoot);
+  mkdirSync(outsideRoot);
+  writeFileSync(outsideFile, "original", { mode: 0o600 });
+  try {
+    try {
+      symlinkSync(outsideRoot, join(extractionRoot, "link"), process.platform === "win32" ? "junction" : "dir");
+    } catch (error) {
+      const code = error instanceof Error && "code" in error ? String(error.code) : "";
+      if (code === "EPERM" || code === "EACCES") {
+        context.skip(`destination symlinks unavailable on this host: ${code}`);
+        return;
+      }
+      throw error;
+    }
+    const archive = new AdmZip();
+    archive.addFile("link/payload.txt", Buffer.from("attacker-controlled"));
+    assert.throws(() => archive.extractAllTo(extractionRoot, true));
+    assert.equal(readFileSync(outsideFile, "utf8"), "original");
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
 });

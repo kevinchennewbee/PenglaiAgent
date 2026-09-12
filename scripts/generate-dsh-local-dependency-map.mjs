@@ -21,7 +21,7 @@ const preservedOverrides = {
   "exceljs>uuid": "11.1.1",
   "exceljs>unzipper": "0.12.5",
   "pptxgenjs>image-size": "workspace:*",
-  "onnxruntime-node>adm-zip": "0.6.0",
+  "onnxruntime-node>adm-zip": "0.6.1",
 };
 const allOverrides = preservedOverrides;
 delete rootPackage.pnpm;

@@ -14,6 +14,11 @@ journey on Apple Silicon and Windows x64. The native gate preserves settings,
 sessions, plugin choices, and Memory data before and after upgrade and default
 uninstall.
 
+The indirect `adm-zip` dependency used by the ONNX packaging toolchain is
+locked to `0.6.1`, which refuses extraction through an existing destination
+symlink. Install scripts remain disabled, and the archive helper is not called
+by the installed product runtime.
+
 Office and Memory start enabled. Messaging, speech recognition, voice
 generation, and Companion remain optional and default off. iMessage is an
 optional Mac-only private-text channel and remains `LIVE_NOT_RUN`. WhatsApp is
@@ -40,6 +45,10 @@ The two-hour installed soak is `OWNER_EXCLUDED`.
 蓬莱 0.6.2 使用完整的官方 DeepSeek Harness `0.1.5-rc.2` npm 依赖组，DSH
 仍是唯一 Agent 核心和官方会话界面。本版保留上游反馈入口，但明确按真实边界工作：
 反馈只留在本机，蓬莱不会通过该入口上传会话内容。
+
+ONNX 打包工具链间接依赖的 `adm-zip` 已固定到 `0.6.1`，会拒绝通过目标目录中
+已有的符号链接向外写入。依赖安装脚本仍保持关闭，安装后的产品运行时也不调用该
+解压工具。
 
 Apple 芯片 Mac 和 Windows x64 恢复 0.6.1 到 0.6.2 的真实安装版升级验收，逐项
 检查设置、会话、插件选择和记忆数据在升级及默认卸载后仍被保留。办公和记忆默认

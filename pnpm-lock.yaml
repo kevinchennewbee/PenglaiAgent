@@ -288,7 +288,7 @@ overrides:
   exceljs>uuid: 11.1.1
   exceljs>unzipper: 0.12.5
   pptxgenjs>image-size: workspace:*
-  onnxruntime-node>adm-zip: 0.6.0
+  onnxruntime-node>adm-zip: 0.6.1
 
 importers:
 
@@ -3780,8 +3780,8 @@ packages:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
     engines: {node: '>= 0.6'}
 
-  adm-zip@0.6.0:
-    resolution: {integrity: sha512-XleryMhbuksdKtofnWZ9Sk+4CUTbms4Mb/EU32SZwToAyZ5RgVos/ki8n+yr0LWHOGKuakbXTuuYNHLQjhddgg==}
+  adm-zip@0.6.1:
+    resolution: {integrity: sha512-Xwrja8nx9e5o2N1my4DsKCeKpdrnACyr1wtbPxBDgGzKzKyE9kRtBFA8mWldI+RVlD7CBZNWY/wQ2+ydwOR6kQ==}
     engines: {node: '>=14.0'}
 
   agent-base@6.0.2:
@@ -8604,7 +8604,7 @@ snapshots:
       mime-types: 3.0.2
       negotiator: 1.1.0
 
-  adm-zip@0.6.0: {}
+  adm-zip@0.6.1: {}
 
   agent-base@6.0.2:
     dependencies:
@@ -9634,7 +9634,7 @@ snapshots:
 
   onnxruntime-node@1.23.2:
     dependencies:
-      adm-zip: 0.6.0
+      adm-zip: 0.6.1
       global-agent: 3.0.0
       onnxruntime-common: 1.23.2
 

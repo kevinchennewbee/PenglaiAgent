@@ -11,6 +11,7 @@ upstream versions need a separate review.
 | Node and Electron | Node `22.23.2`, Electron `43.6.0` on Mac/Windows | Keep current pins. |
 | UOS runtime | Loongson Node `22.16.0`, Loongson Electron `31.7.7` / Chromium 126 | Keep the old-world LoongArch runtime needed for UOS 20. Electron 31 is no longer maintained, so this is not security parity with Mac/Windows. |
 | Mnemon | `0.2.8`, including architecture-built LoongArch engine | Keep Memory required and enabled by default. |
+| `adm-zip` | npm `0.6.1`; integrity `sha512-Xwrja8nx9e5o2N1my4DsKCeKpdrnACyr1wtbPxBDgGzKzKyE9kRtBFA8mWldI+RVlD7CBZNWY/wQ2+ydwOR6kQ==` | Override the ONNX toolchain's indirect dependency to the first release containing destination-symlink protection; keep install scripts disabled and verify the exploit shape directly. |
 
 At the time of review, npm tags were `latest=0.1.5-rc.1`,
 `next=0.1.5-rc.2`, and `alpha=0.1.5-alpha.2`. The release pins rc.2 by exact

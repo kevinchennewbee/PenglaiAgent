@@ -36,6 +36,9 @@ The release must satisfy the existing acceptance contract plus these deltas:
 - Keep secrets, credentials, owner paths, personal email addresses, local
   profiles, logs, screenshots, and chat media out of committed and published
   material. Evidence output is bounded and redacted before it is written.
+- Pin the indirect ONNX packaging dependency `adm-zip` to `0.6.1` and prove
+  that overwrite extraction refuses an existing destination symlink. Install
+  scripts remain disabled and the installed runtime has no `adm-zip` call path.
 
 Known limitations are part of the release contract: UOS requires `libatomic1`
 and recommends `bubblewrap`; MOSS TTS is unavailable on LoongArch; iMessage is
@@ -60,6 +63,10 @@ Node、完整 DSH、全部第一方插件、办公、记忆、Mnemon、本地依
 本版不含 Intel Mac。UOS 20 龙芯真机安装、启动、文件选择器、休眠恢复与功能体验
 由 Owner 在发布后手动验收，状态保持 `OWNER_POST_RELEASE`，不能用静态检查冒充
 真机 PASS。
+
+ONNX 打包工具链间接带入的 `adm-zip` 固定为 `0.6.1`，并以恶意目标符号链接
+回归验证解压会拒绝向目录外写入；依赖安装脚本继续禁用，安装版运行时不存在
+`adm-zip` 调用路径。
 
 已知限制会如实公开：UOS 依赖 `libatomic1`，建议安装 `bubblewrap`；龙芯版不提供
 MOSS 语音生成；iMessage 只支持 Mac 且默认关闭；Electron 31 处于维护阶段；UOS
