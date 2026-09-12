@@ -1,13 +1,13 @@
 # Security Policy
 
-Penglai 0.6.1 is the current **community-verified** public desktop distribution. Source on this branch is the 0.6.2 candidate with official DeepSeek Harness (DSH) `0.1.5-rc.2`; it is not a public release until immutable bytes are published and read back. The full product contract lives in [`docs/SECURITY.md`](docs/SECURITY.md).
+Penglai 0.6.2 is the current **community-verified** immutable public desktop distribution. It uses the complete official DeepSeek Harness (DSH) `0.1.5-rc.2` npm cohort and was built from `83ce4aa3c153b63d9f84c6a5d650a3727e8cfec6`. Exact public bytes and validation boundaries are recorded in [`docs/PUBLICATION_MANIFEST_0.6.2.md`](docs/PUBLICATION_MANIFEST_0.6.2.md). The full product contract lives in [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Supported versions
 
 | Version | Status |
 | --- | --- |
-| 0.6.2 | Release candidate; not yet a public download |
-| 0.6.1 | Current immutable public release |
+| 0.6.2 | Current immutable public release |
+| 0.6.1 | Historical immutable release |
 | 0.6.0 | Historical immutable release |
 | 0.5.12 | Historical immutable release; native Mac/Windows upgrades to 0.6.0 verified |
 | 0.5.11 | Historical immutable release |
@@ -78,7 +78,7 @@ owner paths, or updater private keys.
 Please include:
 
 - Penglai version and platform (`macos_aarch64`, `macos_x64`, `windows_x64`, or `uos_loong64`)
-- Whether the build is the publication candidate
+- Whether the build is the published package or a later source checkout
 - Reproduction without real API keys or account material
 - Impact on credentials, IM routing, update/uninstall, or Electron hardening
 
@@ -90,11 +90,11 @@ Penglai will not claim notarization, Authenticode, App Store trust, silent auto-
 
 ## 中文
 
-当前公开版本为 0.6.1。当前分支是使用固定官方 DSH `0.1.5-rc.2` npm 包的
-0.6.2 候选；不可变附件发布并回读前，不是公开下载。Apple Silicon 与 Windows x64
-必须完成全新安装、0.6.1 到 0.6.2 升级和默认卸载验证。Intel Mac 不是 0.6.2
-安装目标。UOS 龙芯真机安装、启动和功能由 Owner 在 0.6.2 发布后测试。
-旧版 DSH Home 保留，新代际在独立目录通过健康检查后启用。
+当前公开版本为不可变 Penglai 0.6.2，使用完整固定的官方 DSH `0.1.5-rc.2`
+npm 依赖组，安装包源码为 `83ce4aa3c153b63d9f84c6a5d650a3727e8cfec6`。
+Apple Silicon 与 Windows x64 已完成全新安装、0.6.1 到 0.6.2 升级和默认卸载
+验证。Intel Mac 不是 0.6.2 安装目标。UOS 龙芯真机安装、启动和功能仍由 Owner
+在发布后测试。旧版 DSH Home 保留，新代际在独立目录通过健康检查后启用。
 
 0.6.2 的正式发布包含十项完整附件，包括三个安装包、签名更新清单、校验和、
 SBOM 与第三方声明。0.5.9 历史发布只有三个安装包，缺少元数据属于当时的发布缺陷；

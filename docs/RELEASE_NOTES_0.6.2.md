@@ -1,7 +1,9 @@
 # Penglai 0.6.2
 
-Status: release candidate. Public URLs, sizes, hashes, and final source identity
-will be added only after immutable release readback.
+Status: immutable public release. All ten assets were published once and passed
+public readback. The exact sizes and SHA-256 values are recorded in the
+[publication manifest](PUBLICATION_MANIFEST_0.6.2.md). The installer source is
+`83ce4aa3c153b63d9f84c6a5d650a3727e8cfec6`.
 
 Penglai 0.6.2 adopts the complete official DeepSeek Harness `0.1.5-rc.2` npm
 cohort: 265 DSH packages, nine vendor packages, and five native packages. DSH
@@ -24,11 +26,11 @@ generation, and Companion remain optional and default off. iMessage is an
 optional Mac-only private-text channel and remains `LIVE_NOT_RUN`. WhatsApp is
 not bundled.
 
-The planned release set is exactly three installers plus the signed updater,
-release manifests, checksums, and public source-export manifest named in
-`release-contract.json`. Intel Mac, Linux amd64, and Windows ARM are not 0.6.2
-targets. macOS remains ad-hoc signed and not notarized; Windows has no
-Authenticode.
+The [immutable `v0.6.2` release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.2)
+contains exactly three installers plus the signed updater, release manifests,
+checksums, and public source-export manifest named in `release-contract.json`.
+Intel Mac, Linux amd64, and Windows ARM are not 0.6.2 targets. macOS remains
+ad-hoc signed and not notarized; Windows has no Authenticode.
 
 The UOS 20 LoongArch `.deb` is a complete installer containing Electron, Node,
 official DSH, every first-party plugin, Office, Memory, Mnemon, and its local
@@ -42,9 +44,11 @@ The two-hour installed soak is `OWNER_EXCLUDED`.
 
 ## 中文
 
-蓬莱 0.6.2 使用完整的官方 DeepSeek Harness `0.1.5-rc.2` npm 依赖组，DSH
-仍是唯一 Agent 核心和官方会话界面。本版保留上游反馈入口，但明确按真实边界工作：
-反馈只留在本机，蓬莱不会通过该入口上传会话内容。
+蓬莱 0.6.2 已作为不可变公开版本发布，十项附件均完成公网回读。精确大小与
+SHA-256 见[发布清单](PUBLICATION_MANIFEST_0.6.2.md)，安装包源码为
+`83ce4aa3c153b63d9f84c6a5d650a3727e8cfec6`。本版使用完整的官方 DeepSeek
+Harness `0.1.5-rc.2` npm 依赖组，DSH 仍是唯一 Agent 核心和官方会话界面。
+上游反馈入口按真实边界工作：反馈只留在本机，蓬莱不会通过该入口上传会话内容。
 
 ONNX 打包工具链间接依赖的 `adm-zip` 已固定到 `0.6.1`，会拒绝通过目标目录中
 已有的符号链接向外写入。依赖安装脚本仍保持关闭，安装后的产品运行时也不调用该

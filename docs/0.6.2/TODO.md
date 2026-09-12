@@ -16,11 +16,11 @@ turn an unrun native or public check into PASS.
 - [x] Add a fail-closed UOS `.deb` verifier for package identity, ABI, closure,
       runtime, plugins, licenses, and architecture.
 - [x] Harden evidence output, secret scanning, and owner-path redaction.
-- [ ] Merge the reviewed source into `main` and record the frozen source SHA.
-- [ ] Complete native Mac and Windows fresh-install, restart, upgrade, rollback,
+- [x] Merge the reviewed source into `main` and record the frozen source SHA.
+- [x] Complete native Mac and Windows fresh-install, restart, upgrade, rollback,
       and default-uninstall evidence on the exact frozen SHA.
-- [ ] Build and verify the exact UOS package on that same SHA.
-- [ ] Publish and read back the exact immutable asset set.
+- [x] Build and verify the exact UOS package on that same SHA.
+- [x] Publish and read back the exact immutable asset set.
 - [ ] Replace candidate wording with observed public sizes, hashes, and source
       identity; deploy and read back both public websites.
 - [ ] Owner post-release UOS native test: install, start, UI, file picker,
