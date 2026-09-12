@@ -43,6 +43,7 @@ import {
   parseTargetArg,
 } from "./lib/release-targets.mjs";
 import { currentNativeLifecycleScope, expectedUpgradeSourceVersions } from "./lib/native-upgrade-set.mjs";
+import { updateVerifiedRegularFile } from "./lib/verified-file.mjs";
 
 const versionIndex = process.argv.indexOf("--previous-version");
 const previousVersion = versionIndex < 0 ? undefined : process.argv[versionIndex + 1];
@@ -87,12 +88,16 @@ function seedOwnerDataForUpgrade(userData, previousVersion) {
   }
   const previousHome = join(userData, "dsh-homes", "dsh-v0.1.5-rc.1");
   const settings = join(previousHome, "settings.yaml");
-  if (!existsSync(settings)) {
-    fail("previous installed boot did not create its pinned DSH settings");
-  }
   const settingsMarker = "# penglai-native-upgrade-preservation: 0.6.1-to-0.6.2\n";
-  const existingSettings = readFileSync(settings, "utf8");
-  writeFileSync(settings, `${existingSettings.replace(/\n?$/u, "\n")}${settingsMarker}`);
+  try {
+    updateVerifiedRegularFile(settings, (bytes) =>
+      `${bytes.toString("utf8").replace(/\n?$/u, "\n")}${settingsMarker}`,
+    );
+  } catch (error) {
+    fail("previous installed boot did not leave writable pinned DSH settings", {
+      cause: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   const sessionRelative = join(
     "storages",
