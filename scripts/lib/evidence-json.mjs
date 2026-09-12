@@ -95,9 +95,8 @@ export function writeEvidenceJson(path, value, options = {}) {
   }
   const target = assertConfinedEvidencePath(path, options.root ?? DEFAULT_EVIDENCE_ROOT);
   const payload = `${JSON.stringify(sanitizeEvidenceValue(value), null, 2)}\n`;
-  // Browser observations are intentionally persisted only after bounded recursive
-  // redaction, and only inside the fixed evidence root validated above.
-  // codeql[js/http-to-file-access] The bounded sanitizer above is the deliberate
-  // trust-boundary conversion; raw HTTP bodies and typed byte views are rejected.
+  // Browser observations are persisted only after bounded recursive redaction and
+  // only inside the fixed evidence root; raw HTTP bodies and byte views are rejected.
+  // codeql[js/http-to-file-access] The sanitizer above is the deliberate trust-boundary conversion.
   writeFileSync(target, payload, { mode: 0o600 });
 }
