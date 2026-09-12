@@ -1,9 +1,9 @@
 import { NATIVE_INSTALLED_TARGETS } from "./release-targets.mjs";
 import {
+  WINDOWS_DEFAULT_APP_SEGMENTS,
   classifyApplicationShutdown,
   hostFactsMatchTarget,
   profileRestartProblems,
-  windowsDestinationIsDefaultInstdir,
 } from "./native-lifecycle-proof.mjs";
 
 export const FRESH_LIFECYCLE_COMMAND = "verify:fresh-install-uninstall";
@@ -21,6 +21,18 @@ function uninstallMethodForTarget(target) {
   if (target === "win32-x86_64") return "nsis-uninstaller";
   if (String(target).startsWith("darwin-")) return "dedicated-app-removal";
   return "";
+}
+
+function windowsInstallReceiptProvesDefaultInstdir(install) {
+  return (
+    isRecord(install) &&
+    install.defaultNativeInstdir === true &&
+    install.customDestination === false &&
+    install.payloadDeletedByHarness === false &&
+    install.nsisDefaultInstallDir === String.raw`$LOCALAPPDATA\Penglai\app\0.5` &&
+    Array.isArray(install.segments) &&
+    JSON.stringify(install.segments) === JSON.stringify(WINDOWS_DEFAULT_APP_SEGMENTS)
+  );
 }
 
 export function freshInstallUninstallEvidenceProblems(record, expected = {}) {
@@ -86,8 +98,10 @@ export function freshInstallUninstallEvidenceProblems(record, expected = {}) {
   }
   if (!hostFactsMatchTarget(record.host, target || expectedTarget)) problems.push("missing target");
   if ((target || expectedTarget) === "win32-x86_64") {
-    const dest = record.windowsInstall?.path ?? record.destination;
-    if (!windowsDestinationIsDefaultInstdir(dest) || record.windowsInstall?.customDestination === true) {
+    // Raw user paths are deliberately redacted before evidence is uploaded.
+    // Aggregate only the non-private structural receipt emitted after the
+    // native installer proved its exact default destination on the host.
+    if (!windowsInstallReceiptProvesDefaultInstdir(record.windowsInstall)) {
       problems.push("incompatible receipt shape");
     }
     if (record.windowsInstall?.payloadDeletedByHarness === true) {
