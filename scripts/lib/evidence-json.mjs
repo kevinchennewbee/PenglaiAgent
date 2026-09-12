@@ -109,7 +109,7 @@ function writeAll(descriptor, payload) {
   while (offset < payload.length) {
     // The caller has bounded and recursively sanitized the record, confined the
     // canonical parent, and opened a same-directory O_EXCL file descriptor.
-    // codeql[js/http-to-file-access]
+    // codeql[js/http-to-file-access] This is the deliberate post-sanitization trust-boundary write.
     const written = writeSync(descriptor, payload, offset, payload.length - offset, offset);
     if (!Number.isSafeInteger(written) || written <= 0) {
       throw new Error("evidence JSON write made no progress");
