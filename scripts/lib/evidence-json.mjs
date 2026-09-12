@@ -150,11 +150,11 @@ function writeAll(descriptor, payload) {
     // codeql[js/http-to-file-access] This is the deliberate post-sanitization trust-boundary write.
     const written = writeSync(
       descriptor,
-      payload,
+      payload, // lgtm[js/http-to-file-access]
       offset,
       payload.length - offset,
       offset,
-    ); // lgtm[js/http-to-file-access]
+    );
     if (!Number.isSafeInteger(written) || written <= 0) {
       throw new Error("evidence JSON write made no progress");
     }
