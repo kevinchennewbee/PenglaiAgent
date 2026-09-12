@@ -97,6 +97,6 @@ export function writeEvidenceJson(path, value, options = {}) {
   const payload = `${JSON.stringify(sanitizeEvidenceValue(value), null, 2)}\n`;
   // Browser observations are persisted only after bounded recursive redaction and
   // only inside the fixed evidence root; raw HTTP bodies and byte views are rejected.
-  // codeql[js/http-to-file-access] The sanitizer above is the deliberate trust-boundary conversion.
+  // codeql[js/http-to-file-access]
   writeFileSync(target, payload, { mode: 0o600 });
 }
