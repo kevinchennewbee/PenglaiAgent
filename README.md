@@ -8,20 +8,20 @@ Your own AI workspace, ready to install.
 
 [English](#english) · [中文](#中文) · [Website](https://penglai.pages.dev) · [中文网站](https://penglai.pages.dev/zh/) · [Security](SECURITY.md)
 
-**Penglai 0.6.1 is the current public release.** It brings official
+**Penglai 0.6.2 is the current public release.** It brings official
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) to Apple
 Silicon, Windows x64, and UnionTech UOS 20 LoongArch in a normal desktop
 package. Office and Memory are ready from the first launch. Messaging, speech,
 and Companion wait until you turn them on.
 
-[Download 0.6.1](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1)
-· [Release notes](docs/RELEASE_NOTES_0.6.1.md)
+[Download 0.6.2](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.2)
+· [Release notes](docs/RELEASE_NOTES_0.6.2.md)
 · [Security](SECURITY.md)
 
-Source on this branch is the **0.6.2 release candidate**, built around the
-complete official DSH `0.1.5-rc.2` cohort. There is no public 0.6.2 download
-yet. Its acceptance record is in
-[`docs/0.6.2/`](docs/0.6.2/ACCEPTANCE_DELTA.md).
+The immutable release was built from
+`83ce4aa3c153b63d9f84c6a5d650a3727e8cfec6` with the complete official DSH
+`0.1.5-rc.2` cohort. The exact public bytes and validation boundaries are in
+the [publication manifest](docs/PUBLICATION_MANIFEST_0.6.2.md).
 
 <p align="center">
   <img src="website/shots/0.5.5/welcome.png" width="78%" alt="Penglai first-run welcome">
@@ -73,34 +73,34 @@ another. Personal memory is never folded in without a separate choice.
 </p>
 <p align="center"><sub>Installed 0.5.5 Plugin Center and Office screens, shown as product references.</sub></p>
 
-### Download 0.6.1
+### Download 0.6.2
 
 GitHub Releases is the authoritative source. Choose the package that matches
 the computer and verify it against `SHA256SUMS` on the
-[`v0.6.1` release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1).
+[`v0.6.2` release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.2).
 All three installers were built from source
-`7ad7c29ecda5d9e867fdde0fe3fefd5c42d3ab1b`.
+`83ce4aa3c153b63d9f84c6a5d650a3727e8cfec6`.
 
 #### Apple Silicon, macOS 13+
 
-[`Penglai_0.6.1_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_macos_aarch64.dmg)
+[`Penglai_0.6.2_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.2/Penglai_0.6.2_macos_aarch64.dmg)
 
-284,369,412 bytes · SHA-256
-`91393e2e760871694e836c2582b903f6fee509e9fa11391724567e472f9946e9`
+284,537,443 bytes · SHA-256
+`7a9e6d851c954e74d8af8ad8d4054838ad212dd575a82ad783cabd09bfdd9348`
 
 #### Windows 10+ x64
 
-[`Penglai_0.6.1_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_windows_x64_setup.exe)
+[`Penglai_0.6.2_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.2/Penglai_0.6.2_windows_x64_setup.exe)
 
-371,266,017 bytes · SHA-256
-`d4fb670edea847024abcb2a1ac760cc2f7c5814d0c60f77f80ec647c59f51791`
+371,269,392 bytes · SHA-256
+`3e97111bfcefa3c1ab72e70aad6b160acb76f6bef70391f8be4818d80edb8cda`
 
 #### UnionTech UOS 20 LoongArch
 
-[`Penglai_0.6.1_uos_loong64.deb`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_uos_loong64.deb)
+[`Penglai_0.6.2_uos_loong64.deb`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.2/Penglai_0.6.2_uos_loong64.deb)
 
-293,074,470 bytes · SHA-256
-`cd38c06e37151f226e7f9eb2519dba0800fc9ed7f4449d2b7edd5a282efb5934`
+293,093,278 bytes · SHA-256
+`d16d6b9569095b4d599e9da5afd5c325ebbb661ac7de21ce993fd281bf2998f7`
 
 ### A few things worth knowing
 
@@ -202,18 +202,18 @@ PDF，写入前会针对这次动作确认。项目记忆只留在当前 Workspa
 </p>
 <p align="center"><sub>0.5.5 安装版的记忆与隐私界面，作为产品参考。</sub></p>
 
-### 下载 0.6.1
+### 下载 0.6.2
 
 当前公开版是
-[`v0.6.1`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.1)。
+[`v0.6.2`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.2)。
 请按电脑选择 Apple 芯片、Windows x64 或统信 UOS 20 龙芯安装包，下载后用发行页
 里的 `SHA256SUMS` 核对。三个安装包来自同一源码
-`7ad7c29ecda5d9e867fdde0fe3fefd5c42d3ab1b`。Intel Mac、Linux amd64 和
+`83ce4aa3c153b63d9f84c6a5d650a3727e8cfec6`。Intel Mac、Linux amd64 和
 Windows ARM 不是本版目标。
 
-- [Apple 芯片安装包](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_macos_aarch64.dmg)
-- [Windows x64 安装包](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_windows_x64_setup.exe)
-- [统信 UOS 20 龙芯安装包](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.1/Penglai_0.6.1_uos_loong64.deb)
+- [Apple 芯片安装包](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.2/Penglai_0.6.2_macos_aarch64.dmg)
+- [Windows x64 安装包](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.2/Penglai_0.6.2_windows_x64_setup.exe)
+- [统信 UOS 20 龙芯安装包](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.2/Penglai_0.6.2_uos_loong64.deb)
 
 ### 安装前值得知道
 
@@ -229,11 +229,13 @@ Windows ARM 不是本版目标。
   龙芯不提供 MOSS-TTS。Electron 31.7.7 / Chromium 126 已不再维护。
 - 默认卸载会移除应用和缓存，保留用户数据与外部 Workspace；升级不会静默进行。
 
-### 0.6.2 正在做什么
+### 0.6.2 带来了什么
 
-当前源码已经切换到完整的官方 DSH `0.1.5-rc.2` 依赖组，并恢复 Apple 芯片和
-Windows x64 从 0.6.1 升级的安装版验收。0.6.2 还没有公开下载；只有不可变发行
-附件完成发布并回读后，这里才会换成真实的大小、哈希和下载地址。
+0.6.2 使用完整的官方 DSH `0.1.5-rc.2` 依赖组。Apple 芯片和 Windows x64
+已经完成从 0.6.1 到 0.6.2 的真实安装版升级，升级和默认卸载后继续保留设置、
+会话、插件选择与记忆数据。不可变发布的源码是
+`83ce4aa3c153b63d9f84c6a5d650a3727e8cfec6`；精确公开字节与验收边界见
+[发布清单](docs/PUBLICATION_MANIFEST_0.6.2.md)。
 
 更多资料：
 [产品](docs/PRODUCT.md) · [架构](docs/ARCHITECTURE.md) ·

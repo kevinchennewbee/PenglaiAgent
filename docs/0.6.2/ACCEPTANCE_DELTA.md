@@ -1,6 +1,7 @@
 # Penglai 0.6.2 acceptance delta
 
-Status: development candidate. This file is not public-release evidence.
+Status: published acceptance delta. Immutable public-byte evidence is recorded
+in `docs/PUBLICATION_MANIFEST_0.6.2.md`.
 
 ## English
 
