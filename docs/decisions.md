@@ -596,7 +596,7 @@
   Mnemon 与本地依赖的完整 `loongarch64` 安装包。包、ABI 与闭包必须在发布前通过；
   真机安装、启动、界面、文件选择器、休眠恢复与功能仍为 `OWNER_POST_RELEASE`，
   由 Owner 在发布后测试。公开说明 `libatomic1` 依赖、`bubblewrap` 建议、龙芯无
-  MOSS、iMessage 仅 Mac、Electron 31 维护状态与上述真机待验边界。
+  MOSS、iMessage 仅 Mac、Electron 31 已停止维护与上述真机待验边界。
 - 体验：README 与官网改为亲切、笃定、面向普通用户的中英文表达，减少工程报告式
   堆砌，但不得弱化安全边界或虚构公开/真机证据。
 

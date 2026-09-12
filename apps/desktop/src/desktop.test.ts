@@ -165,6 +165,10 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /show:\s*false/);
   assert.match(main, /opacity:\s*platform === "win32" \? 0 : 1/);
   assert.match(main, /backgroundColor:\s*"#f8f4ee"/);
+  assert.match(main, /autoHideMenuBar:\s*true/);
+  assert.match(main, /devTools:\s*!app\.isPackaged/);
+  assert.match(main, /Menu\.setApplicationMenu\(null\)/);
+  assert.match(main, /win\.setMenu\(null\)/);
   assert.match(main, /requestAnimationFrame\(\(\) => requestAnimationFrame\(resolve\)\)/);
   assert.match(main, /await delay\(120\)/);
   assert.match(main, /win\.setOpacity\(1\)/);
@@ -183,8 +187,9 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /rollback:\s*"plugin-rollback"/);
   assert.match(main, /requestOwnerApprovalArgs/);
   assert.match(main, /onboardingLedgerComplete/);
-  assert.match(main, /officialVendorConsoleDecision/);
   assert.match(main, /shell\.openExternal/);
+  assert.match(main, /confirmExternalLink/);
+  assert.match(main, /assertSafeHttpsUrl\(url, "external link"\)/);
   assert.match(main, /setWindowOpenHandler\(\(\{ url \}\) =>/);
   assert.match(main, /openPluginLink/);
   assert.match(main, /assertSafeHttpsUrl/);

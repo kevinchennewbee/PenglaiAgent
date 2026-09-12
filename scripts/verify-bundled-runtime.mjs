@@ -162,7 +162,7 @@ try {
   });
   const cookie = supervisor.upstreamCookie;
   if (supervisor.webAuthMode !== "browser-cookie" || !cookie) {
-    throw new Error("DSH alpha browser session was not established");
+    throw new Error("DSH browser session was not established");
   }
   const res = await fetch(`http://127.0.0.1:${started.port}/`, {
     headers: { cookie },

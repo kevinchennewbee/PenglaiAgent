@@ -31,3 +31,4 @@ pnpm-workspace.yaml text eol=lf
 # the committed provenance hash (U02 rc.1 v0 log 7dc9ca08… vs CRLF c2a03bce…).
 packages/runtime/testdata/** text eol=lf
 **/*.jsonl text eol=lf
+profile-seed/** text eol=lf

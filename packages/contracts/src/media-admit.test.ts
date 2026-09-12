@@ -126,7 +126,7 @@ test("PDF and DOCX admit through official saveFile and keep office handles", asy
       sourceMessageId: "m",
       sourceResourceId: "r",
       mime: "application/pdf",
-      filename: "C:\\\\Users\\\\x\\\\report.pdf",
+      filename: "C:\\\\Users\\\\x\\\\report.pdf", // penglai-test-fixture
     },
     objectStore: objects,
     fileAdmission: {
@@ -152,7 +152,7 @@ test("official file names stay path-leaf bounded and strip trailing dots or spac
   assert.equal(sanitizeOfficialFileName(""), "file");
   assert.equal(sanitizeOfficialFileName("."), "file");
   assert.equal(sanitizeOfficialFileName(".."), "file");
-  assert.equal(sanitizeOfficialFileName("C:\\\\Users\\\\x\\\\report.pdf"), "report.pdf");
+  assert.equal(sanitizeOfficialFileName("C:\\\\Users\\\\x\\\\report.pdf"), "report.pdf"); // penglai-test-fixture
   assert.equal(sanitizeOfficialFileName("/tmp/nested/note.txt"), "note.txt");
   assert.equal(sanitizeOfficialFileName("a\u0000b\u0007c.txt"), "abc.txt");
   assert.equal(sanitizeOfficialFileName("bad<>:\"|?*.bin"), "bad_______.bin");

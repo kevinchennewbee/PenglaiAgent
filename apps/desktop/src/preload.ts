@@ -46,29 +46,6 @@ function sameNavigationTarget(got: URL, expect: URL): boolean {
   return gotPort === expectPort;
 }
 
-const OFFICIAL_VENDOR_CONSOLES: ReadonlyArray<{ host: string; paths: readonly string[] }> = [
-  { host: "open.feishu.cn", paths: ["/app", "/document"] },
-  { host: "open.larksuite.com", paths: ["/app", "/document"] },
-];
-
-/** Official Feishu/Lark consoles only. New windows stay denied; main opens these in the OS browser. */
-export function officialVendorConsoleDecision(url: string): "allow" | "deny" {
-  try {
-    const got = new URL(url);
-    if (got.protocol !== "https:") return "deny";
-    if (got.username || got.password) return "deny";
-    if (got.port && got.port !== "443") return "deny";
-    const rule = OFFICIAL_VENDOR_CONSOLES.find((item) => item.host === got.hostname);
-    if (!rule) return "deny";
-    const path = got.pathname || "/";
-    return rule.paths.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
-      ? "allow"
-      : "deny";
-  } catch {
-    return "deny";
-  }
-}
-
 export function navigationDecision(
   url: string,
   allowedOrigin: string,

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { assertSafeListenHost, PenglaiError } from "@penglai/contracts";
-import { assertIpcName, navigationDecision, officialVendorConsoleDecision } from "./preload.js";
+import { assertIpcName, navigationDecision } from "./preload.js";
 import { productionDebuggerForbidden } from "./production-flags.js";
 
 test("R1-DESK-010 renderer has no node integration API surface", () => {
@@ -12,16 +12,6 @@ test("R1-DESK-010 renderer has no node integration API surface", () => {
 
 test("R1-DESK-006 inner bind is loopback only", () => {
   assert.throws(() => assertSafeListenHost("0.0.0.0"), PenglaiError);
-});
-
-test("official Feishu consoles may leave the app; everything else stays denied", () => {
-  assert.equal(officialVendorConsoleDecision("https://open.feishu.cn/app"), "allow");
-  assert.equal(officialVendorConsoleDecision("https://open.feishu.cn/document/develop-an-echo-bot/faq?lang=zh-CN"), "allow");
-  assert.equal(officialVendorConsoleDecision("https://open.larksuite.com/app"), "allow");
-  assert.equal(officialVendorConsoleDecision("https://open.feishu.cn.evil.example/app"), "deny");
-  assert.equal(officialVendorConsoleDecision("http://open.feishu.cn/app"), "deny");
-  assert.equal(officialVendorConsoleDecision("https://example.com/"), "deny");
-  assert.equal(officialVendorConsoleDecision("https://user:pass@open.feishu.cn/app"), "deny");
 });
 
 test("navigation and window-open stay on the authenticated origin", () => {

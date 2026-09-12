@@ -83,15 +83,18 @@ test("R56-SEC-007 owner absolute paths in tracked text are hits", () => {
       ["Repo lives at ", "/Users/fakeuser/repo", "."].join(""), // penglai-test-fixture
       ["Backup on ", "/Volumes/fakedrive/backup", "."].join(""), // penglai-test-fixture
       ["Windows copy ", "C:\\Users\\fakeuser\\secret", "."].join(""), // penglai-test-fixture
+      ["Linux copy ", "/home/fakeuser/secret", "."].join(""), // penglai-test-fixture
+      ["Slash Windows copy ", "C:/Users/fakeuser/secret", "."].join(""), // penglai-test-fixture
+      String.raw`Escaped Windows copy C:\\Users\\fakeuser\\secret.`, // penglai-test-fixture
     ].join("\n"),
   );
   assert.deepEqual(
     hits.map((hit) => hit.rule),
-    ["owner-absolute-path", "owner-absolute-path", "owner-absolute-path"],
+    ["owner-absolute-path", "owner-absolute-path", "owner-absolute-path", "owner-absolute-path", "owner-absolute-path", "owner-absolute-path"],
   );
   assert.deepEqual(
     hits.map((hit) => hit.line),
-    [1, 2, 3],
+    [1, 2, 3, 4, 5, 6],
   );
 });
 

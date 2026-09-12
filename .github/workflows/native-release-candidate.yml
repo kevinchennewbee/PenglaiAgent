@@ -49,6 +49,7 @@ jobs:
         env:
           PENGLAI_DSH_UPSTREAM: ${{ github.workspace }}/upstream-dsh
         run: |
+          pnpm audit:advisories
           pnpm verify:dsh-npm-cohort
           pnpm verify:dsh-npm-cohort:live
           pnpm verify:release-adaptation

@@ -25,7 +25,7 @@ optional Mac-only private-text channel and remains `LIVE_NOT_RUN`. WhatsApp is
 not bundled.
 
 The planned release set is exactly three installers plus the signed updater,
-release manifests, checksums, and source archive named in
+release manifests, checksums, and public source-export manifest named in
 `release-contract.json`. Intel Mac, Linux amd64, and Windows ARM are not 0.6.2
 targets. macOS remains ad-hoc signed and not notarized; Windows has no
 Authenticode.

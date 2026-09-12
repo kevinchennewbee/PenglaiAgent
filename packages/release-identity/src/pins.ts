@@ -120,8 +120,8 @@ export const REQUIRED_HARD_FAMILIES = [
 export const GITHUB_ACTIONS_STATUS = "AVAILABLE";
 export const CANDIDATE_SOURCE_SHA_NONE = "NONE";
 export const UPDATER_CHANNEL = "desktop-v0.5";
-/** Monotonic after the last complete public manifest (0.5.11, sequence 7). */
-export const UPDATER_SEQUENCE = 10;
+/** Monotonic after immutable public v0.6.1, sequence 10. */
+export const UPDATER_SEQUENCE = 11;
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",

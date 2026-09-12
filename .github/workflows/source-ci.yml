@@ -77,6 +77,7 @@ jobs:
           pnpm test:soak
           pnpm test:failure-baseline
           pnpm audit:secrets
+          pnpm audit:advisories
           pnpm audit:supply-chain
           pnpm verify:versions
           pnpm verify:identity
@@ -92,10 +93,43 @@ jobs:
           pnpm verify:moss-real
           pnpm verify:clean-clone
 
-  # Focused Windows PR check for the four files macOS-only Source CI misses.
-  # This is not native installer acceptance.
+  macos-installed-plugin-regression:
+    name: macOS installed plugin regression
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.2
+      - name: Install pinned dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.7.0 --activate
+          pnpm install --frozen-lockfile
+          pnpm rebuild:fs-ext
+      - name: Build an exact local candidate
+        run: |
+          pnpm prepare:public-export -- --clean-room
+          pnpm build
+          pnpm fetch:mnemon-assets
+          pnpm package:dmg:arm
+      - name: Exercise the real installed DSH client module table
+        env:
+          PENGLAI_TARGET: darwin-aarch64
+          PENGLAI_EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
+        run: pnpm test:u3:plugins
+
+  # Full Windows unit coverage catches checkout, path, newline, and filesystem
+  # semantics that the macOS source job cannot exercise. This is not native
+  # installer acceptance.
   windows-source-regression:
-    name: Windows focused source regression
+    name: Windows source regression
     runs-on: windows-2022
     timeout-minutes: 30
     steps:
@@ -122,11 +156,5 @@ jobs:
         run: pnpm fetch:mnemon-assets
       - name: Build source from the clean checkout
         run: pnpm build
-      - name: Focused Windows native regression files
-        shell: bash
-        run: |
-          node --import tsx --test \
-            packages/memory/src/candidate-materialization.test.ts \
-            packages/runtime/src/runtime.test.ts \
-            scripts/lib/native-fresh-set.test.mjs \
-            scripts/lib/native-lifecycle-proof.test.mjs
+      - name: Full Windows unit regression
+        run: pnpm test:unit

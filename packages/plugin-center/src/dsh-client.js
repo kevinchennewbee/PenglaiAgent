@@ -4,9 +4,6 @@ window.__ModuleLoader__.load({
     const module = { exports: {} };
     const React = require("react");
     const jsx = require("react/jsx-runtime");
-    const officialFeedbackClient = require(
-      "@deepseek-ai/dsh-client-ui-message-feedback/client",
-    );
     const inject = ["remote"];
 
     const LOCAL_FEEDBACK_HINT = Object.freeze({
@@ -15,35 +12,36 @@ window.__ModuleLoader__.load({
     });
 
     function applyLocalFeedback(ctx) {
-      const locale = new Proxy(ctx.locale, {
-        get(target, property, receiver) {
-          if (property !== "register")
-            return Reflect.get(target, property, receiver);
-          return (namespace, dictionaries) => {
-            if (namespace !== "feedback")
-              return target.register(namespace, dictionaries);
-            const localOnly = Object.fromEntries(
-              Object.entries(dictionaries).map(([language, dictionary]) => [
-                language,
-                {
-                  ...dictionary,
-                  "dialog.hint":
-                    LOCAL_FEEDBACK_HINT[language] ??
-                    LOCAL_FEEDBACK_HINT.en,
-                },
-              ]),
-            );
-            return target.register(namespace, localOnly);
-          };
-        },
-      });
-      const localContext = new Proxy(ctx, {
-        get(target, property, receiver) {
-          if (property === "locale") return locale;
-          return Reflect.get(target, property, receiver);
-        },
-      });
-      return officialFeedbackClient.apply(localContext);
+      const locale = ctx.locale;
+      const originalRegister = locale.register;
+      let active = true;
+      const restore = () => {
+        if (!active) return;
+        active = false;
+        if (locale.register === interceptRegister)
+          locale.register = originalRegister;
+      };
+      const interceptRegister = (namespace, dictionaries) => {
+        if (namespace !== "feedback")
+          return originalRegister.call(locale, namespace, dictionaries);
+        const localOnly = Object.fromEntries(
+          Object.entries(dictionaries).map(([language, dictionary]) => [
+            language,
+            {
+              ...dictionary,
+              "dialog.hint":
+                LOCAL_FEEDBACK_HINT[language] ?? LOCAL_FEEDBACK_HINT.en,
+            },
+          ]),
+        );
+        try {
+          return originalRegister.call(locale, namespace, localOnly);
+        } finally {
+          restore();
+        }
+      };
+      locale.register = interceptRegister;
+      return restore;
     }
 
     function strictJson(value, path = "$", depth = 0, seen = new Set()) {
@@ -620,7 +618,7 @@ window.__ModuleLoader__.load({
                                 children: [
                                   jsx.jsx("dt", { children: t.centerDsh }),
                                   jsx.jsx("dd", {
-                                    children: String(entry.dshExact ?? entry.dsh?.exact ?? "0.1.5-alpha.1"),
+                                    children: String(entry.dshExact ?? entry.dsh?.exact ?? "0.1.5-rc.2"),
                                   }),
                                 ],
                               }),
@@ -969,7 +967,7 @@ window.__ModuleLoader__.load({
         centerError: "插件列表暂时不可用。",
         centerResourcePressure: "资源压力（诊断）",
         centerCorePressureUnavailable:
-          "核心子 Agent、工具调用、网络请求和打开文件：等待 DSH alpha 运行时提供可核对证据，当前不显示为零。",
+          "核心子 Agent、工具调用、网络请求和打开文件：等待 DSH 运行时提供可核对证据，当前不显示为零。",
         centerResourceActive: "正在运行",
         centerResourceQueued: "排队",
         centerResourceRequests: "网络请求",
@@ -1178,7 +1176,7 @@ window.__ModuleLoader__.load({
         centerError: "The plugin list is temporarily unavailable.",
         centerResourcePressure: "Resource pressure (diagnostics)",
         centerCorePressureUnavailable:
-          "Core subagents, tool calls, remote requests, and open files await verifiable DSH alpha runtime evidence; they are not shown as zero.",
+          "Core subagents, tool calls, remote requests, and open files await verifiable DSH runtime evidence; they are not shown as zero.",
         centerResourceActive: "active",
         centerResourceQueued: "queued",
         centerResourceRequests: "remote requests",
@@ -1718,7 +1716,7 @@ window.__ModuleLoader__.load({
                       type: "button",
                       "data-penglai-update-confirm": "1",
                       disabled: view.busy || !view.confirmed,
-                      onClick: () => run("confirmUpdate", { confirmed: true }),
+                      onClick: () => run("confirmUpdate"),
                       children: t.updateInstall,
                     }),
                   ],

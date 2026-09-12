@@ -1,5 +1,6 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { sanitizeEvidenceValue, writeEvidenceJson } from "./evidence-json.mjs";
 
 export const EXIT_BY_VERDICT = {
   PASS: 0,
@@ -15,17 +16,20 @@ export function parseReportFlag(argv = process.argv) {
 
 export function finish(verdict, payload = {}) {
   const report = parseReportFlag();
-  const rec = { verdict, ...payload };
+  const rec = sanitizeEvidenceValue({ verdict, ...payload });
   if (typeof rec.command === "string" && rec.command.startsWith("verify:")) {
     mkdirSync("evidence/generated", { recursive: true });
-    const bytes = `${JSON.stringify(rec, null, 2)}\n`;
     const basename = rec.command.replaceAll(":", "-");
-    writeFileSync(join("evidence/generated", `${basename}.json`), bytes);
+    writeEvidenceJson(join("evidence/generated", `${basename}.json`), rec, {
+      root: "evidence/generated",
+    });
     if (
       typeof rec.target === "string" &&
       ["darwin-aarch64", "darwin-x86_64", "win32-x86_64", "linux-loong64"].includes(rec.target)
     ) {
-      writeFileSync(join("evidence/generated", `${basename}-${rec.target}.json`), bytes);
+      writeEvidenceJson(join("evidence/generated", `${basename}-${rec.target}.json`), rec, {
+        root: "evidence/generated",
+      });
     }
   }
   const line = JSON.stringify(rec);

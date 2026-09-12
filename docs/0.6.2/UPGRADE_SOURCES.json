@@ -18,6 +18,7 @@
       "tag": "v0.6.1",
       "releaseId": 386731273,
       "sourceSha": "7ad7c29ecda5d9e867fdde0fe3fefd5c42d3ab1b",
+      "updateSequence": 10,
       "immutable": true,
       "digestAuthority": "immutable GitHub asset digest",
       "assets": [
@@ -38,6 +39,18 @@
           "id": 556232866,
           "size": 293074470,
           "sha256": "cd38c06e37151f226e7f9eb2519dba0800fc9ed7f4449d2b7edd5a282efb5934"
+        },
+        {
+          "name": "update-manifest-v1.json",
+          "id": 556251394,
+          "size": 1621,
+          "sha256": "dc50d8b632d759148ae276334f465dd70f51e2a712e724f809b292948700aed6"
+        },
+        {
+          "name": "update-manifest-v1.json.sig",
+          "id": 556251397,
+          "size": 64,
+          "sha256": "be2248f730b71ddbf14aec8e69a3ff9c1183c01789cc7f56cb29b2f0628cf2df"
         }
       ]
     }

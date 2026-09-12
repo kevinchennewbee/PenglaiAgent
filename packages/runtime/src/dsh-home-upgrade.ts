@@ -1157,6 +1157,21 @@ export function prepareDshHomeForBoot(input: {
     if (journal.state !== "prepared") {
       throw new PenglaiError("STORE_CORRUPT", "DSH home journal state is invalid without an active pointer");
     }
+    paths.sourceHome = join(paths.userRoot, journal.sourceRelative);
+    assertRealDirectory(paths.sourceHome, "source DSH home");
+    const sourceNow = snapshotTree(paths.sourceHome, {
+      maxEntries: DEFAULT_MAX_ENTRIES,
+      maxBytes: DEFAULT_MAX_BYTES,
+    });
+    if (sourceNow.digest !== journal.sourceSnapshot.digest) {
+      rejectPreparedDshHomeUpgrade({
+        userRoot: input.userRoot,
+        operationId: journal.operationId,
+        reason: "source DSH home changed before prepared generation activation",
+        ...(input.now ? { now: input.now } : {}),
+      });
+      return prepareDshHomeForBoot(input);
+    }
     return {
       kind: "migration-prepared",
       dshHome: paths.targetHome,

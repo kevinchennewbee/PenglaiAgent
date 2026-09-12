@@ -24,6 +24,7 @@ import { PRODUCT_VERSION, UPDATER_SEQUENCE } from "./lib/product.mjs";
 import { NATIVE_INSTALLED_TARGETS } from "./lib/release-targets.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { githubReleaseEndpoint } from "./lib/github-release.mjs";
+import { assertNextUpdaterSequence } from "./lib/native-upgrade-set.mjs";
 
 function fail(message) {
   console.error(`assemble-release FAIL: ${message}`);
@@ -71,6 +72,14 @@ if (!nodeTest && (!candidate.ok || !candidate.frozen || candidate.git.head !== s
   fail("release assembly requires a clean main checkout at exact origin/main");
 }
 if (tag !== `v${version}` || version !== PRODUCT_VERSION) fail("release contract version/tag mismatch");
+try {
+  assertNextUpdaterSequence(
+    readJson(join(ROOT, "docs", version, "UPGRADE_SOURCES.json"), "upgrade sources"),
+    UPDATER_SEQUENCE,
+  );
+} catch (error) {
+  fail(`updater sequence continuity: ${String(error)}`);
+}
 
 const releaseGatePath = join(ROOT, "evidence", "generated", "verify-release.json");
 if (!nodeTest) {

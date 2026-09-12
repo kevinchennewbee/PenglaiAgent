@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -51,6 +51,12 @@ test("evidence JSON is bounded, cycle-safe, and redacts credentials", () => {
   const written = readFileSync(path, "utf8");
   assert.doesNotMatch(written, /examplecredential|Bearer|abcdefghijklmnopqrstuvwxyz|github_|xoxb-|123456789:|rotating-secret-value|\/Users\/example|\/Volumes\/PrivateSSD|owner@example\.com/);
   assert.match(written, /\[redacted\]/);
+  assert.equal(sanitizeEvidenceValue({ path: "/home/privateuser/project/log.json" }).path, "[private-path]"); // penglai-test-fixture
+  assert.equal(sanitizeEvidenceValue({ path: "C:/Users/privateuser/project/log.json" }).path, "[private-path]"); // penglai-test-fixture
+  assert.equal(
+    sanitizeEvidenceValue({ log: String.raw`{"path":"C:\\Users\\privateuser\\project\\log.json"}` }).log, // penglai-test-fixture
+    '{"path":"[private-path]"}',
+  );
   assert.throws(() => writeEvidenceJson(path, Buffer.from("http-body"), { root: dir }), /structured records/);
   assert.throws(() => writeEvidenceJson(path, new Uint8Array([1, 2, 3]), { root: dir }), /structured records/);
   assert.throws(() => writeEvidenceJson(path, "<script>http</script>", { root: dir }), /structured records/);
@@ -58,4 +64,37 @@ test("evidence JSON is bounded, cycle-safe, and redacts credentials", () => {
     () => writeEvidenceJson(join(dir, "..", "escaped.json"), cyclic, { root: dir }),
     /escaped its fixed output root/,
   );
+  const outside = join(dir, "outside.json");
+  const link = join(dir, "linked.json");
+  writeFileSync(outside, "outside");
+  try {
+    symlinkSync(outside, link);
+    assert.throws(() => writeEvidenceJson(link, cyclic, { root: dir }), /symlink destination/);
+    assert.equal(readFileSync(outside, "utf8"), "outside");
+  } catch (error) {
+    if (!(process.platform === "win32" && error?.code === "EPERM")) throw error;
+  }
+  assert.throws(
+    () => writeEvidenceJson(join(dir, "too-large.json"), { rows: Array.from({ length: 80 }, () => "x".repeat(16_000)) }, { root: dir }),
+    /byte limit/,
+  );
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("exit contract sanitizes both console and persisted evidence", () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-exit-contract-"));
+  const moduleUrl = new URL("./exit-contract.mjs", import.meta.url).href;
+  const secret = ["sk", "examplecredential1234567890"].join("-");
+  const script = `import { finish } from ${JSON.stringify(moduleUrl)}; finish("FAIL", { command: "verify:fixture", message: ${JSON.stringify(`/home/privateuser/${secret}`)} });`; // penglai-test-fixture
+  const result = spawnSync(process.execPath, ["--input-type=module", "-e", script], {
+    cwd: dir,
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 1);
+  const combined = `${result.stdout}\n${result.stderr}`;
+  const written = readFileSync(join(dir, "evidence", "generated", "verify-fixture.json"), "utf8");
+  assert.doesNotMatch(combined, /privateuser|examplecredential/);
+  assert.doesNotMatch(written, /privateuser|examplecredential/);
+  assert.match(written, /private-path|redacted/);
+  rmSync(dir, { recursive: true, force: true });
 });

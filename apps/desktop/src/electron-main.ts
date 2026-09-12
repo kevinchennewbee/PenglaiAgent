@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, session, shell } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, session, shell } from "electron";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -43,7 +43,7 @@ import {
   type SupervisorRecoverySnapshot,
 } from "@penglai/runtime";
 import { DshSupervisor, findResourcesRoot, isOwnedRuntimePath, layoutFromResources } from "./supervisor.js";
-import { assertIpcName, navigationDecision, officialVendorConsoleDecision, PRELOAD_API } from "./preload.js";
+import { assertIpcName, navigationDecision, PRELOAD_API } from "./preload.js";
 import { UNSIGNED_NOTICE } from "./main.js";
 import {
   configureGenerationPaths,
@@ -317,6 +317,7 @@ async function main(): Promise<void> {
     return;
   }
   await app.whenReady();
+  Menu.setApplicationMenu(null);
   const token = randomBytes(32).toString("hex");
   const soakMode = Boolean(process.env.PENGLAI_SOAK);
   const win = new BrowserWindow({
@@ -326,26 +327,47 @@ async function main(): Promise<void> {
     opacity: platform === "win32" ? 0 : 1,
     backgroundColor: "#f8f4ee",
     title: PENGLAI_DESKTOP_TITLE,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(here, "preload-bridge.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
       webSecurity: true,
+      devTools: !app.isPackaged,
     },
   });
+  win.setMenu(null);
   win.on("page-title-updated", (event) => {
     event.preventDefault();
     if (!win.isDestroyed()) win.setTitle(PENGLAI_DESKTOP_TITLE);
   });
   const allowed = new Set<number>([win.webContents.id]);
-  const openOfficialConsole = (url: string): boolean => {
-    if (officialVendorConsoleDecision(url) !== "allow") return false;
-    void shell.openExternal(url);
+  const confirmExternalLink = async (url: string): Promise<boolean> => {
+    const parsed = assertSafeHttpsUrl(url, "external link");
+    const picked = await dialog.showMessageBox(win, {
+      type: "question",
+      buttons: ["Open / 打开", "Cancel / 取消"],
+      defaultId: 1,
+      cancelId: 1,
+      message: "Open this link in your system browser?\n要在系统浏览器中打开此链接吗？",
+      detail: parsed.toString(),
+    });
+    if (picked.response !== 0) return false;
+    await shell.openExternal(parsed.toString());
+    return true;
+  };
+  const queueExternalLink = (url: string): boolean => {
+    try {
+      assertSafeHttpsUrl(url, "external link");
+    } catch {
+      return false;
+    }
+    void confirmExternalLink(url).catch(() => undefined);
     return true;
   };
   win.webContents.setWindowOpenHandler(({ url }) => {
-    openOfficialConsole(url);
+    queueExternalLink(url);
     return { action: "deny" };
   });
   let pendingMicrophone: MicrophoneNonce | undefined;
@@ -388,22 +410,14 @@ async function main(): Promise<void> {
   const workspaceProtectionPath = join(user.root, "plugins", "workspace-protection.json");
 
   win.webContents.on("will-navigate", (event, next) => {
-    if (openOfficialConsole(next)) {
-      event.preventDefault();
-      return;
-    }
-    if (navigationDecision(next, allowedOrigin, recoveryUrl, { wizardComplete: onboardingLedgerComplete(user.root), extraFileUrls: [splashUrl] }) === "deny") {
-      event.preventDefault();
-    }
+    if (navigationDecision(next, allowedOrigin, recoveryUrl, { wizardComplete: onboardingLedgerComplete(user.root), extraFileUrls: [splashUrl] }) !== "deny") return;
+    event.preventDefault();
+    queueExternalLink(next);
   });
   win.webContents.on("will-redirect", (event, next) => {
-    if (openOfficialConsole(next)) {
-      event.preventDefault();
-      return;
-    }
-    if (navigationDecision(next, allowedOrigin, recoveryUrl, { wizardComplete: onboardingLedgerComplete(user.root), extraFileUrls: [splashUrl] }) === "deny") {
-      event.preventDefault();
-    }
+    if (navigationDecision(next, allowedOrigin, recoveryUrl, { wizardComplete: onboardingLedgerComplete(user.root), extraFileUrls: [splashUrl] }) !== "deny") return;
+    event.preventDefault();
+    queueExternalLink(next);
   });
 
   process.on("uncaughtException", (err) => {
@@ -999,18 +1013,7 @@ async function main(): Promise<void> {
           if (args.length !== 1 || typeof args[0] !== "string") {
             throw new PenglaiError("INVALID_INPUT", "one plugin link is required");
           }
-          const parsed = assertSafeHttpsUrl(args[0], "plugin link");
-          const picked = await dialog.showMessageBox(win, {
-            type: "question",
-            buttons: ["Open / 打开", "Cancel / 取消"],
-            defaultId: 1,
-            cancelId: 1,
-            message: "Open this link in your system browser?\n要在系统浏览器中打开此链接吗？",
-            detail: parsed.toString(),
-          });
-          if (picked.response !== 0) return { opened: false };
-          await shell.openExternal(parsed.toString());
-          return { opened: true };
+          return { opened: await confirmExternalLink(args[0]) };
         }
         if (name === "wizardPickFolder") {
           requireNoArguments(args);

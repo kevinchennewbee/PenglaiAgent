@@ -303,11 +303,8 @@ test("Penglai settings mounts strict generated-client descriptors before using r
             apply: (ctx: unknown) => Promise<unknown>;
           };
         }) {
-          const exported = mod.factory((name) => {
-            if (name === "@deepseek-ai/dsh-client-ui-message-feedback/client") {
-              return { apply() {} };
-            }
-            return name === "react"
+          const exported = mod.factory((name) =>
+            name === "react"
               ? {
                   useState() {},
                   useEffect() {},
@@ -315,8 +312,8 @@ test("Penglai settings mounts strict generated-client descriptors before using r
                     return value;
                   },
                 }
-              : { jsx() {}, jsxs() {} };
-          });
+              : { jsx() {}, jsxs() {} },
+          );
           application = exported.apply({
             remote: {
               async $mount(value: typeof contribution) {

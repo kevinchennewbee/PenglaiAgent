@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { ROOT } from "./repo.mjs";
 import { PRODUCT_VERSION } from "./product.mjs";
 import {
+  assertNextUpdaterSequence,
   currentNativeLifecycleScope,
   currentWorkflowFetchesPreviousInstallers,
   currentWorkflowRequiresNativeUpgradePaths,
@@ -48,6 +49,15 @@ test("current 0.6.2 workflow requires the 0.6.1 native upgrade path", () => {
   assert.equal(historical.fetchPreviousInstallers, true);
   assert.equal(historical.olderInstalledUpgradeStatus, "REQUIRED");
   assert.equal(historical.requiredLifecycleGate, "verify:upgrade-uninstall");
+});
+
+test("0.6.2 updater sequence is exactly one after immutable v0.6.1", () => {
+  assert.equal(assertNextUpdaterSequence(sources, 11), 10);
+  assert.throws(() => assertNextUpdaterSequence(sources, 10), /must follow public sequence 10/);
+  assert.throws(
+    () => assertNextUpdaterSequence({ sources: [{ ...sources.sources[0], updateSequence: undefined }] }, 11),
+    /must pin its public updater sequence/,
+  );
 });
 
 test("native upgrade set follows every pinned previous version, not a hardcoded pair", () => {

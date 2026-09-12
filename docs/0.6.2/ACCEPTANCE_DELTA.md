@@ -42,7 +42,7 @@ The release must satisfy the existing acceptance contract plus these deltas:
 
 Known limitations are part of the release contract: UOS requires `libatomic1`
 and recommends `bubblewrap`; MOSS TTS is unavailable on LoongArch; iMessage is
-Mac-only and optional; Electron 31 is in maintenance status; UOS native UI,
+Mac-only and optional; Electron 31 is no longer maintained; UOS native UI,
 file-picker, and sleep parity await the Owner's post-release machine test.
 
 The Owner excludes the two-hour installed soak. No timed substitute is added.
@@ -69,5 +69,5 @@ ONNX 打包工具链间接带入的 `adm-zip` 固定为 `0.6.1`，并以恶意�
 `adm-zip` 调用路径。
 
 已知限制会如实公开：UOS 依赖 `libatomic1`，建议安装 `bubblewrap`；龙芯版不提供
-MOSS 语音生成；iMessage 只支持 Mac 且默认关闭；Electron 31 处于维护阶段；UOS
+MOSS 语音生成；iMessage 只支持 Mac 且默认关闭；Electron 31 已不再维护；UOS
 原生界面、文件选择器和休眠一致性仍待发布后真机确认。Owner 明确排除两小时测试。

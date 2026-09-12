@@ -103,6 +103,7 @@ export function readReleaseIdentityPins(root = ROOT) {
     profileSchema: numberPin(source, "PROFILE_SCHEMA"),
     catalogSchema: numberPin(source, "CATALOG_SCHEMA"),
     imSchema: numberPin(source, "IM_SCHEMA"),
+    updaterSequence: numberPin(source, "UPDATER_SEQUENCE"),
     publication: Object.freeze({
       repo: objectString(publicationBlock, "PUBLICATION_TARGET", "repo"),
       tag: objectString(publicationBlock, "PUBLICATION_TARGET", "tag"),

@@ -369,7 +369,7 @@ test("native workflow job parser treats LF and CRLF checkouts as equivalent", ()
   }
 });
 
-test("source-ci Windows focused regression fetches pinned Mnemon before the four files", () => {
+test("source-ci Windows regression fetches pinned Mnemon before the full unit suite", () => {
   const { lf, crlf } = lineEndingFixtures(
     readFileSync(join(ROOT, ".github/workflows/source-ci.yml"), "utf8"),
   );
@@ -387,26 +387,27 @@ test("source-ci Windows focused regression fetches pinned Mnemon before the four
   assert.match(body, /pnpm build:windows-host/);
   const fetchAt = body.search(/pnpm fetch:mnemon-assets\b/);
   const buildAt = body.search(/pnpm build(?:\s|$)/);
-  const testAt = body.search(/node --import tsx --test/);
-  const memoryAt = body.search(/packages\/memory\/src\/candidate-materialization\.test\.ts/);
-  const runtimeAt = body.search(/packages\/runtime\/src\/runtime\.test\.ts/);
-  const freshAt = body.search(/scripts\/lib\/native-fresh-set\.test\.mjs/);
-  const lifeAt = body.search(/scripts\/lib\/native-lifecycle-proof\.test\.mjs/);
+  const testAt = body.search(/pnpm test:unit\b/);
   assert.ok(fetchAt >= 0, "Windows focused job must fetch the pinned native Mnemon binary");
   assert.ok(buildAt >= 0, "Windows focused job must compile workspace JS");
-  assert.ok(testAt >= 0, "Windows focused job must run the four files");
+  assert.ok(testAt >= 0, "Windows job must run the full unit suite");
   assert.ok(buildAt < testAt, "Windows focused job must build workspace JS before tests");
-  assert.ok(memoryAt > buildAt);
-  assert.ok(runtimeAt > buildAt);
-  assert.ok(freshAt > buildAt);
-  assert.ok(lifeAt > buildAt);
-  assert.ok(memoryAt > fetchAt);
-  assert.ok(runtimeAt > fetchAt);
-  assert.ok(freshAt > fetchAt);
-  assert.ok(lifeAt > fetchAt);
+  assert.ok(fetchAt < testAt);
   assert.equal((body.match(/pnpm fetch:mnemon-assets\b/g) ?? []).length, 1);
   assert.equal((body.match(/pnpm build(?:\s|$)/g) ?? []).length, 1);
   assert.doesNotMatch(body, /fetch-upgrade-sources/);
   assert.doesNotMatch(body, /DisableRealtimeMonitoring/);
-  assert.doesNotMatch(body, /pnpm test:unit/);
+});
+
+test("pull requests exercise the installed macOS DSH client module table", () => {
+  const workflow = readFileSync(join(ROOT, ".github/workflows/source-ci.yml"), "utf8");
+  const start = workflow.indexOf("  macos-installed-plugin-regression:");
+  const end = workflow.indexOf("  windows-source-regression:", start);
+  assert.ok(start >= 0 && end > start);
+  const body = workflow.slice(start, end);
+  assert.match(body, /github\.event_name == 'pull_request'/);
+  assert.match(body, /pnpm package:dmg:arm/);
+  assert.match(body, /PENGLAI_INSTALLED_UI_HARNESS:/);
+  assert.match(body, /pnpm test:u3:plugins/);
+  assert.ok(body.indexOf("pnpm package:dmg:arm") < body.indexOf("pnpm test:u3:plugins"));
 });
