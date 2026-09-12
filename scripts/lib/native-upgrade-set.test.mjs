@@ -53,6 +53,14 @@ test("current 0.6.2 workflow requires the 0.6.1 native upgrade path", () => {
   assert.equal(historical.requiredLifecycleGate, "verify:upgrade-uninstall");
 });
 
+test("release aggregation consumes native upgrade evidence instead of rerunning lifecycle mutation", () => {
+  const releaseVerifier = readFileSync(join(ROOT, "scripts", "verify-release.mjs"), "utf8");
+  assert.match(
+    releaseVerifier,
+    /const nativeSetGates = new Set\(\[[\s\S]*?"verify:upgrade-uninstall"[\s\S]*?\]\);/,
+  );
+});
+
 test("0.6.2 updater sequence is exactly one after immutable v0.6.1", () => {
   assert.equal(assertNextUpdaterSequence(sources, 11), 10);
   assert.throws(() => assertNextUpdaterSequence(sources, 10), /must follow public sequence 10/);

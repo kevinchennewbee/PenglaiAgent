@@ -18,6 +18,7 @@ const nativeSetGates = new Set([
   "verify:profile",
   "verify:signing",
   "verify:fresh-install-uninstall",
+  "verify:upgrade-uninstall",
 ]);
 
 const {
