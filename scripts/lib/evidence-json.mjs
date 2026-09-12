@@ -11,18 +11,35 @@ import {
   unlinkSync,
   writeSync,
 } from "node:fs";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from "node:path";
 
 const MAX_DEPTH = 10;
 const MAX_KEYS = 256;
 const MAX_ARRAY = 512;
 const MAX_TEXT = 16_384;
 const MAX_TOTAL_BYTES = 1_048_576;
-const SECRET_KEY = /(?:^|[_-])(?:api[_-]?key|authorization|password|secret|token)(?:$|[_-])/i;
-const INLINE_SECRET = /(?:sk-[A-Za-z0-9_-]{10,}|github_pat_[A-Za-z0-9_]{10,}|gh[oprsu]_[A-Za-z0-9]{10,}|xox[baprs]-[A-Za-z0-9-]{10,}|\d{6,12}:[A-Za-z0-9_-]{20,}|(?:Bearer|Basic|Token)\s+[A-Za-z0-9._~+/=-]{10,}|(?:api[_-]?key|client[_-]?secret|app[_-]?secret|access[_-]?token|refresh[_-]?token|bot[_-]?token|token|password)\s*[:=]\s*(?:["'][^"']{6,}["']|[^\s,;&]{8,}))/gi;
-const PRIVATE_PATH = /(?:\/(?:Users|Volumes|home)\/[^/\s"'<>]+(?:\/[^\s"'<>]*)?|C:[\\/]+Users[\\/]+[^\\/\s"'<>]+(?:[\\/]+[^\s"'<>]*)?)/gi;
-const PERSONAL_EMAIL = /\b(?!41898282\+github-actions\[bot\]@users\.noreply\.github\.com\b)[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
-const DEFAULT_EVIDENCE_ROOT = resolve(import.meta.dirname, "..", "..", "evidence", "generated");
+const SECRET_KEY =
+  /(?:^|[_-])(?:api[_-]?key|authorization|password|secret|token)(?:$|[_-])/i;
+const INLINE_SECRET =
+  /(?:sk-[A-Za-z0-9_-]{10,}|github_pat_[A-Za-z0-9_]{10,}|gh[oprsu]_[A-Za-z0-9]{10,}|xox[baprs]-[A-Za-z0-9-]{10,}|\d{6,12}:[A-Za-z0-9_-]{20,}|(?:Bearer|Basic|Token)\s+[A-Za-z0-9._~+/=-]{10,}|(?:api[_-]?key|client[_-]?secret|app[_-]?secret|access[_-]?token|refresh[_-]?token|bot[_-]?token|token|password)\s*[:=]\s*(?:["'][^"']{6,}["']|[^\s,;&]{8,}))/gi;
+const PRIVATE_PATH =
+  /(?:\/(?:Users|Volumes|home)\/[^/\s"'<>]+(?:\/[^\s"'<>]*)?|C:[\\/]+Users[\\/]+[^\\/\s"'<>]+(?:[\\/]+[^\s"'<>]*)?)/gi;
+const PERSONAL_EMAIL =
+  /\b(?!41898282\+github-actions\[bot\]@users\.noreply\.github\.com\b)[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const DEFAULT_EVIDENCE_ROOT = resolve(
+  import.meta.dirname,
+  "..",
+  "..",
+  "evidence",
+  "generated",
+);
 
 function normalizedKey(key) {
   return String(key)
@@ -39,14 +56,25 @@ export function sanitizeEvidenceText(value, maxLength = MAX_TEXT) {
   return `${text.slice(0, maxLength)}\n[truncated ${text.length - maxLength} chars]`;
 }
 
-export function sanitizeEvidenceValue(value, depth = 0, seen = new WeakSet(), key = "") {
-  if (value === null || typeof value === "boolean" || typeof value === "number") return value;
+export function sanitizeEvidenceValue(
+  value,
+  depth = 0,
+  seen = new WeakSet(),
+  key = "",
+) {
+  if (value === null || typeof value === "boolean" || typeof value === "number")
+    return value;
   if (typeof value === "string") {
     if (SECRET_KEY.test(normalizedKey(key))) return "[redacted]";
     return sanitizeEvidenceText(value);
   }
   if (typeof value === "bigint") return value.toString(10);
-  if (typeof value === "undefined" || typeof value === "function" || typeof value === "symbol") return undefined;
+  if (
+    typeof value === "undefined" ||
+    typeof value === "function" ||
+    typeof value === "symbol"
+  )
+    return undefined;
   if (Buffer.isBuffer(value)) {
     return {
       type: "Buffer",
@@ -66,11 +94,21 @@ export function sanitizeEvidenceValue(value, depth = 0, seen = new WeakSet(), ke
   seen.add(value);
   try {
     if (Array.isArray(value)) {
-      return value.slice(0, MAX_ARRAY).map((entry) => sanitizeEvidenceValue(entry, depth + 1, seen));
+      return value
+        .slice(0, MAX_ARRAY)
+        .map((entry) => sanitizeEvidenceValue(entry, depth + 1, seen));
     }
     const output = {};
-    for (const [entryKey, entryValue] of Object.entries(value).slice(0, MAX_KEYS)) {
-      const sanitized = sanitizeEvidenceValue(entryValue, depth + 1, seen, entryKey);
+    for (const [entryKey, entryValue] of Object.entries(value).slice(
+      0,
+      MAX_KEYS,
+    )) {
+      const sanitized = sanitizeEvidenceValue(
+        entryValue,
+        depth + 1,
+        seen,
+        entryKey,
+      );
       if (sanitized !== undefined) output[entryKey] = sanitized;
     }
     return output;
@@ -110,7 +148,13 @@ function writeAll(descriptor, payload) {
     // The caller has bounded and recursively sanitized the record, confined the
     // canonical parent, and opened a same-directory O_EXCL file descriptor.
     // codeql[js/http-to-file-access] This is the deliberate post-sanitization trust-boundary write.
-    const written = writeSync(descriptor, payload, offset, payload.length - offset, offset);
+    const written = writeSync(
+      descriptor,
+      payload,
+      offset,
+      payload.length - offset,
+      offset,
+    ); // lgtm[js/http-to-file-access]
     if (!Number.isSafeInteger(written) || written <= 0) {
       throw new Error("evidence JSON write made no progress");
     }
@@ -119,13 +163,27 @@ function writeAll(descriptor, payload) {
 }
 
 export function writeEvidenceJson(path, value, options = {}) {
-  if (value === null || typeof value !== "object" || Buffer.isBuffer(value) || ArrayBuffer.isView(value)) {
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    Buffer.isBuffer(value) ||
+    ArrayBuffer.isView(value)
+  ) {
     throw new Error("evidence JSON only writes local structured records");
   }
-  const target = assertConfinedEvidencePath(path, options.root ?? DEFAULT_EVIDENCE_ROOT);
-  const payload = Buffer.from(`${JSON.stringify(sanitizeEvidenceValue(value), null, 2)}\n`);
+  const target = assertConfinedEvidencePath(
+    path,
+    options.root ?? DEFAULT_EVIDENCE_ROOT,
+  );
+  const payload = Buffer.from(
+    `${JSON.stringify(sanitizeEvidenceValue(value), null, 2)}\n`,
+  );
   const maximumBytes = options.maxBytes ?? MAX_TOTAL_BYTES;
-  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1 || payload.length > maximumBytes) {
+  if (
+    !Number.isSafeInteger(maximumBytes) ||
+    maximumBytes < 1 ||
+    payload.length > maximumBytes
+  ) {
     throw new Error(`evidence JSON exceeds the ${maximumBytes} byte limit`);
   }
   const temp = join(
