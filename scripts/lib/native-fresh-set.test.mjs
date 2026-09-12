@@ -67,7 +67,7 @@ function gracefulShutdown(target) {
 
 function passingReceipt(target, extra = {}) {
   const method = target === "win32-x86_64" ? "nsis-uninstaller" : "dedicated-app-removal";
-  const windowsPath = "C:\\Users\\runner\\AppData\\Local\\Penglai\\app\\0.5";
+  const windowsPath = "[private-path]";
   return {
     schema: FRESH_LIFECYCLE_SCHEMA,
     command: FRESH_LIFECYCLE_COMMAND,
@@ -81,7 +81,14 @@ function passingReceipt(target, extra = {}) {
     host: hostFor(target),
     destination: target === "win32-x86_64" ? windowsPath : "/tmp/Penglai.app",
     windowsInstall: target === "win32-x86_64"
-      ? { path: windowsPath, customDestination: false, payloadDeletedByHarness: false }
+      ? {
+          path: windowsPath,
+          segments: ["Penglai", "app", "0.5"],
+          defaultNativeInstdir: true,
+          customDestination: false,
+          payloadDeletedByHarness: false,
+          nsisDefaultInstallDir: String.raw`$LOCALAPPDATA\Penglai\app\0.5`,
+        }
       : undefined,
     boot: { freshReadiness: true, shutdown: gracefulShutdown(target), profileIdentity: bootIdentity },
     restart: { freshReadiness: true, resumed: true, shutdown: gracefulShutdown(target), profileIdentity: restartIdentity },
@@ -265,8 +272,30 @@ test("fresh lifecycle aggregation negatives: missing target, SHA, hash, proofs, 
   assert.ok(
     freshInstallUninstallEvidenceProblems(
       passingReceipt("win32-x86_64", {
-        destination: "C:\\repo\\.tmp\\fresh-install-uninstall\\app",
-        windowsInstall: { path: "C:\\repo\\.tmp\\fresh-install-uninstall\\app", customDestination: true, payloadDeletedByHarness: false },
+        destination: "[private-path]",
+        windowsInstall: {
+          path: "[private-path]",
+          segments: ["Penglai", "app", "0.5"],
+          defaultNativeInstdir: true,
+          customDestination: true,
+          payloadDeletedByHarness: false,
+          nsisDefaultInstallDir: String.raw`$LOCALAPPDATA\Penglai\app\0.5`,
+        },
+      }),
+      { sourceSha, installerSha256, target: "win32-x86_64" },
+    ).includes("incompatible receipt shape"),
+  );
+  assert.ok(
+    freshInstallUninstallEvidenceProblems(
+      passingReceipt("win32-x86_64", {
+        windowsInstall: {
+          path: "[private-path]",
+          segments: ["Penglai", "app", "0.6"],
+          defaultNativeInstdir: true,
+          customDestination: false,
+          payloadDeletedByHarness: false,
+          nsisDefaultInstallDir: String.raw`$LOCALAPPDATA\Penglai\app\0.5`,
+        },
       }),
       { sourceSha, installerSha256, target: "win32-x86_64" },
     ).includes("incompatible receipt shape"),
