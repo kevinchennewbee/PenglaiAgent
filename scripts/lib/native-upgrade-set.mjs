@@ -1,7 +1,11 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { closeSync, constants, fsyncSync, mkdirSync, openSync } from "node:fs";
 import { dirname } from "node:path";
 
-import { updateVerifiedRegularFile } from "./verified-file.mjs";
+import {
+  readVerifiedRegularFile,
+  updateVerifiedRegularFile,
+  writeAllVerified,
+} from "./verified-file.mjs";
 
 function parsePluginDesiredState(bytes) {
   const parsed = JSON.parse(bytes.toString("utf8"));
@@ -21,18 +25,32 @@ export function seedUpgradePluginDesiredState(path, pluginId = "@penglai/im") {
   if (typeof pluginId !== "string" || !pluginId.startsWith("@penglai/")) {
     throw new Error("upgrade plugin fixture requires a first-party plugin id");
   }
-  const current = existsSync(path)
-    ? parsePluginDesiredState(readFileSync(path))
-    : {};
-  const next = { ...current, [pluginId]: false };
-  const payload = Buffer.from(`${JSON.stringify(next, null, 2)}\n`);
   mkdirSync(dirname(path), { recursive: true });
-  if (existsSync(path)) {
-    updateVerifiedRegularFile(path, () => payload);
-  } else {
-    writeFileSync(path, payload, { flag: "wx", mode: 0o600 });
+  const noFollow = constants.O_NOFOLLOW ?? 0;
+  let descriptor;
+  try {
+    descriptor = openSync(
+      path,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | noFollow,
+      0o600,
+    );
+    const payload = Buffer.from(
+      `${JSON.stringify({ [pluginId]: false }, null, 2)}\n`,
+    );
+    writeAllVerified(descriptor, payload);
+    fsyncSync(descriptor);
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+    updateVerifiedRegularFile(path, (bytes) => {
+      const current = parsePluginDesiredState(bytes);
+      return Buffer.from(
+        `${JSON.stringify({ ...current, [pluginId]: false }, null, 2)}\n`,
+      );
+    });
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
   }
-  const verified = parsePluginDesiredState(readFileSync(path));
+  const verified = parsePluginDesiredState(readVerifiedRegularFile(path).bytes);
   if (verified[pluginId] !== false) {
     throw new Error("upgrade plugin fixture was not persisted exactly");
   }
