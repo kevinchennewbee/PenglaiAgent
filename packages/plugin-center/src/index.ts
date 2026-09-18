@@ -19,11 +19,8 @@ import {
   type PluginCatalogMetadata,
   type PluginProvenanceClass as ProvenanceClass,
 } from "@penglai/runtime/plugin-host";
-import {
-  PluginDistributionClient,
-  pluginDistributionStatePaths,
-} from "@penglai/plugin-registry";
-import { createCenterRemote, PenglaiCenterRemote } from "./remotes.js";
+import { PenglaiCenterRemote } from "./remotes.js";
+import { createOfficialCenterRemote, createOfficialPluginManager, officialBuiltinDesired } from "./official-manager.js";
 import {
   createPenglaiOnboardingRemoteImpl,
   PenglaiOnboardingRemote,
@@ -50,6 +47,7 @@ export {
 
 export const name = "@penglai/plugin-center";
 export const inject = [
+  "profileContext",
   "loader",
   "pluginInventory",
   "llm",
@@ -69,6 +67,7 @@ export interface PluginState {
   loaded: boolean;
   healthy: boolean;
   actual: "active" | "failed" | "disabled";
+  restartRequired?: boolean;
   error?: string;
   configuration?: unknown;
   incompatible?: boolean;
@@ -232,6 +231,7 @@ export class PluginCenterHost {
     private readonly profileDir?: string,
     private readonly health?: (id: string) => PluginHealthResult,
     private readonly allowId?: (id: string) => boolean,
+    private readonly desiredState?: () => Record<string, boolean>,
   ) {
     mkdirSync(stateDir, { recursive: true, mode: 0o700 });
     validateCatalog(catalog);
@@ -251,6 +251,7 @@ export class PluginCenterHost {
   }
 
   desired(): Record<string, boolean> {
+    if (this.desiredState) return this.desiredState();
     const p = join(this.stateDir, "desired.json");
     if (!existsSync(p)) {
       const init: Record<string, boolean> = {};
@@ -347,6 +348,9 @@ export class PluginCenterHost {
         desired: wanted ? version : "disabled",
         installed,
         loaded: isLoaded,
+        ...(this.desiredState && hit && typeof hit.enabled === "boolean"
+          ? { restartRequired: wanted !== hit.enabled }
+          : {}),
         healthy: wanted && isLoaded && installed === version && health.healthy,
         actual: isLoaded ? "active" : wanted ? "failed" : "disabled",
         incompatible: platformUnavailable,
@@ -541,50 +545,6 @@ interface CenterLoader {
   await(): Promise<void>;
 }
 
-export function createPluginLifecycle(
-  loader: CenterLoader,
-  inventory: { list(): unknown; refresh?(): Promise<void> },
-) {
-  return {
-    async apply(input: {
-      id: string;
-      enabled: boolean;
-      forceReload: boolean;
-      present: boolean;
-    }) {
-      await inventory.refresh?.();
-      const row = normalizeInventory(inventory.list()).find((entry) =>
-        rowMatches(entry, input.id),
-      );
-      if (!input.present) {
-        if (row?.entryId) {
-          await loader.remove(row.entryId);
-          await loader.await();
-          await inventory.refresh?.();
-        }
-        return;
-      }
-      if (!row?.entryId) {
-        await loader.create({
-          id: input.id.replace(/^@/, "").replaceAll("/", "-"),
-          name: input.id,
-          disabled: !input.enabled,
-        });
-        await loader.await();
-        await inventory.refresh?.();
-        return;
-      }
-      const entry = loader.resolve(row.entryId);
-      if (input.forceReload && input.enabled) {
-        await entry.update({ disabled: true }, false, true);
-      }
-      await entry.update({ disabled: !input.enabled }, false, true);
-      await loader.await();
-      await inventory.refresh?.();
-    },
-  };
-}
-
 export async function apply(ctx: {
   loader: CenterLoader;
   pluginInventory: { list(): unknown | Promise<unknown> };
@@ -657,38 +617,25 @@ export async function apply(ctx: {
   }
   installPenglaiProductIdentity(ctx);
   const catalog = loadPluginCatalog(pluginsDir, runtimePluginTarget(), true);
-  const registry = new PluginDistributionClient({
-    ...pluginDistributionStatePaths(userData),
-    penglaiVersion: RELEASE,
-    dshExact: PINNED_PLUGIN_DSH,
-    target: runtimePluginTarget(),
-  });
+  const managerContext = ctx as unknown as import("@deepseek-ai/cordis").Context;
+  const manager = createOfficialPluginManager(managerContext);
   const host = new PluginCenterHost(
     dir,
     inventory,
     catalog.entries,
     profileDir,
     (id) => pluginHealthFrom(ctx as typeof ctx & Record<string, unknown>, id),
-    (id) => {
-      try {
-        registry.entry(id);
-        return true;
-      } catch {
-        return false;
-      }
-    },
+    undefined,
+    () => officialBuiltinDesired(managerContext.profileContext, catalog.entries),
   );
-  const recovered = recoverInterruptedTransaction({
+  // Legacy Center transactions may have interrupted while rewriting the profile.
+  // Recover the profile itself, but never project the old desired.json state into
+  // 0.6.3: the official DSH profile patch is now the sole enablement authority.
+  recoverInterruptedTransaction({
     userDataRoot: userData,
     profileDir,
     txDir: join(userData, "profiles", "center-tx"),
   });
-  if (
-    recovered.phase === "rolled_back" &&
-    typeof recovered.previousEnabled === "boolean"
-  ) {
-    host.setDesired(recovered.id, recovered.previousEnabled);
-  }
   const writeSnap = async (): Promise<void> => {
     await refreshInventory();
     const rows = normalizeInventory(inventory.list()).map((row) => {
@@ -728,23 +675,18 @@ export async function apply(ctx: {
   timer.unref?.();
   ctx.effect?.(() => () => clearInterval(timer));
   const txDir = join(userData, "profiles", "center-tx");
-  const remote = createCenterRemote({
+  const remote = createOfficialCenterRemote({
+    manager,
     host,
     inventory,
     catalog: catalog.entries,
-    registry,
-    lifecycle: createPluginLifecycle(ctx.loader, inventory),
-    health: (id) => pluginHealthFrom(ctx as typeof ctx & Record<string, unknown>, id),
     resourceProbe: (id) =>
       resourceProbeFrom(
         ctx as typeof ctx & Record<string, unknown>,
         inventory,
         id,
       ),
-    profileDir,
     txDir,
-    pluginsDir,
-    registryPackagesDir,
     userDataRoot: userData,
   });
   const welcomeAck = (): boolean => {

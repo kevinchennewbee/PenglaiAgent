@@ -145,6 +145,7 @@ writeFileSync(
       target: LINUX_LOONG64_TARGET,
       electron: PINNED_ELECTRON_LINUX_LOONG64,
       node: PINNED_NODE_LINUX_LOONG64,
+      pnpm: releasePins.pnpm,
       dsh: releasePins.dsh,
       native: false,
       ownerPostRelease: true,

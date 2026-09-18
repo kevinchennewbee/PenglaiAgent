@@ -10,7 +10,6 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
-  readlinkSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -124,12 +123,24 @@ test("Windows owned DSH receives only the required OS environment", () => {
   assert.ok(existsSync(String(env.TEMP)));
 });
 
+function ensureCurrentProfilePatch(profileDir: string): void {
+  mkdirSync(profileDir, { recursive: true });
+  const target = join(profileDir, "cordis.patch.yml");
+  if (!existsSync(target)) {
+    copyFileSync(
+      new URL("../../../profile-seed/web/cordis.patch.yml", import.meta.url),
+      target,
+    );
+  }
+}
+
 function writeTrustedPluginSet(
   app: string,
   markers: Record<string, string> = {},
 ): void {
   const pluginsDir = join(app, "plugins");
   mkdirSync(pluginsDir, { recursive: true });
+  ensureCurrentProfilePatch(join(app, "profile-seed", "web"));
   const target = runtimePluginTarget();
   const entries = FIRST_PARTY_PLUGIN_METADATA.map((metadata) => {
     const stage = mkdtempSync(join(tmpdir(), "penglai-plugin-fixture-"));
@@ -301,6 +312,7 @@ test("existing profile is refreshed from newer first-party plugin tarballs", () 
   mkdirSync(user.profileWeb, { recursive: true });
   mkdirSync(user.transactions, { recursive: true });
   writeFileSync(join(user.profileWeb, "package.json"), '{"name":"web"}\n');
+  ensureCurrentProfilePatch(user.profileWeb);
   mkdirSync(join(user.profileWeb, "node_modules", "@penglai", "plugin-reference", "dist"), { recursive: true });
   writeFileSync(
     join(user.profileWeb, "node_modules", "@penglai", "plugin-reference", "dist", "index.js"),
@@ -337,11 +349,13 @@ test("activatePrivateProfile pins lived-in live HMR to official startup without 
       },
     }),
   );
+  ensureCurrentProfilePatch(user.profileWeb);
   activatePrivateProfile(resolveRuntimeLayout(app), user);
   const manifest = JSON.parse(readFileSync(join(user.profileWeb, "package.json"), "utf8"));
   assert.equal(manifest.dsh.profile.patchReload, "startup");
   assert.deepEqual(manifest.dsh.profile.bundles, ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]);
-  assert.equal(manifest.dependencies["@penglai/memory"], "0.6.0");
+  assert.match(manifest.dependencies["@penglai/memory"], /^file:/);
+  assert.match(manifest.dependencies["@penglai/memory"], /penglai-memory-0\.6\.3\.tgz$/);
 });
 
 test("R2-DIST-011 seed activates private profile once", () => {
@@ -375,7 +389,7 @@ test("DSH module fallback cleanup unlinks package junctions without deleting the
   assert.equal(readFileSync(join(runtimePackage, "index.js"), "utf8"), "export {};\n");
 });
 
-test("official DSH profile dependency is repairable without exposing immutable Windows resources", () => {
+test("official DSH profile dependency is repairable without exposing immutable installation resources", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-link-"));
   const profile = join(root, "profile");
   const first = join(root, "first", "@deepseek-ai");
@@ -396,23 +410,14 @@ test("official DSH profile dependency is repairable without exposing immutable W
 
   linkOfficialDeepseek(layout(first), profile);
   const dest = join(profile, "node_modules", "@deepseek-ai");
-  if (process.platform === "win32") {
-    assert.equal(lstatSync(dest).isSymbolicLink(), false);
-    assert.equal(readFileSync(join(dest, "identity.txt"), "utf8"), "first\n");
-    rmSync(join(dest, "identity.txt"), { force: true });
-    linkOfficialDeepseek(layout(first), profile);
-    assert.equal(readFileSync(join(dest, "identity.txt"), "utf8"), "first\n");
-    assert.equal(readFileSync(join(first, "identity.txt"), "utf8"), "first\n");
-    linkOfficialDeepseek(layout(second), profile);
-    assert.equal(readFileSync(join(dest, "identity.txt"), "utf8"), "second\n");
-  } else {
-    assert.equal(resolve(readlinkSync(dest)), resolve(first));
-    linkOfficialDeepseek(layout(first), profile);
-    assert.equal(resolve(readlinkSync(dest)), resolve(first));
-    rmSync(first, { recursive: true, force: true });
-    linkOfficialDeepseek(layout(second), profile);
-    assert.equal(resolve(readlinkSync(dest)), resolve(second));
-  }
+  assert.equal(lstatSync(dest).isSymbolicLink(), false);
+  assert.equal(readFileSync(join(dest, "identity.txt"), "utf8"), "first\n");
+  rmSync(join(dest, "identity.txt"), { force: true });
+  linkOfficialDeepseek(layout(first), profile);
+  assert.equal(readFileSync(join(dest, "identity.txt"), "utf8"), "first\n");
+  assert.equal(readFileSync(join(first, "identity.txt"), "utf8"), "first\n");
+  linkOfficialDeepseek(layout(second), profile);
+  assert.equal(readFileSync(join(dest, "identity.txt"), "utf8"), "second\n");
 });
 
 test("plugin tarball root without package/ prefix is accepted", () => {
@@ -729,13 +734,8 @@ test("fresh profile installs Center, Memory, and default-on IM while exposing of
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "context")), false);
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "im", "dist", "index.js")), true);
   const linked = join(user.profileWeb, "node_modules", "@deepseek-ai");
-  if (process.platform === "win32") {
-    assert.equal(lstatSync(linked).isSymbolicLink(), false);
-    assert.equal(existsSync(join(linked, "dsh-credentials", "package.json")), true);
-  } else {
-    assert.equal(lstatSync(linked).isSymbolicLink(), true);
-    assert.equal(resolve(readlinkSync(linked)), resolve(layout.officialDeepseek));
-  }
+  assert.equal(lstatSync(linked).isSymbolicLink(), false);
+  assert.equal(existsSync(join(linked, "dsh-credentials", "package.json")), true);
 });
 
 test("fresh catalog and profile enable IM while keeping ASR, TTS, and internal reference disabled", () => {
@@ -783,15 +783,19 @@ test("fresh catalog and profile enable IM while keeping ASR, TTS, and internal r
     /id: session-log-deepseek\n\s+name: "@deepseek-ai\/dsh-session-log-deepseek"\n\s+config:\n\s+enabled: false/,
     "Penglai must opt out of complete session-log contribution even though DSH alpha.2 defaults it on",
   );
+  assert.match(
+    patch,
+    /id: plugin-manager\n\s+name: "@deepseek-ai\/dsh-plugin-manager"\n\s+disabled: true/,
+    "the standalone manager row stays disabled because Penglai Center owns the one official manager instance",
+  );
   for (const [id, moduleName] of [
-    ["plugin-manager", "@deepseek-ai/dsh-plugin-manager"],
     ["tool-plugin-manager", "@deepseek-ai/dsh-plugin-manager/tools"],
     ["ui-plugin-manager", "@deepseek-ai/dsh-client-ui-plugin-manager"],
   ]) {
     assert.match(
       patch,
-      new RegExp(`id: ${id}\\n\\s+name: "${moduleName.replaceAll("/", "\\/")}"\\n\\s+disabled: true`),
-      `${id} must not bypass the signed Penglai catalog`,
+      new RegExp(`id: ${id}\\n\\s+name: "${moduleName.replaceAll("/", "\\/")}"\\n\\s+disabled: false`),
+      `${id} must expose the official DSH plugin-management surface`,
     );
   }
 });

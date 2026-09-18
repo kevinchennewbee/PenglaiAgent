@@ -16,6 +16,7 @@ import {
   readdirSync,
 } from "node:fs";
 import { userInfo } from "node:os";
+import { pathToFileURL } from "node:url";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { createConnection, createServer } from "node:net";
@@ -173,7 +174,7 @@ export function resolveRuntimeLayout(
   return {
     appRoot: root,
     nodeBin,
-    dshEntry: join(root, "runtime", "dsh", "lib", "bin.js"),
+    dshEntry: join(root, "runtime", "dsh", "lib", "penglai-dsh-launcher.mjs"),
     profileSeed: join(root, "profile-seed", "web"),
     pluginsDir: join(root, "plugins"),
     manifestPath: join(root, "runtime-manifest.json"),
@@ -360,11 +361,10 @@ export function linkOfficialDeepseek(layout: RuntimeLayout, profileDir: string):
   const dest = join(destParent, "@deepseek-ai");
   const linked = isSymlink(dest);
 
-  // A Windows directory junction is not an isolation boundary. DSH's profile
-  // package manager may recurse through it and mutate the immutable package
-  // cohort in the installed application. Materialize an exact private copy
-  // instead and repair it transactionally whenever the profile changed it.
-  if (process.platform === "win32") {
+  // A profile package operation must never recurse through a link into the
+  // immutable installation. This applies to POSIX links as well as Windows
+  // junctions. Materialize and verify the app-owned cohort on every platform.
+  {
     if (linked) unlinkSync(dest);
     const expected = officialDeepseekManifest(layout);
     if (existsSync(dest) && officialDeepseekCopyMatches(dest, expected)) return;
@@ -394,20 +394,6 @@ export function linkOfficialDeepseek(layout: RuntimeLayout, profileDir: string):
     return;
   }
 
-  if (existsSync(dest) || linked) {
-    const current = linked ? readlinkSync(dest) : "";
-    const currentTarget = current
-      ? resolve(isAbsolute(current) ? current : join(destParent, current))
-      : "";
-    if (currentTarget && currentTarget === resolve(layout.officialDeepseek)) return;
-    // A Windows junction whose old installation target has disappeared makes
-    // existsSync() false. rmSync({ recursive: true, force: true }) may leave
-    // that dangling reparse point in place, so unlink links explicitly before
-    // creating the current installation link.
-    if (linked) unlinkSync(dest);
-    else rmSync(dest, { recursive: true, force: true });
-  }
-  symlinkSync(layout.officialDeepseek, dest, "dir");
 }
 
 interface OfficialDeepseekFile {
@@ -591,6 +577,7 @@ export function installFirstPartyPlugins(
       const overlay = readInstalledOverlay(dest);
       const signed = signedCatalog ? signedArtifactIdentity(signedCatalog, entry.id, entry.target) : undefined;
       if (
+        entry.updatePolicy === "signed-overlay" &&
         installed &&
         signed &&
         firstPartyRetentionDecision({
@@ -623,12 +610,9 @@ export function installFirstPartyPlugins(
         (Boolean(overlay?.sha256) && !overlayMatchesBundled);
       if (uncertain && existsSync(dest)) isolateUntrustedPluginInstall(dest, txDir, entry.id);
     }
-    const shouldInstall =
-      entry.defaultEnabled ||
-      requested.has(entry.id) ||
-      hadInstall ||
-      profilePluginEnabled(patchText, entry.id);
-    if (!shouldInstall) continue;
+    // Presence is independent of activation. The official manager can toggle
+    // an inactive built-in without downloading a package or deleting its data.
+    // All catalog archives, including optional feature entry points, are kept.
     const tmp = join(txDir, `pkg-${entry.packageFile}`);
     rmSync(tmp, { recursive: true, force: true });
     mkdirSync(tmp, { recursive: true });
@@ -641,7 +625,8 @@ export function installFirstPartyPlugins(
       throw new PenglaiError("SECURITY_POLICY", `forbidden product package ${id}`);
     }
     assertPluginJsClosure(inner, id);
-    if (existsSync(dest)) rmSync(dest, { recursive: true, force: true });
+    if (isSymlink(dest)) unlinkSync(dest);
+    else if (existsSync(dest)) rmSync(dest, { recursive: true, force: true });
     copyDir(inner, dest);
     writeInstalledOverlay(dest, { version: entry.version, sha256: entry.sha256, dshExact: PINNED_PLUGIN_DSH });
     rmSync(tmp, { recursive: true, force: true });
@@ -841,6 +826,48 @@ export function pinOfficialBrowseDirectoryPicker(user: UserLayout): boolean {
   return true;
 }
 
+/** Bind profile package operations to the immutable bundled tarballs. The
+ * seed's version placeholders are not public registry package coordinates.
+ * External dependencies, bundle selections and every feature toggle survive.
+ */
+export function prepareOpenPluginProfile(layout: RuntimeLayout, user: UserLayout): void {
+  const manifestPath = join(user.profileWeb, "package.json");
+  const text = readRegularFileNoFollow(manifestPath, "utf8");
+  if (!text) throw new PenglaiError("STORE_CORRUPT", "profile package manifest missing");
+  const manifest = JSON.parse(text) as {
+    dependencies?: Record<string, string>;
+    packageManager?: string;
+    [key: string]: unknown;
+  };
+  if (!manifest || typeof manifest !== "object" || Array.isArray(manifest) ||
+      (manifest.dependencies !== undefined && (!manifest.dependencies || typeof manifest.dependencies !== "object" || Array.isArray(manifest.dependencies)))) {
+    throw new PenglaiError("STORE_CORRUPT", "profile package manifest malformed");
+  }
+  const dependencies = { ...manifest.dependencies };
+  for (const entry of loadPluginCatalog(layout.pluginsDir, runtimePluginTarget(), true).entries) {
+    dependencies[entry.id] = pathToFileURL(resolve(layout.pluginsDir, entry.packageFile)).href;
+  }
+  for (const id of ["@penglai/office", "@penglai/budget", "@penglai/companion", "@penglai/image-size-disabled"]) delete dependencies[id];
+  const next = { ...manifest, dependencies, packageManager: "pnpm@11.11.0" };
+  const encoded = `${JSON.stringify(next, null, 2)}\n`;
+  if (encoded !== text) writeFileAtomic(manifestPath, encoded, 0o600);
+
+  // Enable the new management surfaces once on upgrade, not on every restart:
+  // the user may subsequently turn the UI or agent tool off. The launcher's
+  // application-owned overlay prevents a duplicate standalone manager.
+  const marker = join(user.profileWeb, ".penglai-open-manager-v1.json");
+  if (readRegularFileNoFollow(marker, "utf8") !== undefined) return;
+  const patchPath = join(user.profileWeb, "cordis.patch.yml");
+  let patch = readRegularFileNoFollow(patchPath, "utf8");
+  if (patch === undefined) throw new PenglaiError("STORE_CORRUPT", "profile patch missing");
+  for (const id of ["@penglai/office", "@penglai/budget", "@penglai/companion"]) {
+    patch = removeCordisPluginBlock(patch, id).text;
+  }
+  patch = `${patch.trimEnd()}\n# Open manager migration: preserve subsequent Owner choices.\n- id: tool-plugin-manager\n  disabled: false\n- id: ui-plugin-manager\n  disabled: false\n`;
+  writeFileAtomic(patchPath, patch, 0o600);
+  writeFileAtomic(marker, `${JSON.stringify({ schema: 1, manager: "official-dsh", version: "0.6.3" })}\n`, 0o600);
+}
+
 export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout): void {
   const marker = join(user.profileWeb, "package.json");
   if (!existsSync(marker)) {
@@ -877,6 +904,7 @@ export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout):
   pinOfficialBrowseDirectoryPicker(user);
   linkOfficialDeepseek(layout, user.profileWeb);
   pinProductWebPatchReload(user.profileWeb);
+  prepareOpenPluginProfile(layout, user);
   seedFreshSettings(user);
   recordKeychainMigrationIfNeeded(user);
 }

@@ -1,0 +1,14 @@
+# Application-owned identity layer; feature enablement stays Owner-controlled.
+- id: penglai-plugin-center
+  name: "@penglai/plugin-center"
+  disabled: false
+- id: plugin-manager
+  disabled: true
+- id: penglai-memory
+  name: "@penglai/memory"
+- id: penglai-im
+  name: "@penglai/im"
+- id: penglai-asr
+  name: "@penglai/asr"
+- id: penglai-moss-tts
+  name: "@penglai/moss-tts"

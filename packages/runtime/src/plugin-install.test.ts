@@ -232,7 +232,7 @@ function withVerifiedSnapshot<T>(catalog: ReturnType<typeof parseSignedPluginCat
   }
 }
 
-test("installFirstPartyPlugins retains a newer install only when CAS bytes match the installed tree", () => {
+test("app-owned first-party plugins replace even a valid newer signed-overlay install", () => {
   const app = mkdtempSync(join(tmpdir(), "penglai-plugin-cas-app-"));
   const profile = mkdtempSync(join(tmpdir(), "penglai-plugin-cas-profile-"));
   const tx = mkdtempSync(join(tmpdir(), "penglai-plugin-cas-tx-"));
@@ -248,9 +248,8 @@ test("installFirstPartyPlugins retains a newer install only when CAS bytes match
     installFirstPartyPlugins(layout, profile, tx, ["@penglai/memory"], userData);
   });
   const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf8")) as { version: string };
-  assert.equal(pkg.version, newer.version);
-  assert.match(readFileSync(join(dest, "dist", "index.js"), "utf8"), /newer-verified-memory/);
-  assert.equal(readdirSync(tx).some((name) => name.startsWith("uncertain-plugin-")), false);
+  assert.equal(pkg.version, FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/memory")?.version);
+  assert.equal(readdirSync(tx).some((name) => name.startsWith("uncertain-plugin-")), true);
 });
 
 test("installFirstPartyPlugins isolates a CAS-authenticated overlay whose executable was altered", () => {

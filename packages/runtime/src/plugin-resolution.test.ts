@@ -273,8 +273,9 @@ test("first-party retention uses signed catalog identity, not the overlay as bot
   assert.doesNotMatch(src, /catalogDshExact: overlay\.dshExact/);
   assert.match(src, /writeInstalledOverlay\(dest, \{ version: entry\.version, sha256: entry\.sha256, dshExact: PINNED_PLUGIN_DSH \}\)/);
   const remotes = readFileSync(new URL("../../plugin-center/src/remotes.ts", import.meta.url), "utf8");
-  assert.match(remotes, /resolvePluginCatalogEntry\(/);
-  assert.match(remotes, /assertActivationDigest\(/);
+  assert.doesNotMatch(remotes, /resolvePluginCatalogEntry\(|assertActivationDigest\(|PluginDistributionClient|stageRegistryPackage|createCenterRemote/);
+  const officialManager = readFileSync(new URL("../../plugin-center/src/official-manager.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(officialManager, /PluginDistributionClient|resolvePluginCatalogEntry|stageRegistryPackage/);
   const profileTx = readFileSync(new URL("../../plugin-center/src/profile-tx.ts", import.meta.url), "utf8");
   assert.match(profileTx, /writeInstalledOverlay\(scoped,/);
   const resolution = readFileSync(new URL("./plugin-resolution.ts", import.meta.url), "utf8");

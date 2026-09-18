@@ -257,6 +257,7 @@ if (native) {
         electron: releasePins.electron,
         node: releasePins.node,
         embeddedNode: releasePins.node,
+        pnpm: releasePins.pnpm,
         dsh: "0.1.6-alpha.2",
         dshSource: releasePins.dshSource,
         profileSchema: 3,

@@ -1,11 +1,10 @@
-import { existsSync } from "node:fs";
-import { statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ROOT, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { hostTarget, inspectClosureCredential, stagingForTarget } from "./lib/closure-credential.mjs";
-import { PINNED_DSH } from "./lib/product.mjs";
+import { PINNED_DSH, PINNED_PNPM } from "./lib/product.mjs";
 import { assertUos20OldWorldAddonFiles } from "./lib/uos20-oldworld-addons.mjs";
 
 function argValue(name, fallback) {
@@ -23,8 +22,23 @@ if (closure.verdict !== "PASS") {
 
 const nodeBin = join(staging, target === "win32-x86_64" ? "runtime/node/node.exe" : "runtime/node/bin/node");
 const dsh = join(staging, "runtime/dsh/lib/bin.js");
-if (!existsSync(nodeBin) || !existsSync(dsh)) {
-  finish("FAIL", { command: "verify:closure", target, reason: "closure credential present but node/dsh missing" });
+const launcher = join(staging, "runtime/dsh/lib/penglai-dsh-launcher.mjs");
+const pnpmManifest = join(staging, "runtime/pnpm/package.json");
+const pnpmEntry = join(staging, "runtime/pnpm/bin/pnpm.mjs");
+const productPolicy = join(staging, "runtime/dsh/penglai-profile-policy.yml");
+const loongPolicy = join(staging, "runtime/dsh/penglai-loong64-policy.yml");
+const requiredRuntimeFiles = [nodeBin, dsh, launcher, pnpmManifest, pnpmEntry, productPolicy, loongPolicy];
+if (requiredRuntimeFiles.some((file) => !existsSync(file))) {
+  finish("FAIL", { command: "verify:closure", target, reason: "closure credential present but Node/DSH launcher/pnpm/profile policy is missing" });
+}
+let pnpmIdentity;
+try {
+  pnpmIdentity = JSON.parse(readFileSync(pnpmManifest, "utf8"));
+} catch {
+  finish("FAIL", { command: "verify:closure", target, reason: "bundled pnpm manifest is unreadable" });
+}
+if (pnpmIdentity?.name !== "pnpm" || pnpmIdentity?.version !== PINNED_PNPM) {
+  finish("FAIL", { command: "verify:closure", target, reason: `bundled pnpm identity mismatch ${pnpmIdentity?.version ?? "missing"}` });
 }
 const required = ["zod", "ws", "fflate", "eventsource-parser", "node-addon-require-builtin", "node-addon-native-custom-loader"];
 const missing = required.filter((name) => !existsSync(join(staging, "runtime/dsh/node_modules", name, "package.json")));
@@ -105,6 +119,20 @@ const probe = spawnSync(nodeBin, [dsh, "--version"], {
 const output = `${probe.stdout ?? ""}${probe.stderr ?? ""}`;
 if (probe.status !== 0 || !output.includes(PINNED_DSH)) {
   finish("FAIL", { command: "verify:closure", target, reason: "embedded DSH closure probe failed" });
+}
+const launcherProbe = spawnSync(nodeBin, [launcher, "--version"], {
+  encoding: "utf8",
+  cwd: staging,
+});
+if (launcherProbe.status !== 0 || !String(launcherProbe.stdout ?? "").includes(PINNED_DSH)) {
+  finish("FAIL", { command: "verify:closure", target, reason: "Penglai DSH launcher probe failed" });
+}
+const pnpmProbe = spawnSync(nodeBin, [pnpmEntry, "--version"], {
+  encoding: "utf8",
+  cwd: staging,
+});
+if (pnpmProbe.status !== 0 || String(pnpmProbe.stdout ?? "").trim() !== PINNED_PNPM) {
+  finish("FAIL", { command: "verify:closure", target, reason: "bundled pnpm execution probe failed" });
 }
 const nodePtyModule = join(staging, "runtime/dsh/node_modules/node-pty");
 if (existsSync(join(nodePtyModule, "package.json"))) {

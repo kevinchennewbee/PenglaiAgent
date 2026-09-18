@@ -47,7 +47,7 @@ jobs:
       - name: Install pinned dependencies
         run: |
           corepack enable
-          corepack prepare pnpm@11.7.0 --activate
+          corepack prepare pnpm@11.11.0 --activate
           pnpm install --frozen-lockfile
           pnpm rebuild:fs-ext
       - name: Verify release adaptation and historical boundaries
@@ -112,7 +112,7 @@ jobs:
         shell: pwsh
         run: |
           corepack enable
-          corepack prepare pnpm@11.7.0 --activate
+          corepack prepare pnpm@11.11.0 --activate
           pnpm install --frozen-lockfile
           pnpm rebuild:fs-ext
       - name: Build native Windows security helper for regression gates

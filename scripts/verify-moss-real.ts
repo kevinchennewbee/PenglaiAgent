@@ -65,11 +65,31 @@ const service = createMossTtsService({
 });
 const asrManager = new AsrModelManager(join(ROOT, ".cache", "asr-real", "models"));
 let asrEngine: SherpaSenseVoiceEngine | undefined;
+const MOSS_REAL_DOWNLOAD_ATTEMPTS = 6;
+
+async function prepareMossModelWithTransientRetries(): Promise<void> {
+  for (let attempt = 1; attempt <= MOSS_REAL_DOWNLOAD_ATTEMPTS; attempt += 1) {
+    if (service.describeCapability().model === "ready") return;
+    const previous = service.describeModels()[0]?.operation;
+    const operationId =
+      previous?.state === "failed" && previous.errorClass === "DELIVERY_TRANSIENT"
+        ? previous.operationId
+        : "mossreal_release_probe";
+    try {
+      await service.prepareModel(operationId);
+      return;
+    } catch (error) {
+      const failed = service.describeModels()[0]?.operation;
+      const retryable =
+        failed?.state === "failed" &&
+        failed.errorClass === "DELIVERY_TRANSIENT";
+      if (!retryable || attempt === MOSS_REAL_DOWNLOAD_ATTEMPTS) throw error;
+    }
+  }
+}
 try {
   await service.ready;
-  if (service.describeCapability().model !== "ready") {
-    await service.prepareModel(`mossreal_${Date.now().toString(36)}`);
-  }
+  await prepareMossModelWithTransientRetries();
   await asrManager.initialize();
   if (asrManager.describeCapability().model !== "ready") {
     await asrManager.prepareModel(`asrreal_${Date.now().toString(36)}`);

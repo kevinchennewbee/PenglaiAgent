@@ -75,6 +75,8 @@ export interface DshHomeValidation {
   dshHealthy: true;
   profileReady: true;
   requiredPluginsActive: string[];
+  /** Exact live-inventory result after the bundled package was retained. */
+  memoryDisabledRetained?: boolean;
   validatedAt: string;
 }
 
@@ -809,7 +811,7 @@ function assertValidation(validation: DshHomeValidation): void {
     validation.profileReady !== true ||
     !Number.isFinite(time) ||
     validation.requiredPluginsActive.length < 1 ||
-    !validation.requiredPluginsActive.includes("@penglai/memory") ||
+    (!validation.requiredPluginsActive.includes("@penglai/memory") && validation.memoryDisabledRetained !== true) ||
     validation.requiredPluginsActive.some(
       (id) => typeof id !== "string" || !id.startsWith("@"),
     )

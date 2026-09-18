@@ -8,7 +8,7 @@ follows the current product contract and acceptance delta.
 ## Prerequisites
 
 - Node `22.23.2`
-- pnpm `11.7.0`
+- pnpm `11.11.0`
 - macOS 13.0+ (macOS 14+ recommended for the current Apple Silicon native runner)
 - Native installed evidence still comes from matching-target installers, not from
   `dist` staging. GitHub Actions native jobs are evidence only when they produce

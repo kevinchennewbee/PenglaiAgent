@@ -38,14 +38,17 @@
   Center path require renewed evidence.
 - The complete 307-package registry cohort is an audited upstream input, not
   the product runtime closure. Penglai 0.6.3 excludes LibreOffice, PDF/Office,
-  Budget, and Companion from the workspace, profile, catalog, runtime,
-  installer, product SBOM, and acceptance. Memory is the only required
-  first-party feature plugin. IM is bundled and enabled by default, while every
-  channel remains unconfigured and inert until the user connects it. ASR and
-  TTS are bundled but default off; their model weights are not bundled.
-- Plugin Center may install only signed catalog artifacts with exact identity,
-  digest, permission, DSH compatibility, and rollback checks. UI state is never
-  proof that a plugin is installed or healthy.
+  Budget, and Companion from the workspace, profile, runtime, installer,
+  product SBOM, and acceptance. Memory remains bundled and enabled by default,
+  but the Owner may disable it without deleting its package or data. IM is
+  bundled and enabled by default; ASR and TTS are bundled but default off and
+  their model weights are not bundled.
+- The exact official DSH `0.1.6-alpha.2` plugin manager is the sole package
+  management engine. Penglai supplies it with application-owned Node and pnpm,
+  exposes the official UI/tool, and does not impose the historical signed
+  Penglai catalog as an ecosystem allowlist. Bundled Penglai feature code is
+  app-owned; package installation and build-script approval remain explicit
+  trust actions. Management infrastructure and credentials stay required.
 - Keep Workspace, project, account, and IM-route boundaries explicit. Memory from
   one Workspace must not leak into another.
 
@@ -62,11 +65,12 @@
   commit/version, digest, license, patch, and reproducible fetch/build procedure.
 - Do not claim installed, native, live, Windows, Intel, notarized, Authenticode,
   or public-release evidence from source tests or cross-build output.
-- The Owner authorized 0.6.3 source development, review, PR, and merge to
-  `main`. Stop before the three-target native build/installed validation and
-  public publication. Do not trigger candidate/publish/deploy workflows, change
-  an existing release tag or asset, or update the public README/site download
-  claim before immutable 0.6.3 bytes exist.
+- The Owner authorized the complete 0.6.3 workflow: reviewed source, PR and
+  merge to `main`, three-target native build and applicable installed validation,
+  immutable publication, public byte readback, then README/site update and
+  deployment. Preserve that order: do not change an existing release tag or
+  asset, and do not update the public download claim before immutable 0.6.3
+  bytes have passed readback.
 
 ## Verification and release
 
@@ -127,11 +131,13 @@
   会话 V3 保原文件迁移、连接生命周期、全部第一方插件与插件中心都须重新取证。
 - 完整 307 包清单是上游审计输入，不是产品运行闭包。0.6.3 不使用 LibreOffice，
   不做 PDF/办公插件、预算模块或主动陪伴模块；这些包不得进入 workspace、profile、
-  catalog、运行时、安装包、产品 SBOM 或验收。记忆是唯一 required-builtin 第一方
-  功能插件；消息插件随包且默认启用，但各消息通道在用户连接前保持未配置、惰性；
-  ASR、TTS 随包但默认关闭，模型权重不随包。
-- 插件中心只接受签名目录中身份、摘要、权限、DSH 兼容性与回滚均通过的包。
-  UI 显示不等于真实安装或健康。
+  运行时、安装包、产品 SBOM 或验收。记忆随包且默认启用，但 Owner 可以停用而不
+  删除插件包或数据；消息插件随包且默认启用；ASR、TTS 随包但默认关闭，模型权重
+  不随包。
+- 精确固定的官方 DSH `0.1.6-alpha.2` 插件管理器是唯一包管理后端。Penglai
+  使用应用内固定 Node/pnpm，开放官方插件 UI/工具，不再把历史签名目录作为整个
+  生态的 allowlist。内置蓬莱功能代码随应用管理；安装第三方包与批准 build script
+  是不同的显式信任动作。管理基础设施与 credentials 必须保持可用。
 - Workspace、项目、账号、IM 路由必须隔离。记忆不得跨工作区串联。
 
 ## 安全开发与验证
@@ -143,9 +149,10 @@
 - 修能力类别，不写输入特判，不伪造 PASS，不用 mock 冒充生产，不用超时当成功。
 - 禁止提交 API Key、Token、私钥、个人路径、聊天媒体、本地配置或含隐私截图。
 - 源码测试不等于已安装、原生、在线、Windows、Intel、公证或公开发布证据。
-- Owner 已授权 0.6.3 源码开发、审查、PR 与合并 `main`；在三目标原生构建、安装
-  验证和公开发布前停止。不得触发 candidate/publish/deploy 工作流、改写既有发布
-  tag/附件，或在不可变 0.6.3 公网字节存在前更新 README/官网公开下载声明。
+- Owner 已授权 0.6.3 完整流程：源码审查、PR/合并 `main`、三目标原生构建与相应
+  安装验证、不可变发布、公网字节回读，随后更新 README/官网并部署。必须按此顺序；
+  不得改写既有发布 tag/附件，也不得在不可变 0.6.3 公网字节回读通过前更新公开
+  下载声明。
 - Mac/Windows 安装引导必须验证全新安装、重启续跑、返回/重试、非法目录、凭据
   失败恢复、首条官方消息和默认卸载。Apple 芯片和 Windows x64 必须完成 0.6.2
   到 0.6.3 的真实安装版升级验收。UOS 真机

@@ -57,6 +57,11 @@ Core runtime
   application resources: https://github.com/electron/electron
 - Node.js ${release.nodeVersion} - licenses and notices remain inside the
   embedded runtime: https://github.com/nodejs/node
+- pnpm 11.11.0 - MIT: https://github.com/pnpm/pnpm. Its unchanged JavaScript
+  distribution and bundled third-party license files are embedded under
+  runtime/pnpm. Foreign optional native helpers are omitted per target; the
+  exact omission list is retained in penglai-target-projection.json. Package
+  operations use the application's Node and never select a global pnpm.
 - sharp 0.35.4 and its dynamically linked libvips 8.18.6 shared libraries
   are used by official DSH attachment support. The sharp addon is Apache-2.0;
   libvips is LGPL-2.1-or-later, while sharp-libvips uses the LGPLv3 option for
@@ -124,11 +129,14 @@ Audio codecs
 Plugin Center transition
 ------------------------
 
-Penglai Memory is the required first-party bundled plugin in ${rootPackage.version}.
+Penglai Memory is retained in the installation and enabled by default in
+${rootPackage.version}; the Owner may disable it without deleting its data.
+The exact official DSH manager owns open plugin installation and management.
+The historical signed catalog is not the current ecosystem install authority.
 Penglai Office, Budget, Companion, the former remote @penglai/office-reader,
 and the upstream Office/PDF/LibreOffice runtime family are not part of this
-desktop release. Historical immutable catalog releases remain available only
-for audit; catalog 000006 revokes the obsolete exact Office Reader artifact.
+desktop release. Historical immutable catalog releases remain available for
+audit only.
 
 Complete production dependency inventory
 ----------------------------------------

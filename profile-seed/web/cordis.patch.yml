@@ -35,15 +35,17 @@
   name: "@deepseek-ai/dsh-session-log-deepseek"
   config:
     enabled: false
+# Penglai Center constructs the exact official manager once on its own context.
+# Its entry is therefore protected by the upstream manager's self-disable rule.
 - id: plugin-manager
   name: "@deepseek-ai/dsh-plugin-manager"
   disabled: true
 - id: tool-plugin-manager
   name: "@deepseek-ai/dsh-plugin-manager/tools"
-  disabled: true
+  disabled: false
 - id: ui-plugin-manager
   name: "@deepseek-ai/dsh-client-ui-plugin-manager"
-  disabled: true
+  disabled: false
 - id: office-to-pdf
   name: "@deepseek-ai/dsh-office-to-pdf"
   disabled: true

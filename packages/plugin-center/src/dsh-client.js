@@ -267,7 +267,11 @@ window.__ModuleLoader__.load({
           [id]: { busy: true, kind: "working", message: "" },
         }));
         try {
-          await mutate(id, action);
+          const result = await mutate(id, action);
+          if (["failed", "cancelled", "overridden"].includes(result?.application)) {
+            throw new Error("PLUGIN_ACTION_REJECTED");
+          }
+          const restartRequired = result?.application === "restart-required" || result?.restartRequired === true;
           await refresh();
           const messages = {
             enable: localeCopy().centerActionEnabled,
@@ -283,12 +287,15 @@ window.__ModuleLoader__.load({
             ...current,
             [id]: {
               busy: false,
-              kind: "success",
-              message: `${messages[action] ?? localeCopy().centerActionDone} ${localeCopy().centerActionReloading}`,
+              kind: restartRequired ? "restart-required" : "success",
+              message: restartRequired
+                ? localeCopy().centerRestartRequired
+                : messages[action] ?? localeCopy().centerActionDone,
             },
           }));
           if (
             id &&
+            !restartRequired &&
             id !== "@penglai/plugin-center" &&
             action !== "refreshRegistry" &&
             action !== "download" &&
@@ -546,6 +553,9 @@ window.__ModuleLoader__.load({
                     : t.centerNoPermissions,
                 ],
               }),
+              entry.restartRequired
+                ? jsx.jsx("p", { role: "status", "data-penglai-plugin-restart-required": "1", children: t.centerRestartRequired })
+                : null,
               entry.error
                 ? jsx.jsxs("p", {
                     role: "alert",
@@ -927,8 +937,9 @@ window.__ModuleLoader__.load({
         },
         centerTitle: "蓬莱插件中心",
         centerHint:
-          "内置的记忆功能默认开启，其他范围内功能可按需安装或开启。蓬莱会校验在线插件的来源和完整性。",
-        centerRefresh: "刷新已签名目录",
+          "这里管理蓬莱内置功能。记忆默认开启，可停用但不会删除代码或数据。安装与管理其他插件请使用侧栏的官方“插件”页面；第三方插件在本机以用户权限运行，并非独立安全沙箱。",
+        centerRefresh: "刷新实际状态",
+        centerRestartRequired: "选择已保存。请退出并重新打开蓬莱后生效；重新加载页面不会重启插件。",
         centerRegistry: "目录来源",
         centerOffline: "离线使用上次已验证目录",
         centerSource: "来源",
@@ -972,7 +983,7 @@ window.__ModuleLoader__.load({
         centerResourceUnbudgeted: "没有可核对的任务预算",
         centerResourceUnavailable: "暂不可核对",
         cardCenter: "蓬莱插件中心",
-        cardCenterHint: "管理本机已签入插件的实际状态。",
+        cardCenterHint: "查看和切换蓬莱内置功能，其他插件由官方管理器负责。",
         cardIm: "消息连接",
         cardImHint: "在一个入口中管理八个消息平台的私聊连接。",
         cardAsr: "蓬莱语音识别",
@@ -1128,8 +1139,9 @@ window.__ModuleLoader__.load({
         },
         centerTitle: "Penglai Plugin Center",
         centerHint:
-          "Built-in Memory is on by default. Other listed features can be installed or enabled when you need them. Penglai verifies the source and integrity of online plugins.",
-        centerRefresh: "Refresh signed catalog",
+          "Manage Penglai's bundled features here. Memory starts enabled and can be disabled without deleting its code or data. Install and manage other plugins in the official Plugins sidebar panel. Third-party plugins run with your local user permissions, not in a separate security sandbox.",
+        centerRefresh: "Refresh actual state",
+        centerRestartRequired: "Choice saved. Quit and reopen Penglai to apply it; reloading this page does not restart plugins.",
         centerRegistry: "Catalog source",
         centerOffline: "offline last-good catalog",
         centerSource: "source",
@@ -1174,7 +1186,7 @@ window.__ModuleLoader__.load({
         centerResourceUnbudgeted: "no verifiable job budget",
         centerResourceUnavailable: "not verifiable yet",
         cardCenter: "Penglai Plugin Center",
-        cardCenterHint: "Manage actual state of signed local plugins.",
+        cardCenterHint: "Inspect and toggle bundled Penglai features; the official manager handles other plugins.",
         cardIm: "Messaging",
         cardImHint: "Manage private-chat connections for eight messaging platforms in one place.",
         cardAsr: "Penglai Speech Recognition",

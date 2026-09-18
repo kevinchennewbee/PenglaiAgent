@@ -42,7 +42,7 @@ jobs:
       - name: Install pinned dependencies
         run: |
           corepack enable
-          corepack prepare pnpm@11.7.0 --activate
+          corepack prepare pnpm@11.11.0 --activate
           pnpm install --frozen-lockfile
           pnpm rebuild:fs-ext
       - name: Verify the immutable 0.1.6-alpha.2 registry cohort
@@ -69,7 +69,7 @@ jobs:
       - name: Install pinned dependencies
         run: |
           corepack enable
-          corepack prepare pnpm@11.7.0 --activate
+          corepack prepare pnpm@11.11.0 --activate
           pnpm install --frozen-lockfile
           pnpm rebuild:fs-ext
       - name: Build source dependencies for the distribution verifier
@@ -109,7 +109,7 @@ jobs:
       - name: Install pinned dependencies
         run: |
           corepack enable
-          corepack prepare pnpm@11.7.0 --activate
+          corepack prepare pnpm@11.11.0 --activate
           pnpm install --frozen-lockfile
           pnpm rebuild:fs-ext
       - name: Verify clean public export
@@ -249,7 +249,7 @@ jobs:
         shell: pwsh
         run: |
           corepack enable
-          corepack prepare pnpm@11.7.0 --activate
+          corepack prepare pnpm@11.11.0 --activate
           pnpm install --frozen-lockfile
           pnpm rebuild:fs-ext
       - name: Verify clean public export
@@ -419,7 +419,7 @@ jobs:
       - name: Install pinned dependencies
         run: |
           corepack enable
-          corepack prepare pnpm@11.7.0 --activate
+          corepack prepare pnpm@11.11.0 --activate
           pnpm install --frozen-lockfile
           pnpm rebuild:fs-ext
       - name: Verify clean public export
@@ -474,7 +474,7 @@ jobs:
       - name: Install pinned dependencies
         run: |
           corepack enable
-          corepack prepare pnpm@11.7.0 --activate
+          corepack prepare pnpm@11.11.0 --activate
           pnpm install --frozen-lockfile
           pnpm rebuild:fs-ext
           pnpm build

@@ -61,7 +61,7 @@ export interface ApprovalReceiptV1 {
   nonce: string;
 }
 
-export type OwnerProposalState = "proposed" | "denied" | "approved" | "reserved" | "committed" | "expired";
+export type OwnerProposalState = "proposed" | "denied" | "approved" | "reserved" | "committed" | "failed" | "expired";
 
 export interface OwnerDialogRequest {
   actionId: string;
@@ -357,6 +357,15 @@ export class OwnerApprovalBroker {
     row.state = "committed";
     this.save(row);
     this.log(row, "committed");
+  }
+
+  failApproval(input: { actionId: string; reservationId: string; resultDigest: string }): void {
+    const row = this.load(input.actionId);
+    if (row.state !== "reserved" || row.reservationId !== input.reservationId) fail("OWNER_PROPOSAL_STATE");
+    assertDigest(input.resultDigest, "result");
+    row.state = "failed";
+    this.save(row);
+    this.log(row, "failed");
   }
 
   inspect(actionId: string): {

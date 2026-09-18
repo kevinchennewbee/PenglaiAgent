@@ -80,7 +80,7 @@ jobs:
           test "$GITHUB_SHA" = "$(git rev-parse origin/main)"
           git switch -C main "$GITHUB_SHA"
           corepack enable
-          corepack prepare pnpm@11.7.0 --activate
+          corepack prepare pnpm@11.11.0 --activate
           pnpm install --frozen-lockfile
           pnpm build
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -139,7 +139,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           corepack enable
-          corepack prepare pnpm@11.7.0 --activate
+          corepack prepare pnpm@11.11.0 --activate
           pnpm install --frozen-lockfile
           pnpm build
           mkdir -p evidence/generated

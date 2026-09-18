@@ -244,6 +244,79 @@ test("model downloader verifies immutable bytes and persists a crash-safe ready 
   }
 });
 
+test("transient model download failure can resume the same operation and retained partial bytes", async () => {
+  const root = workspace();
+  try {
+    const { manifest, contents } = makeFixture();
+    const models = join(root, "models");
+    let firstFileAttempts = 0;
+    let resumedFrom = 0;
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const url = new URL(String(input));
+      const file = manifest.files.find((candidate) =>
+        url.pathname.endsWith("/" + candidate.sourceName),
+      )!;
+      const expected = contents.get(file.path)!;
+      const headers = new Headers(init?.headers);
+      const range = headers.get("range");
+      if (file === manifest.files[0]) {
+        firstFileAttempts += 1;
+        if (firstFileAttempts === 1) {
+          const split = Math.max(1, Math.floor(expected.length / 2));
+          let emitted = false;
+          const body = new ReadableStream<Uint8Array>({
+            pull(controller) {
+              if (!emitted) {
+                emitted = true;
+                controller.enqueue(expected.subarray(0, split));
+                return;
+              }
+              controller.error(new Error("fixture transient network drop"));
+            },
+          });
+          return new Response(body, {
+            status: 200,
+            headers: { "content-length": String(expected.length), etag: '"fixture-v1"' },
+          });
+        }
+        assert.match(range ?? "", /^bytes=\d+-$/);
+        resumedFrom = Number.parseInt((range ?? "").slice(6, -1), 10);
+        const remainder = expected.subarray(resumedFrom);
+        return new Response(remainder, {
+          status: 206,
+          headers: {
+            "content-length": String(remainder.length),
+            "content-range": `bytes ${resumedFrom}-${expected.length - 1}/${expected.length}`,
+            etag: '"fixture-v1"',
+          },
+        });
+      }
+      assert.equal(range, null);
+      return new Response(expected, {
+        status: 200,
+        headers: { "content-length": String(expected.length), etag: '"fixture-v2"' },
+      });
+    };
+    const manager = new TtsModelManager(models, manifest, { fetchImpl });
+    await assert.rejects(
+      manager.prepareModel("downloadretry01"),
+      /fixture transient network drop/,
+    );
+    const failed = manager.getOperation("downloadretry01");
+    assert.equal(failed?.state, "failed");
+    assert.equal(failed?.errorClass, "DELIVERY_TRANSIENT");
+    assert.equal(manager.describeModels()[0]?.operation?.operationId, "downloadretry01");
+    const completed = await manager.prepareModel("downloadretry01");
+    assert.equal(completed.state, "completed");
+    assert.ok(resumedFrom > 0 && resumedFrom < manifest.files[0]!.bytes);
+    assert.equal(firstFileAttempts, 2);
+    assert.equal(manager.describeModels()[0]?.state, "ready");
+    await manager.dispose();
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("model downloader never marks a same-size hash mismatch ready", async () => {
   const root = workspace();
   try {
@@ -748,6 +821,8 @@ test("MOSS-TTS settings client registers the Penglai page slot and Typert remote
   assert.match(client, /previewVoice/);
   assert.match(client, /readAloud/);
   assert.match(client, /cancelSynthesis/);
+  assert.match(client, /operation\?\.state === "failed"/);
+  assert.match(client, /operation\?\.errorClass === "DELIVERY_TRANSIENT"/);
   assert.match(client, /data-penglai-tts-first-chunk-ms/);
   assert.match(client, /conversation\.chat\.assistant-actions/);
   assert.doesNotMatch(client, /fetch\("\/penglai\/tts"/);

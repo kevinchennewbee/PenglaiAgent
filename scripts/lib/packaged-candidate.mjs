@@ -150,6 +150,7 @@ export function inspectPackagedCandidate({
   }
   if (
     release.dsh !== RELEASE_PINS.dsh ||
+    release.pnpm !== RELEASE_PINS.pnpm ||
     !isDeepStrictEqual(release.dshSource, RELEASE_PINS.dshSource)
   ) {
     return {
@@ -256,12 +257,35 @@ export function inspectPackagedCandidate({
     ? join(resources, "runtime/node/node.exe")
     : join(resources, "runtime/node/bin/node");
   const dshBin = join(resources, "runtime/dsh/lib/bin.js");
-  if (!existsSync(nodeBin) || !existsSync(dshBin)) {
+  const dshLauncher = join(resources, "runtime/dsh/lib/penglai-dsh-launcher.mjs");
+  const pnpmManifest = join(resources, "runtime/pnpm/package.json");
+  const pnpmEntry = join(resources, "runtime/pnpm/bin/pnpm.mjs");
+  const policyFiles = [
+    join(resources, "runtime/dsh/penglai-profile-policy.yml"),
+    join(resources, "runtime/dsh/penglai-loong64-policy.yml"),
+  ];
+  const requiredManagedRuntime = [dshLauncher, pnpmManifest, pnpmEntry, ...policyFiles];
+  if (!existsSync(nodeBin) || !existsSync(dshBin) || requiredManagedRuntime.some((file) => !existsSync(file))) {
     return {
       verdict: "FAIL",
-      reason: "embedded Node or DSH executable missing",
+      reason: "embedded Node, DSH launcher, pnpm, or product profile policy missing",
       app,
     };
+  }
+  const requiredManifestPaths = [
+    "runtime/dsh/lib/penglai-dsh-launcher.mjs",
+    "runtime/dsh/penglai-profile-policy.yml",
+    "runtime/dsh/penglai-loong64-policy.yml",
+    "runtime/pnpm/package.json",
+    "runtime/pnpm/bin/pnpm.mjs",
+    "runtime/pnpm/penglai-target-projection.json",
+  ];
+  if (requiredManifestPaths.some((path) => !seen.has(path))) {
+    return { verdict: "FAIL", reason: "runtime manifest does not bind the app-owned package manager launch path", app };
+  }
+  const pnpmRead = readJson(pnpmManifest, "embedded pnpm manifest");
+  if (pnpmRead.error || pnpmRead.value?.name !== "pnpm" || pnpmRead.value?.version !== RELEASE_PINS.pnpm) {
+    return { verdict: "FAIL", reason: "embedded pnpm identity mismatch", app };
   }
   return {
     verdict: "PASS",
@@ -269,6 +293,8 @@ export function inspectPackagedCandidate({
     resources,
     nodeBin,
     dshBin,
+    dshLauncher,
+    pnpmEntry,
     release,
     manifest,
     credential,

@@ -109,9 +109,13 @@ function fieldEqualsId(field: string | undefined, id: string): boolean {
   return officialAliases(id).includes(field);
 }
 
+/** These services keep management and credentials available; feature defaults
+ * are not a prohibition on an owner's explicit disable decision. */
+export const ALWAYS_ENABLED_INVENTORY_IDS = REQUIRED_INVENTORY_IDS.filter((id) => id !== "@penglai/memory");
+
 export function refuseRequiredPluginDisable(pluginId: string): void {
   const row = { id: pluginId, moduleName: pluginId, name: pluginId };
-  if (REQUIRED_INVENTORY_IDS.some((id) => exactPluginId(row, id))) {
+  if (ALWAYS_ENABLED_INVENTORY_IDS.some((id) => exactPluginId(row, id))) {
     throw new PenglaiError("SECURITY_POLICY", "required plugin cannot be disabled");
   }
 }
@@ -287,6 +291,18 @@ function readyById(required: RequiredPluginProof[], id: RequiredInventoryId): bo
   return row ? proofReady(row) : false;
 }
 
+/** An explicitly disabled, inactive and uniquely identified retained Memory
+ * is acceptable for runtime readiness, but is never reported as active Memory.
+ * Missing entries, duplicates, contradictory active state and enabled failures
+ * do not qualify. Package retention is independently checked during bootstrap. */
+export function memoryIntentionallyDisabled(entries: InventoryEntry[]): boolean {
+  const rows = entries.filter((row) => exactPluginId(row, "@penglai/memory"));
+  const row = rows.length === 1 ? rows[0] : undefined;
+  return Boolean(row && (row.disabled === true || row.enabled === false) &&
+    (row.fiberPhase === null || row.fiberPhase === "disabled" || row.fiberPhase === "inactive") &&
+    rowVersion(row, "@penglai/memory"));
+}
+
 export function evaluateInventory(raw: unknown): InventoryProof {
   const entries = normalizeInventory(raw);
   const stated = statedProofs(raw);
@@ -300,7 +316,7 @@ export function evaluateInventory(raw: unknown): InventoryProof {
     entries.some((row) => exactPluginId(row, id) && rowIsLoaded(row)),
   );
   return {
-    ok: credentials && pluginCenter && memory && !forbiddenLoaded,
+    ok: credentials && pluginCenter && (memory || memoryIntentionallyDisabled(entries)) && !forbiddenLoaded,
     credentials,
     pluginCenter,
     memory,
