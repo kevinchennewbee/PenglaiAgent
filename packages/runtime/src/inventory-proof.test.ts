@@ -9,10 +9,11 @@ import {
   matchesPlugin,
   refuseRequiredPluginDisable,
   REQUIRED_INVENTORY_IDS,
+  type InventoryEntry,
 } from "./inventory-proof.js";
 
-function requiredRows(overrides: Record<string, object> = {}) {
-  const defaults: Record<string, object> = {
+function requiredRows(overrides: Record<string, Partial<InventoryEntry>> = {}): InventoryEntry[] {
+  const defaults: Record<string, InventoryEntry> = {
     "@deepseek-ai/dsh-credentials-local": {
       moduleName: "@deepseek-ai/dsh-credentials-local",
       enabled: true,
@@ -88,6 +89,16 @@ test("R63-CORE-003 missing or unhealthy Memory fails Runtime Ready", () => {
   assert.equal(unhealthyMemory.required.find((row) => row.id === "@penglai/memory")?.health, "failed");
 });
 
+test("an intentionally disabled retained Memory permits startup without claiming active health", () => {
+  const entries = requiredRows({ "@penglai/memory": { enabled: false, fiberPhase: null } });
+  const proof = evaluateInventory({ entries });
+  assert.equal(proof.ok, true);
+  assert.equal(proof.memory, false);
+  assert.equal(proof.required.find((row) => row.id === "@penglai/memory")?.health, "failed");
+  assert.equal(evaluateInventory({ entries: entries.filter((row) => row.moduleName !== "@penglai/memory") }).ok, false);
+  assert.equal(evaluateInventory({ entries: [...entries, entries[2]] }).ok, false);
+});
+
 test("R56-CORE-004 similar plugin ids cannot satisfy required proof", () => {
   const fuzzy = evaluateInventory({
     entries: [
@@ -151,7 +162,7 @@ test("inventory snapshot document records Memory without requiring IM", () => {
 });
 
 test("R56-CORE-005 required inventory ids cannot be disabled by alias", () => {
-  for (const id of REQUIRED_INVENTORY_IDS) {
+  for (const id of REQUIRED_INVENTORY_IDS.filter((id) => id !== "@penglai/memory")) {
     assert.throws(
       () => refuseRequiredPluginDisable(id),
       (error: unknown) => error instanceof PenglaiError && error.message === "required plugin cannot be disabled",
@@ -160,4 +171,6 @@ test("R56-CORE-005 required inventory ids cannot be disabled by alias", () => {
   refuseRequiredPluginDisable("penglai-office");
   assert.throws(() => refuseRequiredPluginDisable("@penglai/plugin-center"));
   refuseRequiredPluginDisable("@penglai/im");
+  refuseRequiredPluginDisable("@penglai/memory");
+  refuseRequiredPluginDisable("penglai-memory");
 });

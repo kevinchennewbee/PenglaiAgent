@@ -109,6 +109,7 @@ const licenses = [
   { name: "typescript", license: "Apache-2.0" },
   { name: "tsx", license: "MIT" },
   { name: "electron", license: "MIT", pin: "43.6.0" },
+  { name: "pnpm", license: "MIT", pin: "11.11.0", bundledInInstaller: true },
   {
     name: "@larksuiteoapi/node-sdk",
     license: "MIT",

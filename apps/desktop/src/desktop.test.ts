@@ -127,7 +127,7 @@ test("findResourcesRoot prefers a real runtime over isPackaged guesses", async (
   mkdirSync(join(nodePath, ".."), { recursive: true });
   mkdirSync(join(resources, "runtime", "dsh", "lib"), { recursive: true });
   writeFileSync(nodePath, "");
-  writeFileSync(join(resources, "runtime", "dsh", "lib", "bin.js"), "");
+  writeFileSync(join(resources, "runtime", "dsh", "lib", "penglai-dsh-launcher.mjs"), "");
   const appDir = join(resources, "app");
   mkdirSync(appDir, { recursive: true });
   const found = findResourcesRoot({

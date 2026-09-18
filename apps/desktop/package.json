@@ -20,7 +20,8 @@
     "@penglai/runtime": "workspace:*",
     "@penglai/persistence": "workspace:*",
     "@penglai/routing-core": "workspace:*",
-    "electron": "43.6.0"
+    "electron": "43.6.0",
+    "pnpm": "11.11.0"
   },
   "devDependencies": {}
 }

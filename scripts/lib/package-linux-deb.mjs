@@ -453,6 +453,19 @@ export function assertUosRuntimeClosure(payloadRoot) {
       "linux-loong64 payload missing pinned DSH CLI at resources/runtime/dsh/lib/bin.js; package is not complete",
     );
   }
+  for (const [relative, label] of [
+    ["resources/runtime/dsh/lib/penglai-dsh-launcher.mjs", "Penglai DSH launcher"],
+    ["resources/runtime/dsh/penglai-profile-policy.yml", "product profile policy"],
+    ["resources/runtime/dsh/penglai-loong64-policy.yml", "LoongArch profile policy"],
+    ["resources/runtime/pnpm/package.json", "bundled pnpm manifest"],
+    ["resources/runtime/pnpm/bin/pnpm.mjs", "bundled pnpm entry"],
+    ["resources/runtime/pnpm/penglai-target-projection.json", "bundled pnpm target projection"],
+  ]) {
+    const file = join(payloadRoot, ...relative.split("/"));
+    if (!existsSync(file) || !lstatSync(file).isFile()) {
+      throw new Error(`linux-loong64 payload missing ${label} at ${relative}; package is not complete`);
+    }
+  }
   const flock = join(payloadRoot, FLOCK_ADDON_REL);
   let flockFd;
   try {

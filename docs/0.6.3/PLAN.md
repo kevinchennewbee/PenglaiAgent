@@ -1,14 +1,15 @@
 # Penglai 0.6.3 release plan
 
-Status: source-development plan. Native candidate work and publication are not
-authorized in this phase and remain `NOT_RUN`.
+Status: full release workflow authorized by the Owner on 2026-09-18. Native,
+publication, and deployment results remain `NOT_RUN` until each step executes.
 
 ## Goal
 
 Prepare Penglai 0.6.3 with the complete official DeepSeek Harness
 `0.1.6-alpha.2` npm cohort, finish source and plugin adaptation, pass source
-gates, and merge the reviewed change to `main`. Stop before native installers,
-installed upgrades, publication, or website deployment.
+gates, merge the reviewed change to `main`, build and validate all three exact
+targets, publish and read back immutable bytes, then update and deploy the
+README and existing websites.
 
 ## Release sequence
 
@@ -16,18 +17,20 @@ installed upgrades, publication, or website deployment.
    integrity. Keep DSH as the only agent core.
 2. Rebuild every first-party plugin for alpha.2 and verify its source-level loader,
    permission, enable/disable, restart, and rollback behavior.
-   The 0.6.3 first-party set excludes Office/PDF, Budget, and Companion; Memory
-   is the only required feature plugin.
-3. Disable the upstream session log/upload path and free-form plugin manager in
-   the Penglai profile. Keep the signed Penglai catalog as the only install path.
+   The 0.6.3 first-party set excludes Office/PDF, Budget, and Companion. Memory
+   stays bundled/default-on and can be disabled without deleting code or data.
+3. Disable the upstream session log/upload path. Mount one exact official DSH
+   plugin manager through Penglai Center, expose its UI/tool, and supply only
+   application-owned Node/pnpm `11.11.0`; do not add a second resolver or
+   signed-catalog ecosystem allowlist.
 4. Run the deterministic source, contract, integration, security, dependency,
    license, privacy, and clean-export gates.
-5. In a later authorized phase, from one clean `main` commit, build Apple Silicon, Windows x64, and UOS 20
+5. From one clean `main` commit, build Apple Silicon, Windows x64, and UOS 20
    LoongArch. Run installed fresh and 0.6.2 upgrade journeys on Mac and
    Windows. Verify the UOS package, ABI, runtime, and full closure.
-6. In that later phase, publish only the exact asset set in `release-contract.json`, verify the
+6. Publish only the exact asset set in `release-contract.json`, verify the
    immutable public bytes, then update README and the existing websites with
-   the observed sizes and SHA-256 values.
+   the observed sizes and SHA-256 values and verify deployment.
 
 ## Explicit boundaries
 

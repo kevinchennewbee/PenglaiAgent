@@ -32,8 +32,8 @@ const preservedOverrides = {
 };
 const allOverrides = preservedOverrides;
 delete rootPackage.pnpm;
-rootPackage.packageManager = "pnpm@11.7.0";
-rootPackage.engines.pnpm = "11.7.0";
+rootPackage.packageManager = "pnpm@11.11.0";
+rootPackage.engines.pnpm = "11.11.0";
 const existingRootDevDependencies = rootPackage.devDependencies ?? {};
 rootPackage.devDependencies = Object.fromEntries(
   Object.entries(existingRootDevDependencies).filter(([name]) => !name.startsWith("@deepseek-ai/")),

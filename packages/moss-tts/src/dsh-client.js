@@ -440,7 +440,14 @@ window.__ModuleLoader__.load({
           });
       };
       const beginDownload = () => {
-        const id = operationId("ttsdl");
+        const retryable = (view.models || [])
+          .map((row) => row?.operation)
+          .find(
+            (operation) =>
+              operation?.state === "failed" &&
+              operation?.errorClass === "DELIVERY_TRANSIENT",
+          );
+        const id = retryable?.operationId || operationId("ttsdl");
         setView((current) => ({ ...current, operationId: id }));
         run("prepareModel", { operationId: id });
       };

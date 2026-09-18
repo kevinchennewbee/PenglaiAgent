@@ -26,9 +26,16 @@ function fixture(
   const resources = join(app, "Contents/Resources");
   mkdirSync(join(resources, "runtime/node/bin"), { recursive: true });
   mkdirSync(join(resources, "runtime/dsh/lib"), { recursive: true });
+  mkdirSync(join(resources, "runtime/pnpm/bin"), { recursive: true });
   writeFileSync(join(app, "Contents/Info.plist"), "plist");
   writeFileSync(join(resources, "runtime/node/bin/node"), "node");
   writeFileSync(join(resources, "runtime/dsh/lib/bin.js"), "dsh");
+  writeFileSync(join(resources, "runtime/dsh/lib/penglai-dsh-launcher.mjs"), "launcher");
+  writeFileSync(join(resources, "runtime/dsh/penglai-profile-policy.yml"), "profile-policy");
+  writeFileSync(join(resources, "runtime/dsh/penglai-loong64-policy.yml"), "loong-policy");
+  writeFileSync(join(resources, "runtime/pnpm/package.json"), JSON.stringify({ name: "pnpm", version: pins.pnpm }));
+  writeFileSync(join(resources, "runtime/pnpm/bin/pnpm.mjs"), "pnpm-entry");
+  writeFileSync(join(resources, "runtime/pnpm/penglai-target-projection.json"), "projection");
   const legalFiles = [
     "libvips-LGPL-2.1.txt",
     "sharp-libvips-Apache-2.0.txt",
@@ -53,6 +60,18 @@ function fixture(
         sha256: createHash("sha256").update("node").digest("hex"),
         size: 4,
       },
+      ...[
+        ["runtime/dsh/lib/penglai-dsh-launcher.mjs", "launcher"],
+        ["runtime/dsh/penglai-profile-policy.yml", "profile-policy"],
+        ["runtime/dsh/penglai-loong64-policy.yml", "loong-policy"],
+        ["runtime/pnpm/package.json", JSON.stringify({ name: "pnpm", version: pins.pnpm })],
+        ["runtime/pnpm/bin/pnpm.mjs", "pnpm-entry"],
+        ["runtime/pnpm/penglai-target-projection.json", "projection"],
+      ].map(([path, body]) => ({
+        path,
+        sha256: createHash("sha256").update(body).digest("hex"),
+        size: Buffer.byteLength(body),
+      })),
       ...legalFiles,
     ],
   };
@@ -69,6 +88,7 @@ function fixture(
       treeDirty: false,
       targetPlatform: "darwin-arm64",
       dsh: pins.dsh,
+      pnpm: pins.pnpm,
       dshSource: pins.dshSource,
       ...(overrides.omitPublicExportTreeSha256
         ? {}

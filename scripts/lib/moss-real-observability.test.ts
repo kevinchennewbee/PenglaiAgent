@@ -305,6 +305,8 @@ test("verify:moss-real still uses the published fixture, predicates, and catch e
   assert.match(engine, /sampleMode: 'fixed'/);
   assert.doesNotMatch(engine, /Math\.random\s*=/);
   assert.match(src, /mossRealCatchExtra\(error\)/);
+  assert.match(src, /MOSS_REAL_DOWNLOAD_ATTEMPTS = 6/);
+  assert.match(src, /failed\.errorClass === "DELIVERY_TRANSIENT"/);
   assert.match(
     src,
     /finishEvidenceRun\(run, incomplete \? "INCOMPLETE" : "FAIL", reason, extra\)/,

@@ -140,8 +140,8 @@ test("R55-BUILTIN-007 Memory disable preserves data and stops recall", () => {
   assert.equal(FIRST_PARTY_PLUGIN_METADATA.find((row) => row.id === "@penglai/memory")?.installClass, "required-builtin");
 });
 
-test("R55-BUILTIN-008 enable/restart persistence", () => {
-  assert.equal(FIRST_PARTY_PLUGIN_METADATA.find((row) => row.id === "@penglai/memory")?.updatePolicy, "signed-overlay");
+test("R63-BUILTIN-008 Memory enablement persists in profile while code updates with the application", () => {
+  assert.equal(FIRST_PARTY_PLUGIN_METADATA.find((row) => row.id === "@penglai/memory")?.updatePolicy, "app-only");
 });
 
 test("R55-BUILTIN-009 delete resource differs from disable", () => {

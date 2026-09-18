@@ -176,6 +176,12 @@ for (const [relative, label] of [
   ["resources/app/preload-bridge.cjs", "desktop preload bridge"],
   ["resources/runtime/node/bin/node", "embedded Node runtime"],
   ["resources/runtime/dsh/lib/bin.js", "official DSH CLI"],
+  ["resources/runtime/dsh/lib/penglai-dsh-launcher.mjs", "Penglai DSH launcher"],
+  ["resources/runtime/dsh/penglai-profile-policy.yml", "product profile policy"],
+  ["resources/runtime/dsh/penglai-loong64-policy.yml", "LoongArch profile policy"],
+  ["resources/runtime/pnpm/package.json", "bundled pnpm manifest"],
+  ["resources/runtime/pnpm/bin/pnpm.mjs", "bundled pnpm entry"],
+  ["resources/runtime/pnpm/penglai-target-projection.json", "bundled pnpm target projection"],
   ["resources/profile-seed/web/package.json", "official DSH profile"],
   ["resources/mnemon/mnemon", "Mnemon Memory engine"],
 ]) {
@@ -190,12 +196,23 @@ for (const [path, label] of [
 for (const relative of [
   "runtime/node/bin/node",
   "runtime/dsh/lib/bin.js",
+  "runtime/dsh/lib/penglai-dsh-launcher.mjs",
+  "runtime/dsh/penglai-profile-policy.yml",
+  "runtime/dsh/penglai-loong64-policy.yml",
+  "runtime/pnpm/package.json",
+  "runtime/pnpm/bin/pnpm.mjs",
+  "runtime/pnpm/penglai-target-projection.json",
   "profile-seed/web/package.json",
   "mnemon/mnemon",
 ]) {
   if (!manifestByPath.has(relative)) {
     fail("UOS runtime manifest does not bind a required runtime component", { relative });
   }
+}
+
+const pnpmManifest = parseJson("resources/runtime/pnpm/package.json", "bundled pnpm manifest");
+if (pnpmManifest.name !== "pnpm" || pnpmManifest.version !== releaseInfo.pnpm) {
+  fail("UOS bundled pnpm identity drifted", { expected: releaseInfo.pnpm, actual: pnpmManifest.version });
 }
 
 const profile = JSON.parse(readFileSync(join(ROOT, "profile-seed", "web", "package.json"), "utf8"));

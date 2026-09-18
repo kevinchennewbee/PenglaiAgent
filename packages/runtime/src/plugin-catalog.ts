@@ -97,7 +97,7 @@ const common = {
   license: "MIT",
   migration: "none",
   rollback: "last-good-profile" as const,
-  updatePolicy: "signed-overlay" as const,
+  updatePolicy: "app-only" as const,
 };
 
 export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
@@ -106,7 +106,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       ...common,
       id: "@penglai/plugin-center",
       packageFile: `penglai-plugin-center-${RELEASE}.tgz`,
-      capabilities: ["settings-ui", "catalog", "profile-transaction"],
+      capabilities: ["settings-ui", "catalog", "official-plugin-manager"],
       permissions: ["profile-write"],
       defaultEnabled: true,
       builtIn: true,

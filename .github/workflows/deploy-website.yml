@@ -54,7 +54,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           corepack enable
-          corepack prepare pnpm@11.7.0 --activate
+          corepack prepare pnpm@11.11.0 --activate
           pnpm install --frozen-lockfile
           pnpm build
           pnpm readback:release "${{ inputs.tag }}"

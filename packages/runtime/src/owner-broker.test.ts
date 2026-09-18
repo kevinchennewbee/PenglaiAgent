@@ -107,6 +107,39 @@ test("R56-OWN-005 deny expiry replay mutation and workspace drift have no side e
   assert.doesNotMatch(JSON.stringify(live.logs), /sk-|token|secret/i);
 });
 
+test("reserved approval has an explicit failed terminal state and remains non-replayable", async () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-broker-failed-"));
+  const { owner } = broker(root);
+  const proposal = owner.createProposal({
+    action: "plugin.disable",
+    pluginId: "@penglai/memory",
+    objectId: "@penglai/memory",
+    sourceDigest: "a".repeat(64),
+  });
+  const approved = await owner.requestOwnerApproval(proposal.actionId);
+  if (approved.decision !== "approved") throw new Error("expected receipt");
+  const intentDigest = owner.inspect(proposal.actionId).intentDigest;
+  const reservation = owner.consumeApproval({
+    receipt: approved.receipt,
+    intentDigest,
+    actionId: proposal.actionId,
+  });
+  owner.failApproval({
+    actionId: proposal.actionId,
+    reservationId: reservation.reservationId,
+    resultDigest: "f".repeat(64),
+  });
+  assert.equal(owner.inspect(proposal.actionId).state, "failed");
+  assert.throws(
+    () => owner.consumeApproval({ receipt: approved.receipt, intentDigest, actionId: proposal.actionId }),
+    /REPLAY/,
+  );
+  assert.throws(
+    () => owner.completeApproval({ actionId: proposal.actionId, reservationId: reservation.reservationId, resultDigest: "c".repeat(64) }),
+    /PROPOSAL_STATE/,
+  );
+});
+
 test("R56-OWN-007 renderer may pass only actionId and Main rejects substitute fields", async () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-broker-ipc-"));
   const { owner } = broker(root);

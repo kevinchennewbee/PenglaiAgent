@@ -140,7 +140,7 @@ the promise.
 
 ### Build and contribute
 
-This repository uses Node `22.23.2` and pnpm `11.7.0`.
+This repository uses Node `22.23.2` and pnpm `11.11.0`.
 
 ```bash
 corepack enable

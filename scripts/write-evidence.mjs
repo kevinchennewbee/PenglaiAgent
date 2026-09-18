@@ -24,7 +24,7 @@ const artifactSha = sums.split(/\s+/)[0] ?? "";
 writeFileSync(`${dir}/git-state.txt`, `HEAD ${sha}\ndirty ${dirty.length > 0}\nbranch main\n`);
 writeFileSync(
   `${dir}/environment.json`,
-  JSON.stringify({ node: process.version, pnpm: "11.7.0", os: process.platform, arch: process.arch, host: "redacted" }, null, 2),
+  JSON.stringify({ node: process.version, pnpm: "11.11.0", os: process.platform, arch: process.arch, host: "redacted" }, null, 2),
 );
 writeFileSync(`${dir}/commands.jsonl`, JSON.stringify({ argv: ["pnpm", "verify:r1"], cwd: ".", exitCode: 0 }) + "\n");
 writeFileSync(`${dir}/package/sha256.txt`, `${sums}\n`);
@@ -112,7 +112,7 @@ const manifest = {
   host: { os: process.platform, arch: process.arch, hostnameDigest: createHash("sha256").update(hostname()).digest("hex").slice(0, 12) },
   versions: {
     node: process.version,
-    pnpm: "11.7.0",
+    pnpm: "11.11.0",
     dsh: "0.1.6-alpha.2",
     electron: "43.4.0",
     databaseSchema: 2,

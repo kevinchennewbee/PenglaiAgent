@@ -9,8 +9,9 @@ turn an unrun native or public check into PASS.
       first-party plugins to DSH `0.1.6-alpha.2` as one generation.
 - [x] Preserve the published rc.2 DSH home and migrate settings and sessions into an
       isolated alpha.2 home.
-- [x] Disable upstream session logging/upload and free-form plugin management;
-      keep the signed Penglai catalog as the only install path.
+- [x] Disable upstream session logging/upload; integrate one exact official DSH
+      alpha.2 plugin manager with official UI/tool, bundled Node/pnpm, retained
+      built-ins, Memory disable persistence, and explicit build-script approval.
 - [x] Make Apple Silicon and Windows x64 installed upgrades from immutable
       0.6.2 packages a required lifecycle gate.
 - [x] Add a fail-closed UOS `.deb` verifier for package identity, ABI, closure,
@@ -30,5 +31,5 @@ turn an unrun native or public check into PASS.
 - [ ] Owner post-release UOS native test: install, start, UI, file picker,
       sleep/resume, model conversation, and Memory.
 
-All unchecked native/public items are deliberately `NOT_RUN` in this phase.
-The two-hour installed soak is `OWNER_EXCLUDED`.
+Unchecked native/public items are `NOT_RUN` until executed in the authorized
+full-release sequence. The two-hour installed soak is `OWNER_EXCLUDED`.

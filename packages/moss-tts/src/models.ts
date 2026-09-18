@@ -296,7 +296,7 @@ export class TtsModelManager {
 
   describeModels(): TtsModelRecord[] {
     const operation = [...this.operations.values()]
-      .filter((row) => row.kind === "download" && ["queued", "running", "paused"].includes(row.state))
+      .filter((row) => row.kind === "download" && ["queued", "running", "paused", "failed"].includes(row.state))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
     const sources = [...new Map(this.manifest.files.map((file) => [
       `${file.repository}@${file.revision}`,
@@ -339,7 +339,9 @@ export class TtsModelManager {
     await this.initialize();
     const previous = this.operations.get(operationId);
     if (previous?.state === "completed" && this.state === "ready") return structuredClone(previous);
-    if (previous && previous.state !== "paused") {
+    const retryableTransientFailure =
+      previous?.state === "failed" && previous.errorClass === "DELIVERY_TRANSIENT";
+    if (previous && previous.state !== "paused" && !retryableTransientFailure) {
       throw new PenglaiError("INVALID_INPUT", "MOSS model operation id already used");
     }
     const existing = this.running.get(operationId);

@@ -1,3 +1,4 @@
+import { memoryIntentionallyDisabled } from "@penglai/runtime/plugin-host";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, session, shell } from "electron";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -1110,6 +1111,7 @@ async function main(): Promise<void> {
           dshHealthy: true,
           profileReady: true,
           requiredPluginsActive,
+          memoryDisabledRetained: memoryIntentionallyDisabled(inventory.entries),
           validatedAt: new Date().toISOString(),
         },
       });

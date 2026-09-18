@@ -1,0 +1,4 @@
+# No supported ONNX Runtime binary is bundled for LoongArch.
+# The official manager reports this higher-priority disable as overridden.
+- id: penglai-moss-tts
+  disabled: true

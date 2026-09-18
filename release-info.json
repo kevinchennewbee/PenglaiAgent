@@ -56,5 +56,5 @@
     "release": "v0.6.3",
     "channel": "stable-v0.6.3"
   },
-  "pnpm": "11.7.0"
+  "pnpm": "11.11.0"
 }

@@ -17,6 +17,7 @@ import {
 } from "node:fs";
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { ROOT, readJson } from "./lib/repo.mjs";
+import { copyBundledPnpm } from "./lib/bundled-pnpm.mjs";
 import {
   sha256File as closureSha256File,
   writeClosureCredential,
@@ -329,6 +330,19 @@ console.log(
   "nested conflicts",
   flattened.nestedConflicts.nestedConflictCount,
 );
+
+// pnpm is a lockfile-pinned build dependency, copied without install scripts.
+// The application launches its JS entry through the target's embedded Node.
+const pnpmRoot = join(ROOT, "node_modules", "pnpm");
+const pnpmProjection = copyBundledPnpm(pnpmRoot, join(staging, "runtime", "pnpm"), target);
+writeFileSync(join(staging, "runtime", "pnpm", "penglai-target-projection.json"), `${JSON.stringify(pnpmProjection, null, 2)}\n`);
+copyFileSync(
+  join(ROOT, "scripts", "runtime", "penglai-dsh-launcher.mjs"),
+  join(dshDest, "lib", "penglai-dsh-launcher.mjs"),
+);
+for (const name of ["penglai-profile-policy.yml", "penglai-loong64-policy.yml"]) {
+  copyFileSync(join(ROOT, "scripts", "runtime", name), join(dshDest, name));
+}
 
 const nodeBin =
   target === "win32-x86_64"
