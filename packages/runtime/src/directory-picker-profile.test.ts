@@ -175,7 +175,7 @@ test("product seed overlay disables auto and mounts exactly one browse host/clie
   const persistence = entries.find((entry) => entry.id === "session-persistence-jsonl");
   assert.equal(memory?.name, "@penglai/memory");
   assert.notEqual(memory?.disabled, true);
-  assert.equal(im?.disabled, true);
+  assert.equal(im?.disabled, false);
   assert.equal((persistence?.config as { compression?: string } | undefined)?.compression, "none");
   assert.equal(
     (persistence?.config as { root?: { __jsExpr?: string } } | undefined)?.root?.__jsExpr,

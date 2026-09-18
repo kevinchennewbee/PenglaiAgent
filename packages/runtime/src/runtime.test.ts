@@ -692,7 +692,7 @@ test("R2I-DIST-007 refuses to install historical keychain tarball into profile",
   assert.throws(() => activatePrivateProfile(layout, user), /unlisted bundled plugin archive|catalog set mismatch/);
 });
 
-test("fresh profile installs Center plus required builtins and exposes official @deepseek-ai safely", () => {
+test("fresh profile installs Center, Memory, and default-on IM while exposing official @deepseek-ai safely", () => {
   const app = mkdtempSync(join(tmpdir(), "penglai-app-"));
   const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
   mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
@@ -727,7 +727,7 @@ test("fresh profile installs Center plus required builtins and exposes official 
     assert.notEqual(lstatSync(memoryBinary).mode & 0o111, 0);
   }
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "context")), false);
-  assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "im", "dist", "index.js")), false);
+  assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "im", "dist", "index.js")), true);
   const linked = join(user.profileWeb, "node_modules", "@deepseek-ai");
   if (process.platform === "win32") {
     assert.equal(lstatSync(linked).isSymbolicLink(), false);
@@ -738,20 +738,20 @@ test("fresh profile installs Center plus required builtins and exposes official 
   }
 });
 
-test("fresh catalog and profile keep every optional Penglai plugin disabled", () => {
-  const required = new Set(["@penglai/plugin-center", "@penglai/memory"]);
-  const optional = FIRST_PARTY_PLUGIN_METADATA.filter((entry) => !required.has(entry.id));
-  assert.ok(optional.length > 0);
-  assert.equal(optional.every((entry) => entry.defaultEnabled === false), true);
+test("fresh catalog and profile enable IM while keeping ASR, TTS, and internal reference disabled", () => {
+  const defaultOn = new Set(["@penglai/plugin-center", "@penglai/im", "@penglai/memory"]);
+  const defaultOff = FIRST_PARTY_PLUGIN_METADATA.filter((entry) => !defaultOn.has(entry.id));
+  assert.ok(defaultOff.length > 0);
+  assert.equal(defaultOff.every((entry) => entry.defaultEnabled === false), true);
   assert.equal(
-    FIRST_PARTY_PLUGIN_METADATA.filter((entry) => required.has(entry.id)).every(
+    FIRST_PARTY_PLUGIN_METADATA.filter((entry) => defaultOn.has(entry.id)).every(
       (entry) => entry.defaultEnabled === true,
     ),
     true,
   );
   const patch = readFileSync(new URL("../../../profile-seed/web/cordis.patch.yml", import.meta.url), "utf8").replace(/\r\n/g, "\n");
   assert.match(patch, /id: session-persistence-jsonl[\s\S]*compression: none/);
-  for (const entry of optional) {
+  for (const entry of defaultOff) {
     const short = entry.id.replace("@penglai/", "penglai-");
     assert.match(
       patch,
@@ -761,7 +761,7 @@ test("fresh catalog and profile keep every optional Penglai plugin disabled", ()
       entry.id,
     );
   }
-  for (const id of ["@penglai/memory"]) {
+  for (const id of ["@penglai/im", "@penglai/memory"]) {
     const short = id.replace("@penglai/", "penglai-");
     assert.match(patch, new RegExp(`id: ${short}\\n\\s+name: ["']${id.replace("/", "\\/")}["']`));
     assert.doesNotMatch(

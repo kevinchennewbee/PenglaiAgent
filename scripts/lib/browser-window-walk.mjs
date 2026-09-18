@@ -201,7 +201,7 @@ const OPTIONAL_PLUGIN_IDS = [
   "@penglai/moss-tts",
 ];
 
-export function bundledOptionalPluginDefaultOffSample(input) {
+export function bundledDefaultOnPluginSample(input) {
   const id = String(input?.id ?? "");
   const catalog = input?.catalogEntry;
   const inventory = input?.inventoryEntry;
@@ -213,27 +213,27 @@ export function bundledOptionalPluginDefaultOffSample(input) {
       catalog?.source === "bundled-first-party" &&
       catalog?.builtIn === true &&
       catalog?.installClass === "optional-first-party" &&
-      catalog?.defaultEnabled === false &&
+      catalog?.defaultEnabled === true &&
       /^[a-f0-9]{64}$/.test(String(catalog?.sha256 ?? "")) &&
       packageSha256 === catalog.sha256,
   );
-  const loaderDefaultOff = Boolean(
-    input?.desiredEnabled === false &&
+  const loaderDefaultOn = Boolean(
+    input?.desiredEnabled === true &&
       inventory?.moduleName === id &&
-      inventory?.enabled === false &&
-      !inventory?.fiberPhase,
+      inventory?.enabled === true &&
+      inventory?.fiberPhase === "active",
   );
-  const centerOffersOwnerGatedEnable = Boolean(
+  const centerOffersDisable = Boolean(
     card?.id === id &&
-      card?.loaded === false &&
+      card?.loaded === true &&
       Array.isArray(card?.actions) &&
-      card.actions.includes("installEnable"),
+      card.actions.includes("disable"),
   );
   return {
-    ok: catalogBound && loaderDefaultOff && centerOffersOwnerGatedEnable,
+    ok: catalogBound && loaderDefaultOn && centerOffersDisable,
     catalogBound,
-    loaderDefaultOff,
-    centerOffersOwnerGatedEnable,
+    loaderDefaultOn,
+    centerOffersDisable,
     packageSha256,
     catalogSha256: typeof catalog?.sha256 === "string" ? catalog.sha256 : "",
     centerState: typeof card?.installed === "string" ? card.installed : "",

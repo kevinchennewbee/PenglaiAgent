@@ -25,7 +25,7 @@ test("runtimePluginTarget maps loongarch64 to linux-loong64", () => {
   assert.equal(runtimePluginTarget("linux", "loongarch64"), "linux-loong64");
 });
 
-test("catalog v3 marks four user-visible products and memory as required-builtin", () => {
+test("catalog v3 marks four user-visible products, Memory as required, and IM default-on optional", () => {
   const visible = FIRST_PARTY_PLUGIN_METADATA.filter((entry) => entry.userVisible).map(
     (entry) => entry.id,
   );
@@ -42,6 +42,9 @@ test("catalog v3 marks four user-visible products and memory as required-builtin
   assert.equal(memory?.installClass, "required-builtin");
   assert.equal(memory?.defaultEnabled, true);
   assert.equal(memory?.provenanceClass, "penglai-builtin");
+  const im = FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/im");
+  assert.equal(im?.installClass, "optional-first-party");
+  assert.equal(im?.defaultEnabled, true);
   assert.equal(
     FIRST_PARTY_PLUGIN_METADATA.some((entry) => entry.id === "@penglai/context"),
     false,

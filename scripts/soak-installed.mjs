@@ -5,7 +5,7 @@ import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, delay, evaluate, freePort } from "./lib/cdp.mjs";
-import { bundledOptionalPluginDefaultOffSample, walkInstalledBrowserWindow } from "./lib/browser-window-walk.mjs";
+import { bundledDefaultOnPluginSample, walkInstalledBrowserWindow } from "./lib/browser-window-walk.mjs";
 import {
   exeInside,
   installFromExactInstaller,
@@ -342,7 +342,7 @@ try {
     : null;
   const centerStep = walk.steps.find((step) => step.id === "ui-center");
   const imCard = centerStep?.snap?.pluginCards?.find((card) => card.id === "@penglai/im");
-  const imSample = bundledOptionalPluginDefaultOffSample({
+  const imSample = bundledDefaultOnPluginSample({
     id: "@penglai/im",
     catalogEntry: imCatalog,
     packageSha256: imPackageSha256,
@@ -352,7 +352,7 @@ try {
   });
   mark("im", {
     ...imSample,
-    mode: "bundled-default-off",
+    mode: "bundled-default-on-channels-unconfigured",
     uiActive: Boolean(walk.last?.im),
     qrBegin: Boolean(walk.last?.qrBegin),
   });

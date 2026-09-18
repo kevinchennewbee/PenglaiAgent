@@ -22,7 +22,7 @@ export function credentialFreeInstalledChecks({ rec, first, identityOk }) {
     exactExecutableBoot: gate(first?.nativeBoot?.ok === true),
     ownedProcessTree: gate(first?.processTree?.ownedAbsolute === true && first.processTree?.dshPid > 0),
     requiredInventory: gate(first?.inventory?.ok === true),
-    optionalImDefaultOff: gate(first?.inventory?.im === false),
+    defaultImActive: gate(first?.inventory?.im === true),
     welcomePersisted: gate(first?.welcome?.clicked === true && first.welcome?.persisted === true),
     officialProviderCatalog: gate(Number(first?.onboarding?.providers?.rows ?? 0) > 0),
     keylessOnboarding: gate(

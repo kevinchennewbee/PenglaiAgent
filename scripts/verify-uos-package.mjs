@@ -240,6 +240,10 @@ for (const id of ["@penglai/memory"]) {
     fail(`${id} is not required and enabled in the UOS installer`);
   }
 }
+const im = entries.find((row) => row.id === "@penglai/im");
+if (!im || im.installClass !== "optional-first-party" || im.defaultEnabled !== true) {
+  fail("IM is not bundled and enabled by default in the UOS installer");
+}
 const moss = entries.find((row) => row.id === "@penglai/moss-tts");
 if (!moss || moss.defaultEnabled !== false) {
   fail("MOSS must remain optional and disabled on UOS LoongArch");

@@ -110,15 +110,15 @@ UOS loong64 三个安装包及七项元数据。Intel Mac 不属于 0.6.3 精确
 
 | ID | 要求 | Runner |
 | --- | --- | --- |
-| `R50-CENTER-001` |official DSH settings左栏以连续order呈现蓬莱概览和已启用的Center/IM/ASR/TTS/Context/Memory/Budget/Companion页面；内容区无第三列，未启用页不存在，loader roster改变后只做应用内reload | installed/all |
-| `R50-CENTER-002` |catalog只含真实签入的Center/IM/ASR/MOSS-TTS/Context/Memory/Budget/Companion，无假社区卡 | contract+installed/all |
+| `R50-CENTER-001` |official DSH settings左栏以连续order呈现蓬莱概览和已启用的Center/IM/ASR/TTS/Memory页面；内容区无第三列，未启用页不存在，loader roster改变后只做应用内reload | installed/all |
+| `R50-CENTER-002` |catalog只含真实签入的Center/IM/ASR/MOSS-TTS/Memory与内部 reference，无 Office/PDF、Context、Budget、Companion 或假社区卡 | contract+installed/all |
 | `R50-CENTER-003` |manifest具版本/DSH/platform/capability/permission/source/license/hash/migration | contract/all |
 | `R50-CENTER-004` |install/enable/disable/update/rollback/uninstall是journal事务 | integration/all |
 | `R50-CENTER-005` |actual/healthy/error来自loader inventory/health | integration+installed/all |
 | `R50-CENTER-006` |desired不能冒充installed/active | fault/all |
 | `R50-CENTER-007` |tampered/incompatible/wrong-arch package在commit前拒绝 | security/all |
 | `R50-CENTER-008` |事务任一点crash后恢复单一一致或rollback | chaos/all |
-| `R50-CENTER-009` |fresh 运行 Center + Office + Memory（required-builtin inventory `active`）；IM/ASR/MOSS-TTS/Companion 默认 disabled；用户启用后由真实 loader inventory 反证 active | installed/all |
+| `R50-CENTER-009` |fresh 运行 Center + Memory（required-builtin）+ IM，真实 loader inventory 均为 `active`；IM 通道保持未配置；ASR/MOSS-TTS 默认 disabled；Office/PDF、Budget、Companion 不得出现 | installed/all |
 | `R50-CENTER-010` |disable/uninstall后无plugin worker/socket/timer/Remote/DB handle | installed/all |
 
 ### G. IM core、Remote、UI、持久化与supervisor（12）

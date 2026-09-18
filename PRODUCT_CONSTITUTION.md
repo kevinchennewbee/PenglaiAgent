@@ -47,8 +47,9 @@
   `dsh-v0.1.6-alpha.2` / commit `ddefc45fbc7f8e46dd73185e68295696d1297887`，
   307 包）。机器可读候选身份来自 `packages/release-identity/src/pins.ts` 与
   `release-contract.json`。公开下载事实只来自不可变 GitHub Release 回读。
-  蓬莱记忆是唯一 required-builtin 第一方功能插件；消息连接、语音识别和
-  语音生成随包但默认关闭。Office/PDF、LibreOffice、Budget 与 Companion 均不
+  蓬莱记忆是唯一 required-builtin 第一方功能插件；消息连接随包且默认启用，
+  但各通道在用户连接前保持未配置、惰性；语音识别和语音生成随包但默认关闭，
+  模型权重不随包。Office/PDF、LibreOffice、Budget 与 Companion 均不
   进入 workspace、profile、catalog、运行闭包、安装包或 0.6.3 验收。0.6.3 UOS 20 原生安装/启动/功能为 Owner
   发布后验收（`OWNER_POST_RELEASE`）：Owner 将在发布后手动测试安装包。不得标
   PASS，也不得因此省略所选精确目标包。
@@ -63,8 +64,8 @@
   精确集合仍失败。已发布 v0.6.0 四端十一附件保持不可变。
 - 0.5.0 已发布的 Apple Silicon 客户端只能手动覆盖安装到 0.5.1；0.5.1 之后同平台才走 PUDP。不得声称 0.5.0 可一键升级。Intel/Windows 在 0.5.0 没有客户端，视为全新安装。
 - PPDP 是 0.5.1 产品能力，不是未来 TODO：签名目录、受限 GitHub 资产下载、默认禁用、主进程 Owner capability、DSH loader/profile 事务、inventory 回读。
-- 本地语音与第一方插件合同：`@penglai/asr`、`@penglai/moss-tts` 必须进入真实 DSH loader/Center，并服务 DSH Web 与 live 微信/飞书的受支持能力。会话 Read 朗读原文，不冒充翻译。`@penglai/memory` 是唯一 required-builtin 第一方功能插件；`@penglai/im`、`@penglai/asr`、`@penglai/moss-tts` 随包且默认关闭。`@penglai/office`、`@penglai/budget`、`@penglai/companion`、DSH Office-to-PDF、DSH document preview 与 LibreOffice Kit 均被精确排除。旧 `@penglai/context` 只用于迁移。Goal/Todo/Skills/MCP/Web/图片 Attachments/Schedule/TokenMeter 使用 official DSH。不得用 DOM hack 或第二会话引擎补齐文件能力，也不得在 Penglai 未接线前宣称会话输入框支持普通文档或 PDF。
-- fresh 安装完成引导后必须先得到可独立使用的 official DSH core，并且 Memory 已在 official inventory 中 `active`。IM、ASR 与 MOSS-TTS 默认未加载；Office/PDF、Budget 与 Companion 不得出现在 inventory 或产品卡中。
+- 本地语音与第一方插件合同：`@penglai/asr`、`@penglai/moss-tts` 必须进入真实 DSH loader/Center，并服务 DSH Web 与 live 微信/飞书的受支持能力。会话 Read 朗读原文，不冒充翻译。`@penglai/memory` 是唯一 required-builtin 第一方功能插件；`@penglai/im` 随包且默认启用，但不自动配置或连接任何通道；`@penglai/asr`、`@penglai/moss-tts` 的插件、UI、服务与受支持目标运行时随包且默认关闭，模型权重不随包。MOSS-TTS 因无 LoongArch `onnxruntime-node` 原生引擎而不在 UOS 启用。`@penglai/office`、`@penglai/budget`、`@penglai/companion`、DSH Office-to-PDF、DSH document preview 与 LibreOffice Kit 均被精确排除。旧 `@penglai/context` 只用于迁移。Goal/Todo/Skills/MCP/Web/图片 Attachments/Schedule/TokenMeter 使用 official DSH。不得用 DOM hack 或第二会话引擎补齐文件能力，也不得在 Penglai 未接线前宣称会话输入框支持普通文档或 PDF。
+- fresh 安装完成引导后必须先得到可独立使用的 official DSH core，并且 Memory 与 IM 已在 official inventory 中 `active`；IM 各通道仍未配置。ASR 与 MOSS-TTS 默认未加载；Office/PDF、Budget 与 Companion 不得出现在 inventory 或产品卡中。
 - 0.4.1 到 0.5.0 是明确的架构代际切换：不提供自动升级，不导入旧会话、凭据或配置，不删除旧数据。0.5.0 使用隔离的数据根 `Penglai/0.5`。0.5.1 必须提供 rc.8 → rc.1 的显式、可回滚数据迁移。
 - community trust tier 不变：macOS ad-hoc / not notarized；Windows 无 Authenticode/SmartScreen 声誉。安装包及更新/插件清单仍须有 SHA-256、SBOM/notices，并诚实提示系统信誉警告。Penglai 自己的 Ed25519 更新/插件签名必须使用。
 - GitHub Actions 与 required CodeQL 当前可用，但不能替代安装包验收。Apple Silicon 本机可产生 darwin-aarch64 候选；Intel 与 Windows 的 native PASS 必须来自对应原生 runner。交叉构建或 Rosetta 只能作为补充证据。

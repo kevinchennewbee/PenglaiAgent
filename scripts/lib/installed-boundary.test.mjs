@@ -30,7 +30,7 @@ function sample() {
       identity: { ok: true, version: PRODUCT_VERSION },
       nativeBoot: { ok: true, authenticationBoundary: true },
       processTree: { ownedAbsolute: true, dshPid: 42 },
-      inventory: { ok: true, im: false },
+      inventory: { ok: true, im: true },
       welcome: { clicked: true, persisted: true },
       onboarding: { walked: ["language", "privacy", "models", "keytest"], providers: { rows: 40 } },
       resume: { attempted: true, ok: true },

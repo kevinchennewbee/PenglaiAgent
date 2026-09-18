@@ -121,7 +121,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       packageFile: `penglai-im-${RELEASE}.tgz`,
       capabilities: ["settings-ui", "im-weixin", "im-feishu", "private-voice"],
       permissions: ["credentials-service", "local-database", "outbound-network"],
-      defaultEnabled: false,
+      defaultEnabled: true,
       builtIn: true,
       provenanceClass: "penglai-builtin",
       installClass: "optional-first-party",

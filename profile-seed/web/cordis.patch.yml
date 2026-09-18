@@ -9,7 +9,7 @@
       disabled: true
     - id: penglai-im
       name: "@penglai/im"
-      disabled: true
+      disabled: false
     - id: penglai-memory
       name: "@penglai/memory"
     - id: penglai-official-schedule
