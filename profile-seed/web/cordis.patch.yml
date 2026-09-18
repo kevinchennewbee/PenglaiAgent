@@ -12,16 +12,8 @@
       disabled: true
     - id: penglai-memory
       name: "@penglai/memory"
-    - id: penglai-office
-      name: "@penglai/office"
-    - id: penglai-budget
-      name: "@penglai/budget"
-      disabled: true
     - id: penglai-official-schedule
       name: "@deepseek-ai/dsh-schedule"
-    - id: penglai-companion
-      name: "@penglai/companion"
-      disabled: true
     - id: penglai-plugin-reference
       name: "@penglai/plugin-reference"
       disabled: true
@@ -39,3 +31,22 @@
   disabled: true
 - id: ui-message-feedback
   name: "@deepseek-ai/dsh-client-ui-message-feedback"
+- id: session-log-deepseek
+  name: "@deepseek-ai/dsh-session-log-deepseek"
+  config:
+    enabled: false
+- id: plugin-manager
+  name: "@deepseek-ai/dsh-plugin-manager"
+  disabled: true
+- id: tool-plugin-manager
+  name: "@deepseek-ai/dsh-plugin-manager/tools"
+  disabled: true
+- id: ui-plugin-manager
+  name: "@deepseek-ai/dsh-client-ui-plugin-manager"
+  disabled: true
+- id: office-to-pdf
+  name: "@deepseek-ai/dsh-office-to-pdf"
+  disabled: true
+- id: ui-sidebar-documentpreview
+  name: "@deepseek-ai/dsh-client-ui-sidebar-documentpreview"
+  disabled: true

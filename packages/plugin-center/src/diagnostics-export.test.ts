@@ -6,7 +6,7 @@ test("redacted Center diagnostics omit credentials, chat, QR and private paths",
   const seen = exportRedactedCenterDiagnostics({
     catalog: [
       { id: "@penglai/im", desired: "0.5.12", installed: "0.5.12", loaded: true, healthy: true, actual: "active" },
-      { id: "@penglai/office", desired: "0.5.12", installed: "0.5.12", loaded: false, healthy: false, actual: "failed" },
+      { id: "@penglai/memory", desired: "0.6.3", installed: "0.6.3", loaded: false, healthy: false, actual: "failed" },
     ],
     now: () => Date.parse("2026-09-07T00:00:00Z"),
   });

@@ -881,7 +881,6 @@ export class RoutingControlPlane {
     const binding = this.store.activeBinding(item.routeId);
     const policy = this.store.getBindingVoicePolicy(item.routeId);
     const isControl = inbound.bodyKind === "control";
-    const isCompanion = isControl && inbound.adapterMessageKey.startsWith("penglai-companion:");
     if (
       !route ||
       route.status !== "active" ||
@@ -896,10 +895,8 @@ export class RoutingControlPlane {
     } catch {
       this.failClosedDelivery(item.outboxId, item.inboundId, "vendor_target_missing");
     }
-    const mode = isCompanion
-      ? item.payloadKind
-      : isControl
-        ? "text"
+    const mode = isControl
+      ? "text"
       : policy.replyMode === "mirror-input"
         ? inbound.bodyKind === "voice" ? "voice" : "text"
         : policy.replyMode;
@@ -1266,10 +1263,6 @@ export class RoutingControlPlane {
         return { kind: "control", text: "资料：请到蓬莱设置里管理授权目录。" };
       case "memory_status":
         return { kind: "control", text: "记忆：长期写入需要在蓬莱设置里确认。" };
-      case "budget_status":
-        return { kind: "control", text: "预算：用量限制同时约束桌面和消息渠道，请到蓬莱设置里调整。" };
-      case "companion_status":
-        return { kind: "control", text: "陪伴：默认关闭，请到蓬莱设置里开启。" };
       case "voice_status": {
         const policy = this.store.getBindingVoicePolicy(routeId);
         return {
@@ -1617,116 +1610,6 @@ export class RoutingControlPlane {
     });
   }
 
-  enqueueProactive(input: {
-    routeId: string;
-    expectedBindingRevision: number;
-    sourceSessionId: string;
-    triggerId: string;
-    turnId: string;
-    text: string;
-    deliveryMode: "text" | "voice" | "text-and-voice";
-  }): { inboundId: string; outboxIds: string[]; duplicate: boolean } {
-    if (!/^comp_[a-f0-9]{64}$/.test(input.triggerId)) {
-      throw new PenglaiError(
-        "INVALID_INPUT",
-        "opaque companion trigger id required",
-      );
-    }
-    if (!input.sourceSessionId || !input.turnId)
-      throw new PenglaiError(
-        "INVALID_INPUT",
-        "companion Turn identity required",
-      );
-    if (
-      !input.text.trim() ||
-      utf8Bytes(input.text) > CONFIG.maxInboundUtf8Bytes
-    ) {
-      throw new PenglaiError("INVALID_INPUT", "companion output text invalid");
-    }
-    return this.store.tx(() => {
-      const binding = this.store.activeBinding(input.routeId);
-      if (!binding || binding.revision !== input.expectedBindingRevision) {
-        throw new PenglaiError(
-          "BINDING_STALE",
-          "companion binding is no longer active",
-        );
-      }
-      this.requireVendorTarget(input.routeId);
-      const adapterMessageKey = `penglai-companion:${input.triggerId}`;
-      const existing = this.store.findInboundByKey(
-        input.routeId,
-        adapterMessageKey,
-      );
-      if (existing) {
-        return {
-          inboundId: existing.inboundId,
-          outboxIds: this.store
-            .outboxForInbound(existing.inboundId)
-            .map((item) => item.outboxId),
-          duplicate: true,
-        };
-      }
-      if (
-        this.store.pendingOutbox(input.routeId).length >=
-        CONFIG.maxOutboxPerRoute
-      ) {
-        throw new PenglaiError(
-          "DELIVERY_TRANSIENT",
-          "companion outbox is full",
-        );
-      }
-      const inboundId = this.ids.id("companion");
-      this.store.insertInbound(
-        {
-          inboundId,
-          adapterMessageKey,
-          routeId: input.routeId,
-          bindingRevision: binding.revision,
-          bodyKind: "control",
-          redactedDigest: digestText(input.triggerId),
-          state: "outbox_pending",
-        },
-        "",
-        this.clock.now(),
-      );
-      const fragments = splitFragments(input.text);
-      let sequence = this.store.nextOutboxSeq(input.routeId);
-      const outboxIds: string[] = [];
-      fragments.forEach((fragment, index) => {
-        const outboxId = this.ids.id("out");
-        outboxIds.push(outboxId);
-        this.store.insertOutbox({
-          outboxId,
-          routeId: input.routeId,
-          inboundId,
-          turnId: `${input.sourceSessionId}:${input.turnId}`,
-          sequence,
-          payloadKind: input.deliveryMode,
-          payloadRef: digestText(fragment),
-          payloadText: fragment,
-          state: "pending",
-          attempts: 0,
-          nextAttemptAt: this.clock.now(),
-          fragmentIndex: index,
-          fragmentCount: fragments.length,
-        });
-        sequence += 1;
-      });
-      this.store.audit(
-        "companion_outbox_queued",
-        {
-          triggerId: input.triggerId,
-          routeId: input.routeId,
-          sourceSessionId: input.sourceSessionId,
-          turnId: input.turnId,
-          deliveryMode: input.deliveryMode,
-        },
-        this.clock.now(),
-      );
-      return { inboundId, outboxIds, duplicate: false };
-    });
-  }
-
   /**
    * Turn a slash-command reply into an outbox item so the adapter delivers it
    * back to the same channel. Control replies previously never reached the
@@ -1767,43 +1650,6 @@ export class RoutingControlPlane {
       });
       this.store.audit("control_reply_queued", { outboxId, routeId, inboundId }, this.clock.now());
       return { outboxId, duplicate: false };
-    });
-  }
-
-  cancelProactive(routeId: string, triggerIds: string[]): number {
-    return this.store.tx(() => {
-      let cancelled = 0;
-      for (const trigger of new Set(triggerIds)) {
-        if (!/^comp_[a-f0-9]{64}$/.test(trigger)) continue;
-        const inbound = this.store.findInboundByKey(
-          routeId,
-          `penglai-companion:${trigger}`,
-        );
-        if (!inbound) continue;
-        for (const item of this.store.outboxForInbound(inbound.inboundId)) {
-          if (
-            item.state === "pending" ||
-            item.state === "retryable" ||
-            item.state === "sending"
-          ) {
-            this.store.setOutboxState(
-              item.outboxId,
-              "dead",
-              item.attempts,
-              this.clock.now(),
-            );
-            cancelled += 1;
-          }
-        }
-        this.store.setInboundState(inbound.inboundId, "no_delivery");
-      }
-      if (cancelled)
-        this.store.audit(
-          "companion_outbox_cancelled",
-          { routeId, count: cancelled },
-          this.clock.now(),
-        );
-      return cancelled;
     });
   }
 

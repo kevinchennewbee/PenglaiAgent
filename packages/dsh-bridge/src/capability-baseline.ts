@@ -3,7 +3,7 @@ import { PenglaiError } from "@penglai/contracts";
 import { PINNED_DSH, PINNED_DSH_COMMIT } from "./index.js";
 
 export const PINNED_DSH_NPM_TARBALL_SHA256 =
-  "f4c54839d69e82bf1c3a5a41a910c3ce1405cd9e9d97d753c0c04f406c7d7480";
+  "a3c14d175c051023dcde078fb273b287b13b4b77654ea90b52d956cbf409178d";
 
 export const REQUIRED_OFFICIAL_MODULES = [
   "@deepseek-ai/dsh",
@@ -48,7 +48,8 @@ const req = createRequire(import.meta.url);
 export function readInstalledVersion(name: string): string {
   try {
     const pkg = req(`${name}/package.json`) as { version?: string };
-    if (!pkg.version) throw new PenglaiError("DSH_CONTRACT_DRIFT", `${name} missing version`);
+    if (!pkg.version)
+      throw new PenglaiError("DSH_CONTRACT_DRIFT", `${name} missing version`);
     return pkg.version;
   } catch (err) {
     if (err instanceof PenglaiError) throw err;
@@ -61,7 +62,10 @@ export function captureCapabilityBaseline(): CapabilityBaseline {
   for (const name of REQUIRED_OFFICIAL_MODULES) {
     const version = readInstalledVersion(name);
     if (version !== PINNED_DSH) {
-      throw new PenglaiError("DSH_CONTRACT_DRIFT", `${name} ${version} != ${PINNED_DSH}`);
+      throw new PenglaiError(
+        "DSH_CONTRACT_DRIFT",
+        `${name} ${version} != ${PINNED_DSH}`,
+      );
     }
     modules[name] = version;
   }
@@ -76,7 +80,9 @@ export function captureCapabilityBaseline(): CapabilityBaseline {
   const theme = req("@deepseek-ai/dsh-client-ui-theme") as {
     THEME_PREFERENCES?: readonly string[];
   };
-  const primitives = req("@deepseek-ai/dsh-client-ui-primitives/package.json") as { name?: string };
+  const primitives = req(
+    "@deepseek-ai/dsh-client-ui-primitives/package.json",
+  ) as { name?: string };
   return {
     dsh: PINNED_DSH,
     commit: PINNED_DSH_COMMIT,
@@ -91,7 +97,9 @@ export function captureCapabilityBaseline(): CapabilityBaseline {
       onboardingSlot: "settings.onboarding",
       pluginsTabSlot: "settings.plugins.tab",
       credentialsLocal: Boolean(modules["@deepseek-ai/dsh-credentials-local"]),
-      pluginInventory: Boolean(modules["@deepseek-ai/dsh-host-plugin-inventory"]),
+      pluginInventory: Boolean(
+        modules["@deepseek-ai/dsh-host-plugin-inventory"],
+      ),
     },
     overlay: {
       applied: false,
@@ -102,24 +110,38 @@ export function captureCapabilityBaseline(): CapabilityBaseline {
 }
 
 export function assertCapabilityBaseline(baseline: CapabilityBaseline): void {
-  if (baseline.dsh !== PINNED_DSH) throw new PenglaiError("DSH_CONTRACT_DRIFT", "dsh pin");
-  if (baseline.commit !== PINNED_DSH_COMMIT) throw new PenglaiError("DSH_CONTRACT_DRIFT", "dsh commit");
+  if (baseline.dsh !== PINNED_DSH)
+    throw new PenglaiError("DSH_CONTRACT_DRIFT", "dsh pin");
+  if (baseline.commit !== PINNED_DSH_COMMIT)
+    throw new PenglaiError("DSH_CONTRACT_DRIFT", "dsh commit");
   if (baseline.npmTarballSha256 !== PINNED_DSH_NPM_TARBALL_SHA256) {
     throw new PenglaiError("DSH_CONTRACT_DRIFT", "dsh npm tarball");
   }
   if (!baseline.seams.typertRemoteService || !baseline.seams.remoteDecorator) {
     throw new PenglaiError("DSH_CONTRACT_DRIFT", "Typert Remote seam missing");
   }
-  if (!baseline.seams.localePreference || baseline.seams.locales.join(",") !== OFFICIAL_LOCALES.join(",")) {
+  if (
+    !baseline.seams.localePreference ||
+    baseline.seams.locales.join(",") !== OFFICIAL_LOCALES.join(",")
+  ) {
     throw new PenglaiError("DSH_CONTRACT_DRIFT", "locale seam");
   }
-  if (baseline.seams.themePreferences.join(",") !== OFFICIAL_THEME_PREFERENCES.join(",")) {
+  if (
+    baseline.seams.themePreferences.join(",") !==
+    OFFICIAL_THEME_PREFERENCES.join(",")
+  ) {
     throw new PenglaiError("DSH_CONTRACT_DRIFT", "theme seam");
   }
   if (!baseline.seams.credentialsLocal || !baseline.seams.pluginInventory) {
     throw new PenglaiError("DSH_CONTRACT_DRIFT", "credentials/inventory seam");
   }
-  if (baseline.overlay.applied !== false || baseline.overlay.officialSlots !== true) {
-    throw new PenglaiError("DSH_CONTRACT_DRIFT", "official client slot composition seam");
+  if (
+    baseline.overlay.applied !== false ||
+    baseline.overlay.officialSlots !== true
+  ) {
+    throw new PenglaiError(
+      "DSH_CONTRACT_DRIFT",
+      "official client slot composition seam",
+    );
   }
 }

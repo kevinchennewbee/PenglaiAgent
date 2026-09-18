@@ -3,13 +3,13 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 
 export const DSH_UPSTREAM = Object.freeze({
-  version: "0.1.5-rc.2",
-  tag: "dsh-v0.1.5-rc.2",
-  commit: "fb2c4b9e698e30edb738bca4cf0618587db7d203",
-  packageCount: 265,
-  rootIntegrity: "sha512-8Xc8hCQHcIWRmTCVU/xZdp6/qMsWMeAd2ObChKDEsfhUPJFXx6H0lgeb1DxUMD86HZrrVN+1bCvn1ppjZ/fOxw==",
-  rootShasum: "2c78db39568d910868f1e4f34062a4f346d4815d",
-  rootTarballSha256: "f4c54839d69e82bf1c3a5a41a910c3ce1405cd9e9d97d753c0c04f406c7d7480",
+  version: "0.1.6-alpha.2",
+  tag: "dsh-v0.1.6-alpha.2",
+  commit: "ddefc45fbc7f8e46dd73185e68295696d1297887",
+  packageCount: 293,
+  rootIntegrity: "sha512-PHR/3ZHpJNWXlDQ3U9weFb7calWbSMJd2GD3z2iPJ8zAKL7ipuzyPy5xGbaXf2OA8hc0SAGJeoUW7nfatCNOYw==",
+  rootShasum: "37d635377c9807c47d49d662ca00d6d5ea5792de",
+  rootTarballSha256: "a3c14d175c051023dcde078fb273b287b13b4b77654ea90b52d956cbf409178d",
   welcomeNotice: Object.freeze({
     settingsNamespace: "ui-onboarding",
     ackField: "welcomeNoticeVersion",
@@ -48,6 +48,16 @@ export const DSH_NATIVE_SYSTEM_VERSIONS = Object.freeze({
   "@deepseek-ai/node-addon-system-darwin-x64": "0.1.2",
   "@deepseek-ai/node-addon-system-linux-arm64": "0.1.2",
   "@deepseek-ai/node-addon-system-linux-x64": "0.1.2",
+});
+
+/** Upstream-audit-only Office engine family; Penglai 0.6.3 prunes it from product runtime closure. */
+export const DSH_EXTERNAL_PACKAGES = Object.freeze({
+  "@deepseek-ai/libreoffice-kit": Object.freeze({ version: "0.0.1", integrity: "sha512-e4JZqohz5TEVfI3sfUK/dHRLjqlQep96CmqNM93Rm7LY9PuECiJakIX2BdHi5OkmbK9Mo47SiW44HNTTiwW1yw==" }),
+  "@deepseek-ai/libreoffice-kit-darwin-arm64": Object.freeze({ version: "0.0.1", integrity: "sha512-3vrYUIZihcb+F9qjjHdWNSxW83fLihrBV63qaw5kxW1Q7hbZPPMDsjlRJ2rX6VUi06By4nJH9YLKZ73iGN5iEQ==" }),
+  "@deepseek-ai/libreoffice-kit-darwin-x64": Object.freeze({ version: "0.0.1", integrity: "sha512-xMMXJkjggd9c1g85oLNHiJl1xgowe0EG60ib8up3Pz0qFD9HORMu0/eP1eB19E8jLRwqF9Sb0TTrcqp68aVcyw==" }),
+  "@deepseek-ai/libreoffice-kit-win32-arm64": Object.freeze({ version: "0.0.1", integrity: "sha512-9G7YxXHEFaVn5iFM6IaHusWuXAd3cEprwTYSA1OsYMUREliHzdcmJEqcEyePDpX1y39KNKWQgowYeSpFbfrbgg==" }),
+  "@deepseek-ai/libreoffice-kit-win32-x64": Object.freeze({ version: "0.0.1", integrity: "sha512-+DPPT5V6rfwWfMf7scfgzxwNBQiuePdY4dmVvWb4QAINgquOXUAyWVNZaThWNCO8baRn1l4fb3L5sdbLWib3zQ==" }),
+  "@deepseek-ai/libreoffice-kit-wasm": Object.freeze({ version: "0.0.1", integrity: "sha512-VHGr+MvRQMCXxVvdYZ8qJnVXOMjUivntvNHCDBog+cCjgEfWjUl+/0rfvF2auPjnWUzqvjKMEdqbemhc1zuqFg==" }),
 });
 
 const INSTALL_LIFECYCLE_KEYS = ["preinstall", "install", "postinstall"];
@@ -268,9 +278,9 @@ export function validateCohortSnapshot(snapshot) {
   invariant(snapshot.version === DSH_UPSTREAM.version, `unexpected DSH version: ${snapshot.version}`);
   invariant(snapshot.rootTarballSha256 === DSH_UPSTREAM.rootTarballSha256, "@deepseek-ai/dsh tarball SHA-256 mismatch");
   invariant(JSON.stringify(snapshot.upstreamFacts?.welcomeNotice) === JSON.stringify(DSH_UPSTREAM.welcomeNotice), "DSH welcome notice identity mismatch");
-  invariant(snapshot.distTags?.next === DSH_UPSTREAM.version, `snapshot npm next tag must select the fixed ${DSH_UPSTREAM.version} cohort`);
-  invariant(snapshot.distTags?.alpha === "0.1.5-alpha.2", "npm alpha remains 0.1.5-alpha.2; Penglai does not consume it");
-  invariant(snapshot.distTags?.latest === "0.1.5-rc.1", "npm latest remains 0.1.5-rc.1; Penglai does not silently follow latest");
+  invariant(snapshot.distTags?.alpha === DSH_UPSTREAM.version, `snapshot npm alpha tag must select the fixed ${DSH_UPSTREAM.version} cohort`);
+  invariant(snapshot.distTags?.next === "0.1.5-rc.2", "npm next remains 0.1.5-rc.2; Penglai does not silently follow next");
+  invariant(snapshot.distTags?.latest === "0.1.5-rc.2", "npm latest remains 0.1.5-rc.2; Penglai does not silently follow latest");
   const entries = Array.isArray(snapshot.packages) ? snapshot.packages : [];
   invariant(new Set(entries.map((entry) => entry.name)).size === entries.length, "duplicate package in DSH npm cohort");
   const dsh = entries.filter((entry) => entry.category === "dsh");
@@ -314,6 +324,9 @@ export function verifyCohortLock(snapshot, lockText) {
       entry.integrity,
     ]),
   );
+  for (const [name, row] of Object.entries(DSH_EXTERNAL_PACKAGES)) {
+    expected.set(`${name}@${row.version}`, row.integrity);
+  }
   const installed = new Map();
   const packageBlock =
     /^  ['"]?(@deepseek-ai\/[^@'"\r\n]+)@([^:'"\r\n]+)['"]?:\r?\n    resolution: \{integrity: ([^,}\r\n]+)/gm;
@@ -344,7 +357,7 @@ export async function verifySnapshotAgainstRegistry(snapshot, options = {}) {
     invariant(JSON.stringify(liveEntries[index]) === JSON.stringify(stableObject(snapshot.packages[index])), `${liveEntries[index].name} registry metadata drift`);
   }
   const liveRoot = await readRootDistTags(options);
-  invariant(typeof liveRoot.publishedAt === "string" && liveRoot.publishedAt.length > 0, "@deepseek-ai/dsh rc.1 publication time missing");
+  invariant(typeof liveRoot.publishedAt === "string" && liveRoot.publishedAt.length > 0, "@deepseek-ai/dsh alpha.2 publication time missing");
   options.observeDistTags?.(liveRoot.distTags);
   const fetchImpl = options.fetchImpl ?? fetch;
   const signingKeys = await readRegistrySigningKeys(options);

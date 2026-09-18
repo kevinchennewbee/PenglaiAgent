@@ -113,7 +113,7 @@ test("attachDownloadedMedia requires saveImage for images", async () => {
   assert.match(userFacingMediaPrompt(env), /图片/);
 });
 
-test("PDF and DOCX admit through official saveFile and keep office handles", async () => {
+test("PDF bytes are treated as a generic official file without an Office handle", async () => {
   const store = new MediaStore();
   const objects = new ObjectStore();
   const pdf = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
@@ -121,7 +121,7 @@ test("PDF and DOCX admit through official saveFile and keep office handles", asy
     store,
     bytes: pdf,
     base: {
-      kind: "pdf",
+      kind: "file",
       source: "weixin",
       sourceMessageId: "m",
       sourceResourceId: "r",
@@ -143,8 +143,8 @@ test("PDF and DOCX admit through official saveFile and keep office handles", asy
   assert.equal(env.officialFile?.name, "report.pdf");
   assert.equal(env.officialFile?.bytes, pdf.length);
   assert.match(env.officialFile?.attachmentId ?? "", /^sha256:[a-f0-9]{64}$/);
-  assert.ok(env.officeHandle);
-  assert.match(userFacingMediaPrompt(env), /文档/);
+  assert.equal(env.officeHandle, undefined);
+  assert.match(userFacingMediaPrompt(env), /文件/);
 });
 
 test("official file names stay path-leaf bounded and strip trailing dots or spaces linearly", () => {

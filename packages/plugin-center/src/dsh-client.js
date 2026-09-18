@@ -156,7 +156,9 @@ window.__ModuleLoader__.load({
       "@penglai/plugin-center",
       "@penglai/plugin-reference",
       "@penglai/plugin-pilot",
+      "@penglai/office",
       "@penglai/budget",
+      "@penglai/companion",
     ]);
     const PRODUCT_LINKS = {
       repository: "https://github.com/kevinchennewbee/PenglaiAgent",
@@ -166,11 +168,9 @@ window.__ModuleLoader__.load({
     };
     const FIRST_PARTY_CARDS = [
       { id: "@penglai/im", key: "cardIm" },
-      { id: "@penglai/office", key: "cardOffice" },
       { id: "@penglai/asr", key: "cardAsr" },
       { id: "@penglai/moss-tts", key: "cardTts" },
       { id: "@penglai/memory", key: "cardMemory" },
-      { id: "@penglai/companion", key: "cardCompanion" },
     ];
 
     const PAGE_ICONS = {
@@ -182,10 +182,6 @@ window.__ModuleLoader__.load({
         "M4 10v4h4l5 4V6L8 10H4Zm13-2a6 6 0 0 1 0 8M19.5 5a10 10 0 0 1 0 14",
       "penglai-memory":
         "M5 6c0-1.1 3.1-2 7-2s7 .9 7 2-3.1 2-7 2-7-.9-7-2Zm0 0v6c0 1.1 3.1 2 7 2s7-.9 7-2V6M5 12v6c0 1.1 3.1 2 7 2s7-.9 7-2v-6",
-      "penglai-office": "M6 3h9l5 5v13H6V3Zm9 0v5h5M8 13h8M8 17h6",
-      "penglai-budget": "M4 19a8 8 0 1 1 16 0M12 11l4-3M7 19h10",
-      "penglai-companion":
-        "M12 21S4 16.2 4 9.5A4.5 4.5 0 0 1 12 6a4.5 4.5 0 0 1 8 3.5C20 16.2 12 21 12 21Z",
       "penglai-update":
         "M20 7v5h-5M4 17v-5h5M18.7 9A7 7 0 0 0 6.2 6.2L4 12M5.3 15A7 7 0 0 0 17.8 17.8L20 12",
       "penglai-uninstall": "M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6",
@@ -618,7 +614,7 @@ window.__ModuleLoader__.load({
                                 children: [
                                   jsx.jsx("dt", { children: t.centerDsh }),
                                   jsx.jsx("dd", {
-                                    children: String(entry.dshExact ?? entry.dsh?.exact ?? "0.1.5-rc.2"),
+                                    children: String(entry.dshExact ?? entry.dsh?.exact ?? "0.1.6-alpha.2"),
                                   }),
                                 ],
                               }),
@@ -843,12 +839,12 @@ window.__ModuleLoader__.load({
         penglaiSettingsTitle: "蓬莱",
         penglaiSettingsEyebrow: "蓬莱功能中心",
         penglaiSettingsHint:
-          "办公和记忆功能可以直接使用；消息连接、语音识别、语音生成和主动陪伴可按需开启。",
+          "记忆功能可以直接使用；消息连接、语音识别和语音生成可按需开启。",
         groupOverview: "概览",
         groupConnections: "连接",
         groupVoice: "语音",
         groupKnowledge: "知识与记忆",
-        groupGuardrails: "控制与陪伴",
+        groupGuardrails: "运行控制",
         groupSystem: "系统",
         updateTitle: "软件更新",
         updateHint:
@@ -928,12 +924,10 @@ window.__ModuleLoader__.load({
           "voice-temp": "语音临时数据",
           "context-indexes": "授权资料与派生索引",
           memory: "蓬莱记忆、技能与授权资料",
-          budget: "用量和预算设置",
-          companion: "主动陪伴设置与记录",
         },
         centerTitle: "蓬莱插件中心",
         centerHint:
-          "内置的办公和记忆功能默认开启，其他功能可按需安装或开启。蓬莱会校验在线插件的来源和完整性。",
+          "内置的记忆功能默认开启，其他范围内功能可按需安装或开启。蓬莱会校验在线插件的来源和完整性。",
         centerRefresh: "刷新已签名目录",
         centerRegistry: "目录来源",
         centerOffline: "离线使用上次已验证目录",
@@ -987,12 +981,6 @@ window.__ModuleLoader__.load({
         cardTtsHint: "本地 MOSS-TTS。到「蓬莱语音合成」页下载模型并试听。",
         cardMemory: "蓬莱记忆",
         cardMemoryHint: "本机分层记忆、项目隔离、授权资料、来源追溯与可视化；写入和遗忘需要可见确认。",
-        cardOffice: "蓬莱办公",
-        cardOfficeHint: "读取、创建和编辑 DOCX、XLSX、PPTX 与 PDF。",
-        cardBudget: "用量预算",
-        cardBudgetHint: "到达硬上限会阻止新的对话。",
-        cardCompanion: "蓬莱主动陪伴",
-        cardCompanionHint: "默认关闭，只走已绑定的消息渠道。",
         centerActual: "当前状态",
         centerDesired: "你的选择",
         centerInstalled: "是否安装",
@@ -1048,12 +1036,12 @@ window.__ModuleLoader__.load({
         penglaiSettingsTitle: "Penglai",
         penglaiSettingsEyebrow: "Penglai feature center",
         penglaiSettingsHint:
-          "Office and Memory are ready to use. Messaging, speech recognition, voice generation, and Companion can be turned on when you need them.",
+          "Memory is ready to use. Messaging, speech recognition, and voice generation can be turned on when you need them.",
         groupOverview: "Overview",
         groupConnections: "Connections",
         groupVoice: "Voice",
         groupKnowledge: "Knowledge and memory",
-        groupGuardrails: "Controls and companion",
+        groupGuardrails: "Runtime controls",
         groupSystem: "System",
         updateTitle: "Software updates",
         updateHint:
@@ -1137,12 +1125,10 @@ window.__ModuleLoader__.load({
           "voice-temp": "Voice temporary data",
           "context-indexes": "Authorized sources and derived indexes",
           memory: "Penglai Memory, skills, and authorized sources",
-          budget: "Usage and budget settings",
-          companion: "Companion settings and history",
         },
         centerTitle: "Penglai Plugin Center",
         centerHint:
-          "Built-in Office and Memory features are on by default. Other features can be installed or enabled when you need them. Penglai verifies the source and integrity of online plugins.",
+          "Built-in Memory is on by default. Other listed features can be installed or enabled when you need them. Penglai verifies the source and integrity of online plugins.",
         centerRefresh: "Refresh signed catalog",
         centerRegistry: "Catalog source",
         centerOffline: "offline last-good catalog",
@@ -1200,13 +1186,6 @@ window.__ModuleLoader__.load({
         cardMemory: "Penglai Memory",
         cardMemoryHint:
           "Local layered memory with project isolation, authorized sources, provenance, and visualization. Remember and forget require visible confirmation.",
-        cardOffice: "Penglai Office",
-        cardOfficeHint: "Inspect, create, and edit DOCX, XLSX, PPTX, and PDF.",
-        cardBudget: "Usage budget",
-        cardBudgetHint: "A hard limit blocks new conversations.",
-        cardCompanion: "Penglai Companion",
-        cardCompanionHint:
-          "Off by default. Sends only through bound IM routes.",
         centerActual: "Current status",
         centerDesired: "Your choice",
         centerInstalled: "Installed",

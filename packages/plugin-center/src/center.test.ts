@@ -151,11 +151,9 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   );
   assert.deepEqual(cardIds, [
     "@penglai/im",
-    "@penglai/office",
     "@penglai/asr",
     "@penglai/moss-tts",
     "@penglai/memory",
-    "@penglai/companion",
   ]);
   assert.match(client, /const remoteCardIds = state\.remote/);
   assert.match(client, /\.\.\.remoteCardIds/);
@@ -415,17 +413,6 @@ test("each independent Penglai client owns only its typed Remote lifecycle", () 
       "@penglai/memory",
       "penglaiMemorySettings",
     ],
-    [
-      "../../budget/src/dsh-client.js",
-      "@penglai/budget",
-      "penglaiBudgetSettings",
-    ],
-    [
-      "../../companion/src/dsh-client.js",
-      "@penglai/companion",
-      "penglaiCompanionSettings",
-    ],
-    ["../../office/src/dsh-client.js", "@penglai/office", "penglaiOfficeSettings"],
   ];
   for (const [path, packageName, namespace] of clients) {
     const source = readFileSync(new URL(path, import.meta.url), "utf8");
@@ -470,8 +457,6 @@ test("R2I-CENTER-013 catalog has real first-party plugins and no historical card
     "@penglai/asr",
     "@penglai/moss-tts",
     "@penglai/memory",
-    "@penglai/budget",
-    "@penglai/companion",
   ]) {
     assert.ok(
       R2_CATALOG.some((e) => e.id === id),
@@ -861,7 +846,7 @@ test("R50-CENTER-006 desired enabled cannot impersonate loaded/active", () => {
   const host = hostWith({ list: () => [] });
   host.setDesired("@penglai/im", true);
   const im = host.reconcile().find((r) => r.id === "@penglai/im");
-  assert.equal(im?.desired, "0.6.2");
+  assert.equal(im?.desired, "0.6.3");
   assert.equal(im?.loaded, false);
   assert.equal(im?.actual, "failed");
   assert.equal(im?.healthy, false);
@@ -931,9 +916,6 @@ test("Center probes optional sibling services through Cordis get without inject-
     "penglaiAsr",
     "penglaiMossTts",
     "penglaiMemory",
-    "penglaiOffice",
-    "penglaiBudget",
-    "penglaiCompanion",
   ]) {
     assert.doesNotMatch(
       healthBody,
@@ -946,18 +928,18 @@ test("Center probes optional sibling services through Cordis get without inject-
   }
 });
 
-test("fresh office+memory reconcile to actual=active/healthy and optionals do not", () => {
+test("fresh memory reconciles to actual=active/healthy and optionals do not", () => {
   const root = mkdtempSync(join(tmpdir(), "pc-fresh-health-"));
   const profileDir = join(root, "profile");
   const ctx = {
     get(name: string) {
-      if (name === "penglaiOffice" || name === "penglaiMemory") {
+      if (name === "penglaiMemory") {
         return { status: () => ({ state: "active" }) };
       }
       return undefined;
     },
   };
-  for (const id of ["@penglai/plugin-center", "@penglai/office", "@penglai/memory"]) {
+  for (const id of ["@penglai/plugin-center", "@penglai/memory"]) {
     const dir = join(profileDir, "node_modules", ...id.split("/"));
     mkdirSync(dir, { recursive: true });
     const version = TEST_CATALOG.find((entry) => entry.id === id)?.version;
@@ -968,7 +950,6 @@ test("fresh office+memory reconcile to actual=active/healthy and optionals do no
     {
       list: () => [
         { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active" },
-        { moduleName: "@penglai/office", enabled: true, fiberPhase: "active" },
         { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active" },
       ],
     },
@@ -977,21 +958,17 @@ test("fresh office+memory reconcile to actual=active/healthy and optionals do no
     (id) => pluginHealthFrom(ctx, id),
   );
   const rows = host.reconcile();
-  const office = rows.find((row) => row.id === "@penglai/office");
   const memory = rows.find((row) => row.id === "@penglai/memory");
-  assert.equal(office?.actual, "active");
-  assert.equal(office?.healthy, true);
-  assert.equal(office?.loaded, true);
   assert.equal(memory?.actual, "active");
   assert.equal(memory?.healthy, true);
   assert.equal(memory?.loaded, true);
-  for (const id of ["@penglai/im", "@penglai/asr", "@penglai/moss-tts", "@penglai/companion"]) {
+  for (const id of ["@penglai/im", "@penglai/asr", "@penglai/moss-tts"]) {
     const row = rows.find((entry) => entry.id === id);
     assert.equal(row?.actual, "disabled", id);
     assert.equal(row?.loaded, false, id);
     assert.equal(row?.healthy, false, id);
     assert.equal(pluginHealthFrom(ctx, id).healthy, false, id);
   }
-  assert.equal(pluginHealthFrom({ get: () => undefined }, "@penglai/office").healthy, false);
-  assert.equal(pluginHealthFrom(ctx, "@penglai/office").healthy, true);
+  assert.equal(pluginHealthFrom({ get: () => undefined }, "@penglai/memory").healthy, false);
+  assert.equal(pluginHealthFrom(ctx, "@penglai/memory").healthy, true);
 });

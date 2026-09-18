@@ -298,9 +298,8 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
   assert.ok(settingsWalked.includes("ui-uninstall"), "installed walk must observe Penglai uninstall UI");
   assert.ok(settingsWalked.includes("ui-center"), "installed walk must observe Penglai Center UI");
   assert.ok(settingsWalked.includes("ui-penglai"), "installed walk must observe Penglai section");
-  assert.ok(settingsWalked.includes("ui-office"), "fresh walk must observe required Penglai Office UI");
   assert.ok(settingsWalked.includes("ui-memory"), "fresh walk must observe required Penglai Memory UI");
-  for (const id of ["ui-im", "ui-asr", "ui-tts", "ui-companion"]) {
+  for (const id of ["ui-im", "ui-asr", "ui-tts"]) {
     assert.equal(settingsWalked.includes(id), false, `fresh walk must not expose ${id}`);
   }
   recordAssertion({
@@ -309,6 +308,6 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
     runnerId: "installed",
     testId: "installed-e2e-file-R50-E2E-003",
     assertionId: "browserwindow-required-builtins-optional-off-update-uninstall",
-    details: { safe: "fresh installed BrowserWindow showed Center Office Memory update uninstall while optional plugin pages stayed absent" },
+    details: { safe: "fresh installed BrowserWindow showed Center Memory update uninstall while optional plugin pages and excluded Office Budget Companion stayed absent" },
   });
 });

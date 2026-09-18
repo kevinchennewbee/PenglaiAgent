@@ -228,28 +228,13 @@ test("Memory apply curates one official Turn internally without creating a Sessi
   }
 });
 
-test("Memory curator reserves Budget, retries one closed transient failure, and persists redacted audit", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "penglai-mem-curator-budget-"));
+test("Memory curator retries one closed transient failure and persists redacted audit", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-mem-curator-retry-"));
   const previousUserData = process.env.PENGLAI_USER_DATA;
   const previousBin = process.env.PENGLAI_MNEMON_BINARY;
   process.env.PENGLAI_USER_DATA = dir;
   delete process.env.PENGLAI_MNEMON_BINARY;
   const listeners = new Map<string, (...args: unknown[]) => unknown>();
-  const budgetCalls: Array<{ kind: string; operationId: string; tokens?: number; reason?: string }> = [];
-  const budget = {
-    reserveAuxiliary(input: { operationId: string; estimatedTokens: number }) {
-      assert.equal(input.estimatedTokens, 4_000);
-      budgetCalls.push({ kind: "reserve", operationId: input.operationId });
-    },
-    settleAuxiliary(input: { operationId: string; tokens: number }) {
-      budgetCalls.push({ kind: "settle", operationId: input.operationId, tokens: input.tokens });
-      return true;
-    },
-    releaseAuxiliary(input: { operationId: string; reason: string }) {
-      budgetCalls.push({ kind: "release", operationId: input.operationId, reason: input.reason });
-      return true;
-    },
-  };
   let attempts = 0;
   const ctx = {
     skills: { snapshot: async () => ({ skills: [], complete: true }) },
@@ -284,9 +269,6 @@ test("Memory curator reserves Budget, retries one closed transient failure, and 
     },
     tools: { register() {} },
     provide() {},
-    get(name: string) {
-      return name === "penglaiBudget" ? budget : undefined;
-    },
     on(event: string, listener: (...args: unknown[]) => unknown) {
       listeners.set(event, listener);
     },
@@ -306,13 +288,6 @@ test("Memory curator reserves Budget, retries one closed transient failure, and 
     }
     assert.equal(attempts, 2);
     assert.equal(svc.resourceSnapshot().workers, 0);
-    assert.deepEqual(budgetCalls.map((row) => row.kind), ["reserve", "release", "reserve", "settle"]);
-    assert.equal(budgetCalls[0]?.operationId.endsWith(":1"), true);
-    assert.equal(budgetCalls[1]?.operationId, budgetCalls[0]?.operationId);
-    assert.equal(budgetCalls[1]?.reason, "memory_curator_failed");
-    assert.equal(budgetCalls[2]?.operationId.endsWith(":2"), true);
-    assert.equal(budgetCalls[3]?.operationId, budgetCalls[2]?.operationId);
-    assert.equal(budgetCalls[3]?.tokens, 13);
     const audit = svc.memoryV2.listCuratorAudit();
     assert.deepEqual(audit.map((row) => [row.outcome, row.code, row.attempt]), [
       ["completed", "OK", 2],

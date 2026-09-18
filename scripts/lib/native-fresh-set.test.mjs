@@ -324,18 +324,18 @@ test("fresh lifecycle set requires every Mac/Windows target and rejects a UOS na
   assert.ok(withUos.failReasons.includes("fabricated/deferred native PASS"));
 });
 
-test("current 0.6.2 native workflow restores the pinned 0.6.1 upgrade path", () => {
+test("current 0.6.3 native workflow restores the pinned 0.6.2 upgrade path", () => {
   const workflow = readFileSync(join(ROOT, ".github/workflows/native-release-candidate.yml"), "utf8");
   assert.match(workflow, /verify:fresh-install-uninstall/);
   assert.match(workflow, /fetch:upgrade-sources/);
-  assert.match(workflow, /Fetch immutable 0\.6\.1 installer/);
+  assert.match(workflow, /Fetch immutable 0\.6\.2 installer/);
   assert.doesNotMatch(workflow, /Penglai_0\.5\.12_macos/);
   assert.match(workflow, /pnpm verify:upgrade-uninstall/);
   const sources = JSON.parse(
     readFileSync(join(ROOT, "docs", PRODUCT_VERSION, "UPGRADE_SOURCES.json"), "utf8"),
   );
   assert.equal(sources.currentWorkflow.fetchPreviousInstallers, true);
-  assert.deepEqual(sources.sources.map((row) => row.version), ["0.6.1"]);
+  assert.deepEqual(sources.sources.map((row) => row.version), ["0.6.2"]);
 });
 
 function normalizeNewlines(text) {
@@ -428,15 +428,9 @@ test("source-ci Windows regression fetches pinned Mnemon before the full unit su
   assert.doesNotMatch(body, /DisableRealtimeMonitoring/);
 });
 
-test("pull requests exercise the installed macOS DSH client module table", () => {
+test("source pull requests stop before native installer construction", () => {
   const workflow = readFileSync(join(ROOT, ".github/workflows/source-ci.yml"), "utf8");
-  const start = workflow.indexOf("  macos-installed-plugin-regression:");
-  const end = workflow.indexOf("  windows-source-regression:", start);
-  assert.ok(start >= 0 && end > start);
-  const body = workflow.slice(start, end);
-  assert.match(body, /github\.event_name == 'pull_request'/);
-  assert.match(body, /pnpm package:dmg:arm/);
-  assert.match(body, /PENGLAI_INSTALLED_UI_HARNESS:/);
-  assert.match(body, /pnpm test:u3:plugins/);
-  assert.ok(body.indexOf("pnpm package:dmg:arm") < body.indexOf("pnpm test:u3:plugins"));
+  assert.doesNotMatch(workflow, /macos-installed-plugin-regression/);
+  assert.doesNotMatch(workflow, /pnpm package:dmg:arm/);
+  assert.doesNotMatch(workflow, /pnpm test:u3:plugins/);
 });

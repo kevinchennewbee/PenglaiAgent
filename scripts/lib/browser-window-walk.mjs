@@ -52,11 +52,8 @@ export const SNAPSHOT_JS = `(() => {
     asr: Boolean(document.querySelector("[data-penglai-asr]")),
       tts: Boolean(document.querySelector("[data-penglai-tts]")),
       memorySources: Boolean(document.querySelector("[data-penglai-memory-sources-panel]")),
-      office: Boolean(document.querySelector("[data-penglai-office]")),
       memory: Boolean(document.querySelector("[data-penglai-memory]")),
       memoryStatus: document.querySelector("[data-penglai-memory]")?.getAttribute("data-penglai-memory-status") || "",
-    budget: Boolean(document.querySelector("[data-penglai-budget]")),
-    companion: Boolean(document.querySelector("[data-penglai-companion]")),
     pluginCards: Array.from(document.querySelectorAll("[data-penglai-plugin-card]")).map((card) => ({
       id: card.getAttribute("data-penglai-plugin-card") || "",
       installed: card.getAttribute("data-penglai-plugin-installed") || "",
@@ -202,7 +199,6 @@ const OPTIONAL_PLUGIN_IDS = [
   "@penglai/im",
   "@penglai/asr",
   "@penglai/moss-tts",
-  "@penglai/companion",
 ];
 
 export function bundledOptionalPluginDefaultOffSample(input) {
@@ -332,8 +328,6 @@ function slim(snap) {
     memorySources: snap.memorySources,
     memory: snap.memory,
     memoryStatus: snap.memoryStatus,
-    budget: snap.budget,
-    companion: snap.companion,
     pluginCards: snap.pluginCards,
     update: snap.update,
     uninstall: snap.uninstall,
@@ -654,7 +648,6 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     { id: "ui-im", patterns: ["^消息连接$", "^Messages$", "^Penglai IM$"], flag: "im" },
     { id: "ui-asr", patterns: ["^蓬莱语音识别$", "^Speech recognition$"], flag: "asr" },
     { id: "ui-tts", patterns: ["^蓬莱语音合成$", "^Speech synthesis$"], flag: "tts" },
-    { id: "ui-office", patterns: ["^蓬莱办公$", "^Penglai Office$"], flag: "office" },
     {
       id: "ui-memory",
       patterns: ["^蓬莱记忆$", "^Penglai Memory$"],
@@ -662,7 +655,6 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
       readyFlag: "memoryStatus",
       readyValue: "ready",
     },
-    { id: "ui-companion", patterns: ["^主动陪伴$", "^Proactive Companion$", "^Companion$"], flag: "companion" },
     {
       id: "ui-update",
       patterns: ["^软件更新$", "^更新$", "^Software updates$", "^Updates$"],
@@ -709,8 +701,8 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     blocked.push("upstream-window-title");
   }
   const requiredSettings = opts.requireOptionalPlugins
-    ? ["ui-penglai", "ui-center", "ui-im", "ui-asr", "ui-tts", "ui-office", "ui-memory", "ui-companion", "ui-update", "ui-uninstall"]
-    : ["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"];
+    ? ["ui-penglai", "ui-center", "ui-im", "ui-asr", "ui-tts", "ui-memory", "ui-update", "ui-uninstall"]
+    : ["ui-penglai", "ui-center", "ui-memory", "ui-update", "ui-uninstall"];
   for (const id of requiredSettings) {
     if (!settingsWalked.includes(id)) blocked.push(id);
   }

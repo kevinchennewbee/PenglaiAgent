@@ -44,9 +44,7 @@ const PNG_1X1 = Buffer.from(
 
 function writePluginCatalog(pluginsDir, extra = {}) {
   mkdirSync(pluginsDir, { recursive: true });
-  const office = "penglai-office-0.6.2.tgz";
-  const memory = "penglai-memory-0.6.2.tgz";
-  writeFileSync(join(pluginsDir, office), "office-plugin\n");
+  const memory = "penglai-memory-0.6.3.tgz";
   writeFileSync(join(pluginsDir, memory), "memory-plugin\n");
   writeFileSync(
     join(pluginsDir, "catalog.json"),
@@ -55,12 +53,6 @@ function writePluginCatalog(pluginsDir, extra = {}) {
         schema: 3,
         target: LINUX_LOONG64_TARGET,
         entries: [
-          {
-            id: "@penglai/office",
-            packageFile: office,
-            installClass: "required-builtin",
-            defaultEnabled: true,
-          },
           {
             id: "@penglai/memory",
             packageFile: memory,
@@ -112,10 +104,10 @@ test("packager fails closed unless the Penglai target key is linux-loong64", () 
 });
 
 test("UOS installer name is packager-owned and in RELEASE_TARGETS", () => {
-  assert.equal(uosDebInstallerName(), "Penglai_0.6.2_uos_loong64.deb");
-  assert.equal(UOS_DEB_INSTALLER_NAME, "Penglai_0.6.2_uos_loong64.deb");
+  assert.equal(uosDebInstallerName(), "Penglai_0.6.3_uos_loong64.deb");
+  assert.equal(UOS_DEB_INSTALLER_NAME, "Penglai_0.6.3_uos_loong64.deb");
   assert.equal(RELEASE_TARGETS.includes("linux-loong64"), true);
-  assert.equal(TARGET_INSTALLERS["linux-loong64"], "Penglai_0.6.2_uos_loong64.deb");
+  assert.equal(TARGET_INSTALLERS["linux-loong64"], "Penglai_0.6.3_uos_loong64.deb");
 });
 
 test("control Architecture is loongarch64 while target key stays linux-loong64", () => {
@@ -135,7 +127,7 @@ test("control Architecture is loongarch64 while target key stays linux-loong64",
   );
 });
 
-test("staged .deb keeps /opt/Penglai, desktop file, and required Office+Memory", () => {
+test("staged .deb keeps /opt/Penglai, desktop file, and required Memory", () => {
   const work = mkdtempSync(join(tmpdir(), "penglai-deb-"));
   try {
     const payload = join(work, "payload");
@@ -159,7 +151,7 @@ test("staged .deb keeps /opt/Penglai, desktop file, and required Office+Memory",
     assert.equal(control.Architecture, "loongarch64");
     assert.equal(control["X-Penglai-Target"], "linux-loong64");
     assert.equal(control.Package, "penglai");
-    assert.equal(control.Version, "0.6.2");
+    assert.equal(control.Version, "0.6.3");
     const data = parseDebDataFiles(deb);
     assert.equal(data.has("opt/Penglai/Penglai"), true);
     assert.equal(data.has("opt/Penglai/chrome-sandbox"), true);
@@ -168,18 +160,14 @@ test("staged .deb keeps /opt/Penglai, desktop file, and required Office+Memory",
     const desktop = data.get("usr/share/applications/penglai.desktop").toString("utf8");
     assert.match(desktop, /Exec=\/opt\/Penglai\/Penglai %U/);
     assert.match(desktop, /X-Penglai-Target=linux-loong64/);
+    for (const excluded of ["office", "budget", "companion"]) {
+      assert.equal(data.has(`opt/Penglai/resources/plugins/penglai-${excluded}-0.6.3.tgz`), false);
+    }
     assert.equal(
-      data.has("opt/Penglai/resources/plugins/penglai-office-0.6.2.tgz"),
+      data.has("opt/Penglai/resources/plugins/penglai-memory-0.6.3.tgz"),
       true,
     );
-    assert.equal(
-      data.has("opt/Penglai/resources/plugins/penglai-memory-0.6.2.tgz"),
-      true,
-    );
-    assert.deepEqual([...REQUIRED_BUILTIN_PLUGIN_IDS], [
-      "@penglai/office",
-      "@penglai/memory",
-    ]);
+    assert.deepEqual([...REQUIRED_BUILTIN_PLUGIN_IDS], ["@penglai/memory"]);
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
@@ -228,7 +216,7 @@ test("release verification reopens the UOS package and requires the complete run
   assert.doesNotMatch(verifier, /mnemonBundled:\s*Boolean/);
 });
 
-test("payload contract refuses missing sandbox or disabled Office/Memory", () => {
+test("payload contract refuses missing sandbox or disabled Memory", () => {
   const work = mkdtempSync(join(tmpdir(), "penglai-deb-neg-"));
   try {
     const icon = join(work, "penglai.png");
@@ -245,21 +233,15 @@ test("payload contract refuses missing sandbox or disabled Office/Memory", () =>
         }),
       /chrome-sandbox/,
     );
-    const disabled = join(work, "disabled-office");
+    const disabled = join(work, "disabled-memory");
     writePayload(disabled, {
       catalog: {
         entries: [
           {
-            id: "@penglai/office",
-            packageFile: "penglai-office-0.6.2.tgz",
+            id: "@penglai/memory",
+            packageFile: "penglai-memory-0.6.3.tgz",
             installClass: "optional-first-party",
             defaultEnabled: false,
-          },
-          {
-            id: "@penglai/memory",
-            packageFile: "penglai-memory-0.6.2.tgz",
-            installClass: "required-builtin",
-            defaultEnabled: true,
           },
         ],
       },

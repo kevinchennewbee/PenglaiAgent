@@ -179,10 +179,10 @@ test("R50-UPD: download verifies size/hash/signature and crash mid-download retu
   });
   assert.equal(readFileSync(out.path).equals(payload), true);
   assert.equal(crashSafeUpdate({ operationId: "u1", state: "DOWNLOADING", drained: false }), "IDLE");
-  assert.throws(() => drainOwnedServices({ dshRunning: true, asrBusy: false, ttsBusy: false, indexerBusy: false, companionArmed: false }), /busy/);
+  assert.throws(() => drainOwnedServices({ dshRunning: true, asrBusy: false, ttsBusy: false, indexerBusy: false }), /busy/);
 });
 
-test("R50-DIST: packaged identity is Penglai 0.6.2 and Windows NSIS stays current-user", async () => {
+test("R50-DIST: packaged identity is Penglai 0.6.3 and Windows NSIS stays current-user", async () => {
   const {
     assertPenglaiAppIdentity,
     assertWindowsNsisContract,

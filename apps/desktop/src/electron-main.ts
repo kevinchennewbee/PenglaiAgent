@@ -457,7 +457,6 @@ async function main(): Promise<void> {
     asrBusy: false;
     ttsBusy: false;
     indexerBusy: false;
-    companionArmed: false;
   }> => {
     await closeProxy();
     await live.stop();
@@ -466,7 +465,6 @@ async function main(): Promise<void> {
       asrBusy: false,
       ttsBusy: false,
       indexerBusy: false,
-      companionArmed: false,
     };
   };
 

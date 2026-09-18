@@ -24,23 +24,22 @@ const deepseekLib = readFileSync(join(deepseekPkg, "lib/index.js"), "utf8");
 const pkg = JSON.parse(
   readFileSync(join(deepseekPkg, "package.json"), "utf8"),
 ) as { version?: string };
-const VISION_ID = "deepseek-v4-flash-vision-exp";
+const IMAGE_MODEL_ID = "deepseek-flash";
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
   "base64",
 );
 
-test("official pinned dsh-llm-deepseek advertises the vision model", () => {
+test("official pinned dsh-llm-deepseek advertises its image-capable Flash model", () => {
   assert.equal(pkg.version, PINNED_DSH);
   assert.match(deepseekLib, /id:\s*"deepseek-flash"/);
   assert.match(deepseekLib, /name:\s*"DeepSeek-V41-Flash"/);
-  assert.match(deepseekLib, /id:\s*"deepseek-v4-flash-vision-exp"/);
-  assert.match(deepseekLib, /name:\s*"DeepSeek-V4-Flash-Vision-Exp"/);
+  assert.doesNotMatch(deepseekLib, /deepseek-v4-flash-vision-exp/);
   assert.match(deepseekLib, /inputModalities:\s*\[\s*"text",\s*"image"\s*\]/);
   assert.match(deepseekLib, /PROVIDER = "deepseek-official"/);
 });
 
-test("official adapter listModels exposes vision exact id and text,image modalities", async () => {
+test("official adapter listModels exposes Flash with text,image modalities", async () => {
   const mod = (await import(
     pathToFileURL(join(deepseekPkg, "lib/index.js")).href
   )) as {
@@ -63,16 +62,13 @@ test("official adapter listModels exposes vision exact id and text,image modalit
   assert.ok(flash, "deepseek-flash missing from official adapter catalog");
   assert.equal(flash?.name, "DeepSeek-V41-Flash");
   assert.deepEqual(flash?.inputModalities, ["text", "image"]);
-  const vision = models.find((row) => row.id === VISION_ID);
-  assert.ok(
-    vision,
-    "deepseek-v4-flash-vision-exp missing from official adapter catalog",
+  assert.equal(
+    models.some((row) => row.id === "deepseek-v4-flash-vision-exp"),
+    false,
   );
-  assert.equal(vision?.name, "DeepSeek-V4-Flash-Vision-Exp");
-  assert.deepEqual(vision?.inputModalities, ["text", "image"]);
 });
 
-test("official DeepSeek adapter serializes image attachments as image_url data URLs", async () => {
+test("official DeepSeek adapter serializes image attachments as Messages base64 sources", async () => {
   const mod = (await import(
     pathToFileURL(join(deepseekPkg, "lib/index.js")).href
   )) as {
@@ -96,13 +92,32 @@ test("official DeepSeek adapter serializes image attachments as image_url data U
       captured.url = req.url;
       captured.body = Buffer.concat(chunks).toString("utf8");
       res.writeHead(200, { "content-type": "text/event-stream" });
-      res.write(
-        'data: {"id":"cmpl","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant","content":"ok"}}]}\n\n',
-      );
-      res.write(
-        'data: {"id":"cmpl","object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":8,"completion_tokens":1}}\n\n',
-      );
-      res.write("data: [DONE]\n\n");
+      const events = [
+        {
+          type: "message_start",
+          message: { usage: { input_tokens: 8, output_tokens: 0 } },
+        },
+        {
+          type: "content_block_start",
+          index: 0,
+          content_block: { type: "text", text: "" },
+        },
+        {
+          type: "content_block_delta",
+          index: 0,
+          delta: { type: "text_delta", text: "ok" },
+        },
+        { type: "content_block_stop", index: 0 },
+        {
+          type: "message_delta",
+          delta: { stop_reason: "end_turn" },
+          usage: { output_tokens: 1 },
+        },
+        { type: "message_stop" },
+      ];
+      for (const event of events) {
+        res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+      }
       res.end();
     });
   });
@@ -146,7 +161,7 @@ test("official DeepSeek adapter serializes image attachments as image_url data U
   };
   try {
     for await (const _chunk of adapter.stream({
-      model: VISION_ID,
+      model: IMAGE_MODEL_ID,
       messages: [
         {
           role: "user",
@@ -164,13 +179,13 @@ test("official DeepSeek adapter serializes image attachments as image_url data U
       server.close((err) => (err ? reject(err) : resolve())),
     );
   }
-  assert.equal(captured.url, "/chat/completions");
-  assert.ok(captured.body, "adapter did not POST a chat completion body");
+  assert.equal(captured.url, "/v1/messages");
+  assert.ok(captured.body, "adapter did not POST a Messages body");
   const wire = JSON.parse(captured.body) as {
     model: string;
     messages: Array<{ role: string; content: unknown }>;
   };
-  assert.equal(wire.model, VISION_ID);
+  assert.equal(wire.model, IMAGE_MODEL_ID);
   const user = wire.messages.find((row) => row.role === "user");
   assert.ok(
     Array.isArray(user?.content),
@@ -178,14 +193,17 @@ test("official DeepSeek adapter serializes image attachments as image_url data U
   );
   const parts = user?.content as Array<{
     type?: string;
-    image_url?: { url?: string };
+    source?: { type?: string; media_type?: string; data?: string };
     text?: string;
   }>;
   assert.equal(
     parts.some(
       (part) =>
-        part.type === "image_url" &&
-        String(part.image_url?.url ?? "").startsWith("data:image/png;base64,"),
+        part.type === "image" &&
+        part.source?.type === "base64" &&
+        part.source.media_type === "image/png" &&
+        typeof part.source.data === "string" &&
+        part.source.data.length > 0,
     ),
     true,
   );
@@ -217,7 +235,7 @@ test("onboarding catalog surfaces deepseek-official so the vision model can be l
   );
 });
 
-test("onboarding selectModel saves deepseek-v4-flash-vision-exp from the official directory", async () => {
+test("onboarding selectModel saves the official image-capable Flash model", async () => {
   const userDataRoot = mkdtempSync(join(tmpdir(), "penglai-vision-onb-"));
   const dir = join(userDataRoot, "onboarding");
   mkdirSync(dir, { mode: 0o700 });
@@ -236,24 +254,27 @@ test("onboarding selectModel saves deepseek-v4-flash-vision-exp from the officia
       llm: {
         listProviders: () => [{ id: "deepseek-official", name: "DeepSeek" }],
         listModels: async (provider: string) => [
-          { provider, id: "deepseek-v4-flash", name: "DeepSeek-V4-Flash" },
-          { provider, id: VISION_ID, name: "DeepSeek-V4-Flash-Vision-Exp" },
+          { provider, id: IMAGE_MODEL_ID, name: "DeepSeek-V41-Flash" },
         ],
         resolveModelInfo: async (provider: string, model: string) => ({
           provider,
           id: model,
           name: model,
-          inputModalities: model === VISION_ID ? ["text", "image"] : ["text"],
+          inputModalities:
+            model === IMAGE_MODEL_ID ? ["text", "image"] : ["text"],
         }),
       },
     },
   });
   impl.advance("appearance-locale-v1", { locale: "zh", theme: "system" });
   impl.advance("privacy-v1");
-  await impl.selectModel({ provider: "deepseek-official", model: VISION_ID });
+  await impl.selectModel({
+    provider: "deepseek-official",
+    model: IMAGE_MODEL_ID,
+  });
   assert.deepEqual(impl.facts().selection, {
     provider: "deepseek-official",
-    model: VISION_ID,
+    model: IMAGE_MODEL_ID,
   });
   assert.equal(impl.status().current, "credential-v1");
 });

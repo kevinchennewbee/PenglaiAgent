@@ -1,7 +1,7 @@
 # `@penglai/im` 完整产品与协议合同
 
-> 0.5.12 用户只看到一个「消息连接」插件。0.6.2 development pins official DSH `0.1.5-rc.2`. 既有八个平台都有真实连接入口，不再把新增渠道
-> 显示为路线图。0.6.2 另增加可选 Darwin-only iMessage 私聊文本入口，默认关闭，
+> 0.5.12 用户只看到一个「消息连接」插件。0.6.3 development pins official DSH `0.1.6-alpha.2`. 既有八个平台都有真实连接入口，不再把新增渠道
+> 显示为路线图。0.6.3 另保留可选 Darwin-only iMessage 私聊文本入口，默认关闭，
 > Windows/UOS 为不支持。manifest 的 `live` 是历史兼容字段，表示 0.5.10 包含真实 adapter
 > 实现，不表示当前用户已启用或已通过 live-account 验收。没有
 > 对应 live evidence 时，不得把该平台写入 README/官网/Release 的“全部支持”
@@ -14,7 +14,7 @@
 
 ## 1. 定位
 
-`@penglai/im` 是一个同时包含 DSH host 与 client module 的第一方插件。微信和飞书是内部 adapter，共享配置、binding、commands、causal routing、SQLite、outbox、supervisor 和 diagnostics。私聊语音通过`@penglai/asr`/`@penglai/moss-tts`的typed services处理；Context/Memory/Budget/Companion通过各自typed services与official Turn组合，adapter不拥有这些引擎。
+`@penglai/im` 是一个同时包含 DSH host 与 client module 的第一方插件。微信和飞书是内部 adapter，共享配置、binding、commands、causal routing、SQLite、outbox、supervisor 和 diagnostics。私聊语音通过`@penglai/asr`/`@penglai/moss-tts`的typed services处理；Context/Memory通过各自typed services与official Turn组合，adapter不拥有这些引擎。0.6.3 不包含 Budget 或 Companion 服务。
 
 可以参考 ZCode 的图形设置、`/帮助`、`/项目`、`/会话` 和清楚的连接状态，但不复制其私有代码；厂商协议必须来自官方资料或可审计参考实现。
 
@@ -31,7 +31,7 @@
 
 ## 3. UI 结构
 
-UI 通过 official DSH Web 的设置 section 提供消息连接页面，不另建窗口或第二套设置引擎。`@penglai/im` 使用 official `settings.section` 与保留的 `penglai-*` section id 注册自己的页面；固定的 DSH `0.1.5-rc.2` 使用未经修改的官方 npm 字节，页面通过官方 client slots、connection generation 与 typed Remote 组合，不再应用旧版 settings renderer overlay。停用 IM 只移除 active 页面与相关 host 资源，不影响 DSH 或其他蓬莱插件。首次启用后，Center 明示状态并应用内 reload client roster，随后子菜单出现“消息连接”，其微信/飞书页只提供厂商真实支持的连接流程。
+UI 通过 official DSH Web 的设置 section 提供消息连接页面，不另建窗口或第二套设置引擎。`@penglai/im` 使用 official `settings.section` 与保留的 `penglai-*` section id 注册自己的页面；固定的 DSH `0.1.6-alpha.2` 使用未经修改的官方 npm 字节，页面通过官方 client slots、connection generation 与 typed Remote 组合，不再应用旧版 settings renderer overlay。停用 IM 只移除 active 页面与相关 host 资源，不影响 DSH 或其他蓬莱插件。首次启用后，Center 明示状态并应用内 reload client roster，随后子菜单出现“消息连接”，其微信/飞书页只提供厂商真实支持的连接流程。
 
 “绑定”页必须为每个真实 binding 提供可视化 `inputMode`、`replyMode` 与 MOSS `voiceId` 控件；它们与 `/语音`、`/声音` 写入同一个 IM core 持久策略。ASR/TTS 未安装或模型未 ready 时显示实际能力状态并安全降级，不能显示假开关。微信原生语音必须先从该页发送 live probe，再由用户确认客户端里确实出现可播放气泡；仅 API 成功不自动启用。
 
@@ -242,8 +242,6 @@ type Binding = {
 | `/声音 [voice-id]` | 显示当前声音/设置指引，或修改同一 binding 的 MOSS voiceId |
 | `/资料` | 显示当前binding Workspace的Context grant/index状态与DSH设置跳转；不回传文件名/正文 |
 | `/记忆` | 显示global/Workspace memory摘要与待确认候选数；写入/删除必须回DSH Web确认 |
-| `/预算` | 显示official TokenMeter今日用量/阈值摘要；修改/lift必须回DSH Web确认 |
-| `/陪伴` | 显示当前Companion开关/quiet-hours/渠道；启用或扩大范围必须回DSH Web确认 |
 
 parser 处理 Unicode whitespace、全角斜杠策略、未知命令、空参数、长度、重复操作；所有命令在 model context 前消费。
 
@@ -297,8 +295,8 @@ SQLite表：accounts、adapter_configs、bindings、vendor_reply_targets、inbox
 ## 13. 安全与隐私
 
 - inbound 为不可信 prompt；DSH 原工具权限/审批不因渠道放宽。
-- bound Turn调用Context/Memory时使用exact Workspace/Session scope；Budget在创建Turn前统一reserve/check。adapter不得直接查资料、注入记忆或绕过budget。
-- Companion outbound必须携带durable trigger与exact authorized route，经同一outbox发送；IM聊天命令不能单独完成global memory写入或首次Companion启用。
+- bound Turn调用Context/Memory时使用exact Workspace/Session scope；adapter不得直接查资料或注入记忆。
+- 0.6.3 不注册 `/预算`、`/陪伴` 或主动外发接口。
 - slash command 与控制字符不进入模型。
 - size/rate limit：per route、account、global。
 - logs/Doctor/evidence不含secret、QR、user/open id、vendor reply target、chat body或完整path；App ID仅在需要诊断时显示脱敏descriptor。

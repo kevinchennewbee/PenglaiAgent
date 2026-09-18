@@ -1,12 +1,12 @@
-# Penglai 0.6.2 安全与隐私合同
+# Penglai 0.6.3 开发安全与隐私合同
 
 ## 1. 信任目标
 
 0.5 数据代际保护相互关联的边界：只读 target app/runtime、app-private 0.5 DSH
 profile、official DSH Web 本地入口、credentials-local secret、IM 因果隔离、厂商
-网络输入、本地 voice/context/memory 数据、budget/companion authority、signed
-assisted update、精确卸载和可公开供应链。当前 0.6.2 候选固定 official DSH
-`0.1.5-rc.2`；公开下载仍为 v0.6.1，直到不可变 v0.6.2 附件发布并回读。任何
+网络输入、本地 voice/context/memory 数据、signed
+assisted update、精确卸载和可公开供应链。当前 0.6.3 候选固定 official DSH
+`0.1.6-alpha.2`；公开下载仍为 v0.6.2，直到不可变 v0.6.3 附件发布并回读。任何
 Penglai 插件都不能放宽 DSH 工具权限、sandbox 或人工审批。
 
 ## 2. 数据分级
@@ -37,10 +37,9 @@ S3–S6不得进入Git、普通日志、diagnostics、截图或evidence。S2只�
 - uninstall/delete plan解析为空/root/home/Workspace/legacy或跟随link。
 - public export泄漏private docs、owner path、secret、无许可证binary。
 - branding overlay版本漂移改坏official DSH runtime。
-- Context授权根逃逸、恶意文档/压缩炸弹/宏/外链，或撤销时误删源文件。
+- Context授权根逃逸、恶意文本或撤销时误删源文件。
 - Memory跨Workspace污染、模型无确认写global/SOP、旧/恶意记忆提高工具权限。
-- Budget并发/时钟回退/IM旁路导致超额，或未知价格被伪装成准确费用。
-- Companion默认外发、quiet-hours失效、重复触发、错误路由或无人值守执行高权限工具。
+- 被排除的 LibreOffice、Office/PDF、Budget 或 Companion 重新进入产品闭包。
 
 ## 4. TCB
 
@@ -65,7 +64,7 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - 同OS用户高权限本地进程可能读取文件，UI/文档必须诚实。
 - permission/ACL invalid、corrupt、write denied、resolve failed全部fail closed；无env/MemoryVault/SQLite/Keychain fallback。
 - 0.4.1 credential不读取、迁移或删除。
-- official DSH 0.1.5-rc.2 源码内含 session-telemetry adapter 和预配置的 DeepSeek OTLP 地址。
+- official DSH 0.1.6-alpha.2 源码内含 session log/telemetry 能力；Penglai profile 将其默认关闭，也关闭上游 free-form plugin manager/tool/UI。
   蓬莱不运营该后端；owned DSH 的封闭环境白名单固定注入
   `DSH_TELEMETRY_DISABLED=1`，且不转发 `DSH_TELEMETRY_MODE` 或
   `DSH_TELEMETRY_OTLP_URL`。DSH 会在 profile patch 之后禁用该行，不创建 telemetry
@@ -77,7 +76,7 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - provider/model来自official directory，不向Penglai server发送选择/key。
 - secret field按password policy，提交后清组件state；clipboard/autofill行为可控。
 - 连接测试走official DSH provider/AgentHandle、低token、无工具、随机nonce；只留digest。
-- IM/voice/context/memory offer只在descriptor、default model、Workspace、真实Turn全部ready后出现；跳过不阻塞core，Companion不在onboarding中默认启用。
+- IM/voice/context/memory offer只在descriptor、default model、Workspace、真实Turn全部ready后出现；跳过不阻塞core。
 - state CAS/nonce防直接改JSON或UI flag跳步；test fixture production不可达。
 
 ## 8. IM inbound/outbound
@@ -108,20 +107,19 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - SDK token/cache只在host/SDK边界，不进DB/evidence。
 - reconfigure/rotation/disconnect/logout后只有一个或零client owner，socket/listener清理可证。
 
-## 10.1 Context、Memory、Budget 与 Companion
+## 10.1 Context 与 Memory
 
-- Context grant由用户gesture产生并绑定scope/revision；indexer拒绝link escape、宏/active content、外链、超限archive/page/cell/text。检索结果是untrusted data，source status只由host按文件digest验证。
+- Context grant由用户gesture产生并绑定scope/revision；0.6.3 只索引有界文本格式并拒绝 PDF/OOXML、link escape 与超限文本。检索结果是untrusted data，source status只由host按文件digest验证。
 - Memory 注入有行/字节上限并标记来源/时间/scope；自动 curator 使用同供应商/模型的 official no-tools Agent，并由 Host 进行封闭格式、secret、敏感内容和注入风险校验。它只能自动写 exact Workspace；personal/global/SOP 变更必须 Owner 确认，SOP 只走 official Skill service。
-- Budget gate位于official model invocation前，ledger使用actual usage；并发reserve/settle原子。clock rollback不重置额度，价格缺失不计算伪费用。
-- Companion fresh off；启用配置必须exact binding。所有trigger先过quiet-hours/budget/rate/recent-stop，Turn权限封顶plan/no-tools；IM authorization/send前再次核验。
-- 四插件的Remote不返回资料正文、memory body、usage prompt、情绪原文或vendor target；client只取必要摘要和用户主动打开的受控preview。
+- Context/Memory Remote 不返回资料正文、memory body 或 vendor target；client 只取必要摘要和用户主动打开的受控 preview。
+- LibreOffice、Office/PDF、Budget 与 Companion 必须在 workspace、profile、catalog、运行闭包、安装包与产品 SBOM 中保持缺席。
 
 ## 11. Plugin Center与供应链
 
 - bundled allowlist；manifest/schema/checksum/license/DSH/platform/arch/ABI全验。
 - 解包拒绝absolute、`..`、symlink/hardlink/device/reparse/case collision/超限。
 - overlay先验exact target hash；漂移fail build。
-- SBOM/licenses/runtime manifest覆盖Electron、Node、DSH、Lark SDK、voice/document native modules、八个first-party tarballs、installer maker。
+- SBOM/licenses/runtime manifest覆盖Electron、Node、DSH、Lark SDK、voice native modules、六个 in-scope first-party tarballs 与 installer maker，并反证被排除模块缺席。
 - lifecycle script不得下载未列清单远程代码；cache hit仍重验hash。
 - Critical/High dependency风险未关闭即FAIL。
 
@@ -131,7 +129,7 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - manifest与payload都验独立signature、hash、size、platform/arch、version/source。
 - durable ledger拒绝downgrade/same-version replay/wrong key/future schema。
 - downloaded temp不可执行；verify完成后才进入READY_FOR_USER。
-- 用户确认后drain owned DSH/IM/voice/indexer/distiller/budget subscriptions/companion schedules、写backup/journal，再打开原生DMG/Setup。
+- 用户确认后 drain owned DSH/IM/voice/indexer/distiller、写 backup/journal，再打开原生 DMG/Setup。
 - 每个state crash可恢复；corrupt/cancel/failure不破坏当前可运行app。
 - fixture private key/server/test payload不进production artifact。
 - 无Developer ID时不声称macOS silent auto-update。
@@ -145,7 +143,7 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - 文件锁/ACL/路径变化立即停；不提权、不改权限、不扩大范围重试。
 - before/after hashes证明未选数据、Workspace和legacy不变。
 - Windows uninstaller与macOS数据向导都必须停止owned process tree。
-- Context源目录/Workspace永不进入delete plan；Memory global/Workspace/candidates、Context派生index、Budget ledger、Companion schedules分别列出和确认。
+- Context源目录/Workspace永不进入delete plan；Memory global/Workspace/candidates 与 Context 派生 index 分别列出和确认。
 
 ## 14. Public-export与release secret
 
@@ -154,7 +152,7 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - updater private key、Apple/Windows credentials不进Git、命令参数、普通env dump、日志、artifact、evidence。
 - final signing只记录public key id、signature/hash/result。
 - exact三安装包绑定source/export；验收后不重建偷换。
-- v0.6.2 public repo/tag/Release/channel 在候选阶段保持未执行；发布后必须回读并冻结，
+- v0.6.3 tag/Release/channel 在候选阶段保持未执行；发布后必须回读并冻结，
   后续维护不得覆盖其字节。
 
 ## 15. 日志、诊断与evidence
@@ -183,7 +181,7 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - QR/verification/challenge在完成/取消/超时立即清除。
 - diagnostics export由用户主动生成、有TTL、默认redacted。
 - updater cache在成功/取消/失败后按状态清理，不留可执行tampered payload。
-- Context parse/index cache按revoke/delete清理但源文件不动；Memory candidates、Budget ledger、Companion audit有用户可见retention，Companion emotion signal不保存原文。
+- Context parse/index cache按revoke/delete清理但源文件不动；Memory candidates 有用户可见 retention。
 
 ## 17. Security tests
 
@@ -196,13 +194,13 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - update wrong key/tamper/rollback/replay/crash/cancel。
 - uninstall malicious plan/root/Workspace/legacy/locked/partial delete。
 - secret/body/QR/owner-path scan覆盖repo/public-export/app/DMG/Setup/log/DB/diagnostics/evidence。
-- Context grant escape/document bomb/source-delete、Memory scope/global-consent、Budget concurrency/clock/IM bypass、Companion quiet-hours/no-tools/dedupe/route/resource-zero。
+- Context grant escape/PDF与OOXML拒绝/source-delete、Memory scope/global-consent，以及排除模块的闭包缺席。
 
 ## 18. 0.5.10 权限与附件增量
 
-- Renderer 的 `ownerConfirmed`、布尔值、UUID 外形或模型文本都不是权限。Office、Memory、IM、Plugin Center 和 artifact persistence 统一消费 Main Owner Broker receipt；receipt 绑定 action/object/Workspace/Session/digest/destination/revision，真实动作成功后才 complete。
+- Renderer 的 `ownerConfirmed`、布尔值、UUID 外形或模型文本都不是权限。Memory、IM、Plugin Center 和 artifact persistence 统一消费 Main Owner Broker receipt；receipt 绑定 action/object/Workspace/Session/digest/destination/revision，真实动作成功后才 complete。
 - Artifact ID 是不透明 `artifact:<uuid>`，不是 filesystem path 或 content hash。相同字节跨 Workspace 仍为不同 binding；legacy digest 只有唯一时才可解析。
-- official DSH 0.1.5-rc.2 的通用会话附件能力只按真实接口与安装证据声明。0.6.2 不用 DOM hack、假 image 或第二会话引擎制造普通文件附件；Office/IM 文件走 scope-checked Artifact Service。
+- official DSH 0.1.6-alpha.2 的通用会话附件能力只按真实接口与安装证据声明。0.6.3 不用 DOM hack、假 image 或第二会话引擎制造普通文件附件；IM 新接收的 PDF/OOXML 只作为 official generic file，不生成 Office handle 或调用 Office 工具。
 - macOS 包只声明双语麦克风用途，并剥离 Electron 默认 camera、Bluetooth 与无关 capture permission。Main 只允许由当前用户手势触发的 audio 请求。
 - 0.5.10 的唯一「消息连接」插件提供八个平台的真实连接 adapter；公开能力边界以
   当前产品合同和对应证据为准。微信、飞书、钉钉、企业微信、QQ 只显示供应商真实

@@ -12,8 +12,8 @@ test("host owner dialog is Main-backed and deny has no consume side effect", asy
     dialog: createHostOwnerDialog(root, { timeoutMs: 2_000, pollMs: 10 }),
   });
   const proposal = owner.createProposal({
-    action: "office.commit",
-    pluginId: "@penglai/office",
+    action: "memory.accept",
+    pluginId: "@penglai/memory",
     objectId: "job-1",
     sourceDigest: "a".repeat(64),
   });
@@ -58,7 +58,7 @@ test("host owner dialog allow yields a one-shot receipt", async () => {
 test("concurrent Main drains present a request once and produce one consumable receipt", async () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-owner-dialog-concurrent-"));
   const owner = new OwnerApprovalBroker(root, { dialog: createHostOwnerDialog(root, { timeoutMs: 2_000, pollMs: 5 }) });
-  const proposal = owner.createProposal({ action: "office.commit", pluginId: "@penglai/office", objectId: "job", sourceDigest: "a".repeat(64) });
+  const proposal = owner.createProposal({ action: "memory.accept", pluginId: "@penglai/memory", objectId: "job", sourceDigest: "a".repeat(64) });
   const pending = owner.requestOwnerApproval(proposal.actionId);
   let calls = 0;
   let release!: () => void;

@@ -27,7 +27,6 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 export const CURATOR_PROMPT =
   "Extract at most 8 closed JSON candidates for Penglai Memory. Return only {\"candidates\":[...]} with keys kind,text,rationale,sensitivity,confidence,suggestedScope. Do not invent secrets. Input:\n";
 export const CURATOR_OUTPUT_MAX_BYTES = 32_768;
-export const CURATOR_ESTIMATED_TOKENS = 4_000;
 
 const RETRYABLE_CURATOR_CODES = new Set(["RATE_LIMIT", "SERVER", "TIMEOUT", "TRANSPORT", "EMPTY_RESPONSE"]);
 
@@ -43,8 +42,6 @@ export class MemoryCuratorFailure extends Error {
       | "EMPTY_RESPONSE"
       | "OUTPUT_INVALID"
       | "PROTOCOL"
-      | "BUDGET_BLOCKED"
-      | "BUDGET_ACCOUNTING"
       | "WORKSPACE_CHANGED"
       | "CANCELLED"
       | "PROVIDER_TERMINAL"

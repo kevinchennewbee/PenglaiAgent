@@ -59,11 +59,8 @@ test("first-party dsh-client unwrapRemote matches unwrapTypertResult", () => {
     "packages/plugin-center/src/dsh-client.js",
     "packages/asr/src/dsh-client.js",
     "packages/moss-tts/src/dsh-client.js",
-    "packages/office/src/dsh-client.js",
     "packages/context/src/dsh-client.js",
     "packages/memory/src/dsh-client.js",
-    "packages/budget/src/dsh-client.js",
-    "packages/companion/src/dsh-client.js",
   ];
   const samples = [
     { ok: true, value: { id: "x" } },

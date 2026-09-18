@@ -128,8 +128,8 @@ test("official DSH ships Pi adapter and DeepSeek adapter at the pinned version",
   const deepseekManifest = JSON.parse(readFileSync(deepseekPkg, "utf8")) as { name: string; version: string };
   assert.equal(piManifest.name, "@deepseek-ai/dsh-llm-pi-ai");
   assert.equal(deepseekManifest.name, "@deepseek-ai/dsh-llm-deepseek");
-  assert.equal(piManifest.version, "0.1.5-rc.2");
-  assert.equal(deepseekManifest.version, "0.1.5-rc.2");
+  assert.equal(piManifest.version, "0.1.6-alpha.2");
+  assert.equal(deepseekManifest.version, "0.1.6-alpha.2");
   const piMod = await import(pathToFileURL(resolveFrom(piPkg, "@deepseek-ai/dsh-llm-pi-ai")!).href);
   assert.equal(piMod.name, "llm-pi-ai");
   assert.equal(typeof piMod.apply, "function");
@@ -310,7 +310,7 @@ test("completeWelcome writes the fixed DSH welcomeNoticeVersion then advances we
   ]);
   assert.equal(DSH_WELCOME_NOTICE_VERSION, "2026-08-13.1");
   const npmCohort = JSON.parse(
-    readFileSync(new URL("../../../docs/0.6.2/DSH_NPM_COHORT.json", import.meta.url), "utf8"),
+    readFileSync(new URL("../../../docs/0.6.3/DSH_NPM_COHORT.json", import.meta.url), "utf8"),
   );
   assert.equal(DSH_WELCOME_NOTICE_VERSION, npmCohort.upstreamFacts.welcomeNotice.version);
   const again = await impl.completeWelcome();
@@ -625,6 +625,7 @@ test("recordWorkspace selects an official registry row and first turn attaches t
     },
   ];
   let listener: ((...args: unknown[]) => void) | undefined;
+  const eventsBySession = new Map<string, unknown[]>();
   const impl = createPenglaiOnboardingRemoteImpl({
     dir,
     userDataRoot,
@@ -647,22 +648,29 @@ test("recordWorkspace selects an official registry row and first turn attaches t
       },
       agents: {
         async create(input: { sessionId: string }) {
+          eventsBySession.set(input.sessionId, []);
           return {
             agent: {
               followup(message: { content?: Array<{ text?: string }> }) {
                 const prompt = message.content?.map((part) => part.text ?? "").join("") ?? "";
                 queueMicrotask(() => {
-                  listener?.("session/event", {
+                  const messageEvent = {
                     type: "assistant/message",
                     data: { sessionId: input.sessionId, message: { content: [{ type: "text", text: prompt }] } },
-                  });
-                  listener?.("session/event", { type: "turn/end", data: { sessionId: input.sessionId } });
+                  };
+                  const endEvent = { type: "turn/end", data: { sessionId: input.sessionId } };
+                  eventsBySession.get(input.sessionId)?.push(messageEvent, endEvent);
+                  listener?.("session/event", messageEvent);
+                  listener?.("session/event", endEvent);
                 });
               },
             },
             async dispose() {},
           };
         },
+      },
+      sessionController: {
+        inspect: async (sessionId: string) => ({ events: eventsBySession.get(sessionId) ?? [] }),
       },
       on(event: string, fn: (...args: unknown[]) => void) {
         if (event === "session/event") listener = fn;

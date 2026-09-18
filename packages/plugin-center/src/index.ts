@@ -57,6 +57,7 @@ export const inject = [
   "workspaceRegistry",
   "credentials",
   "settings",
+  "sessionController",
 ];
 
 export type { CatalogEntry, PluginCatalogMetadata, ProvenanceClass };
@@ -405,12 +406,16 @@ function officialOnboardingContext(
   const workspaceRegistry = officialService<
     NonNullable<OfficialUsableCtx["workspaceRegistry"]>
   >(ctx, "workspaceRegistry");
+  const sessionController = officialService<
+    NonNullable<OfficialUsableCtx["sessionController"]>
+  >(ctx, "sessionController");
   return {
     ...(llm ? { llm } : {}),
     ...(credentials ? { credentials } : {}),
     ...(settings ? { settings } : {}),
     ...(agents ? { agents } : {}),
     ...(workspaceRegistry ? { workspaceRegistry } : {}),
+    ...(sessionController ? { sessionController } : {}),
     ...(ctx.on
       ? { on: ctx.on.bind(ctx) as NonNullable<OfficialUsableCtx["on"]> }
       : {}),
@@ -426,9 +431,6 @@ export function pluginHealthFrom(
     "@penglai/asr": "penglaiAsr",
     "@penglai/moss-tts": "penglaiMossTts",
     "@penglai/memory": "penglaiMemory",
-    "@penglai/office": "penglaiOffice",
-    "@penglai/budget": "penglaiBudget",
-    "@penglai/companion": "penglaiCompanion",
   };
   const name = serviceName[id];
   if (!name) return { healthy: true };
@@ -480,9 +482,6 @@ function resourceProbeFrom(
     "@penglai/asr": "penglaiAsr",
     "@penglai/moss-tts": "penglaiMossTts",
     "@penglai/memory": "penglaiMemory",
-    "@penglai/office": "penglaiOffice",
-    "@penglai/budget": "penglaiBudget",
-    "@penglai/companion": "penglaiCompanion",
   };
   const serviceName = serviceNames[id];
   if (!serviceName) return undefined;

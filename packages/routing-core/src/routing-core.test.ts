@@ -441,18 +441,16 @@ test("group rejected and media accepted", async () => {
   assert.equal(m.kind, "accepted");
 });
 
-test("context/memory/budget/companion/voice slash commands never enter the model", async () => {
+test("context/memory/voice slash commands never enter the model", async () => {
   const h = harness();
   const { token } = h.plane.createPairing({ workspaceIdentity: "ws1", sessionId: "sess1", adapter: "mock" });
   await h.plane.submitInbound(env({ text: `/绑定 ${token}`, adapterMessageKey: "b-cmd" }));
   for (const [key, cmd] of [
     ["c1", "/资料"],
     ["c2", "/记忆"],
-    ["c3", "/预算"],
-    ["c4", "/陪伴"],
-    ["c5", "/语音 跟随"],
-    ["c6", "/声音 moss-zh-default"],
-    ["c7", "/语音 状态"],
+    ["c3", "/语音 跟随"],
+    ["c4", "/声音 moss-zh-default"],
+    ["c5", "/语音 状态"],
   ] as const) {
     const r = await h.plane.submitInbound(env({ text: cmd, adapterMessageKey: key }));
     assert.equal(r.kind, "control");
@@ -958,71 +956,4 @@ test("R1-STATE-007 slash commands never enter followup text", async () => {
   await h.plane.submitInbound(env({ text: "/状态", adapterMessageKey: "st" }));
   await h.plane.submitInbound(env({ text: "/帮助", adapterMessageKey: "hp" }));
   assert.equal(h.inputs.length, 0);
-});
-test("companion output uses a durable control claim, dedupes, and cancels without a forged user input", async () => {
-  const h = harness();
-  const { token } = h.plane.createPairing({
-    workspaceIdentity: "ws1",
-    sessionId: "sess1",
-    adapter: "mock",
-  });
-  await h.plane.submitInbound(
-    env({
-      text: `/绑定 ${token}`,
-      adapterMessageKey: "b1",
-      vendorTarget: "opaque-vendor-reply-target",
-    }),
-  );
-  const route = h.store.findRoute("mock", "acct", "peer")!;
-  const binding = h.store.activeBinding(route.routeId)!;
-  const triggerId = `comp_${"a".repeat(64)}`;
-
-  const first = h.plane.enqueueProactive({
-    routeId: route.routeId,
-    expectedBindingRevision: binding.revision,
-    sourceSessionId: "companion-session",
-    triggerId,
-    turnId: "turn-1",
-    text: "durable proactive output",
-    deliveryMode: "voice",
-  });
-  assert.equal(first.duplicate, false);
-  assert.equal(h.inputs.length, 0);
-  assert.equal(h.store.getInbound(first.inboundId)?.bodyKind, "control");
-  assert.equal(h.store.latestUserInboundAt(route.routeId), undefined);
-  const companionPending = () =>
-    h.store.pendingOutbox(route.routeId).filter((o) => o.inboundId === first.inboundId);
-  assert.equal(companionPending().length, 1);
-  assert.equal(companionPending()[0]?.payloadText, "durable proactive output");
-  assert.equal(h.plane.resolveVoiceDelivery(first.outboxIds[0]!).mode, "voice");
-
-  const replay = h.plane.enqueueProactive({
-    routeId: route.routeId,
-    expectedBindingRevision: binding.revision,
-    sourceSessionId: "companion-session",
-    triggerId,
-    turnId: "turn-1",
-    text: "must not enqueue twice",
-    deliveryMode: "voice",
-  });
-  assert.equal(replay.duplicate, true);
-  assert.deepEqual(replay.outboxIds, first.outboxIds);
-  assert.equal(companionPending().length, 1);
-
-  assert.equal(h.plane.cancelProactive(route.routeId, [triggerId]), 1);
-  assert.equal(companionPending().length, 0);
-  assert.equal(h.store.getInbound(first.inboundId)?.state, "no_delivery");
-  assert.throws(
-    () =>
-      h.plane.enqueueProactive({
-        routeId: route.routeId,
-        expectedBindingRevision: binding.revision + 1,
-        sourceSessionId: "companion-session",
-        triggerId: `comp_${"b".repeat(64)}`,
-        turnId: "turn-2",
-        text: "stale binding",
-        deliveryMode: "text-and-voice",
-      }),
-    /binding/i,
-  );
 });

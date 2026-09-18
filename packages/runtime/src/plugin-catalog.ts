@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 import { PenglaiError, RELEASE } from "@penglai/contracts";
 
 export const PLUGIN_CATALOG_SCHEMA = 3 as const;
-export const PINNED_PLUGIN_DSH = "0.1.5-rc.2" as const;
+export const PINNED_PLUGIN_DSH = "0.1.6-alpha.2" as const;
 export const PRODUCT_PLUGIN_TARGETS = [
   "darwin-arm64",
   "darwin-x64",
@@ -191,45 +191,6 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       builtIn: true,
       provenanceClass: "penglai-builtin",
       installClass: "required-builtin",
-      userVisible: true,
-      resourcePolicy: "none",
-    },
-    {
-      ...common,
-      id: "@penglai/office",
-      packageFile: `penglai-office-${RELEASE}.tgz`,
-      capabilities: ["office-edit", "docx", "xlsx", "pptx", "pdf"],
-      permissions: ["workspace-read", "workspace-write"],
-      defaultEnabled: true,
-      builtIn: true,
-      provenanceClass: "penglai-builtin",
-      installClass: "required-builtin",
-      userVisible: true,
-      resourcePolicy: "none",
-    },
-    {
-      ...common,
-      id: "@penglai/budget",
-      packageFile: `penglai-budget-${RELEASE}.tgz`,
-      capabilities: ["token-budget", "pre-invocation-gate"],
-      permissions: ["token-meter", "model-invocation-gate"],
-      defaultEnabled: false,
-      builtIn: true,
-      provenanceClass: "penglai-first-party",
-      installClass: "advanced-first-party",
-      userVisible: false,
-      resourcePolicy: "none",
-    },
-    {
-      ...common,
-      id: "@penglai/companion",
-      packageFile: `penglai-companion-${RELEASE}.tgz`,
-      capabilities: ["proactive-companion", "schedule-composition"],
-      permissions: ["schedule", "dedicated-agent", "im-send"],
-      defaultEnabled: false,
-      builtIn: true,
-      provenanceClass: "penglai-first-party",
-      installClass: "optional-first-party",
       userVisible: true,
       resourcePolicy: "none",
     },

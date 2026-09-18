@@ -43,7 +43,7 @@ import {
 const FIXTURE_CREDENTIAL =
   "DEEPSEEK_API_KEY: penglai-test-fixture-key-not-real\n";
 
-test("0.5.11 rc.1 active generation upgrades to 0.1.5-rc.2 and restores its exact pointer on rollback", () => {
+test("0.5.11 rc.1 active generation upgrades to 0.1.6-alpha.2 and restores its exact pointer on rollback", () => {
   const root = fixtureRoot();
   const previousHome = join(root, "dsh-homes", `dsh-v${DSH_HOME_PREVIOUS_VERSION}`);
   mkdirSync(previousHome, { recursive: true, mode: 0o700 });
@@ -74,7 +74,7 @@ test("0.5.11 rc.1 active generation upgrades to 0.1.5-rc.2 and restores its exac
   assert.deepEqual(prepareDshHomeForBoot({ userRoot: root }), plan, "prepared migration must resume with old pointer still active");
   activateDshHomeBootPlan({ userRoot: root, plan, validation: validProof() });
   assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_TARGET_VERSION);
-  writeFileSync(join(plan.dshHome, "new-generation-only"), "0.1.5-rc.2 state");
+  writeFileSync(join(plan.dshHome, "new-generation-only"), "0.1.6-alpha.2 state");
   rollbackDshHomeUpgrade({ userRoot: root, operationId: plan.operationId!, reason: "restore previous version" });
   assert.deepEqual(JSON.parse(readFileSync(pointer, "utf8")), {
     ...previous,
@@ -199,12 +199,12 @@ function validProof() {
     officialDocument: true as const,
     dshHealthy: true as const,
     profileReady: true as const,
-    requiredPluginsActive: ["@penglai/office", "@penglai/memory"],
+    requiredPluginsActive: ["@penglai/memory"],
     validatedAt: "2026-08-29T00:01:00.000Z",
   };
 }
 
-test("P059-DATA-001 prepares an isolated 0.1.5-rc.2 working home and leaves 0.5.8 alpha.1 bytes untouched", () => {
+test("P059-DATA-001 prepares an isolated 0.1.6-alpha.2 working home and leaves 0.5.8 alpha.1 bytes untouched", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   const originalCredential = readFileSync(
@@ -349,7 +349,7 @@ test("P059-DATA-004 activation commits only after exact health and required-plug
         operationId: "upgrade05",
         validation: {
           ...validProof(),
-          requiredPluginsActive: ["@penglai/office"],
+          requiredPluginsActive: [],
         },
       }),
     /requires exact healthy alpha validation/,
@@ -394,7 +394,7 @@ test("P059-DATA-005 source mutation during validation blocks activation", () => 
         operationId: "upgrade06",
         validation: validProof(),
       }),
-    /previous DSH home changed during 0.1.5-rc.2 validation/,
+    /previous DSH home changed during 0.1.6-alpha.2 validation/,
   );
   assert.equal(readActiveDshHome(root), undefined);
 });
@@ -603,7 +603,7 @@ test("P059-DATA-004A migration activation recovers a crash before the active poi
   assert.deepEqual(readActiveDshHome(root), activated);
 });
 
-test("P059-DATA-013 fresh 0.5.12 installs boot and activate only the 0.1.5-rc.2 generation", () => {
+test("P059-DATA-013 fresh 0.5.12 installs boot and activate only the 0.1.6-alpha.2 generation", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-fresh-"));
   const paths = resolveDshHomeUpgradePaths(root);
   const prepared = prepareDshHomeForBoot({
@@ -670,7 +670,7 @@ test("fresh activation digest excludes regenerated first-party profile runtime t
   assert.equal(activated[0].targetDigest, activated[1].targetDigest);
 });
 
-test("P059-DATA-014 0.5.8 alpha.1 upgrades boot a resumable isolated 0.1.5-rc.2 generation", () => {
+test("P059-DATA-014 0.5.8 alpha.1 upgrades boot a resumable isolated 0.1.6-alpha.2 generation", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   const prepared = prepareDshHomeForBoot({
@@ -712,7 +712,7 @@ test("prepared migration is rejected and rebuilt when its source generation chan
   assert.equal(readFileSync(join(paths.targetHome, "settings.yaml"), "utf8"), "locale:\n  preference: en\n");
 });
 
-test("0.5.9 alpha.2 active generation copies a legal session log into 0.1.5-rc.2", () => {
+test("0.5.9 alpha.2 active generation copies a legal session log into 0.1.6-alpha.2", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-alpha2-"));
   const previousHome = join(root, "dsh-homes", `dsh-v${DSH_HOME_ALPHA2_VERSION}`);
   mkdirSync(join(previousHome, "storages", "sessions"), { recursive: true, mode: 0o700 });
@@ -1074,7 +1074,7 @@ test("historical session log names include v0 jsonl and every v2 generation suff
   assert.equal(isHistoricalSessionLogName("session.v2.jsonl.bak"), false);
 });
 
-test("0.5.12 0.1.3-alpha.2 homes upgrade to 0.1.5-rc.2 without deleting session.v2.jsonl*", () => {
+test("0.5.12 0.1.3-alpha.2 homes upgrade to 0.1.6-alpha.2 without deleting session.v2.jsonl*", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-alpha13-v2-"));
   const previousHome = join(root, "dsh-homes", `dsh-v${DSH_HOME_ALPHA13_VERSION}`);
   const sessionDir = join(
@@ -1295,7 +1295,7 @@ function livedInAlpha13Home(options: { userStateSymlink?: boolean } = {}): {
   return { root, previousHome, appRuntime };
 }
 
-test("lived-in 0.5.12 DSH module-fallback and profile node_modules runtime links do not block 0.1.5-rc.2 copy", (context) => {
+test("lived-in 0.5.12 DSH module-fallback and profile node_modules runtime links do not block 0.1.6-alpha.2 copy", (context) => {
   if (process.platform === "win32") {
     context.skip("ordinary Windows users cannot create this symlink fixture");
     return;
@@ -1373,7 +1373,7 @@ test("home-root node_modules symlink is not treated as a regenerated DSH graph",
   );
 });
 
-test("activation of a lived-in 0.5.12 copy still requires Office and Memory", (context) => {
+test("activation of a lived-in 0.5.12 copy requires current Memory validation", (context) => {
   if (process.platform === "win32") {
     context.skip("ordinary Windows users cannot create this symlink fixture");
     return;
@@ -1391,7 +1391,7 @@ test("activation of a lived-in 0.5.12 copy still requires Office and Memory", (c
         plan,
         validation: {
           ...validProof(),
-          requiredPluginsActive: ["@penglai/office"],
+          requiredPluginsActive: [],
         },
       }),
     /requires exact healthy alpha validation/,
@@ -1511,4 +1511,3 @@ test("PM 498-link 0.1.3-alpha.2 descriptor copies through Home without SECURITY_
   assert.equal(existsSync(join(plan.dshHome, "profiles", "web", "node_modules")), false);
   assert.equal(existsSync(join(root, "dsh-home-migrations", `${plan.operationId}.json`)), true);
 });
-

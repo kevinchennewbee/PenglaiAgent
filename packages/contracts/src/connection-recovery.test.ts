@@ -6,10 +6,7 @@ import test from "node:test";
 const root = join(import.meta.dirname, "..", "..", "..");
 const connectionPackage = "@deepseek-ai/dsh-client-connection";
 const pageClients = [
-  "packages/office/src/dsh-client.js",
   "packages/memory/src/dsh-client.js",
-  "packages/budget/src/dsh-client.js",
-  "packages/companion/src/dsh-client.js",
   "packages/im/src/dsh-client.js",
 ] as const;
 
@@ -56,16 +53,9 @@ test("first-party stale pages bind the official generation hook and reload only 
     assert.doesNotMatch(client, /React\.useSyncExternalStore/);
   }
 
-  const office = source("packages/office/src/dsh-client.js");
-  assert.match(office, /connectionGeneration === undefined/);
-  assert.match(office, /let current = true;/);
-  assert.equal((office.match(/if \(!current\) return;/g) ?? []).length, 2);
-
   for (const relative of [
     "packages/memory/src/dsh-client.js",
     "packages/context/src/dsh-client.js",
-    "packages/budget/src/dsh-client.js",
-    "packages/companion/src/dsh-client.js",
   ]) {
     const client = source(relative);
     assert.match(client, /const expectedGeneration = generationRef\.current;/, relative);
@@ -94,14 +84,14 @@ test("first-party stale pages bind the official generation hook and reload only 
 });
 
 test("source and packed plugin manifests load Connection before reconnect-aware pages", () => {
-  const ids = ["office", "memory", "budget", "companion", "im"];
+  const ids = ["memory", "im"];
   for (const id of ids) {
     const manifest = JSON.parse(source(`packages/${id}/package.json`)) as {
       dsh?: { client?: { inject?: string[] } };
       dependencies?: Record<string, string>;
     };
     assert.ok(manifest.dsh?.client?.inject?.includes(connectionPackage), id);
-    assert.equal(manifest.dependencies?.[connectionPackage], "0.1.5-rc.2", id);
+    assert.equal(manifest.dependencies?.[connectionPackage], "0.1.6-alpha.2", id);
   }
 
   const packer = source("scripts/pack-plugins.mjs");

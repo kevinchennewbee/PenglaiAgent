@@ -26,14 +26,10 @@ const COMMANDS = [
   "clear",
   "资料",
   "记忆",
-  "预算",
-  "陪伴",
   "语音",
   "声音",
   "context",
   "memory",
-  "budget",
-  "companion",
   "voice",
   "voiceid",
   "version",
@@ -96,12 +92,6 @@ export function parseCommand(text: string): ControlCommand | undefined {
     case "记忆":
     case "memory":
       return { type: "memory_status" };
-    case "预算":
-    case "budget":
-      return { type: "budget_status" };
-    case "陪伴":
-    case "companion":
-      return { type: "companion_status" };
     case "语音":
     case "voice": {
       const mode = rest.toLowerCase();
@@ -143,7 +133,7 @@ export const KNOWN_COMMANDS: readonly string[] = COMMANDS;
 export function versionText(): string {
   return [
     `Penglai ${RELEASE}`,
-    "DSH 0.1.5-rc.2 dsh-v0.1.5-rc.2 fb2c4b9e698e30edb738bca4cf0618587db7d203",
+    "DSH 0.1.6-alpha.2 dsh-v0.1.6-alpha.2 ddefc45fbc7f8e46dd73185e68295696d1297887",
     "DSH-IM adopted rewrite-source v4.17.1 unsigned tag 51fb6bb03d86045cbe55e5fde3e55308f0f3643e peeled 464c0a91762ebd0befc2d179f036eaae4864fb0e",
     "DSH-IM published v4.18.1 d01bd3450c6d17db2b3386ec44ffa474fd15b03e",
     "DSH-IM alias reference 606ced1b5e4f02fe4a1afc9462014f3db1176396 unpublished on npm 4.18.1",

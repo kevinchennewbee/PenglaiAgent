@@ -416,63 +416,6 @@ export class PenglaiImHost {
     return out;
   }
 
-  requireCompanionBinding(input: {
-    bindingId: string;
-    workspaceId: string;
-    sessionId: string;
-  }): BindingDto {
-    const binding = this.listBindings().find(
-      (row) => row.id === input.bindingId,
-    );
-    if (!binding || binding.state !== "active")
-      throw new PenglaiError("BINDING_STALE", "companion binding unavailable");
-    if (
-      binding.workspaceId !== input.workspaceId ||
-      binding.sessionId !== input.sessionId
-    ) {
-      throw new PenglaiError(
-        "BINDING_STALE",
-        "companion binding scope changed",
-      );
-    }
-    this.plane.requireVendorTarget(binding.id);
-    return binding;
-  }
-
-  recentUserActivity(bindingId: string): number | undefined {
-    if (!this.listBindings().some((row) => row.id === bindingId)) {
-      throw new PenglaiError("BINDING_STALE", "companion binding unavailable");
-    }
-    return this.store.latestUserInboundAt(bindingId);
-  }
-
-  sendProactive(input: {
-    bindingId: string;
-    workspaceId: string;
-    boundSessionId: string;
-    sourceSessionId: string;
-    triggerId: string;
-    turnId: string;
-    text: string;
-    deliveryMode: "text" | "voice" | "text-and-voice";
-  }): { outboxIds: string[]; duplicate: boolean } {
-    const binding = this.requireCompanionBinding({
-      bindingId: input.bindingId,
-      workspaceId: input.workspaceId,
-      sessionId: input.boundSessionId,
-    });
-    const queued = this.plane.enqueueProactive({
-      routeId: binding.id,
-      expectedBindingRevision: binding.revision,
-      sourceSessionId: input.sourceSessionId,
-      triggerId: input.triggerId,
-      turnId: input.turnId,
-      text: input.text,
-      deliveryMode: input.deliveryMode,
-    });
-    return { outboxIds: queued.outboxIds, duplicate: queued.duplicate };
-  }
-
   async sendFileToBoundRoute(input: {
     routeId: string;
     sessionId: string;
@@ -487,10 +430,10 @@ export class PenglaiImHost {
       binding.sessionId !== input.sessionId ||
       (input.workspaceId !== undefined && binding.workspaceIdentity !== input.workspaceId)
     ) {
-      throw new PenglaiError("BINDING_STALE", "office outbound route binding changed");
+      throw new PenglaiError("BINDING_STALE", "outbound file route binding changed");
     }
     const route = this.store.getRoute(input.routeId);
-    if (!route || route.status !== "active") throw new PenglaiError("BINDING_STALE", "office outbound route unavailable");
+    if (!route || route.status !== "active") throw new PenglaiError("BINDING_STALE", "outbound file route unavailable");
     const target = this.plane.requireVendorTarget(input.routeId);
     let bytes = input.bytes;
     let digest = input.digest;
@@ -510,23 +453,17 @@ export class PenglaiImHost {
       digest = ref.sha256.replace(/^sha256:/, "");
     }
     assertSha256(bytes, digest);
-    const clientId = `penglai-office-${digest.replace(/^sha256:/, "").slice(0, 24)}`;
+    const clientId = `penglai-file-${digest.replace(/^sha256:/, "").slice(0, 24)}`;
     const sent = route.adapter === "feishu"
       ? await this.feishu.sendFile(target, bytes, input.filename)
       : await this.weixin.sendFile(target, bytes, input.filename, clientId);
     if (!("ok" in sent && sent.ok)) {
       throw new PenglaiError(
         "error" in sent && sent.error === "auth" ? "AUTH_EXPIRED" : "DELIVERY_TRANSIENT",
-        "office outbound file was not accepted by the channel",
+        "outbound file was not accepted by the channel",
       );
     }
     return { channel: route.adapter === "feishu" ? "feishu" : "weixin", delivered: true };
-  }
-
-  cancelProactive(input: { bindingId: string; triggerIds: string[] }): number {
-    if (!this.listBindings().some((row) => row.id === input.bindingId))
-      return 0;
-    return this.plane.cancelProactive(input.bindingId, input.triggerIds);
   }
 
   createBinding(input: {

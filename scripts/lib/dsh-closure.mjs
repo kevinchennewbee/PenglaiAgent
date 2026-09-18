@@ -30,6 +30,20 @@ export const DSH_RUNTIME_INTEGRATION_ROOTS = [
   "@deepseek-ai/dsh-client-ui-slots",
 ];
 
+// The upstream cohort remains fully pinned and audited, but Penglai 0.6.3
+// intentionally does not ship or load Office/PDF conversion or LibreOffice.
+export const EXCLUDED_DSH_RUNTIME_PACKAGES = new Set([
+  "@deepseek-ai/dsh-office-to-pdf",
+  "@deepseek-ai/dsh-skill-office",
+  "@deepseek-ai/dsh-client-ui-sidebar-documentpreview",
+  "@deepseek-ai/libreoffice-kit",
+  "@deepseek-ai/libreoffice-kit-darwin-arm64",
+  "@deepseek-ai/libreoffice-kit-darwin-x64",
+  "@deepseek-ai/libreoffice-kit-wasm",
+  "@deepseek-ai/libreoffice-kit-win32-arm64",
+  "@deepseek-ai/libreoffice-kit-win32-x64",
+]);
+
 /** Published require-builtin native packages. Missing these is a flatten FAIL. */
 export const REQUIRE_BUILTIN_NATIVE_BY_TARGET = {
   "darwin-aarch64": "node-addon-require-builtin-darwin-arm64",
@@ -150,6 +164,7 @@ export function collectDshClosure(
     ]);
     const dependencies = new Set([...required, ...Object.keys(next.manifest.optionalDependencies ?? {})]);
     for (const dep of dependencies) {
+      if (EXCLUDED_DSH_RUNTIME_PACKAGES.has(dep)) continue;
       if (links.has(dep)) continue;
       const dir = packageDirFromAnchor(next.anchor, dep);
       if (!dir) {
@@ -216,6 +231,7 @@ export function materializeNestedVersionConflicts(links, modulesDir, target) {
       ),
     ]);
     for (const dependency of [...required, ...Object.keys(manifest.optionalDependencies ?? {})]) {
+      if (EXCLUDED_DSH_RUNTIME_PACKAGES.has(dependency)) continue;
       const actual = packageDirFromAnchor(manifestPath, dependency);
       if (!actual) {
         if (required.has(dependency)) throw new Error(`embedded DSH closure cannot preserve required dependency ${dependency} from ${manifest.name}`);
@@ -258,6 +274,7 @@ export function assertNestedVersionConflicts(links, modulesDir, target) {
       ),
     ]);
     for (const dependency of [...required, ...Object.keys(manifest.optionalDependencies ?? {})]) {
+      if (EXCLUDED_DSH_RUNTIME_PACKAGES.has(dependency)) continue;
       const actual = packageDirFromAnchor(manifestPath, dependency);
       const flattened = links.get(dependency);
       if (!actual) {

@@ -29,13 +29,13 @@ test("R56-OWN-005 deny expiry replay mutation and workspace drift have no side e
   const root = mkdtempSync(join(tmpdir(), "penglai-broker-"));
   const denied = broker(root, "denied");
   const proposal = denied.owner.createProposal({
-    action: "office.commit",
-    pluginId: "@penglai/office",
-    objectId: "office-1",
+    action: "memory.accept",
+    pluginId: "@penglai/memory",
+    objectId: "memory-1",
     sourceDigest: "a".repeat(64),
     resultDigest: "b".repeat(64),
     workspaceId: "ws-a",
-    destinationLabel: "note.docx",
+    destinationLabel: "note.txt",
   });
   const deny = await denied.owner.requestOwnerApproval(proposal.actionId);
   assert.equal(deny.decision, "denied");
@@ -45,9 +45,9 @@ test("R56-OWN-005 deny expiry replay mutation and workspace drift have no side e
   const clock = { t: 1_700_000_000_000 };
   const live = broker(root, "approved", clock);
   const fresh = live.owner.createProposal({
-    action: "office.commit",
-    pluginId: "@penglai/office",
-    objectId: "office-2",
+    action: "memory.accept",
+    pluginId: "@penglai/memory",
+    objectId: "memory-2",
     sourceDigest: "a".repeat(64),
     workspaceId: "ws-a",
   });
@@ -63,9 +63,9 @@ test("R56-OWN-005 deny expiry replay mutation and workspace drift have no side e
 
   clock.t = 1_700_000_000_000;
   const replayed = live.owner.createProposal({
-    action: "office.export",
-    pluginId: "@penglai/office",
-    objectId: "office-3",
+    action: "memory.import",
+    pluginId: "@penglai/memory",
+    objectId: "memory-3",
     sourceDigest: "a".repeat(64),
   });
   const once = await live.owner.requestOwnerApproval(replayed.actionId);
@@ -128,8 +128,8 @@ test("two Owner brokers sharing one root cannot consume the same receipt twice",
   const root = mkdtempSync(join(tmpdir(), "penglai-broker-two-"));
   const first = broker(root);
   const proposal = first.owner.createProposal({
-    action: "office.commit",
-    pluginId: "@penglai/office",
+    action: "memory.accept",
+    pluginId: "@penglai/memory",
     objectId: "job-shared",
     sourceDigest: "a".repeat(64),
   });
@@ -160,8 +160,8 @@ test("R56-OWN-008 destination labels cannot carry paths or secrets", () => {
   assert.throws(
     () =>
       owner.createProposal({
-        action: "office.commit",
-        pluginId: "@penglai/office",
+        action: "memory.accept",
+        pluginId: "@penglai/memory",
         objectId: "job",
         sourceDigest: "a".repeat(64),
         destinationLabel: "/Users/test-owner/secret.docx",

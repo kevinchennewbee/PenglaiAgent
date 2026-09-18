@@ -1,55 +1,55 @@
 {
   "schemaVersion": 1,
   "product": "Penglai",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "candidateKind": "public-community-release",
   "trustTier": "community-verified",
   "generationId": "penglai-dsh-v0.5",
   "phase": "UNFROZEN",
   "electronVersion": "43.6.0",
   "nodeVersion": "22.23.2",
-  "dshVersion": "0.1.5-rc.2",
+  "dshVersion": "0.1.6-alpha.2",
   "dshSource": {
     "repository": "https://github.com/deepseek-ai/DeepSeek-Harness.git",
-    "tag": "dsh-v0.1.5-rc.2",
-    "commit": "fb2c4b9e698e30edb738bca4cf0618587db7d203",
-    "closureManifestSha256": "aae93e0a7a84be840738f0a237ec3cefe06d5ef4006efd79ee4986d332d830ae",
-    "cliTarballSha256": "f4c54839d69e82bf1c3a5a41a910c3ce1405cd9e9d97d753c0c04f406c7d7480",
-    "packageCount": 279
+    "tag": "dsh-v0.1.6-alpha.2",
+    "commit": "ddefc45fbc7f8e46dd73185e68295696d1297887",
+    "closureManifestSha256": "eee9d9b1d350d337eb74489efd2ecbfd069054e0ef8751d45a94b857e691fd7f",
+    "cliTarballSha256": "a3c14d175c051023dcde078fb273b287b13b4b77654ea90b52d956cbf409178d",
+    "packageCount": 307
   },
   "updaterChannel": "desktop-v0.5",
   "updaterPublicKeyId": "penglai-updater-d706d4f5cf1da7a57b74c068",
   "updaterPublicKeyHex": "d706d4f5cf1da7a57b74c068dd9eb4b7d7f655609c8ef097fd86fb22376bf9ee",
-  "updaterManifestUrl": "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.2/update-manifest-v1.json",
-  "updaterManifestSignatureUrl": "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.2/update-manifest-v1.json.sig",
+  "updaterManifestUrl": "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.3/update-manifest-v1.json",
+  "updaterManifestSignatureUrl": "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.3/update-manifest-v1.json.sig",
   "updaterAllowedAssetHosts": [
     "github.com"
   ],
   "canonicalMaker": "penglai-controlled-pipeline",
   "publication": {
     "repo": "kevinchennewbee/PenglaiAgent",
-    "tag": "v0.6.2",
-    "release": "v0.6.2",
-    "channel": "stable-v0.6.2"
+    "tag": "v0.6.3",
+    "release": "v0.6.3",
+    "channel": "stable-v0.6.3"
   },
   "targets": [
     {
       "key": "darwin-aarch64",
       "platform": "darwin",
       "arch": "arm64",
-      "installer": "Penglai_0.6.2_macos_aarch64.dmg"
+      "installer": "Penglai_0.6.3_macos_aarch64.dmg"
     },
     {
       "key": "win32-x86_64",
       "platform": "win32",
       "arch": "x64",
-      "installer": "Penglai_0.6.2_windows_x64_setup.exe"
+      "installer": "Penglai_0.6.3_windows_x64_setup.exe"
     },
     {
       "key": "linux-loong64",
       "platform": "linux",
       "arch": "loong64",
-      "installer": "Penglai_0.6.2_uos_loong64.deb"
+      "installer": "Penglai_0.6.3_uos_loong64.deb"
     }
   ],
   "runtimeInputs": [
@@ -103,9 +103,9 @@
     }
   ],
   "exactAssets": [
-    "Penglai_0.6.2_macos_aarch64.dmg",
-    "Penglai_0.6.2_windows_x64_setup.exe",
-    "Penglai_0.6.2_uos_loong64.deb",
+    "Penglai_0.6.3_macos_aarch64.dmg",
+    "Penglai_0.6.3_windows_x64_setup.exe",
+    "Penglai_0.6.3_uos_loong64.deb",
     "update-manifest-v1.json",
     "update-manifest-v1.json.sig",
     "release-manifest.json",

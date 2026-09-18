@@ -76,7 +76,7 @@ function validateInstalledCompanions(target, installed) {
   const enabled = phases.find((phase) => phase.name === "all-enabled-after-restart");
   if (
     !phaseOk ||
-    !["@penglai/office", "@penglai/memory"].every((id) => required.includes(id)) ||
+    !["@penglai/memory"].every((id) => required.includes(id)) ||
     initial?.requiredCapabilities?.settingsBlocked?.length !== 0 ||
     enabled?.enabledCapabilities?.optionalSettingsReady !== true ||
     enabled?.enabledCapabilities?.settingsBlocked?.length !== 0

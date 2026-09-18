@@ -15,6 +15,7 @@ interface MemoryToolService {
 interface CordisTools {
   tools?: { register(definition: Record<string, unknown>): unknown };
   workspaceRegistry?: { list(): Array<{ id: string; title?: string; sessionIds?: readonly string[] }> };
+  sessionController?: { inspect(sessionId: string, signal?: AbortSignal): Promise<{ events?: readonly unknown[] }> };
   on?(event: string, listener: (...args: unknown[]) => unknown): unknown;
 }
 
@@ -39,10 +40,13 @@ function officialTurnStep(value: unknown): number | undefined {
 
 /**
  * Prove the current turn/step from official ToolRunContext identity plus the
- * live Agent's Session log. Nested PTC calls match rootCallId to tool/call and
+ * an asynchronously inspected official Session log. Nested PTC calls match rootCallId to tool/call and
  * callId to tool/ptc-dispatch-start. Fail closed; never invent 0 or trust model args.
  */
-export function proveMemoryTurnFromOfficialExec(exec: unknown): { turn: number; step: number } {
+export function proveMemoryTurnFromOfficialExec(
+  exec: unknown,
+  events: readonly unknown[],
+): { turn: number; step: number } {
   const bag = asRecord(exec) ?? {};
   if ("turn" in bag || "step" in bag) {
     throw new PenglaiError("UNAUTHORIZED", "model-supplied turn/step is not memory execution provenance");
@@ -53,14 +57,8 @@ export function proveMemoryTurnFromOfficialExec(exec: unknown): { turn: number; 
   const callId = typeof bag.callId === "string" && bag.callId ? bag.callId : undefined;
   if (!callId) throw new PenglaiError("UNAUTHORIZED", "memory tools require ToolRunContext exec.callId");
   const rootCallId = typeof bag.rootCallId === "string" && bag.rootCallId ? bag.rootCallId : callId;
-  const session = asRecord(agent.session);
-  const snapshot = session?.snapshotEvents;
-  if (typeof snapshot !== "function") {
-    throw new PenglaiError("UNAUTHORIZED", "memory tools require official agent.session snapshotEvents");
-  }
-  const events = snapshot.call(session);
   if (!Array.isArray(events)) {
-    throw new PenglaiError("UNAUTHORIZED", "memory tools require official session snapshotEvents");
+    throw new PenglaiError("UNAUTHORIZED", "memory tools require official Session Controller inspection");
   }
   let direct: { turn: number; step: number } | undefined;
   let parent: { turn: number; step: number } | undefined;
@@ -89,11 +87,11 @@ export function proveMemoryTurnFromOfficialExec(exec: unknown): { turn: number; 
   );
 }
 
-function boundToolContext(ctx: CordisTools, exec: unknown): {
+async function boundToolContext(ctx: CordisTools, exec: unknown): Promise<{
   workspaceId: string;
   sessionId: string;
   turnId: string;
-} {
+}> {
   const bag = asRecord(exec) ?? {};
   const agent = asRecord(bag.agent);
   const agentId = typeof agent?.id === "string" && agent.id ? agent.id : undefined;
@@ -101,7 +99,11 @@ function boundToolContext(ctx: CordisTools, exec: unknown): {
   const workspaces = ctx.workspaceRegistry?.list() ?? [];
   const hit = workspaces.find((row) => row.sessionIds?.includes(agentId));
   if (!hit) throw new PenglaiError("UNAUTHORIZED", "agent is not bound to an official Workspace");
-  const { turn } = proveMemoryTurnFromOfficialExec(exec);
+  if (!ctx.sessionController?.inspect) {
+    throw new PenglaiError("DSH_UNAVAILABLE", "official Session Controller inspection required for memory provenance");
+  }
+  const inspected = await ctx.sessionController.inspect(agentId, asRecord(exec)?.signal as AbortSignal | undefined);
+  const { turn } = proveMemoryTurnFromOfficialExec(exec, inspected.events ?? []);
   return { workspaceId: hit.id, sessionId: agentId, turnId: String(turn) };
 }
 
@@ -164,7 +166,7 @@ export function registerMemoryTools(ctx: CordisTools, service: MemoryToolService
         throw new PenglaiError("SECURITY_POLICY", "workspace_id is not a model-controlled argument");
       }
       return failOpen(async () => {
-        const { workspaceId } = boundToolContext(ctx, exec);
+        const { workspaceId } = await boundToolContext(ctx, exec);
         const workspace = await service.search(query, workspaceId);
         const personal = await service.search(query, undefined);
         return { results: [...workspace, ...personal].slice(0, 20) };
@@ -184,7 +186,7 @@ export function registerMemoryTools(ctx: CordisTools, service: MemoryToolService
     async execute(args: unknown, exec?: unknown) {
       const id = String((args as { id?: unknown }).id ?? "");
       return failOpen(async () => {
-        const { workspaceId } = boundToolContext(ctx, exec);
+        const { workspaceId } = await boundToolContext(ctx, exec);
         return service.why(id, workspaceId);
       });
     },
@@ -206,7 +208,7 @@ export function registerMemoryTools(ctx: CordisTools, service: MemoryToolService
       const input = args as { text?: string; scope?: string };
       if (!input.text) throw new PenglaiError("INVALID_INPUT", "memory text required");
       return failOpen(async () => {
-        const context = boundToolContext(ctx, exec);
+        const context = await boundToolContext(ctx, exec);
         const candidate = service.queueToolCandidate({
           text: input.text!,
           suggestedScope: input.scope === "personal" ? "personal" : "workspace",
@@ -231,7 +233,7 @@ export function registerMemoryTools(ctx: CordisTools, service: MemoryToolService
     output: jsonOutput("memory correct"),
     async execute(args: unknown, exec?: unknown) {
       const input = args as { id?: string; text?: string };
-      const { workspaceId } = boundToolContext(ctx, exec);
+      const { workspaceId } = await boundToolContext(ctx, exec);
       return {
         pendingOwnerReview: true,
         action: "memory.correct",
@@ -253,7 +255,7 @@ export function registerMemoryTools(ctx: CordisTools, service: MemoryToolService
     },
     output: jsonOutput("memory forget"),
     async execute(args: unknown, exec?: unknown) {
-      const { workspaceId } = boundToolContext(ctx, exec);
+      const { workspaceId } = await boundToolContext(ctx, exec);
       return {
         pendingOwnerReview: true,
         action: "memory.forget",

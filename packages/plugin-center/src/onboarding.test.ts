@@ -37,6 +37,7 @@ function officialServices(opts: {
   attached?: string[];
 }) {
   let listener: ((...args: unknown[]) => void) | undefined;
+  const eventsBySession = new Map<string, unknown[]>();
   return {
     settings: {
       mutate: async () => undefined,
@@ -66,6 +67,7 @@ function officialServices(opts: {
     },
     agents: {
       async create(input: { sessionId: string }) {
+        eventsBySession.set(input.sessionId, []);
         return {
           agent: {
             followup(message: { content?: Array<{ text?: string }> }) {
@@ -74,18 +76,25 @@ function officialServices(opts: {
               const final = opts.reply(prompt);
               queueMicrotask(() => {
                 if (final) {
-                  listener?.("session/event", {
+                  const messageEvent = {
                     type: "assistant/message",
                     data: { sessionId: input.sessionId, message: { content: [{ type: "text", text: final }] } },
-                  });
+                  };
+                  eventsBySession.get(input.sessionId)?.push(messageEvent);
+                  listener?.("session/event", messageEvent);
                 }
-                listener?.("session/event", { type: "turn/end", data: { sessionId: input.sessionId } });
+                const endEvent = { type: "turn/end", data: { sessionId: input.sessionId } };
+                eventsBySession.get(input.sessionId)?.push(endEvent);
+                listener?.("session/event", endEvent);
               });
             },
           },
           async dispose() {},
         };
       },
+    },
+    sessionController: {
+      inspect: async (sessionId: string) => ({ events: eventsBySession.get(sessionId) ?? [] }),
     },
     on(event: string, fn: (...args: unknown[]) => void) {
       if (event === "session/event") listener = fn;
@@ -660,6 +669,7 @@ function officialFirehoseServices(opts: {
   created?: number[];
 }) {
   let listener: ((...args: unknown[]) => void) | undefined;
+  const eventsBySession = new Map<string, unknown[]>();
   return {
     settings: {
       mutate: async () => undefined,
@@ -681,6 +691,7 @@ function officialFirehoseServices(opts: {
     agents: {
       async create(input: { sessionId: string }) {
         opts.created?.push(1);
+        eventsBySession.set(input.sessionId, []);
         return {
           agent: {
             followup(message: { content?: Array<{ text?: string }> }) {
@@ -688,7 +699,7 @@ function officialFirehoseServices(opts: {
               const session = { id: input.sessionId };
               queueMicrotask(() => {
                 if (opts.failMissing) {
-                  listener?.(session, {
+                  const endEvent = {
                     type: "turn/end",
                     data: {
                       turn: 1,
@@ -701,23 +712,32 @@ function officialFirehoseServices(opts: {
                         },
                       },
                     },
-                  });
+                  };
+                  eventsBySession.get(input.sessionId)?.push(endEvent);
+                  listener?.(session, endEvent);
                   return;
                 }
                 const final = opts.reply(prompt);
                 if (final) {
-                  listener?.(session, {
+                  const messageEvent = {
                     type: "assistant/message",
                     data: { turn: 1, step: 1, message: { content: [{ type: "text", text: final }] } },
-                  });
+                  };
+                  eventsBySession.get(input.sessionId)?.push(messageEvent);
+                  listener?.(session, messageEvent);
                 }
-                listener?.(session, { type: "turn/end", data: { turn: 1, reason: { kind: "completed" } } });
+                const endEvent = { type: "turn/end", data: { turn: 1, reason: { kind: "completed" } } };
+                eventsBySession.get(input.sessionId)?.push(endEvent);
+                listener?.(session, endEvent);
               });
             },
           },
           async dispose() {},
         };
       },
+    },
+    sessionController: {
+      inspect: async (sessionId: string) => ({ events: eventsBySession.get(sessionId) ?? [] }),
     },
     on(event: string, fn: (...args: unknown[]) => void) {
       if (event === "session/event") listener = fn;
@@ -785,7 +805,7 @@ test("viewOfficialSessionEvent reads session.id from the official subject", () =
   assert.equal(streamed.chunkText, "Hello");
 });
 
-test("durableFinalFromOfficialSession reads v2 snapshotEvents without assistant/chunk", () => {
+test("durableFinalFromOfficialSession reads Session Controller events without assistant/chunk", () => {
   const events = [
     { type: "assistant/attempt", data: { turn: 1, step: 1, stream: [{ type: "text-chunks", texts: ["partial"] }] } },
     {
@@ -794,10 +814,10 @@ test("durableFinalFromOfficialSession reads v2 snapshotEvents without assistant/
     },
     { type: "turn/end", data: { turn: 1, reason: { kind: "completed" } } },
   ];
-  const seen = durableFinalFromOfficialSession({ snapshotEvents: () => events });
+  const seen = durableFinalFromOfficialSession({ events });
   assert.equal(seen.final, "final-ok");
   assert.equal(seen.turnCompleted, true);
-  assert.equal(durableFinalFromOfficialSession({ snapshotEvents: () => events }).final.includes("partial"), false);
+  assert.equal(durableFinalFromOfficialSession({ events }).final.includes("partial"), false);
 });
 
 test("official nonce Turn observes (session, event) firehose without sessionId in data", async () => {
@@ -917,9 +937,8 @@ test("official nonce Turn reads whenIdle + durable session log without a firehos
     },
     { type: "turn/end", data: { turn: 1, reason: { kind: "completed" } } },
   ];
-  assert.equal(durableFinalFromOfficialSession({ snapshotEvents: () => events }).final, `PENGLAI_OK_${nonce}`);
-  assert.equal(durableFinalFromOfficialSession({ snapshotEvents: () => events }).turnCompleted, true);
   assert.equal(durableFinalFromOfficialSession({ events }).final, `PENGLAI_OK_${nonce}`);
+  assert.equal(durableFinalFromOfficialSession({ events }).turnCompleted, true);
 
   const impl = createPenglaiOnboardingRemoteImpl({
     dir: mkdtempSync(join(tmpdir(), "penglai-onb-idle-")),
@@ -952,6 +971,7 @@ test("official nonce Turn reads whenIdle + durable session log without a firehos
           };
         },
       },
+      sessionController: { inspect: async () => ({ events }) },
     },
   });
   advanceToModelTest(impl, { credentialRef: "DEEPSEEK_API_KEY" });
@@ -999,6 +1019,7 @@ test("official nonce Turn survives whenIdle resolving before turn/end", async ()
           };
         },
       },
+      sessionController: { inspect: async () => ({ events: session.events }) },
       on(event: string, fn: (...args: unknown[]) => void) {
         if (event === "session/event") listener = fn;
         return () => {

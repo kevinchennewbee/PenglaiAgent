@@ -234,7 +234,7 @@ for (const entry of entries) {
     fail("UOS runtime manifest does not bind a first-party plugin", { pluginId: entry.id });
   }
 }
-for (const id of ["@penglai/office", "@penglai/memory"]) {
+for (const id of ["@penglai/memory"]) {
   const entry = entries.find((row) => row.id === id);
   if (entry?.installClass !== "required-builtin" || entry.defaultEnabled !== true) {
     fail(`${id} is not required and enabled in the UOS installer`);
@@ -289,7 +289,7 @@ finish("PASS", {
   },
   plugins: {
     exactFirstPartyIds: expectedPluginIds,
-    requiredBuiltin: ["@penglai/office", "@penglai/memory"],
+    requiredBuiltin: ["@penglai/memory"],
     mnemonBundled: true,
     mossLoongArchAvailable: false,
   },

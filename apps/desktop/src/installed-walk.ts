@@ -1,7 +1,6 @@
 export const REQUIRED_FRESH_SETTINGS_WALK = [
   "ui-penglai",
   "ui-center",
-  "ui-office",
   "ui-memory",
   "ui-update",
   "ui-uninstall",
@@ -12,9 +11,7 @@ export const REQUIRED_FULL_SETTINGS_WALK = [
   "ui-im",
   "ui-asr",
   "ui-tts",
-  "ui-office",
   "ui-memory",
-  "ui-companion",
   "ui-update",
   "ui-uninstall",
 ] as const;
@@ -81,8 +78,6 @@ export function settingsShotScript(): string {
       tts: Boolean(document.querySelector("[data-penglai-tts]")),
       memorySources: Boolean(document.querySelector("[data-penglai-memory-sources-panel]")),
       memory: Boolean(document.querySelector("[data-penglai-memory]")),
-      budget: Boolean(document.querySelector("[data-penglai-budget]")),
-      companion: Boolean(document.querySelector("[data-penglai-companion]")),
       qrBegin: Boolean(document.querySelector("[data-penglai-im-qr-begin]")),
       feishuWizard: Boolean(document.querySelector("[data-penglai-feishu-wizard]")),
     };

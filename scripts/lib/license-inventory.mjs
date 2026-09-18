@@ -28,12 +28,22 @@ export function declaredLicenseFromMetadata(metadata) {
   if (typeof metadata?.license === "string" && metadata.license.trim()) {
     return metadata.license.trim();
   }
+  if (
+    metadata?.license &&
+    typeof metadata.license === "object" &&
+    typeof metadata.license.type === "string" &&
+    metadata.license.type.trim()
+  ) {
+    return metadata.license.type.trim();
+  }
   const licenses = metadata?.licenses;
   if (!Array.isArray(licenses) || licenses.length === 0) return "NOASSERTION";
   const types = [
     ...new Set(
       licenses
-        .map((row) => (typeof row === "string" ? row : String(row?.type ?? "")).trim())
+        .map((row) =>
+          (typeof row === "string" ? row : String(row?.type ?? "")).trim(),
+        )
         .filter(Boolean),
     ),
   ];
@@ -43,7 +53,9 @@ export function declaredLicenseFromMetadata(metadata) {
 export function classifyLicense(name, declaredLicense, version = "") {
   const license = String(declaredLicense || "").trim();
   if (!license || /unknown|unlicensed|see license/i.test(license)) {
-    throw new Error(`production dependency has unknown license: ${name} (${license || "missing"})`);
+    throw new Error(
+      `production dependency has unknown license: ${name} (${license || "missing"})`,
+    );
   }
   if (name === "jszip" && license === "(MIT OR GPL-3.0-or-later)") {
     return {
@@ -54,17 +66,23 @@ export function classifyLicense(name, declaredLicense, version = "") {
   }
   if (
     ((/^@img\/sharp-libvips-/.test(name) && version === "1.3.3") ||
-      (/^@img\/sharp-(?:(?:darwin|linux|linuxmusl|win32)-[a-z0-9]+|wasm32)$/.test(name) && version === "0.35.4")) &&
+      (/^@img\/sharp-(?:(?:darwin|linux|linuxmusl|win32)-[a-z0-9]+|wasm32)$/.test(
+        name,
+      ) &&
+        version === "0.35.4")) &&
     /LGPL-/.test(license)
   ) {
     return {
       effectiveLicense: license,
       disposition: "lgpl-runtime-source-offer-required",
-      rationale: "Official DSH attachment support redistributes the separately replaceable sharp/libvips runtime with license and corresponding-source offer",
+      rationale:
+        "Official DSH attachment support redistributes the separately replaceable sharp/libvips runtime with license and corresponding-source offer",
     };
   }
   if (/\b(?:AGPL|GPL|LGPL)-/i.test(license)) {
-    throw new Error(`unapproved copyleft production dependency: ${name} (${license})`);
+    throw new Error(
+      `unapproved copyleft production dependency: ${name} (${license})`,
+    );
   }
   if (!PERMISSIVE_LICENSES.has(license)) {
     throw new Error(`unreviewed production license: ${name} (${license})`);
@@ -86,8 +104,10 @@ export function collectLockIntegrities(lock) {
       continue;
     }
     if (!current) continue;
-    const integrity = /^ {4}resolution: \{[^}]*integrity: ([^,}]+)[^}]*\}$/.exec(line);
-    if (integrity) rows.push({ packageId: current, integrity: integrity[1].trim() });
+    const integrity =
+      /^ {4}resolution: \{[^}]*integrity: ([^,}]+)[^}]*\}$/.exec(line);
+    if (integrity)
+      rows.push({ packageId: current, integrity: integrity[1].trim() });
   }
   return rows;
 }
@@ -102,6 +122,7 @@ export function integrityForPackage(lockRows, name, version) {
   // Some npm packages put a leading "v" in package.json.version while the
   // lockfile key uses the registry version without it (dingtalk-stream 2.1.5).
   const raw = String(version ?? "");
-  if (/^v\d/.test(raw)) return integrityForPackage(lockRows, name, raw.slice(1));
+  if (/^v\d/.test(raw))
+    return integrityForPackage(lockRows, name, raw.slice(1));
   return undefined;
 }

@@ -4,12 +4,6 @@ import { dirname, join } from "node:path";
 import { PenglaiError, parseClosedEnum, readExactRegularFile } from "@penglai/contracts";
 
 export const OWNER_ACTIONS = [
-  "office.commit",
-  "office.commit-path",
-  "office.export",
-  "office.return",
-  "office.undo",
-  "office.discard",
   "memory.accept",
   "memory.personal",
   "memory.personalize",
@@ -33,10 +27,6 @@ export const OWNER_ACTIONS = [
   "im.saveCredentials",
   "im.deleteCredentials",
   "im.logout",
-  "companion.enable",
-  "companion.disable",
-  "companion.schedule-reminder",
-  "budget.set-policy",
 ] as const;
 
 export type OwnerAction = (typeof OWNER_ACTIONS)[number];
@@ -278,7 +268,7 @@ export class OwnerApprovalBroker {
       actionId: row.intent.actionId,
       action: row.intent.action,
       pluginId: row.intent.pluginId,
-      reversible: row.intent.action === "office.undo" || row.intent.action === "plugin.rollback",
+      reversible: row.intent.action === "plugin.rollback",
       noticeEn: NOTICE_EN,
       noticeZh: NOTICE_ZH,
       ...(row.intent.workspaceId ? { workspaceLabel: row.intent.workspaceId } : {}),

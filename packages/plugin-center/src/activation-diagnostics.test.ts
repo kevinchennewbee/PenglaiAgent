@@ -19,13 +19,13 @@ test("activation diagnostics retain only closed official inventory phases", () =
     {
       list: () => [
         {
-          moduleName: "@penglai/companion",
+          moduleName: "@penglai/asr",
           enabled: true,
           fiberPhase: "pending",
         },
       ],
     },
-    "@penglai/companion",
+    "@penglai/asr",
     "2026-08-29T00:00:00.000Z",
   );
   assert.deepEqual(pending, {
@@ -39,13 +39,13 @@ test("activation diagnostics retain only closed official inventory phases", () =
     {
       list: () => [
         {
-          moduleName: "@penglai/companion",
+          moduleName: "@penglai/asr",
           enabled: true,
           fiberPhase: "private /Users/example stack detail",
         },
       ],
     },
-    "@penglai/companion",
+    "@penglai/asr",
   );
   assert.equal(unknown.phase, "unknown");
   assert.doesNotMatch(JSON.stringify(unknown), /Users|stack detail/);
@@ -53,14 +53,14 @@ test("activation diagnostics retain only closed official inventory phases", () =
     {
       list: () => [
         {
-          moduleName: "@penglai/companion",
+          moduleName: "@penglai/asr",
           enabled: false,
           disabled: true,
           fiberPhase: "unloading",
         },
       ],
     },
-    "@penglai/companion",
+    "@penglai/asr",
   );
   assert.equal(unloading.phase, "unloading");
 });
@@ -74,14 +74,14 @@ test("activation convergence records pending to active and stops on actual state
         calls += 1;
         return [
           {
-            moduleName: "@penglai/companion",
+            moduleName: "@penglai/asr",
             enabled: true,
             fiberPhase: calls === 1 ? "pending" : "active",
           },
         ];
       },
     },
-    "@penglai/companion",
+    "@penglai/asr",
     true,
     true,
     200,
@@ -99,7 +99,7 @@ test("disable convergence waits through unloading for disabled readback", async 
         calls += 1;
         return [
           {
-            moduleName: "@penglai/companion",
+            moduleName: "@penglai/asr",
             enabled: false,
             disabled: true,
             fiberPhase: calls === 1 ? "unloading" : "disabled",
@@ -107,7 +107,7 @@ test("disable convergence waits through unloading for disabled readback", async 
         ];
       },
     },
-    "@penglai/companion",
+    "@penglai/asr",
     false,
     true,
     200,
@@ -122,13 +122,13 @@ test("activation refresh discards a stale failed snapshot before convergence", a
   const observations: string[] = [];
   await waitForInventory(
     {
-      list: () => [{ moduleName: "@penglai/companion", enabled: true, fiberPhase: phase }],
+      list: () => [{ moduleName: "@penglai/asr", enabled: true, fiberPhase: phase }],
       async refresh() {
         refreshes += 1;
         phase = refreshes === 1 ? "loading" : "active";
       },
     },
-    "@penglai/companion",
+    "@penglai/asr",
     true,
     true,
     200,
@@ -139,7 +139,7 @@ test("activation refresh discards a stale failed snapshot before convergence", a
 
 test("an active inventory row cannot pass when the plugin service is unhealthy", () => {
   assert.throws(
-    () => assertPluginServiceHealthy(() => ({ healthy: false, error: "private local path" }), "@penglai/office"),
+    () => assertPluginServiceHealthy(() => ({ healthy: false, error: "private local path" }), "@penglai/memory"),
     (error: unknown) =>
       error instanceof PenglaiError &&
       error.message === "PLUGIN_SERVICE_UNHEALTHY" &&
@@ -153,13 +153,13 @@ test("activation timeout and transaction failures expose only closed codes", asy
       {
         list: () => [
           {
-            moduleName: "@penglai/companion",
+            moduleName: "@penglai/asr",
             enabled: true,
             fiberPhase: "private loader exception",
           },
         ],
       },
-      "@penglai/companion",
+      "@penglai/asr",
       true,
       true,
       0,
@@ -196,7 +196,7 @@ test("latest transaction diagnostic strips private journal fields", () => {
         operationId: "private-operation-id",
         packageSha256: "a".repeat(64),
         loaderError: "private loader stack",
-        id: "@penglai/companion",
+        id: "@penglai/asr",
         action: "enable",
         phase: "rolled_back",
         failureCode: "PLUGIN_ACTIVATION_TIMEOUT",

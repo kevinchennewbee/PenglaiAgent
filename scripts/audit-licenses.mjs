@@ -1,10 +1,20 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { buildDshLocalDependencyMap } from "./lib/dsh-local-dependency-map.mjs";
-import { MNEMON_ASSETS, MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
+import { EXCLUDED_DSH_RUNTIME_PACKAGES } from "./lib/dsh-closure.mjs";
+import {
+  MNEMON_ASSETS,
+  MNEMON_UPSTREAM,
+} from "../packages/release-identity/src/mnemon-assets.js";
 import { resolvePackageMetadata } from "./lib/package-metadata.mjs";
 import {
   classifyLicense,
@@ -17,30 +27,50 @@ import {
 mkdirSync("evidence/generated", { recursive: true });
 const req = createRequire(`${process.cwd()}/package.json`);
 const asrReq = createRequire(`${process.cwd()}/packages/asr/package.json`);
-const mossReq = createRequire(`${process.cwd()}/packages/moss-tts/package.json`);
-const audioReq = createRequire(`${process.cwd()}/packages/audio-codecs/package.json`);
-const officeReq = createRequire(`${process.cwd()}/packages/office/package.json`);
-const feishuReq = createRequire(`${process.cwd()}/packages/channel-feishu/package.json`);
-const FUNASR_LICENSE_SHA256 = "7dba975a2069691db4992b0592d70828b330d2f8a30a71450f4e152a554e84f8";
-const SHERPA_LICENSE_SHA256 = "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30";
-const SHERPA_INTEGRITY = "sha512-t6fsJmLWG5N51L950kr0u3sqP/bppOoLed0DWAXwJ/l1ziRPTwkvNy28aXb2720g9p8NbYoLLOS/GOf+vJTeZg==";
-const ONNX_RUNTIME_INTEGRITY = "sha512-OBTsG0W8ddBVOeVVVychpVBS87A9YV5sa2hJ6lc025T97Le+J4v++PwSC4XFs1C62SWyNdof0Mh4KvnZgtt4aw==";
-const SENTENCEPIECE_INTEGRITY = "sha512-HN6teKCRO9tz37zbaNI3i+vMZ/JRWDt6kmZ7OVpzQv1jZHyYNmf5tE7CFpIYN86+y9TLB0cuscMdA3OHhT/MhQ==";
+const mossReq = createRequire(
+  `${process.cwd()}/packages/moss-tts/package.json`,
+);
+const audioReq = createRequire(
+  `${process.cwd()}/packages/audio-codecs/package.json`,
+);
+const feishuReq = createRequire(
+  `${process.cwd()}/packages/channel-feishu/package.json`,
+);
+const FUNASR_LICENSE_SHA256 =
+  "7dba975a2069691db4992b0592d70828b330d2f8a30a71450f4e152a554e84f8";
+const SHERPA_LICENSE_SHA256 =
+  "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30";
+const SHERPA_INTEGRITY =
+  "sha512-t6fsJmLWG5N51L950kr0u3sqP/bppOoLed0DWAXwJ/l1ziRPTwkvNy28aXb2720g9p8NbYoLLOS/GOf+vJTeZg==";
+const ONNX_RUNTIME_INTEGRITY =
+  "sha512-OBTsG0W8ddBVOeVVVychpVBS87A9YV5sa2hJ6lc025T97Le+J4v++PwSC4XFs1C62SWyNdof0Mh4KvnZgtt4aw==";
+const SENTENCEPIECE_INTEGRITY =
+  "sha512-HN6teKCRO9tz37zbaNI3i+vMZ/JRWDt6kmZ7OVpzQv1jZHyYNmf5tE7CFpIYN86+y9TLB0cuscMdA3OHhT/MhQ==";
 const MOSS_SOURCE_COMMIT = "cc7bdf19c7639c0870dab22045a33b442760f6be";
 const MOSS_TTS_REVISION = "f52645cb467506d8e18e746ddd59482685b74e58";
 const MOSS_CODEC_REVISION = "ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae";
 const MOSS_RUNTIME_COMMIT = "c3b2333b88e0f062ca49d403540a169609354d93";
-const MOSS_UPSTREAM_LICENSE_SHA256 = "1dc6904a1959e039b44569c6a726a611f75287051284de1b6cc0dc7712b14d11";
-const SILK_INTEGRITY = "sha512-mXPwLRtZxrYV3TZx41jMAeKc80wvmyrcXIcs8HctFxK15Ahz2OJQENYhNgEPeCEOdI6Mbx1NxQsqxzwc3DKerw==";
-const LIBOPUS_INTEGRITY = "sha512-2+woONr9rwcSj6HMQDC+cEdCb/WRBDwqHXEc42hhFLRB/jEumgl90ku09Blk6zb0Wd3Sewvk6KJEGhBg3IjApQ==";
+const MOSS_UPSTREAM_LICENSE_SHA256 =
+  "1dc6904a1959e039b44569c6a726a611f75287051284de1b6cc0dc7712b14d11";
+const SILK_INTEGRITY =
+  "sha512-mXPwLRtZxrYV3TZx41jMAeKc80wvmyrcXIcs8HctFxK15Ahz2OJQENYhNgEPeCEOdI6Mbx1NxQsqxzwc3DKerw==";
+const LIBOPUS_INTEGRITY =
+  "sha512-2+woONr9rwcSj6HMQDC+cEdCb/WRBDwqHXEc42hhFLRB/jEumgl90ku09Blk6zb0Wd3Sewvk6KJEGhBg3IjApQ==";
 const DINGTALK_STREAM_INTEGRITY =
   "sha512-6H3tSc/mE6hMj4RBB5ntkI4ycC498RobmtMxfLS8eBTRPjBZlhUdDYEHA0asOoTLSzC2PHqupr4D4HVoaU7bRQ==";
-const NOTO_CJK_SHA256 = "d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964";
-const NOTO_OFL_SHA256 = "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2";
 const SHARP_LEGAL_FILES = Object.freeze([
-  ["third_party/sharp/libvips-LGPL-2.1.txt", "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"],
-  ["third_party/sharp/sharp-libvips-Apache-2.0.txt", "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"],
-  ["third_party/sharp/sharp-libvips-THIRD-PARTY-NOTICES.md", "25ffcfa69e28b1913ced27ec778b90f24911a1bb3021253577e8b0af55db0d49"],
+  [
+    "third_party/sharp/libvips-LGPL-2.1.txt",
+    "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+  ],
+  [
+    "third_party/sharp/sharp-libvips-Apache-2.0.txt",
+    "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+  ],
+  [
+    "third_party/sharp/sharp-libvips-THIRD-PARTY-NOTICES.md",
+    "25ffcfa69e28b1913ced27ec778b90f24911a1bb3021253577e8b0af55db0d49",
+  ],
 ]);
 
 function sha256File(path) {
@@ -52,7 +82,12 @@ function packageInfoFor(
   resolver = mossReq,
   fromDir = join(process.cwd(), "packages/moss-tts"),
 ) {
-  const found = resolvePackageMetadata(packageName, resolver, fromDir, process.cwd());
+  const found = resolvePackageMetadata(
+    packageName,
+    resolver,
+    fromDir,
+    process.cwd(),
+  );
   return { root: found.root, pkg: found.metadata };
 }
 
@@ -62,11 +97,15 @@ function packageJsonFor(packageName, resolver = mossReq, fromDir) {
 
 const licenses = [
   { name: "penglaiagent", license: "MIT" },
-  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.5-rc.2" },
-  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.5-rc.2" },
-  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.5-rc.2" },
-  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.5-rc.2" },
-  { name: "Tencent openclaw-weixin protocol reference", license: "MIT", commit: "cef0bfc390393f716903e16d50408118047f87e0" },
+  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.6-alpha.2" },
+  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.6-alpha.2" },
+  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.6-alpha.2" },
+  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.6-alpha.2" },
+  {
+    name: "Tencent openclaw-weixin protocol reference",
+    license: "MIT",
+    commit: "cef0bfc390393f716903e16d50408118047f87e0",
+  },
   { name: "typescript", license: "Apache-2.0" },
   { name: "tsx", license: "MIT" },
   { name: "electron", license: "MIT", pin: "43.6.0" },
@@ -75,20 +114,6 @@ const licenses = [
     license: "MIT",
     pin: "1.73.3",
     commit: "af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513",
-    bundledInInstaller: true,
-  },
-  { name: "docx", license: "MIT", pin: "9.7.1", bundledInInstaller: true },
-  { name: "exceljs", license: "MIT", pin: "4.4.0", bundledInInstaller: true },
-  { name: "uuid", license: "MIT", pin: "11.1.1", bundledInInstaller: true },
-  { name: "@liustack/pptfast", license: "MIT", pin: "0.20.0", bundledInInstaller: true },
-  { name: "pdf-lib", license: "MIT", pin: "1.17.1", bundledInInstaller: true },
-  { name: "@pdf-lib/fontkit", license: "MIT", pin: "1.1.1", bundledInInstaller: true },
-  {
-    name: "Noto Sans SC variable font",
-    license: "OFL-1.1",
-    commit: "f8d157532fbfaeda587e826d4cd5b21a49186f7c",
-    sha256: NOTO_CJK_SHA256,
-    licenseSha256: NOTO_OFL_SHA256,
     bundledInInstaller: true,
   },
   {
@@ -125,7 +150,8 @@ const licenses = [
     license: "MIT",
     pin: "1.23.2",
     integrity: ONNX_RUNTIME_INTEGRITY,
-    licenseSha256: "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+    licenseSha256:
+      "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
     bundledInInstaller: true,
   },
   {
@@ -133,7 +159,8 @@ const licenses = [
     license: "Apache-2.0",
     pin: "1.1.0",
     integrity: SENTENCEPIECE_INTEGRITY,
-    licenseSha256: "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    licenseSha256:
+      "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
     bundledInInstaller: true,
   },
   {
@@ -141,8 +168,10 @@ const licenses = [
     license: "MIT",
     pin: "3.7.1",
     integrity: SILK_INTEGRITY,
-    licenseSha256: "3b1585c0e6d9d501e86383948fc0d1734bcb86517a13111d97749c65ad2bfb74",
-    wasmSha256: "88152af59af535b8056ac806710824b2259a361027451b494f175f48fb39c807",
+    licenseSha256:
+      "3b1585c0e6d9d501e86383948fc0d1734bcb86517a13111d97749c65ad2bfb74",
+    wasmSha256:
+      "88152af59af535b8056ac806710824b2259a361027451b494f175f48fb39c807",
     bundledInInstaller: true,
   },
   {
@@ -151,11 +180,16 @@ const licenses = [
     pin: "0.3.0",
     commit: "bd37b907c636705d59cc2b836e6912e317a65a47",
     integrity: LIBOPUS_INTEGRITY,
-    licenseSha256: "6ae2daf92d73e912aef033d56ce374df997ae0ad1d88ca9ef76f0c11123aae27",
-    noticesSha256: "e1aa9531a6cd740a76f54a06903d76dbec8b218307030c8444f2570932fafec8",
-    upstreamModuleSha256: "0041fc800ccd26f56b27eaeb1834c8c6854e5167d48cd628a4f98ec5b590c6f1",
-    packedModuleSha256: "91dd47a607353f40919d2a54d3cbc0f35c59f8d79ada2d361d2c9339e049e0b7",
-    transform: "same-length removal of upstream absolute build paths from debug strings",
+    licenseSha256:
+      "6ae2daf92d73e912aef033d56ce374df997ae0ad1d88ca9ef76f0c11123aae27",
+    noticesSha256:
+      "e1aa9531a6cd740a76f54a06903d76dbec8b218307030c8444f2570932fafec8",
+    upstreamModuleSha256:
+      "0041fc800ccd26f56b27eaeb1834c8c6854e5167d48cd628a4f98ec5b590c6f1",
+    packedModuleSha256:
+      "91dd47a607353f40919d2a54d3cbc0f35c59f8d79ada2d361d2c9339e049e0b7",
+    transform:
+      "same-length removal of upstream absolute build paths from debug strings",
     bundledInInstaller: true,
   },
   {
@@ -163,7 +197,8 @@ const licenses = [
     license: "Apache-2.0",
     sourceCommit: MOSS_SOURCE_COMMIT,
     runtimeCommit: MOSS_RUNTIME_COMMIT,
-    runtimeSha256: "b49d214bbe9ba9849d48e1588c66a70173eee76c211bb4f473b5eadf7bce038c",
+    runtimeSha256:
+      "b49d214bbe9ba9849d48e1588c66a70173eee76c211bb4f473b5eadf7bce038c",
     upstreamLicenseSha256: MOSS_UPSTREAM_LICENSE_SHA256,
     bundledInInstaller: true,
   },
@@ -208,7 +243,11 @@ const sherpaPkg = JSON.parse(
   readFileSync(asrReq.resolve("sherpa-onnx/package.json"), "utf8"),
 );
 if (sherpaPkg.version !== "1.13.7" || sherpaPkg.license !== "Apache-2.0") {
-  console.error("unexpected sherpa-onnx version/license", sherpaPkg.version, sherpaPkg.license);
+  console.error(
+    "unexpected sherpa-onnx version/license",
+    sherpaPkg.version,
+    sherpaPkg.license,
+  );
   process.exit(1);
 }
 const onnxPkg = packageJsonFor("onnxruntime-node");
@@ -216,18 +255,18 @@ const sentencepiecePkg = packageJsonFor("sentencepiece-js");
 const audioDir = join(process.cwd(), "packages/audio-codecs");
 const silkInfo = packageInfoFor("silk-wasm", audioReq, audioDir);
 const opusInfo = packageInfoFor("libopus-wasm", audioReq, audioDir);
-const excelInfo = packageInfoFor(
-  "exceljs",
-  officeReq,
-  join(process.cwd(), "packages/office"),
-);
-const excelReq = createRequire(join(excelInfo.root, "package.json"));
-const uuidInfo = packageInfoFor("uuid", excelReq, excelInfo.root);
 if (onnxPkg.version !== "1.23.2" || onnxPkg.license !== "MIT") {
-  console.error("unexpected onnxruntime-node version/license", onnxPkg.version, onnxPkg.license);
+  console.error(
+    "unexpected onnxruntime-node version/license",
+    onnxPkg.version,
+    onnxPkg.license,
+  );
   process.exit(1);
 }
-if (sentencepiecePkg.version !== "1.1.0" || sentencepiecePkg.license !== "Apache-2.0") {
+if (
+  sentencepiecePkg.version !== "1.1.0" ||
+  sentencepiecePkg.license !== "Apache-2.0"
+) {
   console.error(
     "unexpected sentencepiece-js version/license",
     sentencepiecePkg.version,
@@ -236,48 +275,59 @@ if (sentencepiecePkg.version !== "1.1.0" || sentencepiecePkg.license !== "Apache
   process.exit(1);
 }
 if (silkInfo.pkg.version !== "3.7.1" || silkInfo.pkg.license !== "MIT") {
-  console.error("unexpected silk-wasm version/license", silkInfo.pkg.version, silkInfo.pkg.license);
+  console.error(
+    "unexpected silk-wasm version/license",
+    silkInfo.pkg.version,
+    silkInfo.pkg.license,
+  );
   process.exit(1);
 }
 if (opusInfo.pkg.version !== "0.3.0" || opusInfo.pkg.license !== "MIT") {
-  console.error("unexpected libopus-wasm version/license", opusInfo.pkg.version, opusInfo.pkg.license);
-  process.exit(1);
-}
-if (uuidInfo.pkg.version !== "11.1.1" || uuidInfo.pkg.license !== "MIT") {
-  console.error("unexpected uuid version/license", uuidInfo.pkg.version, uuidInfo.pkg.license);
+  console.error(
+    "unexpected libopus-wasm version/license",
+    opusInfo.pkg.version,
+    opusInfo.pkg.license,
+  );
   process.exit(1);
 }
 for (const [resolver, fromDir, name, version, license] of [
-  [feishuReq, join(process.cwd(), "packages/channel-feishu"), "@larksuiteoapi/node-sdk", "1.73.3", "MIT"],
-  [officeReq, join(process.cwd(), "packages/office"), "docx", "9.7.1", "MIT"],
-  [officeReq, join(process.cwd(), "packages/office"), "exceljs", "4.4.0", "MIT"],
-  [officeReq, join(process.cwd(), "packages/office"), "@liustack/pptfast", "0.20.0", "MIT"],
-  [officeReq, join(process.cwd(), "packages/office"), "pdf-lib", "1.17.1", "MIT"],
-  [officeReq, join(process.cwd(), "packages/office"), "@pdf-lib/fontkit", "1.1.1", "MIT"],
+  [
+    feishuReq,
+    join(process.cwd(), "packages/channel-feishu"),
+    "@larksuiteoapi/node-sdk",
+    "1.73.3",
+    "MIT",
+  ],
 ]) {
   const metadata = packageInfoFor(name, resolver, fromDir).pkg;
   if (metadata.version !== version || metadata.license !== license) {
-    console.error("unexpected package version/license", name, metadata.version, metadata.license);
+    console.error(
+      "unexpected package version/license",
+      name,
+      metadata.version,
+      metadata.license,
+    );
     process.exit(1);
   }
 }
-const fontSource = JSON.parse(readFileSync("packages/office/fonts/SOURCE.json", "utf8"));
-const mnemonManifest = JSON.parse(readFileSync("third_party/mnemon/manifest.json", "utf8"));
+const mnemonManifest = JSON.parse(
+  readFileSync("third_party/mnemon/manifest.json", "utf8"),
+);
 if (
-  fontSource.license !== "OFL-1.1" ||
-  fontSource.upstreamSha256 !== NOTO_CJK_SHA256 ||
-  fontSource.bundledSha256 !== NOTO_CJK_SHA256 ||
   MNEMON_UPSTREAM.license !== "Apache-2.0" ||
   mnemonManifest.license !== MNEMON_UPSTREAM.license ||
   mnemonManifest.licenseSha256 !== MNEMON_UPSTREAM.licenseSha256 ||
   mnemonManifest.commit !== MNEMON_UPSTREAM.commit ||
   MNEMON_ASSETS.length !== 4
 ) {
-  console.error("Office font or Mnemon license provenance drift");
+  console.error("Mnemon license provenance drift");
   process.exit(1);
 }
 const lock = readFileSync("pnpm-lock.yaml", "utf8");
-if (!lock.includes(`sherpa-onnx@1.13.7:`) || !lock.includes(`integrity: ${SHERPA_INTEGRITY}`)) {
+if (
+  !lock.includes(`sherpa-onnx@1.13.7:`) ||
+  !lock.includes(`integrity: ${SHERPA_INTEGRITY}`)
+) {
   console.error("sherpa-onnx lock integrity missing");
   process.exit(1);
 }
@@ -288,7 +338,10 @@ for (const [name, version, integrity] of [
   ["libopus-wasm", "0.3.0", LIBOPUS_INTEGRITY],
   ["dingtalk-stream", "2.1.5", DINGTALK_STREAM_INTEGRITY],
 ]) {
-  if (!lock.includes(`${name}@${version}:`) || !lock.includes(`integrity: ${integrity}`)) {
+  if (
+    !lock.includes(`${name}@${version}:`) ||
+    !lock.includes(`integrity: ${integrity}`)
+  ) {
     console.error(`${name} lock integrity missing`);
     process.exit(1);
   }
@@ -296,7 +349,10 @@ for (const [name, version, integrity] of [
 function pinnedFileHash(path) {
   const bytes = readFileSync(path);
   const exact = createHash("sha256").update(bytes).digest("hex");
-  if (!/\.(?:txt|md)$/i.test(path) && !/(?:^|[\\/])(?:LICENSE|NOTICE)$/i.test(path)) {
+  if (
+    !/\.(?:txt|md)$/i.test(path) &&
+    !/(?:^|[\\/])(?:LICENSE|NOTICE)$/i.test(path)
+  ) {
     return { exact, canonicalText: exact };
   }
   const canonicalText = createHash("sha256")
@@ -306,29 +362,70 @@ function pinnedFileHash(path) {
 }
 
 for (const [path, expected] of [
-  [join(silkInfo.root, "LICENSE"), "3b1585c0e6d9d501e86383948fc0d1734bcb86517a13111d97749c65ad2bfb74"],
-  [join(silkInfo.root, "lib/silk.wasm"), "88152af59af535b8056ac806710824b2259a361027451b494f175f48fb39c807"],
-  [join(opusInfo.root, "LICENSE"), "6ae2daf92d73e912aef033d56ce374df997ae0ad1d88ca9ef76f0c11123aae27"],
-  [join(opusInfo.root, "THIRD_PARTY_NOTICES.md"), "e1aa9531a6cd740a76f54a06903d76dbec8b218307030c8444f2570932fafec8"],
+  [
+    join(silkInfo.root, "LICENSE"),
+    "3b1585c0e6d9d501e86383948fc0d1734bcb86517a13111d97749c65ad2bfb74",
+  ],
+  [
+    join(silkInfo.root, "lib/silk.wasm"),
+    "88152af59af535b8056ac806710824b2259a361027451b494f175f48fb39c807",
+  ],
+  [
+    join(opusInfo.root, "LICENSE"),
+    "6ae2daf92d73e912aef033d56ce374df997ae0ad1d88ca9ef76f0c11123aae27",
+  ],
+  [
+    join(opusInfo.root, "THIRD_PARTY_NOTICES.md"),
+    "e1aa9531a6cd740a76f54a06903d76dbec8b218307030c8444f2570932fafec8",
+  ],
 ]) {
   const actual = pinnedFileHash(path);
   if (actual.exact !== expected && actual.canonicalText !== expected) {
-    console.error("audio codec license/runtime hash mismatch", path, actual.exact);
+    console.error(
+      "audio codec license/runtime hash mismatch",
+      path,
+      actual.exact,
+    );
     process.exit(1);
   }
 }
 for (const [path, expected] of [
-  ["packages/asr/third_party/FunASR-MODEL_LICENSE-1.1.txt", FUNASR_LICENSE_SHA256],
-  ["packages/asr/third_party/sherpa-onnx-Apache-2.0.txt", SHERPA_LICENSE_SHA256],
-  ["packages/moss-tts/third_party/OpenMOSS-Apache-2.0.txt", "e83b87b4c86fc39a3e3278705e02f3599d63b0a9fd006a6ec7aa721d38d4086d"],
-  ["packages/moss-tts/third_party/onnxruntime-MIT.txt", "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"],
-  ["packages/moss-tts/third_party/sentencepiece-js-Apache-2.0.txt", "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"],
-  ["packages/moss-tts/src/third_party/moss_tts/LICENSE", "e83b87b4c86fc39a3e3278705e02f3599d63b0a9fd006a6ec7aa721d38d4086d"],
-  ["packages/moss-tts/src/third_party/moss_tts/runtime.mjs", "b49d214bbe9ba9849d48e1588c66a70173eee76c211bb4f473b5eadf7bce038c"],
-  ["packages/moss-tts/third_party/PROVENANCE.md", "d14085661d78d7c473d30c91a762d88a80407d9cae9f066648cf323d81064fdb"],
-  ["packages/office/fonts/NotoSansSC-VF.ttf", NOTO_CJK_SHA256],
-  ["packages/office/fonts/OFL.txt", NOTO_OFL_SHA256],
-  ["packages/moss-tts/third_party/sentencepiece-js-Apache-2.0.txt", MNEMON_UPSTREAM.licenseSha256],
+  [
+    "packages/asr/third_party/FunASR-MODEL_LICENSE-1.1.txt",
+    FUNASR_LICENSE_SHA256,
+  ],
+  [
+    "packages/asr/third_party/sherpa-onnx-Apache-2.0.txt",
+    SHERPA_LICENSE_SHA256,
+  ],
+  [
+    "packages/moss-tts/third_party/OpenMOSS-Apache-2.0.txt",
+    "e83b87b4c86fc39a3e3278705e02f3599d63b0a9fd006a6ec7aa721d38d4086d",
+  ],
+  [
+    "packages/moss-tts/third_party/onnxruntime-MIT.txt",
+    "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+  ],
+  [
+    "packages/moss-tts/third_party/sentencepiece-js-Apache-2.0.txt",
+    "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+  ],
+  [
+    "packages/moss-tts/src/third_party/moss_tts/LICENSE",
+    "e83b87b4c86fc39a3e3278705e02f3599d63b0a9fd006a6ec7aa721d38d4086d",
+  ],
+  [
+    "packages/moss-tts/src/third_party/moss_tts/runtime.mjs",
+    "b49d214bbe9ba9849d48e1588c66a70173eee76c211bb4f473b5eadf7bce038c",
+  ],
+  [
+    "packages/moss-tts/third_party/PROVENANCE.md",
+    "d14085661d78d7c473d30c91a762d88a80407d9cae9f066648cf323d81064fdb",
+  ],
+  [
+    "packages/moss-tts/third_party/sentencepiece-js-Apache-2.0.txt",
+    MNEMON_UPSTREAM.licenseSha256,
+  ],
 ]) {
   const actual = pinnedFileHash(path);
   if (actual.exact !== expected && actual.canonicalText !== expected) {
@@ -339,30 +436,49 @@ for (const [path, expected] of [
 function installedLicenseInventory({ production }) {
   const lockRows = collectLockIntegrities(lock);
   const sourceRows = new Map(
-    buildDshLocalDependencyMap(process.cwd()).packages.map((row) => [`${row.name}@${row.version}`, row]),
+    buildDshLocalDependencyMap(process.cwd()).packages.map((row) => [
+      `${row.name}@${row.version}`,
+      row,
+    ]),
   );
   const queue = [];
+  const retiredWorkspaces = new Set(["office", "budget", "companion"]);
   for (const parent of ["apps", "packages"]) {
     for (const name of readdirSync(parent)) {
+      if (parent === "packages" && retiredWorkspaces.has(name)) continue;
       const fromDir = join(process.cwd(), parent, name);
       const manifestPath = join(fromDir, "package.json");
       if (!existsSync(manifestPath)) continue;
       const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
       const fields = production
         ? ["dependencies", "optionalDependencies", "peerDependencies"]
-        : ["dependencies", "optionalDependencies", "peerDependencies", "devDependencies"];
+        : [
+            "dependencies",
+            "optionalDependencies",
+            "peerDependencies",
+            "devDependencies",
+          ];
       const resolver = createRequire(manifestPath);
       for (const field of fields) {
-        for (const dependency of Object.keys(manifest[field] ?? {})) queue.push({ dependency, resolver, fromDir });
+        for (const dependency of Object.keys(manifest[field] ?? {})) {
+          if (EXCLUDED_DSH_RUNTIME_PACKAGES.has(dependency)) continue;
+          queue.push({ dependency, resolver, fromDir });
+        }
       }
     }
   }
   const rows = new Map();
   const visitedRoots = new Set();
   for (let next = queue.shift(); next; next = queue.shift()) {
+    if (EXCLUDED_DSH_RUNTIME_PACKAGES.has(next.dependency)) continue;
     let found;
     try {
-      found = resolvePackageMetadata(next.dependency, next.resolver, next.fromDir, process.cwd());
+      found = resolvePackageMetadata(
+        next.dependency,
+        next.resolver,
+        next.fromDir,
+        process.cwd(),
+      );
     } catch {
       continue;
     }
@@ -371,18 +487,27 @@ function installedLicenseInventory({ production }) {
     const metadata = found.metadata;
     const manifestPath = join(found.root, "package.json");
     const resolver = createRequire(manifestPath);
-    for (const field of ["dependencies", "optionalDependencies", "peerDependencies"]) {
+    for (const field of [
+      "dependencies",
+      "optionalDependencies",
+      "peerDependencies",
+    ]) {
       for (const dependency of Object.keys(metadata[field] ?? {})) {
+        if (EXCLUDED_DSH_RUNTIME_PACKAGES.has(dependency)) continue;
         queue.push({ dependency, resolver, fromDir: found.root });
       }
     }
-    const isWorkspace = found.root.startsWith(join(process.cwd(), "packages")) || found.root.startsWith(join(process.cwd(), "apps"));
+    const isWorkspace =
+      found.root.startsWith(join(process.cwd(), "packages")) ||
+      found.root.startsWith(join(process.cwd(), "apps"));
     if (isWorkspace) continue;
     const name = String(metadata.name ?? next.dependency);
     const version = String(metadata.version ?? "");
     const declaredLicense = declaredLicenseFromMetadata(metadata);
     const sourceRow = sourceRows.get(`${name}@${version}`);
-    const integrity = sourceRow ? `sha256-${sourceRow.sha256}` : integrityForPackage(lockRows, name, version);
+    const integrity = sourceRow
+      ? `sha256-${sourceRow.sha256}`
+      : integrityForPackage(lockRows, name, version);
     const decision = production
       ? classifyLicense(name, declaredLicense, version)
       : {
@@ -391,7 +516,9 @@ function installedLicenseInventory({ production }) {
           rationale: "not part of the audited production dependency closure",
         };
     if (production && !integrity) {
-      throw new Error(`production dependency integrity missing from lock/source closure: ${name}@${version}`);
+      throw new Error(
+        `production dependency integrity missing from lock/source closure: ${name}@${version}`,
+      );
     }
     rows.set(`${name}@${version}`, {
       name,
@@ -404,11 +531,15 @@ function installedLicenseInventory({ production }) {
       integrity: integrity ?? "NOASSERTION",
     });
   }
-  return [...rows.values()].sort((a, b) => `${a.name}@${a.version}`.localeCompare(`${b.name}@${b.version}`));
+  return [...rows.values()].sort((a, b) =>
+    `${a.name}@${a.version}`.localeCompare(`${b.name}@${b.version}`),
+  );
 }
 
 const productionInventory = installedLicenseInventory({ production: true });
-const completeInstalledInventory = installedLicenseInventory({ production: false });
+const completeInstalledInventory = installedLicenseInventory({
+  production: false,
+});
 const packScript = readFileSync("scripts/pack-plugins.mjs", "utf8");
 const retiredRuntimePackages = new Set([
   "@penglai/channel-whatsapp",
@@ -418,21 +549,20 @@ const retiredRuntimePackages = new Set([
 ]);
 if (
   existsSync("packages/channel-whatsapp/package.json") ||
-  [...productionInventory, ...completeInstalledInventory].some((row) => retiredRuntimePackages.has(row.name)) ||
+  [...productionInventory, ...completeInstalledInventory].some((row) =>
+    retiredRuntimePackages.has(row.name),
+  ) ||
   !packScript.includes("must not bundle a retired channel runtime") ||
   !packScript.includes("staging contains a retired channel runtime")
 ) {
   throw new Error("retired channel runtime absence boundary drift");
 }
-const leftoverOfficeSharpRows = productionInventory.filter(
-  (row) =>
-    row.version === "1.3.2" &&
-    (/^@img\/sharp-libvips-/.test(row.name) || row.name === "sharp" || /^@img\/sharp-/.test(row.name)),
-);
 const dshSharpRows = productionInventory.filter(
   (row) =>
     (/^@img\/sharp-libvips-/.test(row.name) && row.version === "1.3.3") ||
-    (/^@img\/sharp-(?:(?:darwin|linux|linuxmusl|win32)-[a-z0-9]+|wasm32)$/.test(row.name) &&
+    (/^@img\/sharp-(?:(?:darwin|linux|linuxmusl|win32)-[a-z0-9]+|wasm32)$/.test(
+      row.name,
+    ) &&
       row.version === "0.35.4" &&
       /LGPL-/.test(row.declaredLicense)),
 );
@@ -443,24 +573,20 @@ for (const [path, expectedSha256] of SHARP_LEGAL_FILES) {
   }
 }
 if (
-  leftoverOfficeSharpRows.length !== 0 ||
   dshSharpRows.length === 0 ||
-  dshSharpRows.some((row) => row.disposition !== "lgpl-runtime-source-offer-required") ||
-  !packScript.includes("penglai-office-disabled-image") ||
-  !packScript.includes('runtime.includes(\'require("sharp")\')') ||
-  !packScript.includes("penglai-office-disabled-cloud-zip") ||
+  dshSharpRows.some(
+    (row) => row.disposition !== "lgpl-runtime-source-offer-required",
+  ) ||
   !lgplOffer.includes("7f1a0a22cc285fe180766f4935d50b55af6e8432") ||
   !lgplOffer.includes("6e5971d333377743163edc3ad9e5d0b897abcbc9") ||
-  !lgplOffer.includes("426af3f44246fce9cfa8dd51a353aa4dfd48c553")
-  || !lgplOffer.includes("licenses/sharp/")
+  !lgplOffer.includes("426af3f44246fce9cfa8dd51a353aa4dfd48c553") ||
+  !lgplOffer.includes("licenses/sharp/")
 ) {
   throw new Error(
     `sharp/libvips distribution boundary drift: ${JSON.stringify({
-      leftoverOfficeSharpRows: leftoverOfficeSharpRows.map((row) => `${row.name}@${row.version}`),
-      dshSharpRows: dshSharpRows.map((row) => `${row.name}@${row.version}:${row.disposition}`),
-      hasDisabledImage: packScript.includes("penglai-office-disabled-image"),
-      rejectsSharpRequire: packScript.includes('runtime.includes(\'require("sharp")\')'),
-      hasDisabledCloudZip: packScript.includes("penglai-office-disabled-cloud-zip"),
+      dshSharpRows: dshSharpRows.map(
+        (row) => `${row.name}@${row.version}:${row.disposition}`,
+      ),
       sourceOfferComplete:
         lgplOffer.includes("7f1a0a22cc285fe180766f4935d50b55af6e8432") &&
         lgplOffer.includes("6e5971d333377743163edc3ad9e5d0b897abcbc9") &&
@@ -472,7 +598,9 @@ if (
 
 const result = {
   schema: 2,
-  sourceSha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+  sourceSha: execFileSync("git", ["rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).trim(),
   target: process.env.PENGLAI_TARGET || `${process.platform}-${process.arch}`,
   command: "audited installed manifest graph plus pinned DSH source closure",
   productionComponentCount: productionInventory.length,
@@ -480,28 +608,31 @@ const result = {
   completeInstalled: completeInstalledInventory,
   policyDecisions: [
     {
-      component: "Penglai Office PPT image path",
-      source: "https://github.com/liustack/pptfast",
-      license: "MIT; sharp/libvips remain unbundled",
-      integrity: "pack-plugins disables image-size and sharp and refuses a packed require(\"sharp\")",
-      use: "PPT image path disabled; neither sharp nor libvips is packaged in the Office plugin. The Office transitive sharp override resolves the same 0.35.4 graph as official DSH and is not a second runtime.",
-    },
-    {
       component: "sharp@0.35.4 and platform libvips 1.3.3 packages",
-      source: "https://github.com/lovell/sharp and https://github.com/lovell/sharp-libvips",
+      source:
+        "https://github.com/lovell/sharp and https://github.com/lovell/sharp-libvips",
       license: "Apache-2.0 and LGPL-3.0-or-later",
-      integrity: "lockfile-pinned; exact platform integrity appears in the production inventory",
+      integrity:
+        "lockfile-pinned; exact platform integrity appears in the production inventory",
       use: "Official DSH attachment runtime; distributed with exact upstream license/notices under licenses/sharp and the 0.5.10 corresponding-source offer",
     },
     {
       component: "dsh-im@4.17.1",
       source: "https://github.com/xmanrui/dsh-im",
       license: "MIT",
-      integrity: "sha256-2bb02ea00d3367c1d93681f1e64bf030813f059f0cd62ef9c523dad1ab3b984b",
+      integrity:
+        "sha256-2bb02ea00d3367c1d93681f1e64bf030813f059f0cd62ef9c523dad1ab3b984b",
       use: "selective rewrite-source only; @penglai/im remains the sole IM runtime",
     },
   ],
   declaredArtifacts: licenses,
 };
-writeFileSync("evidence/generated/licenses.json", JSON.stringify(result, null, 2));
-console.log("audit:licenses ok", productionInventory.length, "production components");
+writeFileSync(
+  "evidence/generated/licenses.json",
+  JSON.stringify(result, null, 2),
+);
+console.log(
+  "audit:licenses ok",
+  productionInventory.length,
+  "production components",
+);

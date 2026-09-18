@@ -32,7 +32,6 @@ export interface OwnedServiceState {
   asrBusy: boolean;
   ttsBusy: boolean;
   indexerBusy: boolean;
-  companionArmed: boolean;
 }
 
 export interface AssistedUpdateHooks {

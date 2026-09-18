@@ -232,8 +232,6 @@ test("R56-CORE-005 Center remotes refuse disable of every required inventory id"
   const remote = remoteFor("/tmp/penglai-center-required-disable");
   for (const id of [
     "@penglai/plugin-center",
-    "@penglai/office",
-    "penglai-office",
     "@penglai/memory",
     "@deepseek-ai/dsh-credentials-local",
     "dsh-credentials-local",

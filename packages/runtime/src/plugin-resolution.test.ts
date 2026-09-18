@@ -36,7 +36,7 @@ import {
 } from "./plugin-resolution.js";
 
 const bundled: PluginCatalogEntry = {
-  ...FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/office")!,
+  ...FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/memory")!,
   sha256: "a".repeat(64),
   target: "darwin-arm64",
   hasClient: true,
@@ -100,7 +100,7 @@ test("newer signed remote wins; older, equal, or DSH-mismatched remote keeps bun
     () =>
       resolvePluginCatalogEntry({
         remote: {
-          id: "@penglai/office",
+          id: "@penglai/memory",
           version: "0.5.12",
           sha256: "f".repeat(64),
           dshExact: "0.1.3-alpha.1",
@@ -134,8 +134,8 @@ test("boot reseeding preserves a newer overlay and refreshes same-version first-
       bundledVersion: "0.5.10",
       bundledSha256: "a".repeat(64),
       catalogSha256: digest,
-      catalogDshExact: "0.1.5-rc.2",
-      pinnedDsh: "0.1.5-rc.2",
+      catalogDshExact: "0.1.6-alpha.2",
+      pinnedDsh: "0.1.6-alpha.2",
     }),
     true,
   );
@@ -155,8 +155,8 @@ test("boot reseeding preserves a newer overlay and refreshes same-version first-
       bundledVersion: "0.5.10",
       bundledSha256: "a".repeat(64),
       catalogSha256: "c".repeat(64),
-      catalogDshExact: "0.1.5-rc.2",
-      pinnedDsh: "0.1.5-rc.2",
+      catalogDshExact: "0.1.6-alpha.2",
+      pinnedDsh: "0.1.6-alpha.2",
     }),
     false,
   );
@@ -168,7 +168,7 @@ test("boot reseeding preserves a newer overlay and refreshes same-version first-
       bundledSha256: "a".repeat(64),
       catalogSha256: digest,
       catalogDshExact: "0.1.5-alpha.1",
-      pinnedDsh: "0.1.5-rc.2",
+      pinnedDsh: "0.1.6-alpha.2",
     }),
     false,
   );
@@ -205,25 +205,25 @@ test("boot reseeding preserves a newer overlay and refreshes same-version first-
 test("retention requires a signed catalog record distinct from the overlay claim", () => {
   const digest = "b".repeat(64);
   const installed = {
-    id: "@penglai/office",
-    version: "0.6.2.1",
+    id: "@penglai/memory",
+    version: "0.6.3.1",
     overlaySha256: digest,
     dshExact: PINNED_PLUGIN_DSH,
   };
   assert.equal(
     firstPartyRetentionDecision({
-      pluginId: "@penglai/office",
-      bundledVersion: "0.6.2",
+      pluginId: "@penglai/memory",
+      bundledVersion: "0.6.3",
       bundledSha256: "a".repeat(64),
       installed,
-      signed: { version: "0.6.2.1", sha256: digest, dshExact: PINNED_PLUGIN_DSH },
+      signed: { version: "0.6.3.1", sha256: digest, dshExact: PINNED_PLUGIN_DSH },
     }),
     true,
   );
   assert.equal(
     firstPartyRetentionDecision({
-      pluginId: "@penglai/office",
-      bundledVersion: "0.6.2",
+      pluginId: "@penglai/memory",
+      bundledVersion: "0.6.3",
       bundledSha256: "a".repeat(64),
       installed,
     }),
@@ -231,21 +231,21 @@ test("retention requires a signed catalog record distinct from the overlay claim
   );
   assert.equal(
     firstPartyRetentionDecision({
-      pluginId: "@penglai/office",
-      bundledVersion: "0.6.2",
+      pluginId: "@penglai/memory",
+      bundledVersion: "0.6.3",
       bundledSha256: "a".repeat(64),
       installed,
-      signed: { version: "0.6.2.1", sha256: "c".repeat(64), dshExact: PINNED_PLUGIN_DSH },
+      signed: { version: "0.6.3.1", sha256: "c".repeat(64), dshExact: PINNED_PLUGIN_DSH },
     }),
     false,
   );
   assert.equal(
     firstPartyRetentionDecision({
-      pluginId: "@penglai/office",
-      bundledVersion: "0.6.2",
+      pluginId: "@penglai/memory",
+      bundledVersion: "0.6.3",
       bundledSha256: "a".repeat(64),
       installed: { ...installed, dshExact: "0.1.5-alpha.1" },
-      signed: { version: "0.6.2.1", sha256: digest, dshExact: PINNED_PLUGIN_DSH },
+      signed: { version: "0.6.3.1", sha256: digest, dshExact: PINNED_PLUGIN_DSH },
     }),
     false,
   );
@@ -284,8 +284,8 @@ test("first-party retention uses signed catalog identity, not the overlay as bot
 });
 
 function writeMinimalPluginTree(root: string, js: string): { id: string; version: string; target: ReturnType<typeof runtimePluginTarget> } {
-  const id = "@penglai/office";
-  const version = "0.6.2-test";
+  const id = "@penglai/memory";
+  const version = "0.6.3-test";
   const target = runtimePluginTarget();
   mkdirSync(join(root, "dist"), { recursive: true });
   writeFileSync(join(root, "dist", "index.js"), js);

@@ -1,4 +1,4 @@
-import { PenglaiError, snapshotOfficialSession } from "@penglai/contracts";
+import { PenglaiError } from "@penglai/contracts";
 import type { RoutingControlPlane } from "@penglai/routing-core";
 import { claimedFromOfficial, extractPenglaiSource, textFromAssistantMessage } from "./index.js";
 import type { DshHost } from "./owner-ports.js";
@@ -220,17 +220,11 @@ async function officialRecoveryEvents(
       const inspected = await host.inspectSession(sessionId);
       if (inspected) return { events: inspected.events, incomplete: false };
     } catch (error) {
-      if (isOwnedOrMissingSession(error)) {
-        const live = host.getAgent(sessionId);
-        if (live?.session) return { events: snapshotOfficialSession(live.session), incomplete: false };
-        return { events: undefined, incomplete: true };
-      }
+      if (isOwnedOrMissingSession(error)) return { events: undefined, incomplete: true };
       throw error;
     }
   }
-  const agent = host.getAgent(sessionId);
-  if (agent?.session) return { events: snapshotOfficialSession(agent.session), incomplete: false };
-  return { events: undefined, incomplete: false };
+  return { events: undefined, incomplete: true };
 }
 
 export async function recoverOfficialDeliveriesFromHost(

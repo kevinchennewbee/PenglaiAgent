@@ -7,52 +7,6 @@ import { PenglaiError } from "@penglai/contracts";
 import { ARTIFACT_LIMITS } from "./policy.js";
 import { ArtifactService } from "./service.js";
 
-function crc32(buf: Buffer): number {
-  let crc = ~0;
-  for (const byte of buf) {
-    crc ^= byte;
-    for (let k = 0; k < 8; k += 1) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
-  }
-  return (~crc) >>> 0;
-}
-
-function storedZip(entries: Array<{ name: string; data: Buffer }>): Buffer {
-  const locals: Buffer[] = [];
-  const centrals: Buffer[] = [];
-  let offset = 0;
-  for (const entry of entries) {
-    const name = Buffer.from(entry.name, "utf8");
-    const local = Buffer.alloc(30);
-    local.writeUInt32LE(0x04034b50, 0);
-    local.writeUInt16LE(20, 4);
-    local.writeUInt32LE(crc32(entry.data), 14);
-    local.writeUInt32LE(entry.data.length, 18);
-    local.writeUInt32LE(entry.data.length, 22);
-    local.writeUInt16LE(name.length, 26);
-    const loc = Buffer.concat([local, name, entry.data]);
-    locals.push(loc);
-    const central = Buffer.alloc(46);
-    central.writeUInt32LE(0x02014b50, 0);
-    central.writeUInt16LE(20, 4);
-    central.writeUInt16LE(20, 6);
-    central.writeUInt32LE(crc32(entry.data), 16);
-    central.writeUInt32LE(entry.data.length, 20);
-    central.writeUInt32LE(entry.data.length, 24);
-    central.writeUInt16LE(name.length, 28);
-    central.writeUInt32LE(offset, 42);
-    centrals.push(Buffer.concat([central, name]));
-    offset += loc.length;
-  }
-  const central = Buffer.concat(centrals);
-  const eocd = Buffer.alloc(22);
-  eocd.writeUInt32LE(0x06054b50, 0);
-  eocd.writeUInt16LE(entries.length, 8);
-  eocd.writeUInt16LE(entries.length, 10);
-  eocd.writeUInt32LE(central.length, 12);
-  eocd.writeUInt32LE(offset, 16);
-  return Buffer.concat([...locals, central, eocd]);
-}
-
 function service(now = { t: 1_700_000_000_000 }, persist?: (actionId: string) => void) {
   const root = mkdtempSync(join(tmpdir(), "penglai-artifacts-"));
   const artifacts = new ArtifactService(root, {
@@ -80,7 +34,7 @@ test("R56-FILE-003 ArtifactRef never includes a filesystem path", () => {
   artifacts.close();
 });
 
-test("R56-FILE-005/006/008 reject symlink, magic mismatch, macros, and executables", (t) => {
+test("R56-FILE-005/006/008 reject symlink, excluded documents, and executables", (t) => {
   const { artifacts, root } = service();
   const file = join(root, "ok.txt");
   writeFileSync(file, "plain\n");
@@ -98,16 +52,15 @@ test("R56-FILE-005/006/008 reject symlink, magic mismatch, macros, and executabl
   assert.throws(() => artifacts.ingestPath(linked, { name: "alias.txt", source: "im" }), /SYMLINK|HANDLE/);
   assert.throws(
     () => artifacts.ingestBytes(Buffer.from("MZ\x90\x00not-an-office"), { name: "note.docx", source: "office" }),
-    /MAGIC|FORBIDDEN/,
+    /FORBIDDEN/,
   );
   assert.throws(
     () => artifacts.ingestBytes(Buffer.from("MZ executable"), { name: "tool.exe", source: "im" }),
     /FORBIDDEN/,
   );
-  const macro = storedZip([{ name: "word/vbaProject.bin", data: Buffer.from("macro") }]);
-  assert.throws(() => artifacts.ingestBytes(macro, { name: "macro.docx", source: "office" }), /MACRO/);
-  const mismatch = storedZip([{ name: "xl/workbook.xml", data: Buffer.from("<workbook/>") }]);
-  assert.throws(() => artifacts.ingestBytes(mismatch, { name: "note.docx", source: "office" }), /MAGIC/);
+  for (const name of ["document.pdf", "document.docx", "sheet.xlsx", "deck.pptx"]) {
+    assert.throws(() => artifacts.ingestBytes(Buffer.from("excluded"), { name, source: "office" }), /FORBIDDEN/);
+  }
   artifacts.close();
 });
 
@@ -238,20 +191,17 @@ test("identical bytes keep distinct opaque bindings across Workspaces", () => {
 
 test("R56-FILE-013 workspace or session drift cannot read the handle", () => {
   const { artifacts } = service();
-  const docx = storedZip([
-    { name: "word/document.xml", data: Buffer.from("<w:document/>") },
-    { name: "[Content_Types].xml", data: Buffer.from("<Types/>") },
-  ]);
-  const ref = artifacts.ingestBytes(docx, {
-    name: "brief.docx",
+  const bytes = Buffer.from("scoped artifact\n");
+  const ref = artifacts.ingestBytes(bytes, {
+    name: "brief.txt",
     source: "office",
     workspaceId: "ws-a",
     sessionId: "sess-1",
     turnId: "turn-1",
   });
   const body = artifacts.readControlled(ref.id, { workspaceId: "ws-a", sessionId: "sess-1", turnId: "turn-1" });
-  assert.equal(body.name, "brief.docx");
-  assert.equal(body.bytes.equals(docx), true);
+  assert.equal(body.name, "brief.txt");
+  assert.equal(body.bytes.equals(bytes), true);
   assert.throws(
     () => artifacts.readControlled(ref.id, { workspaceId: "ws-b", sessionId: "sess-1" }),
     /WORKSPACE/,
@@ -265,8 +215,8 @@ test("R56-FILE-013 workspace or session drift cannot read the handle", () => {
 
 test("R56-FILE-016 composer Turn binding stays unwired until official receipts", () => {
   const { artifacts } = service();
-  artifacts.ingestBytes(Buffer.from("%PDF-1.4\n%%EOF\n"), {
-    name: "page.pdf",
+  artifacts.ingestBytes(Buffer.from("plain text\n"), {
+    name: "page.txt",
     source: "composer",
     workspaceId: "ws-a",
     turnId: "turn-1",

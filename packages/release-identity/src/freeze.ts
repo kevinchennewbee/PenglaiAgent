@@ -35,7 +35,7 @@ import {
   USER_CATALOG_PACKAGES,
 } from "./pins.js";
 
-export type MigrationDecision = "DSH_REUSE" | "PENGLAI_PLUGIN" | "DISTRIBUTION" | "REJECT_DUPLICATE";
+export type MigrationDecision = "DSH_REUSE" | "PENGLAI_PLUGIN" | "DISTRIBUTION" | "REJECT_DUPLICATE" | "EXCLUDED_0_6_3";
 
 export const MIGRATION_LEDGER = [
   { capability: "Workspace/Session/Turn", needle: "Workspace/Session", decision: "DSH_REUSE" },
@@ -45,8 +45,9 @@ export const MIGRATION_LEDGER = [
   { capability: "SenseVoice ASR", needle: "SenseVoice ASR", decision: "PENGLAI_PLUGIN" },
   { capability: "MOSS-TTS-Nano", needle: "MOSS-TTS-Nano", decision: "PENGLAI_PLUGIN" },
   { capability: "Penglai Memory with authorized sources", needle: "@penglai/memory", decision: "PENGLAI_PLUGIN" },
-  { capability: "Budget", needle: "budget", decision: "PENGLAI_PLUGIN" },
-  { capability: "Companion", needle: "companionship", decision: "PENGLAI_PLUGIN" },
+  { capability: "Office/PDF", needle: "Office/PDF", decision: "EXCLUDED_0_6_3" },
+  { capability: "Budget", needle: "Budget", decision: "EXCLUDED_0_6_3" },
+  { capability: "Companion", needle: "Companion", decision: "EXCLUDED_0_6_3" },
   { capability: "install/update/uninstall", needle: "安装更新卸载", decision: "DISTRIBUTION" },
   { capability: "0.4.1 Host/EpisodeRunner", needle: "EpisodeRunner", decision: "REJECT_DUPLICATE" },
 ] as const satisfies readonly { capability: string; needle: string; decision: MigrationDecision }[];
@@ -152,10 +153,10 @@ export function assertNoLatestDownloads(text: string): void {
   }
 }
 
-export const COHORT_FREEZE_KIND = "penglai-0.6.2-development-cohort-freeze" as const;
+export const COHORT_FREEZE_KIND = "penglai-0.6.3-development-cohort-freeze" as const;
 export const PUBLISHED_0512_FREEZE_KIND = "penglai-0.5.12-development-cohort-freeze" as const;
 export const PUBLISHED_0512_REJECTED_DSH_SUCCESSOR_TAG = "dsh-v0.1.3-alpha.1" as const;
-export const NEXT_DSH_REVIEW_BOUNDARY = "later-than-dsh-v0.1.5-rc.2" as const;
+export const NEXT_DSH_REVIEW_BOUNDARY = "later-than-dsh-v0.1.6-alpha.2" as const;
 
 export interface CohortFreezeRecord {
   schema: 1;
@@ -164,7 +165,7 @@ export interface CohortFreezeRecord {
   publicRelease: { productVersion: string; tag: string; immutable: boolean };
   previousPublicRelease?: { productVersion: string; tag: string; immutable: true };
   development: {
-    versionLabel: "0.6.2";
+    versionLabel: "0.6.3";
     publicationAuthorized: boolean;
     identityRetitled: boolean;
   };
@@ -202,31 +203,31 @@ export function assertCohortFreeze(input: {
   }
   if (freeze.status === "publication-authorized") {
     if (freeze.development.publicationAuthorized !== true || freeze.development.identityRetitled !== true) {
-      throw new PenglaiError("SECURITY_POLICY", "publication-authorized freeze must retitle 0.6.2");
+      throw new PenglaiError("SECURITY_POLICY", "publication-authorized freeze must retitle 0.6.3");
     }
     if (freeze.publicRelease.immutable !== true) {
       throw new PenglaiError("SECURITY_POLICY", "current public identity must stay immutable once tagged");
     }
     if (
-      freeze.previousPublicRelease?.productVersion !== "0.6.1" ||
-      freeze.previousPublicRelease.tag !== "v0.6.1" ||
+      freeze.previousPublicRelease?.productVersion !== "0.6.2" ||
+      freeze.previousPublicRelease.tag !== "v0.6.2" ||
       freeze.previousPublicRelease.immutable !== true
     ) {
-      throw new PenglaiError("SECURITY_POLICY", "published 0.6.1 identity must stay immutable");
+      throw new PenglaiError("SECURITY_POLICY", "published 0.6.2 identity must stay immutable");
     }
   } else if (freeze.status === "development-frozen") {
     if (freeze.development.publicationAuthorized !== false || freeze.development.identityRetitled !== true) {
-      throw new PenglaiError("SECURITY_POLICY", "0.6.2 identity is retitled and development-frozen until publication");
+      throw new PenglaiError("SECURITY_POLICY", "0.6.3 identity is retitled and development-frozen until publication");
     }
     if (freeze.publicRelease.immutable === true) {
-      throw new PenglaiError("SECURITY_POLICY", "0.6.2 public identity is not immutable until the GitHub Release exists");
+      throw new PenglaiError("SECURITY_POLICY", "0.6.3 public identity is not immutable until the GitHub Release exists");
     }
     if (
-      freeze.previousPublicRelease?.productVersion !== "0.6.1" ||
-      freeze.previousPublicRelease.tag !== "v0.6.1" ||
+      freeze.previousPublicRelease?.productVersion !== "0.6.2" ||
+      freeze.previousPublicRelease.tag !== "v0.6.2" ||
       freeze.previousPublicRelease.immutable !== true
     ) {
-      throw new PenglaiError("SECURITY_POLICY", "published 0.6.1 identity must stay immutable");
+      throw new PenglaiError("SECURITY_POLICY", "published 0.6.2 identity must stay immutable");
     }
   } else {
     throw new PenglaiError("INVALID_INPUT", "cohort freeze identity");

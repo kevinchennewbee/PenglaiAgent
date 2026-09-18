@@ -53,6 +53,7 @@ function officialSessionExec(input: {
   }
   return {
     session,
+    events: session.snapshotEvents(),
     exec: {
       callId: input.nested?.callId ?? input.callId,
       rootCallId: input.callId,
@@ -73,6 +74,7 @@ test("memory conversation tools declare DSH output and wrap search as an object"
     }
   >();
   let preExecute: ((...args: unknown[]) => unknown) | undefined;
+  let inspectedEvents: readonly unknown[] = [];
   const ctx = {
     tools: {
       register(def: Record<string, unknown>) {
@@ -83,6 +85,7 @@ test("memory conversation tools declare DSH output and wrap search as an object"
     workspaceRegistry: {
       list: () => [{ id: "ws1", sessionIds: ["sess-1"] }],
     },
+    sessionController: { inspect: async () => ({ events: inspectedEvents }) },
     on(event: string, listener: (...args: unknown[]) => unknown) {
       if (event === "tools/pre-execute") preExecute = listener;
     },
@@ -113,13 +116,14 @@ test("memory conversation tools declare DSH output and wrap search as an object"
       "penglai_memory_forget",
     ],
   );
-  const { exec } = officialSessionExec({
+  const { exec, events } = officialSessionExec({
     sessionId: "sess-1",
     callId: "call-remember",
     name: "penglai_memory_remember",
     turn: 7,
     step: 1,
   });
+  inspectedEvents = events;
   const search = await registered.get("penglai_memory_search")!.execute({ query: "fact" }, exec);
   assert.equal(Array.isArray(search), false);
   assert.deepEqual((search as { results: Array<{ id: string }> }).results.map((row) => row.id), ["m1", "p1"]);
@@ -179,7 +183,7 @@ test("memory turn provenance matches official Session snapshotEvents including n
     turn: 4,
     step: 2,
   });
-  assert.deepEqual(proveMemoryTurnFromOfficialExec(root.exec), { turn: 4, step: 2 });
+  assert.deepEqual(proveMemoryTurnFromOfficialExec(root.exec, root.events), { turn: 4, step: 2 });
 
   const nested = officialSessionExec({
     sessionId: "sess-1",
@@ -189,13 +193,13 @@ test("memory turn provenance matches official Session snapshotEvents including n
     step: 2,
     nested: { callId: "root-call:ptc:1" },
   });
-  assert.deepEqual(proveMemoryTurnFromOfficialExec(nested.exec), { turn: 4, step: 2 });
+  assert.deepEqual(proveMemoryTurnFromOfficialExec(nested.exec, nested.events), { turn: 4, step: 2 });
 
   assert.throws(
     () => proveMemoryTurnFromOfficialExec({
       callId: "missing-call",
       agent: { id: "sess-1", session: root.session },
-    }),
+    }, root.events),
     (err: unknown) => err instanceof PenglaiError && /provenance/.test(err.message),
   );
   assert.throws(
@@ -203,17 +207,17 @@ test("memory turn provenance matches official Session snapshotEvents including n
       callId: "root-call:ptc:9",
       rootCallId: "root-call",
       agent: { id: "sess-1", session: root.session },
-    }),
+    }, root.events),
     /provenance/,
   );
   assert.throws(
-    () => proveMemoryTurnFromOfficialExec({ agent: { id: "sess-1" }, turn: 0 }),
+    () => proveMemoryTurnFromOfficialExec({ agent: { id: "sess-1" }, turn: 0 }, root.events),
     /model-supplied turn\/step/,
   );
 });
 
 test("memory remember executes through pinned ToolRuntime with official Session provenance", async () => {
-  const { exec } = officialSessionExec({
+  const { exec, events } = officialSessionExec({
     sessionId: "sess-1",
     callId: "call-runtime",
     name: "penglai_memory_remember",
@@ -243,6 +247,7 @@ test("memory remember executes through pinned ToolRuntime with official Session 
         },
       },
       workspaceRegistry: { list: () => [{ id: "ws1", sessionIds: ["sess-1"] }] },
+      sessionController: { inspect: async () => ({ events }) },
     },
     {
       async search() { return []; },

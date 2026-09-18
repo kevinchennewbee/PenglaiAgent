@@ -32,7 +32,7 @@ test("weixin and feishu parse image/file without placeholder text", () => {
   );
   assert.equal("reject" in wxFile, false);
   if (!("reject" in wxFile)) {
-    assert.equal(wxFile.media?.kind, "office");
+    assert.equal(wxFile.media?.kind, "file");
     assert.notEqual(wxFile.text, "[file]");
   }
   const fsImage = parseFeishuEvent({ chatType: "p2p", messageType: "image", messageId: "2", openId: "ou_1" });
@@ -63,7 +63,7 @@ test("weixin and feishu parse image/file without placeholder text", () => {
     "a",
   );
   assert.equal("reject" in inbound, false);
-  if (!("reject" in inbound)) assert.equal(inbound.media?.kind, "pdf");
+  if (!("reject" in inbound)) assert.equal(inbound.media?.kind, "file");
 });
 
 test("media store persists bytes under an app-private root", () => {
@@ -90,8 +90,8 @@ test("media store classifies the shared fixture matrix", () => {
   const cases = [
     { bytes: PNG, filename: "a.png", kind: "image" as const },
     { bytes: WAV, filename: "a.wav", mime: "audio/wav", kind: "audio" as const },
-    { bytes: DOCX, filename: "a.docx", kind: "office" as const },
-    { bytes: PDF, filename: "a.pdf", kind: "pdf" as const },
+    { bytes: DOCX, filename: "a.docx", kind: "file" as const },
+    { bytes: PDF, filename: "a.pdf", kind: "file" as const },
     { bytes: Buffer.from("hello"), filename: "a.bin", kind: "file" as const },
   ];
   for (const row of cases) {

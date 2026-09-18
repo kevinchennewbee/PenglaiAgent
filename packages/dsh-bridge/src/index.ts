@@ -1,9 +1,7 @@
 import { createRequire } from "node:module";
-import { BudgetGate } from "@penglai/budget";
 import {
   ADAPTER_NAMES,
   PenglaiError,
-  snapshotOfficialSession,
   type AdapterName,
   type ClaimedFact,
   type ModelInput,
@@ -17,8 +15,8 @@ import type { AgentCallOptions, AgentPort, DirectoryPort } from "@penglai/routin
 import { BridgeOperationGate, type BridgeCallOptions } from "./operations.js";
 import type { DshAgentLike, DshHost } from "./owner-ports.js";
 
-export const PINNED_DSH = "0.1.5-rc.2";
-export const PINNED_DSH_COMMIT = "fb2c4b9e698e30edb738bca4cf0618587db7d203";
+export const PINNED_DSH = "0.1.6-alpha.2";
+export const PINNED_DSH_COMMIT = "ddefc45fbc7f8e46dd73185e68295696d1297887";
 
 const ASR_LANGUAGES = new Set<PenglaiAsrLanguage>(["zh", "en", "ja", "ko", "yue", "auto"]);
 const ASR_EMOTIONS = new Set<PenglaiAsrEmotion>([
@@ -76,11 +74,19 @@ export type {
   DshWorkspaceView,
 } from "./owner-ports.js";
 
-function hasDurableMessage(agent: DshAgentLike, messageId: string): boolean {
-  return snapshotOfficialSession(agent.session).some((event) =>
-    event.type === "agent/inbox/spliced" &&
-    (event.data?.inserted ?? []).some((message) => message.id === messageId),
-  );
+async function hasDurableMessage(host: DshHost, sessionId: string, messageId: string): Promise<boolean> {
+  if (!host.inspectSession) {
+    throw new PenglaiError("DSH_CONTRACT_DRIFT", "official Session Controller inspection is unavailable");
+  }
+  const inspected = await host.inspectSession(sessionId);
+  return (inspected?.events ?? []).some((raw) => {
+    const event = raw && typeof raw === "object" ? raw as {
+      type?: string;
+      data?: { inserted?: ReadonlyArray<{ id?: string }> };
+    } : undefined;
+    return event?.type === "agent/inbox/spliced" &&
+      (event.data?.inserted ?? []).some((message) => message.id === messageId);
+  });
 }
 
 export function assertDshVersion(version: string): void {
@@ -211,7 +217,6 @@ export class DshBridge implements AgentPort, DirectoryPort {
 
   constructor(
     private readonly host: DshHost,
-    private readonly budget?: BudgetGate,
   ) {
     assertDshVersion(host.version);
   }
@@ -308,8 +313,7 @@ export class DshBridge implements AgentPort, DirectoryPort {
       await this.ensureSessionModelRoute(input.sessionId);
       const a = await this.agent(input.sessionId);
       const id = input.inboundId;
-      if (input.recovery && hasDurableMessage(a, id)) return { dshMessageId: id };
-      this.budget?.reserve({ tokens: 1, priceTrusted: false });
+      if (input.recovery && await hasDurableMessage(this.host, input.sessionId, id)) return { dshMessageId: id };
       a.followup({
         id,
         role: "user",
@@ -324,7 +328,7 @@ export class DshBridge implements AgentPort, DirectoryPort {
     return this.ops.run({ ...options, operationId: options?.operationId ?? input.inboundId }, async () => {
       await this.ensureSessionModelRoute(input.sessionId);
       const a = await this.agent(input.sessionId);
-      if (input.recovery && hasDurableMessage(a, input.inboundId)) return { dshMessageId: input.inboundId };
+      if (input.recovery && await hasDurableMessage(this.host, input.sessionId, input.inboundId)) return { dshMessageId: input.inboundId };
       a.steer({
         id: input.inboundId,
         role: "user",

@@ -34,8 +34,6 @@ const PRE_DCE_OVERLAY = `- insert:
       disabled: true
     - id: penglai-memory
       name: "@penglai/memory"
-    - id: penglai-office
-      name: "@penglai/office"
 - id: session-persistence-jsonl
   name: "@deepseek-ai/dsh-session-persistence-jsonl"
   config:
@@ -51,8 +49,8 @@ const DCE_INEFFECTIVE_OVERLAY = `${PRE_DCE_OVERLAY}- id: directory-picker
 `;
 
 const MALFORMED_OWNED_OVERLAY = `- insert:
-    - id: penglai-office
-      name: "@penglai/office"
+    - id: penglai-memory
+      name: "@penglai/memory"
     - id: ui-directory-picker
       name: "@deepseek-ai/dsh-client-ui-directory-picker-browse"
     - id: ui-directory-picker
@@ -173,13 +171,10 @@ test("product seed overlay disables auto and mounts exactly one browse host/clie
   const { entries, warnings } = applyOfficialThenOverlay(overlay);
   assertEffectiveBrowsePair(entries, warnings);
   const memory = entries.find((entry) => entry.id === "penglai-memory");
-  const office = entries.find((entry) => entry.id === "penglai-office");
   const im = entries.find((entry) => entry.id === "penglai-im");
   const persistence = entries.find((entry) => entry.id === "session-persistence-jsonl");
   assert.equal(memory?.name, "@penglai/memory");
   assert.notEqual(memory?.disabled, true);
-  assert.equal(office?.name, "@penglai/office");
-  assert.notEqual(office?.disabled, true);
   assert.equal(im?.disabled, true);
   assert.equal((persistence?.config as { compression?: string } | undefined)?.compression, "none");
   assert.equal(
@@ -218,14 +213,14 @@ test("malformed owned picker rows are collapsed without dropping unrelated plugi
   const next = pinOfficialBrowseDirectoryPickerPatch(MALFORMED_OWNED_OVERLAY);
   assert.equal(next.changed, true);
   assert.match(next.text, /id: custom-scopes\n\s+config:\n\s+scopes:\n\s+- workspace/);
-  assert.match(next.text, /id: penglai-office\n\s+name: "@penglai\/office"/);
+  assert.match(next.text, /id: penglai-memory\n\s+name: "@penglai\/memory"/);
   assert.doesNotMatch(next.text, /id: ui-directory-picker/);
   assert.doesNotMatch(next.text, /id: leftover-native/);
   assert.doesNotMatch(next.text, /id: extra-browse-host/);
   assert.equal([...next.text.matchAll(/id: penglai-directory-picker$/gm)].length, 1);
   const { entries, warnings } = applyOfficialThenOverlay(next.text);
   assertEffectiveBrowsePair(entries, warnings);
-  assert.equal(entries.find((entry) => entry.id === "penglai-office")?.name, "@penglai/office");
+  assert.equal(entries.find((entry) => entry.id === "penglai-memory")?.name, "@penglai/memory");
   assert.equal(
     (entries.find((entry) => entry.id === "session-persistence-jsonl")?.config as { root?: { __jsExpr?: string } })
       ?.root?.__jsExpr,

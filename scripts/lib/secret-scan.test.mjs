@@ -141,7 +141,7 @@ test("R56-SEC-007 frozen publication records are exempt (release gate forbids ed
   assert.deepEqual(scanIdentityText("docs/RELEASE_NOTES_0.6.0.md", line), []);
   // Live documents are still fail-closed.
   assert.equal(scanIdentityText("docs/PRODUCT.md", line).length, 1);
-  assert.equal(scanIdentityText("docs/0.6.2/ACCEPTANCE_DELTA.md", line).length, 1);
+  assert.equal(scanIdentityText("docs/0.6.3/ACCEPTANCE_DELTA.md", line).length, 1);
   assert.equal(scanIdentityText("README.md", line).length, 1);
 });
 
@@ -162,9 +162,9 @@ test("immutable record classification matches the release-adaptation frozen set"
   }
   for (const rel of [
     "docs/PRODUCT.md",
-    "docs/0.6.2/ACCEPTANCE_DELTA.md",
+    "docs/0.6.3/ACCEPTANCE_DELTA.md",
     "docs/0.5.12/ACTIVE.md",
-    "docs/RELEASE_NOTES_0.6.2.md",
+    "docs/RELEASE_NOTES_0.6.3.md",
     "website/index.html",
   ]) {
     assert.equal(isImmutablePublicationRecord(rel), false, rel);

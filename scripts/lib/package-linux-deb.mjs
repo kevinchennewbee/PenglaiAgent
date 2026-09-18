@@ -27,7 +27,7 @@ import { mnemonAssetForPluginTarget } from "../../packages/release-identity/src/
 // Penglai target key is linux-loong64. UOS dpkg Architecture is loongarch64.
 // Confirmed client is UOS 20 Professional 1070 / kernel 4.19 (old-world).
 // linux-loong64 is a RELEASE_TARGETS row. Native install/startup/function
-// remain OWNER_POST_RELEASE. Office+Memory stay required-builtin; chrome-sandbox
+// remain OWNER_POST_RELEASE. Memory stays required-builtin; chrome-sandbox
 // must remain in the payload. ELF payloads must use /lib64/ld.so.1, not
 // new-world ld-linux-loongarch-lp64d.so.1. Never --no-sandbox.
 export const LINUX_LOONG64_TARGET = "linux-loong64";
@@ -37,7 +37,6 @@ export const UOS_DEB_PACKAGE_NAME = "penglai";
 export const UOS_DEB_VERSION = PRODUCT_VERSION;
 export const LINUX_INSTALL_PREFIX = "/opt/Penglai";
 export const REQUIRED_BUILTIN_PLUGIN_IDS = Object.freeze([
-  "@penglai/office",
   "@penglai/memory",
 ]);
 
@@ -100,7 +99,7 @@ export function renderDebControl({
     `X-Penglai-Target: ${LINUX_LOONG64_TARGET}`,
     "Description: Penglai desktop (linux-loong64 / UOS loongarch64)",
     " Penglai product target key is linux-loong64. This package Architecture",
-    " field is loongarch64 for UnionTech UOS metadata. Office and Memory are",
+    " field is loongarch64 for UnionTech UOS metadata. Memory is",
     " required-builtin and must remain in the payload. chrome-sandbox stays",
     " in /opt/Penglai. This artifact class is not native UOS PASS.",
     "",

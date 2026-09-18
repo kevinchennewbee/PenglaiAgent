@@ -3,12 +3,6 @@ import type { OfficialFileRef, OfficialImageRef, PenglaiImSource } from "@pengla
 /** Narrow official Agent face consumed by Penglai message routing. */
 export interface DshAgentLike {
   id: string;
-  session?: {
-    snapshotEvents(): ReadonlyArray<{
-      type?: string;
-      data?: { inserted?: ReadonlyArray<{ id?: string }> };
-    }>;
-  };
   followup(message: {
     id?: string;
     role: "user";
@@ -83,7 +77,7 @@ export interface DshWorkspaceOwner {
  */
 export interface DshSessionOwner {
   listSessions(): Promise<DshSessionView[]>;
-  inspectSession?(sessionId: string): Promise<{ events: readonly unknown[] } | undefined>;
+  inspectSession(sessionId: string): Promise<{ events: readonly unknown[] } | undefined>;
   createSession(workspaceIdentity: string, title?: string): Promise<{ id: string }>;
   describeSessionModels(sessionId: string): Promise<DshSessionModelDirectory>;
   selectSessionModel(

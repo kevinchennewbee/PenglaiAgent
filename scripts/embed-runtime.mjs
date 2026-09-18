@@ -1,11 +1,35 @@
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync, cpSync, rmSync, unlinkSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+  cpSync,
+  rmSync,
+  unlinkSync,
+} from "node:fs";
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { ROOT, readJson } from "./lib/repo.mjs";
-import { sha256File as closureSha256File, writeClosureCredential } from "./lib/closure-credential.mjs";
-import { locateWorkspaceDsh, materializeDshClosure } from "./lib/dsh-closure.mjs";
-import { validateCohortSnapshot, verifyCohortLock } from "./lib/dsh-npm-cohort.mjs";
+import {
+  sha256File as closureSha256File,
+  writeClosureCredential,
+} from "./lib/closure-credential.mjs";
+import {
+  EXCLUDED_DSH_RUNTIME_PACKAGES,
+  locateWorkspaceDsh,
+  materializeDshClosure,
+} from "./lib/dsh-closure.mjs";
+import {
+  validateCohortSnapshot,
+  verifyCohortLock,
+} from "./lib/dsh-npm-cohort.mjs";
 import {
   PINNED_DSH,
   PINNED_DSH_CLOSURE_MANIFEST_SHA256,
@@ -19,7 +43,10 @@ import {
   PINNED_ELECTRON_LINUX_LOONG64,
   PINNED_NODE_LINUX_LOONG64,
 } from "../packages/release-identity/src/pins.ts";
-import { MNEMON_UPSTREAM, mnemonAssetForTarget } from "../packages/release-identity/src/mnemon-assets.js";
+import {
+  MNEMON_UPSTREAM,
+  mnemonAssetForTarget,
+} from "../packages/release-identity/src/mnemon-assets.js";
 
 function argValue(name, fallback) {
   const idx = process.argv.indexOf(name);
@@ -28,10 +55,15 @@ function argValue(name, fallback) {
 }
 
 function hostTarget() {
-  if (process.platform === "darwin" && process.arch === "arm64") return "darwin-aarch64";
-  if (process.platform === "darwin" && process.arch === "x64") return "darwin-x86_64";
+  if (process.platform === "darwin" && process.arch === "arm64")
+    return "darwin-aarch64";
+  if (process.platform === "darwin" && process.arch === "x64")
+    return "darwin-x86_64";
   if (process.platform === "win32") return "win32-x86_64";
-  if (process.platform === "linux" && (process.arch === "loong64" || process.arch === "loongarch64")) {
+  if (
+    process.platform === "linux" &&
+    (process.arch === "loong64" || process.arch === "loongarch64")
+  ) {
     return "linux-loong64";
   }
   throw new Error(`unsupported host ${process.platform}/${process.arch}`);
@@ -55,12 +87,15 @@ function walk(dir, acc = []) {
 
 function assertSafeName(name) {
   const n = name.replace(/\\/g, "/");
-  if (n.startsWith("/") || n.includes("..")) throw new Error(`unsafe archive path ${name}`);
+  if (n.startsWith("/") || n.includes(".."))
+    throw new Error(`unsafe archive path ${name}`);
 }
 
 const target = argValue("--target", hostTarget());
 const contract = readJson("release-contract.json");
-const inputs = (contract.runtimeInputs ?? []).filter((i) => i.target === target);
+const inputs = (contract.runtimeInputs ?? []).filter(
+  (i) => i.target === target,
+);
 const nodeInput = inputs.find((i) => i.kind === "node");
 if (!nodeInput) {
   console.error("no node input for", target);
@@ -70,23 +105,36 @@ if (/arm64|aarch64/.test(nodeInput.filename) && target.includes("x86_64")) {
   console.error("refusing arm64 node for x64 target");
   process.exit(1);
 }
-if (/x64|x86_64/.test(nodeInput.filename) && target.includes("aarch64") && !nodeInput.filename.includes("arm64")) {
+if (
+  /x64|x86_64/.test(nodeInput.filename) &&
+  target.includes("aarch64") &&
+  !nodeInput.filename.includes("arm64")
+) {
   console.error("refusing x64 node for arm64 target");
   process.exit(1);
 }
 
 const host = hostTarget();
 const staging =
-  target === host ? join(ROOT, "dist", "runtime-staging") : join(ROOT, "dist", `runtime-staging-${target}`);
+  target === host
+    ? join(ROOT, "dist", "runtime-staging")
+    : join(ROOT, "dist", `runtime-staging-${target}`);
 const cacheDir = join(ROOT, "dist", "runtime-cache", nodeInput.sha256);
 const archivePath = join(cacheDir, nodeInput.filename);
 
-rmSync(staging, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+rmSync(staging, {
+  recursive: true,
+  force: true,
+  maxRetries: 5,
+  retryDelay: 100,
+});
 mkdirSync(staging, { recursive: true });
 mkdirSync(cacheDir, { recursive: true });
 
 if (!existsSync(archivePath) || sha256File(archivePath) !== nodeInput.sha256) {
-  execFileSync("curl", ["-fL", "-o", archivePath, nodeInput.url], { stdio: "inherit" });
+  execFileSync("curl", ["-fL", "-o", archivePath, nodeInput.url], {
+    stdio: "inherit",
+  });
 }
 const got = sha256File(archivePath);
 if (got !== nodeInput.sha256) {
@@ -99,38 +147,66 @@ mkdirSync(extractDir, { recursive: true });
 if (nodeInput.archive === "zip") {
   const unzip = spawnSync("unzip", ["-v"], { encoding: "utf8" });
   if (unzip.status === 0) {
-    const names = execFileSync("unzip", ["-Z", "-1", archivePath], { encoding: "utf8" }).split("\n").filter(Boolean);
+    const names = execFileSync("unzip", ["-Z", "-1", archivePath], {
+      encoding: "utf8",
+    })
+      .split("\n")
+      .filter(Boolean);
     for (const n of names) assertSafeName(n);
-    execFileSync("unzip", ["-q", archivePath, "-d", extractDir], { stdio: "inherit" });
-  } else if (process.platform === "win32" && spawnSync("tar", ["-tf", archivePath], { encoding: "utf8" }).status === 0) {
+    execFileSync("unzip", ["-q", archivePath, "-d", extractDir], {
+      stdio: "inherit",
+    });
+  } else if (
+    process.platform === "win32" &&
+    spawnSync("tar", ["-tf", archivePath], { encoding: "utf8" }).status === 0
+  ) {
     // Current Windows ships bsdtar, which reads ZIP archives without requiring
     // an optional PowerShell.Archive module.
-    const names = execFileSync("tar", ["-tf", archivePath], { encoding: "utf8" }).split("\n").filter(Boolean);
+    const names = execFileSync("tar", ["-tf", archivePath], {
+      encoding: "utf8",
+    })
+      .split("\n")
+      .filter(Boolean);
     for (const n of names) assertSafeName(n);
-    execFileSync("tar", ["-xf", archivePath, "-C", extractDir], { stdio: "inherit" });
+    execFileSync("tar", ["-xf", archivePath, "-C", extractDir], {
+      stdio: "inherit",
+    });
   } else if (process.platform === "win32") {
     const expanded = spawnSync(
       "powershell",
-      ["-NoProfile", "-Command", `Expand-Archive -Force -Path '${archivePath}' -DestinationPath '${extractDir}'`],
+      [
+        "-NoProfile",
+        "-Command",
+        `Expand-Archive -Force -Path '${archivePath}' -DestinationPath '${extractDir}'`,
+      ],
       { stdio: "inherit" },
     );
     if (expanded.status !== 0) {
-      console.error("embed-runtime BLOCKED: unzip and Expand-Archive both unavailable");
+      console.error(
+        "embed-runtime BLOCKED: unzip and Expand-Archive both unavailable",
+      );
       process.exit(4);
     }
   } else {
-    console.error("embed-runtime BLOCKED: unzip missing for zip runtime archive");
+    console.error(
+      "embed-runtime BLOCKED: unzip missing for zip runtime archive",
+    );
     process.exit(4);
   }
 } else {
-  const names = execFileSync("tar", ["-tzf", archivePath], { encoding: "utf8" }).split("\n").filter(Boolean);
+  const names = execFileSync("tar", ["-tzf", archivePath], { encoding: "utf8" })
+    .split("\n")
+    .filter(Boolean);
   for (const n of names) assertSafeName(n);
-  execFileSync("tar", ["-xzf", archivePath, "-C", extractDir], { stdio: "inherit" });
+  execFileSync("tar", ["-xzf", archivePath, "-C", extractDir], {
+    stdio: "inherit",
+  });
 }
 
-const extractedRoot = readdirSync(extractDir)
-  .map((n) => join(extractDir, n))
-  .find((p) => statSync(p).isDirectory()) ?? extractDir;
+const extractedRoot =
+  readdirSync(extractDir)
+    .map((n) => join(extractDir, n))
+    .find((p) => statSync(p).isDirectory()) ?? extractDir;
 mkdirSync(join(staging, "runtime"), { recursive: true });
 const nodeDest = join(staging, "runtime", "node");
 if (process.platform === "darwin") {
@@ -151,11 +227,16 @@ if (process.platform === "darwin") {
       if (!childStat.isSymbolicLink()) continue;
       const targetPath = realpathSync(child);
       const targetRelative = relative(nodeDestReal, targetPath);
-      if (!targetRelative || targetRelative.startsWith("..") || isAbsolute(targetRelative)) {
+      if (
+        !targetRelative ||
+        targetRelative.startsWith("..") ||
+        isAbsolute(targetRelative)
+      ) {
         throw new Error(`unsafe Node runtime symlink ${child}`);
       }
       const targetStat = statSync(targetPath);
-      if (!targetStat.isFile()) throw new Error(`unsupported Node runtime symlink target ${child}`);
+      if (!targetStat.isFile())
+        throw new Error(`unsupported Node runtime symlink target ${child}`);
       unlinkSync(child);
       copyFileSync(targetPath, child);
       chmodSync(child, targetStat.mode);
@@ -171,12 +252,16 @@ rmSync(extractDir, { recursive: true, force: true });
 // workspace can enter pnpm's virtual-store compatibility links, which do not
 // preserve package-local version conflicts when copied into a standalone app.
 const workspaceDsh = join(ROOT, "node_modules", "@deepseek-ai", "dsh");
-const dshVersion = JSON.parse(readFileSync(join(workspaceDsh, "package.json"), "utf8")).version;
+const dshVersion = JSON.parse(
+  readFileSync(join(workspaceDsh, "package.json"), "utf8"),
+).version;
 if (dshVersion !== PINNED_DSH) {
-  console.error(`workspace DSH closure must be pinned to ${PINNED_DSH}, got ${dshVersion || "missing"}`);
+  console.error(
+    `workspace DSH closure must be pinned to ${PINNED_DSH}, got ${dshVersion || "missing"}`,
+  );
   process.exit(1);
 }
-const cohortPath = join(ROOT, "docs", "0.6.2", "DSH_NPM_COHORT.json");
+const cohortPath = join(ROOT, "docs", "0.6.3", "DSH_NPM_COHORT.json");
 const cohortBytes = readFileSync(cohortPath);
 const cohort = JSON.parse(cohortBytes.toString("utf8"));
 try {
@@ -202,16 +287,31 @@ const locatedDsh = locateWorkspaceDsh({
 });
 const dshPackageDir = locatedDsh?.dshPackageDir ?? "";
 const dshPackageRoot = locatedDsh?.dshPackageRoot ?? "";
-if (!existsSync(dshPackageDir) || !existsSync(join(dshPackageRoot, "node_modules"))) {
+if (
+  !existsSync(dshPackageDir) ||
+  !existsSync(join(dshPackageRoot, "node_modules"))
+) {
   console.error("workspace DSH pnpm closure missing");
   process.exit(1);
 }
 const dshDest = join(staging, "runtime", "dsh");
 cpSync(dshPackageDir, dshDest, { recursive: true, dereference: true });
-const flattened = materializeDshClosure(join(dshPackageDir, "package.json"), dshDest, target);
-if (!existsSync(join(dshDest, "node_modules", "@deepseek-ai", "dsh-web-frontend"))) {
+const flattened = materializeDshClosure(
+  join(dshPackageDir, "package.json"),
+  dshDest,
+  target,
+);
+if (
+  !existsSync(join(dshDest, "node_modules", "@deepseek-ai", "dsh-web-frontend"))
+) {
   console.error("workspace DSH node_modules closure missing dsh-web-frontend");
   process.exit(1);
+}
+for (const packageName of EXCLUDED_DSH_RUNTIME_PACKAGES) {
+  if (existsSync(join(dshDest, "node_modules", packageName))) {
+    console.error("excluded Office/PDF runtime package was embedded", packageName);
+    process.exit(1);
+  }
 }
 rmSync(join(dshDest, "node_modules", ".bin"), { recursive: true, force: true });
 console.log(
@@ -229,14 +329,25 @@ const nodeBin =
     : join(staging, "runtime", "node", "bin", "node");
 const dshBin = join(dshDest, "lib", "bin.js");
 let dshVersionProbe = `cross-staged ${target}`;
-if (existsSync(nodeBin) && target !== "win32-x86_64" && target !== "linux-loong64") {
+if (
+  existsSync(nodeBin) &&
+  target !== "win32-x86_64" &&
+  target !== "linux-loong64"
+) {
   const versionProbe = spawnSync(nodeBin, [dshBin, "--version"], {
     encoding: "utf8",
     env: { PATH: "/usr/bin:/bin", NODE_PATH: "" },
     cwd: dirname(nodeBin),
   });
-  if (versionProbe.status !== 0 || !String(versionProbe.stdout).includes(PINNED_DSH)) {
-    console.error("embedded DSH --version failed", versionProbe.stdout, versionProbe.stderr);
+  if (
+    versionProbe.status !== 0 ||
+    !String(versionProbe.stdout).includes(PINNED_DSH)
+  ) {
+    console.error(
+      "embedded DSH --version failed",
+      versionProbe.stdout,
+      versionProbe.stderr,
+    );
     process.exit(1);
   }
   dshVersionProbe = String(versionProbe.stdout).trim();
@@ -245,17 +356,23 @@ if (existsSync(nodeBin) && target !== "win32-x86_64" && target !== "linux-loong6
 // The 0.5.7 rc.2 overlay remains historical evidence only. Alpha.2 exposes
 // official client slots, so Penglai branding and settings are composed by
 // signed first-party plugins without modifying official DSH bytes.
-console.log(JSON.stringify({ dsh: PINNED_DSH, overlay: "official-slots-no-source-patch" }));
+console.log(
+  JSON.stringify({
+    dsh: PINNED_DSH,
+    overlay: "official-slots-no-source-patch",
+  }),
+);
 
-const pluginTarget = target === "darwin-aarch64"
-  ? "darwin-arm64"
-  : target === "darwin-x86_64"
-    ? "darwin-x64"
-    : target === "win32-x86_64"
-      ? "win32-x64"
-      : target === "linux-loong64"
-        ? "linux-loong64"
-        : null;
+const pluginTarget =
+  target === "darwin-aarch64"
+    ? "darwin-arm64"
+    : target === "darwin-x86_64"
+      ? "darwin-x64"
+      : target === "win32-x86_64"
+        ? "win32-x64"
+        : target === "linux-loong64"
+          ? "linux-loong64"
+          : null;
 if (!pluginTarget) {
   console.error("no plugin target mapping for", target);
   process.exit(1);
@@ -277,7 +394,14 @@ if (!mnemonAsset) {
   console.error("embed-runtime missing mnemon pin for", target);
   process.exit(1);
 }
-let mnemonSrc = join(ROOT, "third_party", "mnemon", "bin", mnemonAsset.target, mnemonAsset.binaryFilename);
+let mnemonSrc = join(
+  ROOT,
+  "third_party",
+  "mnemon",
+  "bin",
+  mnemonAsset.target,
+  mnemonAsset.binaryFilename,
+);
 if (!existsSync(mnemonSrc) && mnemonAsset.architectureBuild) {
   mnemonSrc = join(
     ROOT,
@@ -287,8 +411,13 @@ if (!existsSync(mnemonSrc) && mnemonAsset.architectureBuild) {
     mnemonAsset.binaryFilename,
   );
 }
-if (!existsSync(mnemonSrc) || sha256File(mnemonSrc) !== mnemonAsset.binarySha256) {
-  console.error("embed-runtime mnemon binary missing or hash mismatch; fetch the target asset first");
+if (
+  !existsSync(mnemonSrc) ||
+  sha256File(mnemonSrc) !== mnemonAsset.binarySha256
+) {
+  console.error(
+    "embed-runtime mnemon binary missing or hash mismatch; fetch the target asset first",
+  );
   process.exit(1);
 }
 mkdirSync(join(staging, "mnemon"), { recursive: true });
@@ -297,8 +426,13 @@ const mnemonLicense = join(
   ROOT,
   "packages/moss-tts/third_party/sentencepiece-js-Apache-2.0.txt",
 );
-if (!existsSync(mnemonLicense) || sha256File(mnemonLicense) !== MNEMON_UPSTREAM.licenseSha256) {
-  console.error("embed-runtime Mnemon Apache-2.0 license missing or hash mismatch");
+if (
+  !existsSync(mnemonLicense) ||
+  sha256File(mnemonLicense) !== MNEMON_UPSTREAM.licenseSha256
+) {
+  console.error(
+    "embed-runtime Mnemon Apache-2.0 license missing or hash mismatch",
+  );
   process.exit(1);
 }
 cpSync(mnemonLicense, join(staging, "mnemon", "LICENSE"));
@@ -306,8 +440,13 @@ if (mnemonAsset.executable) {
   const { chmodSync } = await import("node:fs");
   chmodSync(join(staging, "mnemon", mnemonAsset.binaryFilename), 0o755);
 }
-cpSync(join(ROOT, "profile-seed"), join(staging, "profile-seed"), { recursive: true });
-cpSync(join(ROOT, "release-contract.json"), join(staging, "release-contract.json"));
+cpSync(join(ROOT, "profile-seed"), join(staging, "profile-seed"), {
+  recursive: true,
+});
+cpSync(
+  join(ROOT, "release-contract.json"),
+  join(staging, "release-contract.json"),
+);
 const lgplSourceOffer = join(ROOT, "docs", "0.5.10", "LGPL_SOURCE_OFFER.md");
 if (!existsSync(lgplSourceOffer)) {
   console.error("0.5.10 LGPL corresponding-source offer is missing");
@@ -319,13 +458,20 @@ if (!existsSync(sharpLegalSource)) {
   console.error("sharp/libvips legal materials are missing");
   process.exit(1);
 }
-cpSync(sharpLegalSource, join(staging, "licenses", "sharp"), { recursive: true });
+cpSync(sharpLegalSource, join(staging, "licenses", "sharp"), {
+  recursive: true,
+});
 
 // A native Windows build must carry its ACL/job/uninstall helper inside the
 // hashed runtime manifest. Cross-staging may omit it and remains structurally
 // incomplete until the matching Windows runner compiles the helper.
 if (target === "win32-x86_64") {
-  const helper = join(ROOT, "dist", "native-win32-x86_64", "penglai-windows-host.exe");
+  const helper = join(
+    ROOT,
+    "dist",
+    "native-win32-x86_64",
+    "penglai-windows-host.exe",
+  );
   if (existsSync(helper)) {
     const helperDir = join(staging, "runtime", "helpers");
     mkdirSync(helperDir, { recursive: true });
@@ -335,10 +481,21 @@ if (target === "win32-x86_64") {
 
 const files = walk(join(staging, "runtime"))
   .concat(walk(join(staging, "profile-seed")))
-  .concat(existsSync(join(staging, "plugins")) ? walk(join(staging, "plugins")) : [])
-  .concat(existsSync(join(staging, "mnemon")) ? walk(join(staging, "mnemon")) : [])
-  .concat(existsSync(join(staging, "licenses")) ? walk(join(staging, "licenses")) : [])
-  .concat([join(staging, "release-contract.json"), join(staging, "LGPL_SOURCE_OFFER.txt")])
+  .concat(
+    existsSync(join(staging, "plugins")) ? walk(join(staging, "plugins")) : [],
+  )
+  .concat(
+    existsSync(join(staging, "mnemon")) ? walk(join(staging, "mnemon")) : [],
+  )
+  .concat(
+    existsSync(join(staging, "licenses"))
+      ? walk(join(staging, "licenses"))
+      : [],
+  )
+  .concat([
+    join(staging, "release-contract.json"),
+    join(staging, "LGPL_SOURCE_OFFER.txt"),
+  ])
   .map((abs) => ({
     // The signed manifest is platform-neutral. Backslashes produced on the
     // Windows packager would otherwise fail the exact legal-material and
@@ -354,8 +511,12 @@ writeFileSync(
       release: PRODUCT_VERSION,
       target,
       dsh: PINNED_DSH,
-      node: target === "linux-loong64" ? PINNED_NODE_LINUX_LOONG64 : PINNED_NODE,
-      electron: target === "linux-loong64" ? PINNED_ELECTRON_LINUX_LOONG64 : PINNED_ELECTRON,
+      node:
+        target === "linux-loong64" ? PINNED_NODE_LINUX_LOONG64 : PINNED_NODE,
+      electron:
+        target === "linux-loong64"
+          ? PINNED_ELECTRON_LINUX_LOONG64
+          : PINNED_ELECTRON,
       files,
     },
     null,
@@ -363,7 +524,10 @@ writeFileSync(
   ),
 );
 const manifestPath = join(staging, "runtime-manifest.json");
-const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
+const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], {
+  cwd: ROOT,
+  encoding: "utf8",
+}).trim();
 writeClosureCredential(staging, {
   sourceSha,
   target,
