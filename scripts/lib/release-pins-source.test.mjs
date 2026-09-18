@@ -53,6 +53,17 @@ test("version verifier consumes the authority instead of declaring a second expe
   assert.doesNotMatch(source, /const EXPECT = "0\.5\.8"/);
 });
 
+test("runtime downloads use compiled release pins and only compare the JSON contract", () => {
+  const source = readFileSync(
+    new URL("../embed-runtime.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /RUNTIME_INPUTS\.find/);
+  assert.match(source, /JSON\.stringify\(contractNodeInput\) !== JSON\.stringify\(nodeInput\)/);
+  assert.match(source, /archivePath, nodeInput\.url/);
+  assert.doesNotMatch(source, /const inputs = \(contract\.runtimeInputs/);
+});
+
 test("release pin reader fails closed when an authority is duplicated", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-release-pins-"));
   const target = join(root, RELEASE_PINS_SOURCE);

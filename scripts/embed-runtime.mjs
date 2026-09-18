@@ -38,6 +38,7 @@ import {
   PINNED_ELECTRON,
   PINNED_NODE,
   PRODUCT_VERSION,
+  RUNTIME_INPUTS,
 } from "./lib/product.mjs";
 import {
   PINNED_ELECTRON_LINUX_LOONG64,
@@ -93,12 +94,18 @@ function assertSafeName(name) {
 
 const target = argValue("--target", hostTarget());
 const contract = readJson("release-contract.json");
-const inputs = (contract.runtimeInputs ?? []).filter(
-  (i) => i.target === target,
+const nodeInput = RUNTIME_INPUTS.find(
+  (input) => input.target === target && input.kind === "node",
 );
-const nodeInput = inputs.find((i) => i.kind === "node");
 if (!nodeInput) {
   console.error("no node input for", target);
+  process.exit(1);
+}
+const contractNodeInput = (contract.runtimeInputs ?? []).find(
+  (input) => input.target === target && input.kind === "node",
+);
+if (JSON.stringify(contractNodeInput) !== JSON.stringify(nodeInput)) {
+  console.error("release contract node input drifted from the compiled release pins", target);
   process.exit(1);
 }
 if (/arm64|aarch64/.test(nodeInput.filename) && target.includes("x86_64")) {
