@@ -868,7 +868,7 @@ test("R2-PC-010 reconcile uses inventory not catalog self-report", () => {
   const im = rows.find((r) => r.id === "@penglai/im");
   assert.equal(im?.loaded, false);
   assert.equal(im?.healthy, false);
-  assert.equal(im?.actual, "disabled");
+  assert.equal(im?.actual, "failed");
 });
 
 test("Center isolates a failing plugin health probe without dropping the catalog", () => {
@@ -928,7 +928,7 @@ test("Center probes optional sibling services through Cordis get without inject-
   }
 });
 
-test("fresh memory reconciles to actual=active/healthy and optionals do not", () => {
+test("fresh required/default-on plugins reconcile distinctly from default-off optionals", () => {
   const root = mkdtempSync(join(tmpdir(), "pc-fresh-health-"));
   const profileDir = join(root, "profile");
   const ctx = {
@@ -962,7 +962,12 @@ test("fresh memory reconciles to actual=active/healthy and optionals do not", ()
   assert.equal(memory?.actual, "active");
   assert.equal(memory?.healthy, true);
   assert.equal(memory?.loaded, true);
-  for (const id of ["@penglai/im", "@penglai/asr", "@penglai/moss-tts"]) {
+  const im = rows.find((entry) => entry.id === "@penglai/im");
+  assert.equal(im?.actual, "failed", "@penglai/im");
+  assert.equal(im?.loaded, false, "@penglai/im");
+  assert.equal(im?.healthy, false, "@penglai/im");
+  assert.equal(pluginHealthFrom(ctx, "@penglai/im").healthy, false, "@penglai/im");
+  for (const id of ["@penglai/asr", "@penglai/moss-tts"]) {
     const row = rows.find((entry) => entry.id === id);
     assert.equal(row?.actual, "disabled", id);
     assert.equal(row?.loaded, false, id);

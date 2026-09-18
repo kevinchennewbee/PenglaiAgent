@@ -43,7 +43,7 @@ the published installer. That is not a native PASS.
 | --- | --- | --- |
 | Plugin Center | Active | Shows real DSH loader state and signed catalog transactions |
 | Penglai Memory | Active | Automatic current-Workspace memory, explicit personal memory, authorised sources, provenance, and graph views |
-| Mobile Messaging | Disabled | Eight established first-party connectors plus optional macOS iMessage (nine adapter implementations). WeChat/Feishu keep native media. iMessage is private text, default off, and Darwin-only. Account connectivity is reported only with actual evidence; iMessage native live is `LIVE_NOT_RUN`. WhatsApp is excluded. |
+| Mobile Messaging | Active | Bundled and enabled by default, with no account or channel connected automatically. Eight established first-party connectors plus optional macOS iMessage (nine adapter implementations). WeChat/Feishu keep native media. iMessage is private text, independently default off, and Darwin-only. Account connectivity is reported only with actual evidence; iMessage native live is `LIVE_NOT_RUN`. WhatsApp is excluded. |
 | Speech Recognition | Disabled | Local SenseVoice transcription after explicit model installation and microphone action |
 | Voice Generation | Disabled | Local MOSS-TTS preview, conversation Read, and supported channel audio |
 
@@ -193,7 +193,8 @@ UOS 真机安装/启动/功能为 `OWNER_POST_RELEASE`。已发布的 0.5.10、0
 
 ### 2. 全新安装
 
-插件中心和蓬莱记忆默认 active；手机消息、语音识别和语音生成随包但默认关闭。
+插件中心、蓬莱记忆和手机消息默认 active；消息账号与通道不会自动连接。语音识别和
+语音生成的插件与受支持目标运行时随包但默认关闭，模型权重不随包。
 LibreOffice、PDF/办公插件、预算与主动陪伴不进入 0.6.3。可选插件在 disabled、未配置、离线或缺少模型时必须保持惰性，不能
 阻塞普通 DSH 会话。
 

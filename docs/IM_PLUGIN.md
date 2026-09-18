@@ -20,8 +20,8 @@
 
 ## 2. 默认行为
 
-- fresh 0.5.10 profile 离线携带并登记 `@penglai/im`，但默认 `disabled`，不会进入 active loader roster，也不会启动 adapter 网络活动。
-- 用户在 Center 明确选择“安装并启用”后，package transaction 才写入 profile、启用 loader，并验证 actual active/healthy；此后未配置 adapter 时不联网、不启动 auth poll。
+- fresh 0.6.3 profile 离线携带、安装并启用 `@penglai/im`，它必须进入 active loader roster，消息设置、Remote 与 diagnostics 开箱可用。
+- 默认启用插件不等于默认连接账号：所有 adapter 初始仍未配置，不联网、不启动 auth poll；用户可在 Center 停用插件，事务必须验证 actual loader state。
 - 未配置 adapter 时不联网、不启动 auth poll，但 Remote/UI/diagnostics 可用。
 - official Models API key 测试、default model 和 Workspace 就绪后，onboarding 自动进入“连接消息渠道”步骤。
 - 用户可选“连接微信”“连接飞书”“稍后”；稍后不阻止 DSH 使用，设置入口与非打扰 badge 保留。

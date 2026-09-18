@@ -36,6 +36,17 @@ const OPTIONAL_PLUGINS = [
   "@penglai/asr",
   "@penglai/moss-tts",
 ];
+const FRESH_OPTIONAL_STATE = Object.freeze({
+  "@penglai/im": true,
+  "@penglai/asr": false,
+  "@penglai/moss-tts": false,
+});
+const ALL_ENABLED_STATE = Object.freeze(
+  Object.fromEntries(OPTIONAL_PLUGINS.map((id) => [id, true])),
+);
+const ALL_DISABLED_STATE = Object.freeze(
+  Object.fromEntries(OPTIONAL_PLUGINS.map((id) => [id, false])),
+);
 const TRACKED_PLUGINS = [...REQUIRED_BUILTIN, ...OPTIONAL_PLUGINS];
 const LEGACY_PLUGIN_IDS = ["@penglai/context"];
 const HIDDEN_INTERNAL_CARD_IDS = [
@@ -231,21 +242,23 @@ function optionalRowOk(row, enabled) {
   return row.enabled !== true && row.phase === null;
 }
 
-function rowsMatch(snapshot, optionalEnabled) {
+function rowsMatch(snapshot, optionalState) {
   const rows = pluginRows(snapshot);
   return (
     REQUIRED_BUILTIN.every((id) => requiredRowOk(rows.find((row) => row.id === id))) &&
-    OPTIONAL_PLUGINS.every((id) => optionalRowOk(rows.find((row) => row.id === id), optionalEnabled))
+    OPTIONAL_PLUGINS.every((id) =>
+      optionalRowOk(rows.find((row) => row.id === id), optionalState[id] === true),
+    )
   );
 }
 
-async function waitInventory(enabled, notBefore, timeoutMs = 90_000) {
+async function waitInventory(optionalState, notBefore, timeoutMs = 90_000) {
   const end = Date.now() + timeoutMs;
   let last = null;
   while (Date.now() < end) {
     try {
       last = JSON.parse(readFileSync(inventoryPath, "utf8"));
-      if (Date.parse(String(last?.at ?? "")) >= notBefore && rowsMatch(last, enabled)) return last;
+      if (Date.parse(String(last?.at ?? "")) >= notBefore && rowsMatch(last, optionalState)) return last;
     } catch (error) {
       const missing = error && typeof error === "object" && "code" in error && error.code === "ENOENT";
       if (!missing && !(error instanceof SyntaxError)) throw error;
@@ -298,15 +311,14 @@ function requiredPackagesOk(packages) {
   });
 }
 
-function optionalPackagesOk(packages, enabled) {
-  if (!enabled) return true;
-  return OPTIONAL_PLUGINS.every((id) => {
+function optionalPackagesOk(packages, optionalState) {
+  return OPTIONAL_PLUGINS.filter((id) => optionalState[id] === true).every((id) => {
     const pkg = packages.find((row) => row.id === id);
     return pkg?.present && pkg.version === PRODUCT_VERSION;
   });
 }
 
-async function runPhase(name, expectedEnabled) {
+async function runPhase(name, expectedOptionalState) {
   rmSync(join(userData, "gateway.port"), { force: true });
   const debugPort = await freePort();
   const startedAt = Date.now();
@@ -324,7 +336,7 @@ async function runPhase(name, expectedEnabled) {
     cdpSession = session;
     official = await observeOfficialSurfaces(session);
     if (
-      (name === "fresh-default-disabled" || name === "all-enabled-after-restart") &&
+      (name === "fresh-defaults" || name === "all-enabled-after-restart") &&
       official?.official
     ) {
       productWalk = await walkInstalledBrowserWindow(session, {
@@ -339,7 +351,7 @@ async function runPhase(name, expectedEnabled) {
   } catch (error) {
     attachErr = error instanceof Error ? error.message : String(error);
   }
-  const inventory = await waitInventory(expectedEnabled, startedAt);
+  const inventory = await waitInventory(expectedOptionalState, startedAt);
   const tree = ownedProcessTree(installed.app, resources, launched.child.pid);
   const gracefulBrowserClose = await requestBrowserClose(cdpSession);
   await stopChild(launched.child, 20_000);
@@ -350,7 +362,7 @@ async function runPhase(name, expectedEnabled) {
   const leftovers = leftoversByCommand(dshNeedle);
   return {
     name,
-    expectedEnabled,
+    expectedOptionalState,
     sawGateway,
     gracefulBrowserClose,
     attachErr: attachErr || undefined,
@@ -378,7 +390,7 @@ async function runPhase(name, expectedEnabled) {
         navLabels: step.snap?.navLabels ?? [],
       })),
     requiredCapabilities:
-      name === "fresh-default-disabled"
+      name === "fresh-defaults"
         ? {
             memoryReady:
               productWalk?.steps?.find((step) => step.id === "ui-memory")
@@ -417,12 +429,12 @@ async function runPhase(name, expectedEnabled) {
 
 let phases = [];
 try {
-  phases.push(await runPhase("fresh-default-disabled", false));
+  phases.push(await runPhase("fresh-defaults", FRESH_OPTIONAL_STATE));
   setOptionalEnabled(true);
-  phases.push(await runPhase("all-enabled", true));
-  phases.push(await runPhase("all-enabled-after-restart", true));
+  phases.push(await runPhase("all-enabled", ALL_ENABLED_STATE));
+  phases.push(await runPhase("all-enabled-after-restart", ALL_ENABLED_STATE));
   setOptionalEnabled(false);
-  phases.push(await runPhase("all-disabled-after-restart", false));
+  phases.push(await runPhase("all-disabled-after-restart", ALL_DISABLED_STATE));
 } catch (error) {
   const rec = {
     command: "u3-first-party-plugins",
@@ -438,8 +450,6 @@ try {
   finish("FAIL", rec);
 }
 
-const activePhases = phases.filter((phase) => phase.expectedEnabled);
-const disabledPhases = phases.filter((phase) => !phase.expectedEnabled);
 const commonOk = phases.every(
   (phase) =>
     phase.sawGateway &&
@@ -462,18 +472,16 @@ const enabledCapabilitiesOk =
     ?.enabledCapabilities?.optionalSettingsReady === true &&
   phases.find((phase) => phase.name === "all-enabled-after-restart")
     ?.enabledCapabilities?.settingsBlocked?.length === 0;
-const activeOk = activePhases.every(
+const stateOk = phases.every(
   (phase) =>
-    rowsMatch({ entries: phase.rows.map((row) => ({ moduleName: row.id, enabled: row.enabled, fiberPhase: row.phase })) }, true) &&
+    rowsMatch(
+      { entries: phase.rows.map((row) => ({ moduleName: row.id, enabled: row.enabled, fiberPhase: row.phase })) },
+      phase.expectedOptionalState,
+    ) &&
     requiredPackagesOk(phase.packages) &&
-    optionalPackagesOk(phase.packages, true),
+    optionalPackagesOk(phase.packages, phase.expectedOptionalState),
 );
-const disabledOk = disabledPhases.every(
-  (phase) =>
-    rowsMatch({ entries: phase.rows.map((row) => ({ moduleName: row.id, enabled: row.enabled, fiberPhase: row.phase })) }, false) &&
-    requiredPackagesOk(phase.packages),
-);
-const ok = commonOk && requiredCapabilitiesOk && enabledCapabilitiesOk && activeOk && disabledOk;
+const ok = commonOk && requiredCapabilitiesOk && enabledCapabilitiesOk && stateOk;
 const rec = {
   command: "u3-first-party-plugins",
   verdict: ok ? "PASS" : "FAIL",
@@ -489,7 +497,7 @@ const rec = {
   publicScreenshots: capturePublicShots,
   optionalPlugins: OPTIONAL_PLUGINS,
   method:
-    "exact installed profile with a local secret-free COMPLETE onboarding fixture; mounted official DSH product UI plus HTTP/WebSocket, capability-ready Memory settings, and loader inventory; Memory stays required-builtin active; verify Office/PDF, Budget, and Companion are absent; enable optional plugins; restart and walk every optional settings surface; disable optional plugins; restart",
+    "exact installed profile with a local secret-free COMPLETE onboarding fixture; mounted official DSH product UI plus HTTP/WebSocket, capability-ready Memory settings, and loader inventory; Memory stays required-builtin active; IM is bundled and active by default while every channel remains unconfigured; verify Office/PDF, Budget, and Companion are absent; enable ASR/TTS; restart and walk every optional settings surface; disable optional plugins; restart",
   phases,
 };
 writeRec(rec);

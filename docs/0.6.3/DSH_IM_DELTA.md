@@ -4,10 +4,12 @@ DSH `0.1.6-alpha.2` does not replace Penglai's IM control plane. Penglai keeps
 one reviewed `@penglai/im` plugin and does not install the community dsh-im
 runtime.
 
-The 0.6.2 messaging behavior is retained and revalidated against alpha.2:
+The plugin itself is bundled and active on a fresh profile. This does not
+configure an account or start a channel. The 0.6.2 channel behavior is retained
+and revalidated against alpha.2:
 
-- Weixin, Feishu, DingTalk, WeCom, QQ, Slack, Telegram, and Discord remain
-  optional and default off.
+- Weixin, Feishu, DingTalk, WeCom, QQ, Slack, Telegram, and Discord channel
+  connections remain optional and default off.
 - Weixin and Feishu inbound files enter the exact bound official Session as
   DSH file attachments.
 - Missing or replaced Sessions keep a durable, user-actionable error instead

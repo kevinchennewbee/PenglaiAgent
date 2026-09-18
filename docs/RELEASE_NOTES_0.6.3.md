@@ -37,6 +37,13 @@ Their historical workspaces are excluded and their upstream packages are
 removed from the profile, catalog, product runtime closure, installer staging,
 and product SBOM. Memory is the only required first-party feature plugin.
 
+Mobile Messaging is installed and active on a fresh profile, while every
+channel and account remains unconfigured until the user connects it. ASR and
+MOSS-TTS stay disabled by default. Their plugin code, UI, services, and
+supported-target inference runtimes are bundled; model weights are separate,
+pinned downloads. MOSS-TTS remains unavailable on UOS LoongArch because the
+pinned ONNX Runtime has no supported native engine for that target.
+
 Privacy and installation authority remain stricter than the upstream defaults:
 the canonical session-log/upload plugin and upstream free-form plugin manager,
 tool, and UI are disabled in the Penglai profile. Only the signed Penglai Plugin
@@ -75,6 +82,11 @@ DSH 核心上。
 Penglai 0.6.3 不包含 LibreOffice、Office/PDF、预算或主动陪伴。其历史 workspace
 被排除，上游对应包也从 profile、catalog、产品运行闭包、安装包 staging 和产品
 SBOM 中移除。记忆是唯一必装的第一方功能插件。
+
+手机消息在 fresh profile 中已经安装并 active，但所有通道与账号仍保持未配置，只有
+用户连接后才会启动。ASR 与 MOSS-TTS 默认关闭；其插件代码、UI、服务和受支持目标的
+推理运行时随包，模型权重按固定版本与哈希另行下载。UOS 龙芯没有受支持的原生 ONNX
+Runtime，因此该端仍不能启用 MOSS-TTS。
 
 隐私和安装权限继续采用更严格默认值：Penglai profile 默认关闭 canonical session
 log/upload，以及上游自由安装插件的 manager/tool/UI；只有签名的蓬莱插件中心可以

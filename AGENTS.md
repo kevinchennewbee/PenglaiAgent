@@ -40,7 +40,9 @@
   the product runtime closure. Penglai 0.6.3 excludes LibreOffice, PDF/Office,
   Budget, and Companion from the workspace, profile, catalog, runtime,
   installer, product SBOM, and acceptance. Memory is the only required
-  first-party feature plugin; IM, ASR, and TTS are bundled but default off.
+  first-party feature plugin. IM is bundled and enabled by default, while every
+  channel remains unconfigured and inert until the user connects it. ASR and
+  TTS are bundled but default off; their model weights are not bundled.
 - Plugin Center may install only signed catalog artifacts with exact identity,
   digest, permission, DSH compatibility, and rollback checks. UI state is never
   proof that a plugin is installed or healthy.
@@ -126,7 +128,8 @@
 - 完整 307 包清单是上游审计输入，不是产品运行闭包。0.6.3 不使用 LibreOffice，
   不做 PDF/办公插件、预算模块或主动陪伴模块；这些包不得进入 workspace、profile、
   catalog、运行时、安装包、产品 SBOM 或验收。记忆是唯一 required-builtin 第一方
-  功能插件；消息、ASR、TTS 随包但默认关闭。
+  功能插件；消息插件随包且默认启用，但各消息通道在用户连接前保持未配置、惰性；
+  ASR、TTS 随包但默认关闭，模型权重不随包。
 - 插件中心只接受签名目录中身份、摘要、权限、DSH 兼容性与回滚均通过的包。
   UI 显示不等于真实安装或健康。
 - Workspace、项目、账号、IM 路由必须隔离。记忆不得跨工作区串联。

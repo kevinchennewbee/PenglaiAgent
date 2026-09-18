@@ -98,6 +98,12 @@ test("R63-BUILTIN-001 fresh profile loads Memory", () => {
   assert.equal(memory?.defaultEnabled, true);
 });
 
+test("R63-IM-001 fresh profile loads bundled Mobile Messaging", () => {
+  const im = FIRST_PARTY_PLUGIN_METADATA.find((row) => row.id === "@penglai/im");
+  assert.equal(im?.defaultEnabled, true);
+  assert.equal(im?.installClass, "optional-first-party");
+});
+
 test("R55-BUILTIN-002 actual inventory, not desired, drives UI", () => {
   const client = readFileSync(join(root, "packages/plugin-center/src/dsh-client.js"), "utf8");
   assert.match(client, /data-penglai-plugin-loaded/);

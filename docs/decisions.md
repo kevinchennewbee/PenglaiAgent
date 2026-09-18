@@ -632,6 +632,19 @@
   preview 与六个 LibreOffice Kit 包从 Penglai 产品运行闭包精确剪除。审计到上游包不
   等于随包或支持声明。
 
+### D-079 — IM 默认启用，语音运行时随包但模型分离
+
+- 日期：2026-09-18。
+- 决定：Owner 明确确认 `@penglai/im` 必须随包安装并默认启用。该决定仅覆盖 D-078
+  中“IM 默认关闭”的一句；Memory 仍是唯一 required-builtin，IM 仍可由用户停用。
+  fresh loader inventory 必须反证 IM `active`，但任何 adapter、账号、授权或网络连接
+  都不得自动创建。iMessage 仍是 Darwin-only 且通道默认关闭。
+- 语音边界：ASR 与 MOSS-TTS 插件、UI、服务及受支持目标的推理运行时随包且默认
+  关闭；SenseVoice/MOSS 模型权重不随包，须按固定 revision、大小和 SHA-256 下载或
+  导入。ASR 的 Sherpa/WASM runtime 随三目标包；MOSS 的 ONNX Runtime 与
+  SentencePiece 只随 Mac/Windows 目标包。UOS LoongArch 因没有受支持的
+  `onnxruntime-node` 原生引擎而不可启用 MOSS-TTS。
+
 ## Superseded
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。

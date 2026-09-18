@@ -286,54 +286,54 @@ test("installed settings walk ignores hidden duplicate navigation buttons", asyn
   assert.equal(visibleClicked, true);
 });
 
-test("installed soak samples bundled IM without bypassing native owner approval", async () => {
-  const { bundledOptionalPluginDefaultOffSample } =
+test("installed soak proves bundled default-on IM without auto-connecting a channel", async () => {
+  const { bundledDefaultOnPluginSample } =
     await import("../../../scripts/lib/browser-window-walk.mjs");
   const sha256 = "a".repeat(64);
-  const sample = bundledOptionalPluginDefaultOffSample({
+  const sample = bundledDefaultOnPluginSample({
     id: "@penglai/im",
     catalogEntry: {
       id: "@penglai/im",
       source: "bundled-first-party",
       builtIn: true,
       installClass: "optional-first-party",
-      defaultEnabled: false,
+      defaultEnabled: true,
       sha256,
     },
     packageSha256: sha256,
-    desiredEnabled: false,
+    desiredEnabled: true,
     inventoryEntry: {
       moduleName: "@penglai/im",
-      enabled: false,
-      fiberPhase: null,
+      enabled: true,
+      fiberPhase: "active",
     },
     centerCard: {
       id: "@penglai/im",
-      installed: "not-installed",
-      loaded: false,
-      actions: ["installEnable"],
+      installed: "installed",
+      loaded: true,
+      actions: ["disable"],
     },
   });
   assert.equal(sample.ok, true);
   assert.equal(sample.catalogBound, true);
-  assert.equal(sample.loaderDefaultOff, true);
-  assert.equal(sample.centerOffersOwnerGatedEnable, true);
+  assert.equal(sample.loaderDefaultOn, true);
+  assert.equal(sample.centerOffersDisable, true);
   assert.equal(
-    bundledOptionalPluginDefaultOffSample({
+    bundledDefaultOnPluginSample({
       ...sample,
       id: "@penglai/im",
       catalogEntry: { id: "@penglai/im", sha256 },
       packageSha256: sha256,
-      desiredEnabled: false,
+      desiredEnabled: true,
       inventoryEntry: {
         moduleName: "@penglai/im",
-        enabled: false,
-        fiberPhase: null,
+        enabled: true,
+        fiberPhase: "active",
       },
       centerCard: {
         id: "@penglai/im",
-        loaded: false,
-        actions: ["installEnable"],
+        loaded: true,
+        actions: ["disable"],
       },
     }).ok,
     false,
@@ -806,8 +806,8 @@ test("soak runner samples IM offline sleep without faking lifecycle proof", () =
   assert.match(soak, /samplesCovered/);
   assert.match(soak, /evaluateLiveSample/);
   assert.match(soak, /PENGLAI_SOAK_ALLOW_LONG/);
-  assert.match(soak, /bundledOptionalPluginDefaultOffSample/);
-  assert.match(soak, /bundled-default-off/);
+  assert.match(soak, /bundledDefaultOnPluginSample/);
+  assert.match(soak, /bundled-default-on-channels-unconfigured/);
   assert.doesNotMatch(soak, /installOptionalPlugins:\s*true/);
   assert.match(soak, /installed-soak-fixture/);
   assert.match(soak, /credentialRef: "DEEPSEEK_API_KEY"/);

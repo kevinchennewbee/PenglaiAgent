@@ -12,10 +12,10 @@ three-target phase.
 | Surface | Fresh install | 0.6.3 decision |
 | --- | --- | --- |
 | Penglai Memory | on | Required. Workspace isolation and explicit personal-memory choice remain. Mnemon `0.2.8` is packaged. |
-| Mobile Messaging | off | Keep eight connectors under `@penglai/im`; Weixin and Feishu inbound files use the bound official Session. WhatsApp remains absent. |
+| Mobile Messaging | on | Bundled and active by default. Keep eight established connectors under `@penglai/im`; no channel or account connects until the user configures it. Weixin and Feishu inbound files use the bound official Session. WhatsApp remains absent. |
 | macOS iMessage | off | Optional private text on Mac only. Requires Full Disk Access, Messages automation, and an exact peer binding. Windows and UOS are unsupported. Native live remains `LIVE_NOT_RUN`. |
-| Speech Recognition | off | Keep local SenseVoice flow and opt-in model download. |
-| Voice Generation | off | Keep local MOSS-TTS on Mac and Windows. It is unavailable and cannot be enabled on LoongArch. |
+| Speech Recognition | off | Plugin, UI, service, and Sherpa/WASM runtime are bundled; the pinned SenseVoice weights remain an opt-in model download. |
+| Voice Generation | off | Plugin, UI, service, ONNX Runtime, SentencePiece, and execution code are bundled on Mac and Windows; pinned model weights remain an opt-in download. It is unavailable and cannot be enabled on LoongArch because no supported native ONNX Runtime exists. |
 | Plugin Center | on | Accept only signed catalog artifacts with exact identity, digest, permission, DSH compatibility, and rollback checks. |
 
 Office/PDF, LibreOffice Kit, Budget, and Companion are explicitly excluded

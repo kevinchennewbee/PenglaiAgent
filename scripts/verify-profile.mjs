@@ -45,14 +45,13 @@ const modes = process.argv.includes("--voice-matrix")
   : ["fresh"];
 
 function selectedPlugins(mode) {
-  const builtins = ["@penglai/memory"];
+  const builtins = ["@penglai/memory", "@penglai/im"];
   if (mode === "fresh") return builtins;
-  if (mode === "im-only") return [...builtins, "@penglai/im"];
-  if (mode === "im-asr") return [...builtins, "@penglai/im", "@penglai/asr"];
-  if (mode === "im-tts") return [...builtins, "@penglai/im", "@penglai/moss-tts"];
+  if (mode === "im-only") return builtins;
+  if (mode === "im-asr") return [...builtins, "@penglai/asr"];
+  if (mode === "im-tts") return [...builtins, "@penglai/moss-tts"];
   return [
     ...builtins,
-    "@penglai/im",
     "@penglai/asr",
     "@penglai/moss-tts",
   ];
@@ -115,7 +114,7 @@ for (const mode of modes) {
     const memory = proof.memory;
     const expectedAsr = mode === "full" || mode === "im-asr";
     const expectedTts = mode === "full" || mode === "im-tts";
-    const expectedIm = mode !== "fresh";
+    const expectedIm = true;
     if (im !== expectedIm || asr !== expectedAsr || tts !== expectedTts || !memory) {
       throw new Error(`plugin inventory mismatch mode=${mode} im=${im} asr=${asr} tts=${tts} memory=${memory}`);
     }
