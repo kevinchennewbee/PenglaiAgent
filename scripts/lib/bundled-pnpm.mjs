@@ -8,6 +8,8 @@ const REFLINK_TARGETS = {
   "win32-x86_64": "reflink-win32-x64-msvc",
   "linux-loong64": null,
 };
+const REFLINK_PACKAGE_PATH =
+  /^dist\/node_modules\/@reflink\/(reflink-(?:darwin-(?:arm64|x64)|win32-(?:arm64|x64)-msvc))(?:\/|$)/;
 
 /** Keep pnpm's JavaScript and notices intact; omit only foreign optional native
  * helpers. Linux uses Node's copy implementation and requires no reflink addon.
@@ -30,7 +32,18 @@ export function copyBundledPnpm(source, destination, target) {
       const path = relative(source, file).split("\\").join("/");
       const stat = lstatSync(file);
       if (stat.isSymbolicLink()) throw new Error(`pnpm input must not contain symlinks: ${path}`);
-      if (stat.isDirectory()) { walk(file); continue; }
+      if (stat.isDirectory()) {
+        const reflinkPackage = REFLINK_PACKAGE_PATH.exec(path)?.[1];
+        if (reflinkPackage && reflinkPackage !== retainedNative) {
+          // pnpm carries optional native helper packages as full package trees.
+          // Dropping only the .node binary leaves foreign-architecture paths
+          // and metadata in the installer, so omit the entire foreign helper.
+          omitted.push(`${path}/`);
+          continue;
+        }
+        walk(file);
+        continue;
+      }
       if (!stat.isFile()) throw new Error(`pnpm input contains special file: ${path}`);
       if (/\.(?:node|exe|dll|dylib|so)$/i.test(path)) {
         const addon = /^dist\/node_modules\/@reflink\/(reflink-(?:darwin-(?:arm64|x64)|win32-(?:arm64|x64)-msvc))\/[^/]+\.node$/.exec(path);
