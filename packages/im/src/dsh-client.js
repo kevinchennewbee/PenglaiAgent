@@ -41,7 +41,7 @@ window.__ModuleLoader__.load({
     const remoteCodec = (kind) => ({
       mode: "strict",
       typeSymbol: `@penglai/im/client#${kind}`,
-      schema: {
+      create: () => ({
         parse(value) {
           if (
             kind === "input" &&
@@ -50,7 +50,7 @@ window.__ModuleLoader__.load({
             throw new TypeError("IM Remote input must be an object");
           return value === undefined ? value : strictJson(value);
         },
-      },
+      }),
     });
     const remoteDescriptor = (method, input) => ({
       id: `@penglai/im#penglaiIm/${method}`,

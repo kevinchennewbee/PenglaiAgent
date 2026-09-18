@@ -42,7 +42,7 @@ window.__ModuleLoader__.load({
     const remoteCodec = (kind) => ({
       mode: "strict",
       typeSymbol: `@penglai/asr/client#${kind}`,
-      schema: {
+      create: () => ({
         parse(value) {
           if (
             kind === "input" &&
@@ -51,7 +51,7 @@ window.__ModuleLoader__.load({
             throw new TypeError("ASR Remote input must be an object");
           return value === undefined ? value : strictJson(value);
         },
-      },
+      }),
     });
     const remoteDescriptor = (method, hasInput = false) => ({
       id: `@penglai/asr#penglaiAsrSettings/${method}`,

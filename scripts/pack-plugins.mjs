@@ -172,6 +172,23 @@ function sha256(p) {
   return createHash("sha256").update(readFileSync(p)).digest("hex");
 }
 
+function assertAlpha2TypertClientCodecs(id, source) {
+  const strictCodec = /mode:\s*["']strict["'][\s\S]{0,180}?typeSymbol:/g;
+  const strictCount = source.match(strictCodec)?.length ?? 0;
+  if (strictCount === 0) {
+    console.error("first-party client carries no strict Typert codec", id);
+    process.exit(1);
+  }
+  if (/mode:\s*["']strict["'][\s\S]{0,180}?typeSymbol:[\s\S]{0,180}?\bschema\s*:/.test(source)) {
+    console.error("first-party client uses pre-alpha.2 Typert codec.schema", id);
+    process.exit(1);
+  }
+  if (!/mode:\s*["']strict["'][\s\S]{0,180}?typeSymbol:[\s\S]{0,180}?\bcreate\s*:/.test(source)) {
+    console.error("first-party client is missing alpha.2 Typert codec.create", id);
+    process.exit(1);
+  }
+}
+
 const ARCHIVE_EPOCH = new Date("2000-01-01T00:00:00.000Z");
 
 function normalizedArchiveFiles(root, dir = root, files = []) {
@@ -921,6 +938,8 @@ for (const p of packs) {
       console.error("missing client", clientSrc);
       process.exit(1);
     }
+    const clientSource = readFileSync(clientSrc, "utf8");
+    assertAlpha2TypertClientCodecs(p.id, clientSource);
     if (p.id === "@penglai/memory") {
       const sourcesClient = join(ROOT, "packages/context/src/dsh-client.js");
       if (!existsSync(sourcesClient)) {
