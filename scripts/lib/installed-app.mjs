@@ -12,7 +12,7 @@ import {
   unlinkSync,
   mkdtempSync,
 } from "node:fs";
-import { join, resolve, win32 as win32Path } from "node:path";
+import { join, resolve, sep, win32 as win32Path } from "node:path";
 import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { ROOT } from "./repo.mjs";
@@ -623,18 +623,36 @@ export function launchInstalledHarness(
   return { child, output: () => output, spec };
 }
 
-export function ownedProcessTree(app, resources, electronPid) {
+export function ownedRuntimeProcessPaths(app, resources) {
   const windows = existsSync(join(app, "Penglai.exe"));
-  const nodeBin = resolve(join(resources, windows ? "runtime/node/node.exe" : "runtime/node/bin/node"));
-  const dshEntry = resolve(join(resources, "runtime/dsh/lib/bin.js"));
-  const lines = leftoversByCommand(dshEntry).filter((line) => line.includes(nodeBin));
+  const root = resolve(resources);
+  const nodeBin = resolve(join(root, windows ? "runtime/node/node.exe" : "runtime/node/bin/node"));
+  // 0.6.3 launches DSH through the application-owned, manifest-bound wrapper.
+  // Looking for upstream lib/bin.js misses the real child process even though
+  // the gateway and inventory are healthy.
+  const dshEntry = resolve(join(root, "runtime/dsh/lib/penglai-dsh-launcher.mjs"));
+  const prefix = `${root}${sep}`;
+  return {
+    nodeBin,
+    dshEntry,
+    ownedAbsolute:
+      existsSync(nodeBin) &&
+      existsSync(dshEntry) &&
+      nodeBin.startsWith(prefix) &&
+      dshEntry.startsWith(prefix) &&
+      /[/\\]runtime[/\\]/.test(nodeBin) &&
+      /[/\\]runtime[/\\]dsh[/\\]lib[/\\]penglai-dsh-launcher\.mjs$/.test(dshEntry),
+  };
+}
+
+export function ownedProcessTree(app, resources, electronPid) {
+  const paths = ownedRuntimeProcessPaths(app, resources);
+  const lines = leftoversByCommand(paths.dshEntry).filter((line) => line.includes(paths.nodeBin));
   const dshPid = Number((lines[0] || "").split(/\s+/)[0]) || 0;
   return {
     electronPid,
     dshPid,
-    nodeBin,
-    dshEntry,
-    ownedAbsolute: nodeBin.startsWith(resolve(resources)) && /[/\\]runtime[/\\]/.test(nodeBin),
+    ...paths,
   };
 }
 

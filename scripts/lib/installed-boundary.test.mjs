@@ -11,6 +11,7 @@ import {
   assertProcessInspectorOk,
   isControlledWindowsInstallerFixture,
   leftoversByCommand,
+  ownedRuntimeProcessPaths,
   removeTreeNoFollow,
   waitForBoundedChild,
   windowsFixtureRemovalObserved,
@@ -100,6 +101,34 @@ test("process leftover inspectors fail closed instead of returning an empty tree
     assert.ok(self.length > 0);
   } catch (error) {
     assert.match(String(error?.message ?? error), /ps failed: EPERM|EPERM/);
+  }
+});
+
+test("installed process evidence follows the manifest-bound Penglai DSH launcher", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-owned-runtime-"));
+  const app = join(root, "Penglai.app");
+  const resources = join(app, "Contents", "Resources");
+  try {
+    const macNode = join(resources, "runtime", "node", "bin", "node");
+    const launcher = join(resources, "runtime", "dsh", "lib", "penglai-dsh-launcher.mjs");
+    mkdirSync(join(resources, "runtime", "node", "bin"), { recursive: true });
+    mkdirSync(join(resources, "runtime", "dsh", "lib"), { recursive: true });
+    writeFileSync(macNode, "node");
+    writeFileSync(launcher, "launcher");
+    const mac = ownedRuntimeProcessPaths(app, resources);
+    assert.equal(mac.ownedAbsolute, true);
+    assert.equal(mac.dshEntry, launcher);
+    assert.doesNotMatch(mac.dshEntry, /[/\\]bin\.js$/);
+
+    writeFileSync(join(app, "Penglai.exe"), "exe");
+    const winNode = join(resources, "runtime", "node", "node.exe");
+    writeFileSync(winNode, "node-win");
+    const win = ownedRuntimeProcessPaths(app, resources);
+    assert.equal(win.ownedAbsolute, true);
+    assert.equal(win.nodeBin, winNode);
+    assert.equal(win.dshEntry, launcher);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
