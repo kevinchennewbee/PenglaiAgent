@@ -11,9 +11,9 @@
   `release-contract.json`, and current source define the product/release
   contract. Reports are leads; published claims require verified public
   artifact evidence.
-- v0.5.10, v0.5.11, v0.5.12, v0.6.0 and v0.6.1 are immutable public history.
-  For 0.6.2, `docs/0.6.2/` and the current source govern development work.
-  They are not public-release truth until immutable `v0.6.2` bytes exist, and
+- v0.5.10, v0.5.11, v0.5.12, v0.6.0, v0.6.1 and v0.6.2 are immutable public history.
+  For 0.6.3, `docs/0.6.3/` and the current source govern development work.
+  They are not public-release truth until immutable `v0.6.3` bytes exist, and
   must not modify or weaken any published release history.
 
 ## Product boundary
@@ -25,9 +25,9 @@
   optional and default off.
 - 0.5.8 is immutable public history built from official DSH
   `dsh-v0.1.2-alpha.1` / `cd5ef8148158c3a752a658978873241fdf8e2bbc`.
-- For 0.6.2, the Owner-fixed upstream baseline is official npm
-  `0.1.5-rc.2`, tag `dsh-v0.1.5-rc.2`, commit
-  `fb2c4b9e698e30edb738bca4cf0618587db7d203`. Penglai consumes the complete
+- For 0.6.3, the Owner-fixed upstream baseline is official npm
+  `0.1.6-alpha.2`, tag `dsh-v0.1.6-alpha.2`, commit
+  `ddefc45fbc7f8e46dd73185e68295696d1297887`. Penglai consumes the complete
   pinned DSH/vendor/Landlock cohort with exact registry integrity; package
   count is discovered from the graph. It must not mix different DSH
   generations or substitute source paths, Git dependencies, or locally
@@ -36,12 +36,16 @@
   session projections, DSH Home generation, Session V3 preserve-originals
   migration, connection lifecycle, and every first-party plugin and Plugin
   Center path require renewed evidence.
+- The complete 307-package registry cohort is an audited upstream input, not
+  the product runtime closure. Penglai 0.6.3 excludes LibreOffice, PDF/Office,
+  Budget, and Companion from the workspace, profile, catalog, runtime,
+  installer, product SBOM, and acceptance. Memory is the only required
+  first-party feature plugin; IM, ASR, and TTS are bundled but default off.
 - Plugin Center may install only signed catalog artifacts with exact identity,
   digest, permission, DSH compatibility, and rollback checks. UI state is never
   proof that a plugin is installed or healthy.
 - Keep Workspace, project, account, and IM-route boundaries explicit. Memory from
-  one Workspace must not leak into another. Office writes, exports, and returns
-  require action-specific owner confirmation.
+  one Workspace must not leak into another.
 
 ## Safe engineering rules
 
@@ -56,11 +60,11 @@
   commit/version, digest, license, patch, and reproducible fetch/build procedure.
 - Do not claim installed, native, live, Windows, Intel, notarized, Authenticode,
   or public-release evidence from source tests or cross-build output.
-- The Owner authorized the full 0.6.2 workflow: reviewed source, PR, `main`
-  freeze, three-target native build, immutable publication, public readback,
-  and README/site update. Do not change an existing release tag or asset,
-  publish preview bytes, or deploy a public download claim before immutable
-  0.6.2 bytes exist.
+- The Owner authorized 0.6.3 source development, review, PR, and merge to
+  `main`. Stop before the three-target native build/installed validation and
+  public publication. Do not trigger candidate/publish/deploy workflows, change
+  an existing release tag or asset, or update the public README/site download
+  claim before immutable 0.6.3 bytes exist.
 
 ## Verification and release
 
@@ -70,15 +74,16 @@
 - Start with `pnpm install --frozen-lockfile`, then inspect the scripts in
   `package.json`. Run formatting, typecheck, unit, contract, integration, E2E,
   security, chaos, versions, identity, contracts, dependency, license, secret,
-  profile, closure, clean-clone, Office-real, and Memory-real gates as applicable.
+  profile, closure, clean-clone, and Memory-real gates as applicable. Verify
+  explicit absence of LibreOffice, Office/PDF, Budget, and Companion.
 - The onboarding wizard must never strand a user. Verify fresh install, restart,
   Back/retry, invalid folder rejection, credential failure recovery, first official
   message, and default uninstall on Apple Silicon and Windows x64.
-  The 0.6.1 to 0.6.2 installed upgrade is required on Apple Silicon and
+  The 0.6.2 to 0.6.3 installed upgrade is required on Apple Silicon and
   Windows x64. UOS native install/startup/function is `OWNER_POST_RELEASE` and
   must not be labeled PASS; the UOS package/ABI/closure still require
   verification.
-- Native artifacts for all three selected 0.6.2 targets must come from one clean
+- Native artifacts for all three selected 0.6.3 targets must come from one clean
   `main` SHA. Intel Mac is excluded from this version. Follow the current
   version contract and acceptance delta; publish only the exact asset set in
   `release-contract.json`, then verify immutable public bytes. Missing any
@@ -99,8 +104,8 @@
   `GenericAgent` 仓库混淆。
 - 产品宪法、产品与架构文档、验收清单、当前版本验收增量、发布契约与源码约束产品；
   公开发布声明还须真实附件取证。其他模型的报告只能作为线索。
-- v0.5.10、v0.5.11、v0.5.12、v0.6.0、v0.6.1 已不可变。0.6.2 以
-  `docs/0.6.2/` 与当前源码约束开发；在不可变 `v0.6.2` 公网字节存在前它们不是
+- v0.5.10、v0.5.11、v0.5.12、v0.6.0、v0.6.1、v0.6.2 已不可变。0.6.3 以
+  `docs/0.6.3/` 与当前源码约束开发；在不可变 `v0.6.3` 公网字节存在前它们不是
   公开发布事实，也不得修改或削弱任何已发布历史。
 
 ## 产品边界
@@ -111,17 +116,20 @@
   插件；手机消息、语音识别、语音生成、主动陪伴为内置可选插件，默认关闭。
 - 0.5.8 是基于官方 DSH `dsh-v0.1.2-alpha.1` /
   `cd5ef8148158c3a752a658978873241fdf8e2bbc` 的不可变公开历史。
-- 0.6.2 的 Owner 固定上游基线为官方 npm `0.1.5-rc.2`，tag
-  `dsh-v0.1.5-rc.2`、commit `fb2c4b9e698e30edb738bca4cf0618587db7d203`。
+- 0.6.3 的 Owner 固定上游基线为官方 npm `0.1.6-alpha.2`，tag
+  `dsh-v0.1.6-alpha.2`、commit `ddefc45fbc7f8e46dd73185e68295696d1297887`。
   Penglai 必须消费完整固定且带 registry integrity 的 DSH/vendor/Landlock
   cohort，包数以实际图为准；不得混装不同 DSH 代际，也不得用源码路径、Git
   依赖或本地重打包替代。依赖图、lockfile、runtime closure、profile、插件和
   release identity 必须原子迁移；RemoteError、会话投影、DSH Home generation、
   会话 V3 保原文件迁移、连接生命周期、全部第一方插件与插件中心都须重新取证。
+- 完整 307 包清单是上游审计输入，不是产品运行闭包。0.6.3 不使用 LibreOffice，
+  不做 PDF/办公插件、预算模块或主动陪伴模块；这些包不得进入 workspace、profile、
+  catalog、运行时、安装包、产品 SBOM 或验收。记忆是唯一 required-builtin 第一方
+  功能插件；消息、ASR、TTS 随包但默认关闭。
 - 插件中心只接受签名目录中身份、摘要、权限、DSH 兼容性与回滚均通过的包。
   UI 显示不等于真实安装或健康。
-- Workspace、项目、账号、IM 路由必须隔离。记忆不得跨工作区串联；办公写入、
-  导出和回传必须使用与具体动作绑定的用户确认。
+- Workspace、项目、账号、IM 路由必须隔离。记忆不得跨工作区串联。
 
 ## 安全开发与验证
 
@@ -132,12 +140,12 @@
 - 修能力类别，不写输入特判，不伪造 PASS，不用 mock 冒充生产，不用超时当成功。
 - 禁止提交 API Key、Token、私钥、个人路径、聊天媒体、本地配置或含隐私截图。
 - 源码测试不等于已安装、原生、在线、Windows、Intel、公证或公开发布证据。
-- Owner 已授权 0.6.2 完整流程：源码审查、PR、`main` 冻结、三目标原生构建、
-  不可变发布、公开回读及 README/官网更新。不得改写既有发布 tag/附件，也不得在
-  不可变 0.6.2 公网字节存在前部署公开下载声明。
+- Owner 已授权 0.6.3 源码开发、审查、PR 与合并 `main`；在三目标原生构建、安装
+  验证和公开发布前停止。不得触发 candidate/publish/deploy 工作流、改写既有发布
+  tag/附件，或在不可变 0.6.3 公网字节存在前更新 README/官网公开下载声明。
 - Mac/Windows 安装引导必须验证全新安装、重启续跑、返回/重试、非法目录、凭据
-  失败恢复、首条官方消息和默认卸载。Apple 芯片和 Windows x64 必须完成 0.6.1
-  到 0.6.2 的真实安装版升级验收。UOS 真机
+  失败恢复、首条官方消息和默认卸载。Apple 芯片和 Windows x64 必须完成 0.6.2
+  到 0.6.3 的真实安装版升级验收。UOS 真机
   安装/启动/功能为 `OWNER_POST_RELEASE`，不得标 PASS；UOS 包/ABI/闭包仍须验证。
   三个所选安装包必须来自同一个干净 main SHA。Intel Mac 不在本版。缺任一所选
   目标仍失败；把 Intel 加入本版精确集合仍失败。

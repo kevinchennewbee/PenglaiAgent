@@ -1,16 +1,19 @@
 # Penglai 0.5.x 三端基础验收合同
 
-> 当前 0.6.2 在本合同的 R50/R55 能力类别基础上增加
-> `docs/0.6.2/ACCEPTANCE_DELTA.md`。本文保留历史机器可解析 Hard ID，精确版本、
+> 当前 0.6.3 在本合同的 R50/R55 能力类别基础上增加
+> `docs/0.6.3/ACCEPTANCE_DELTA.md`。本文保留历史机器可解析 Hard ID，精确版本、
 > 文件名与公开目标以 `release-contract.json` 为准；任何旧版本字样都不能覆盖当前
-> 0.6.2 机器身份。已发布的 0.5.10、0.5.11、0.5.12 与 0.6.0 验收增量保持不可变。
+> 0.6.3 机器身份。已发布的 0.5.10、0.5.11、0.5.12、0.6.0、0.6.1 与 0.6.2 验收增量保持不可变。
+> 0.6.3 明确排除 LibreOffice、Office/PDF、Budget 与 Companion；下文对应的
+> 历史 R50/R55 条目对 0.6.3 为 `NOT_APPLICABLE`，不得据此把已排除模块重新打包。
+> 当前适用范围以 `docs/0.6.3/ACCEPTANCE_DELTA.md` 为准。
 
 ## 1. 判定对象与结论
 
 本文的 R50/R55 表格记录 0.5.x 基础能力，不再单独定义当前 release set。当前唯一
-验收对象由 `release-contract.json` 与 `docs/0.6.2/ACCEPTANCE_DELTA.md` 定义：同一
+验收对象由 `release-contract.json` 与 `docs/0.6.3/ACCEPTANCE_DELTA.md` 定义：同一
 clean source 与 deterministic public-export tree 产生 Apple Silicon、Windows x64、
-UOS loong64 三个安装包及七项元数据。Intel Mac 不属于 0.6.2 精确集合。交叉构建
+UOS loong64 三个安装包及七项元数据。Intel Mac 不属于 0.6.3 精确集合。交叉构建
 只能作为预检，不能替代对应原生证据；下文旧版本字样仅是历史 Hard ID 语境。
 
 允许结论：

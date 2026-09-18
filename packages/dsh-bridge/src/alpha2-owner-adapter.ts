@@ -206,11 +206,7 @@ export function hostFromAlpha2Cordis(ctx: Alpha2CordisLike, version: string): Ds
         return { events: inspected.events ?? [] };
       } catch (error) {
         if (isSessionNotFound(error)) return undefined;
-        if (isSessionAlreadyOwned(error)) {
-          const live = ctx.agents?.get(sessionId) as DshAgentLike | undefined;
-          if (live?.session) return { events: [...live.session.snapshotEvents()] };
-          throw new PenglaiError("DSH_UNAVAILABLE", "session is already owned by another handle");
-        }
+        if (isSessionAlreadyOwned(error)) throw new PenglaiError("DSH_UNAVAILABLE", "session inspection reported an unexpected ownership conflict");
         throw error;
       }
     },

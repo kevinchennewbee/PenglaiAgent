@@ -45,7 +45,7 @@ const modes = process.argv.includes("--voice-matrix")
   : ["fresh"];
 
 function selectedPlugins(mode) {
-  const builtins = ["@penglai/office", "@penglai/memory"];
+  const builtins = ["@penglai/memory"];
   if (mode === "fresh") return builtins;
   if (mode === "im-only") return [...builtins, "@penglai/im"];
   if (mode === "im-asr") return [...builtins, "@penglai/im", "@penglai/asr"];
@@ -55,8 +55,6 @@ function selectedPlugins(mode) {
     "@penglai/im",
     "@penglai/asr",
     "@penglai/moss-tts",
-    "@penglai/budget",
-    "@penglai/companion",
   ];
 }
 
@@ -69,9 +67,6 @@ function configurePluginMode(profileWeb, mode) {
     "@penglai/asr",
     "@penglai/moss-tts",
     "@penglai/memory",
-    "@penglai/office",
-    "@penglai/budget",
-    "@penglai/companion",
   ]) {
     patch = setPatchDisabled(patch, id, !selected.has(id));
   }
@@ -99,29 +94,40 @@ for (const mode of modes) {
       throw new Error("supervisor not healthy after HTTP+inventory wait");
     }
     const proof = supervisor.health.inventory;
-    if (!proof.ok || !proof.credentials || !proof.pluginCenter || !proof.office || !proof.memory || !proof.smokeDisabled) {
+    if (!proof.ok || !proof.credentials || !proof.pluginCenter || !proof.memory || !proof.smokeDisabled) {
       throw new Error(`inventory not acceptable ${JSON.stringify(proof)}`);
+    }
+    for (const excluded of [
+      "@penglai/office",
+      "@penglai/budget",
+      "@penglai/companion",
+      "@deepseek-ai/dsh-office-to-pdf",
+      "@deepseek-ai/dsh-client-ui-sidebar-documentpreview",
+      "@deepseek-ai/libreoffice-kit",
+    ]) {
+      if (proof.entries.some((entry) => exactPluginId(entry, excluded))) {
+        throw new Error(`excluded 0.6.3 plugin loaded: ${excluded}`);
+      }
     }
     const im = loaded(proof, "@penglai/im");
     const asr = loaded(proof, "@penglai/asr");
     const tts = loaded(proof, "@penglai/moss-tts");
-    const office = proof.office;
     const memory = proof.memory;
     const expectedAsr = mode === "full" || mode === "im-asr";
     const expectedTts = mode === "full" || mode === "im-tts";
     const expectedIm = mode !== "fresh";
-    if (im !== expectedIm || asr !== expectedAsr || tts !== expectedTts || !office || !memory) {
-      throw new Error(`plugin inventory mismatch mode=${mode} im=${im} asr=${asr} tts=${tts} office=${office} memory=${memory}`);
+    if (im !== expectedIm || asr !== expectedAsr || tts !== expectedTts || !memory) {
+      throw new Error(`plugin inventory mismatch mode=${mode} im=${im} asr=${asr} tts=${tts} memory=${memory}`);
     }
     activateDshHomeBootPlan({
       userRoot,
       plan: homePlan,
       validation: {
-        dshVersion: "0.1.5-rc.2",
+        dshVersion: "0.1.6-alpha.2",
         officialDocument: true,
         dshHealthy: true,
         profileReady: true,
-        requiredPluginsActive: ["@penglai/office", "@penglai/memory"],
+        requiredPluginsActive: ["@penglai/memory"],
         validatedAt: new Date().toISOString(),
       },
     });

@@ -260,7 +260,7 @@ export function parseOfficialInbound(
     file?.file_item?.file_name ??
     file?.msg_id ??
     "";
-  const mediaKind: MediaKind | undefined = image ? "image" : file ? (/\.pdf$/i.test(file.file_item?.file_name ?? "") ? "pdf" : /\.(docx|xlsx|pptx)$/i.test(file.file_item?.file_name ?? "") ? "office" : "file") : undefined;
+  const mediaKind: MediaKind | undefined = image ? "image" : file ? "file" : undefined;
   const msgId =
     items.find((it) => it.msg_id)?.msg_id ??
     (msg.message_id !== undefined ? String(msg.message_id) : undefined) ??
@@ -283,7 +283,7 @@ export function parseOfficialInbound(
             source: "weixin" as const,
             sourceMessageId: msgId,
             sourceResourceId: String(resource || msgId),
-            mime: mediaKind === "image" ? "image/png" : mediaKind === "pdf" ? "application/pdf" : "application/octet-stream",
+            mime: mediaKind === "image" ? "image/png" : "application/octet-stream",
             size: 0,
             sha256: "",
             opaqueHandle: "",

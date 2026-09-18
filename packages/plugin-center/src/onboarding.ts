@@ -5,11 +5,8 @@ import { PenglaiError, classifyApiTestError, type ApiTestErrorClass } from "@pen
 
 export { classifyApiTestError, type ApiTestErrorClass };
 
-export interface OfficialSessionLog {
-  id?: string;
+export interface OfficialSessionInspection {
   events?: readonly unknown[];
-  snapshotEvents?: () => readonly unknown[];
-  deriveMessages?: () => unknown[];
 }
 
 export interface OfficialUsableCtx {
@@ -47,14 +44,17 @@ export interface OfficialUsableCtx {
       agent: {
         followup: (m: unknown) => void;
         whenIdle?: () => Promise<void>;
-        session?: OfficialSessionLog & { flush?: () => Promise<void> };
+        session?: { flush?: () => Promise<void> };
       };
       dispose: () => Promise<void>;
     }>;
     resume?: (opts: { resumeSessionId: string }) => Promise<{
-      agent: { followup: (m: unknown) => void; whenIdle?: () => Promise<void>; session?: OfficialSessionLog };
+      agent: { followup: (m: unknown) => void; whenIdle?: () => Promise<void>; session?: { flush?: () => Promise<void> } };
       dispose: () => Promise<void>;
     }>;
+  };
+  sessionController?: {
+    inspect: (sessionId: string, signal?: AbortSignal) => Promise<OfficialSessionInspection>;
   };
   llm?: {
     listProviders: () => Array<{ id: string; name: string }>;
@@ -78,7 +78,7 @@ export const OFFICIAL_SETTINGS_PREFERENCE_FIELD = "preference" as const;
 export const OFFICIAL_WELCOME_SETTINGS_NS = "ui-onboarding" as const;
 export const OFFICIAL_WELCOME_ACK_FIELD = "welcomeNoticeVersion" as const;
 export const AGENT_DEFAULT_MODEL_SETTINGS_NS = "agent-default-model" as const;
-/** Exact acknowledgement version exported by the fixed DSH 0.1.5-rc.2 source. */
+/** Exact acknowledgement version exported by the fixed DSH 0.1.6-alpha.2 source. */
 export const DSH_WELCOME_NOTICE_VERSION = "2026-08-13.1" as const;
 
 export const ONBOARDING_STEPS = [
@@ -993,17 +993,17 @@ function textFromAssistantStream(data: unknown): string {
   return parts.join("");
 }
 
-export function durableFinalFromOfficialSession(session: unknown): {
+export function durableFinalFromOfficialSession(inspection: unknown): {
   final: string;
   turnCompleted: boolean;
   reason?: unknown;
 } {
-  const rec = session && typeof session === "object" ? (session as OfficialSessionLog) : undefined;
+  const rec = inspection && typeof inspection === "object" ? (inspection as OfficialSessionInspection) : undefined;
   if (!rec) return { final: "", turnCompleted: false };
   let final = "";
   let turnCompleted = false;
   let reason: unknown;
-  const events = typeof rec.snapshotEvents === "function" ? rec.snapshotEvents() : rec.events ?? [];
+  const events = rec.events ?? [];
   for (const raw of events) {
     const event = asRecord(raw);
     if (!event) continue;
@@ -1020,18 +1020,6 @@ export function durableFinalFromOfficialSession(session: unknown): {
     if (event.type === "turn/end") {
       turnCompleted = true;
       reason = data.reason ?? event.reason;
-    }
-  }
-  if (!final && typeof rec.deriveMessages === "function") {
-    try {
-      for (const message of rec.deriveMessages() ?? []) {
-        const row = asRecord(message);
-        if (row?.role !== "assistant") continue;
-        const assembled = textFromOfficialMessage(row);
-        if (assembled) final = assembled;
-      }
-    } catch {
-      /* deriveMessages is official surface, not required for chunk logs */
     }
   }
   return { final, turnCompleted, ...(reason !== undefined ? { reason } : {}) };
@@ -1117,6 +1105,7 @@ async function runOfficialTurn(
   },
 ): Promise<{ sessionId: string; final: string; turnCompleted: boolean }> {
   if (!ctx.agents) throw new PenglaiError("DSH_UNAVAILABLE", "official agents missing");
+  if (!ctx.sessionController?.inspect) throw new PenglaiError("DSH_UNAVAILABLE", "official Session Controller inspection missing");
   const sessionId = randomUUID();
   let final = "";
   let turnCompleted = false;
@@ -1169,12 +1158,12 @@ async function runOfficialTurn(
     });
     const idle = typeof handle.agent.whenIdle === "function" ? handle.agent.whenIdle() : done;
     await Promise.race([idle, done]);
-    let durable = durableFinalFromOfficialSession(handle.agent.session);
+    let durable = durableFinalFromOfficialSession(await ctx.sessionController.inspect(sessionId));
     // DSH may report idle before the durable turn/end event has reached the
     // session log. Do not dispose a successful Turn during that short race.
     if (!turnCompleted && !durable.turnCompleted) {
       await done;
-      durable = durableFinalFromOfficialSession(handle.agent.session);
+      durable = durableFinalFromOfficialSession(await ctx.sessionController.inspect(sessionId));
     }
     if (durable.final) final = durable.final;
     if (durable.turnCompleted) {

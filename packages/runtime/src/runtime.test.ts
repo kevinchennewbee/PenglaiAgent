@@ -140,9 +140,6 @@ function writeTrustedPluginSet(
       "@penglai/asr",
       "@penglai/moss-tts",
       "@penglai/memory",
-      "@penglai/office",
-      "@penglai/budget",
-      "@penglai/companion",
     ].includes(metadata.id);
     writeFileSync(
       join(stage, "dist", "index.js"),
@@ -331,7 +328,7 @@ test("activatePrivateProfile pins lived-in live HMR to official startup without 
     join(user.profileWeb, "package.json"),
     JSON.stringify({
       name: "dsh-profile-web",
-      dependencies: { "@penglai/office": "0.6.0" },
+      dependencies: { "@penglai/memory": "0.6.0" },
       dsh: {
         profile: {
           bundles: ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"],
@@ -344,7 +341,7 @@ test("activatePrivateProfile pins lived-in live HMR to official startup without 
   const manifest = JSON.parse(readFileSync(join(user.profileWeb, "package.json"), "utf8"));
   assert.equal(manifest.dsh.profile.patchReload, "startup");
   assert.deepEqual(manifest.dsh.profile.bundles, ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]);
-  assert.equal(manifest.dependencies["@penglai/office"], "0.6.0");
+  assert.equal(manifest.dependencies["@penglai/memory"], "0.6.0");
 });
 
 test("R2-DIST-011 seed activates private profile once", () => {
@@ -500,9 +497,8 @@ test("embedded supervisor restarts a live process whose official HTTP route hang
     'const plugins = join(root, "plugins");',
     'mkdirSync(plugins, { recursive: true });',
     'const inventory = { entries: [',
-    '  { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.5-rc.2" },',
+    '  { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.6-alpha.2" },',
     '  { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active", version: "0.5.12" },',
-    '  { moduleName: "@penglai/office", enabled: true, fiberPhase: "active", version: "0.5.12" },',
     '  { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active", version: "0.5.12" }',
     '] };',
     'inventory.launchNonce = process.env.PENGLAI_DSH_LAUNCH_NONCE;',
@@ -663,19 +659,16 @@ test("distribution inventory requires core services but keeps optional IM absent
     entries: [
       { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active" },
       { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active" },
-      { moduleName: "@penglai/office", enabled: true, fiberPhase: "active" },
       { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active" },
       { moduleName: "@penglai/plugin-smoke", enabled: false, fiberPhase: null },
     ],
   });
   assert.equal(proof.ok, true);
-  assert.equal(proof.office, true);
   assert.equal(proof.memory, true);
   assert.equal(proof.im, false);
   assert.equal(proof.smokeDisabled, true);
   const empty = evaluateInventory({});
   assert.equal(empty.ok, false);
-  assert.equal(empty.office, false);
   assert.equal(empty.memory, false);
 });
 
@@ -716,7 +709,9 @@ test("fresh profile installs Center plus required builtins and exposes official 
     existsSync(join(user.profileWeb, "node_modules", "@penglai", "plugin-center", "dist", "index.js")),
     true,
   );
-  assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "office", "dist", "index.js")), true);
+  for (const excluded of ["office", "budget", "companion"]) {
+    assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", excluded)), false);
+  }
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "memory", "dist", "index.js")), true);
   const memoryBinary = join(
     user.profileWeb,
@@ -744,7 +739,7 @@ test("fresh profile installs Center plus required builtins and exposes official 
 });
 
 test("fresh catalog and profile keep every optional Penglai plugin disabled", () => {
-  const required = new Set(["@penglai/plugin-center", "@penglai/office", "@penglai/memory"]);
+  const required = new Set(["@penglai/plugin-center", "@penglai/memory"]);
   const optional = FIRST_PARTY_PLUGIN_METADATA.filter((entry) => !required.has(entry.id));
   assert.ok(optional.length > 0);
   assert.equal(optional.every((entry) => entry.defaultEnabled === false), true);
@@ -766,7 +761,7 @@ test("fresh catalog and profile keep every optional Penglai plugin disabled", ()
       entry.id,
     );
   }
-  for (const id of ["@penglai/office", "@penglai/memory"]) {
+  for (const id of ["@penglai/memory"]) {
     const short = id.replace("@penglai/", "penglai-");
     assert.match(patch, new RegExp(`id: ${short}\\n\\s+name: ["']${id.replace("/", "\\/")}["']`));
     assert.doesNotMatch(
@@ -783,6 +778,22 @@ test("fresh catalog and profile keep every optional Penglai plugin disabled", ()
     patch,
     /id: penglai-directory-picker-ui\n\s+name: "@deepseek-ai\/dsh-client-ui-directory-picker-browse"/,
   );
+  assert.match(
+    patch,
+    /id: session-log-deepseek\n\s+name: "@deepseek-ai\/dsh-session-log-deepseek"\n\s+config:\n\s+enabled: false/,
+    "Penglai must opt out of complete session-log contribution even though DSH alpha.2 defaults it on",
+  );
+  for (const [id, moduleName] of [
+    ["plugin-manager", "@deepseek-ai/dsh-plugin-manager"],
+    ["tool-plugin-manager", "@deepseek-ai/dsh-plugin-manager/tools"],
+    ["ui-plugin-manager", "@deepseek-ai/dsh-client-ui-plugin-manager"],
+  ]) {
+    assert.match(
+      patch,
+      new RegExp(`id: ${id}\\n\\s+name: "${moduleName.replaceAll("/", "\\/")}"\\n\\s+disabled: true`),
+      `${id} must not bypass the signed Penglai catalog`,
+    );
+  }
 });
 
 test("0.5.5 merges the legacy Context profile plugin into Memory without deleting source indexes", () => {
@@ -986,6 +997,8 @@ test("P51-CORE-001 optional plugins stay disabled despite indent, comments, and 
   assert.equal(profilePluginEnabled(patch, "@penglai/plugin-center"), true);
   assert.equal(profilePluginEnabled(patch, "@penglai/im"), false);
   assert.equal(profilePluginEnabled(patch, "@penglai/asr"), false);
-  assert.equal(profilePluginEnabled(patch, "@penglai/companion"), false);
+  for (const excluded of ["@penglai/office", "@penglai/budget", "@penglai/companion"]) {
+    assert.equal(profilePluginEnabled(patch, excluded), false);
+  }
   assert.equal(profilePluginEnabled("- id: penglai-im\n  disabled: true\n", "@penglai/im"), false);
 });

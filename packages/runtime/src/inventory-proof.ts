@@ -4,7 +4,6 @@ import { FIRST_PARTY_PLUGIN_METADATA, PINNED_PLUGIN_DSH } from "./plugin-catalog
 export const REQUIRED_INVENTORY_IDS = [
   "@deepseek-ai/dsh-credentials-local",
   "@penglai/plugin-center",
-  "@penglai/office",
   "@penglai/memory",
 ] as const;
 
@@ -56,7 +55,6 @@ export interface InventoryProof {
   ok: boolean;
   credentials: boolean;
   pluginCenter: boolean;
-  office: boolean;
   memory: boolean;
   im: boolean;
   smokeDisabled: boolean;
@@ -68,7 +66,6 @@ export const EMPTY_INVENTORY_PROOF: InventoryProof = {
   ok: false,
   credentials: false,
   pluginCenter: false,
-  office: false,
   memory: false,
   im: false,
   smokeDisabled: false,
@@ -296,7 +293,6 @@ export function evaluateInventory(raw: unknown): InventoryProof {
   const required = REQUIRED_INVENTORY_IDS.map((id) => mergeProof(deriveProof(id, entries), stated.get(id)));
   const credentials = readyById(required, "@deepseek-ai/dsh-credentials-local");
   const pluginCenter = readyById(required, "@penglai/plugin-center");
-  const office = readyById(required, "@penglai/office");
   const memory = readyById(required, "@penglai/memory");
   const im = entries.some((row) => exactPluginId(row, OPTIONAL_IM_PLUGIN_ID) && rowIsLoaded(row));
   const smokeLoaded = entries.some((row) => exactPluginId(row, "@penglai/plugin-smoke") && rowIsLoaded(row));
@@ -304,10 +300,9 @@ export function evaluateInventory(raw: unknown): InventoryProof {
     entries.some((row) => exactPluginId(row, id) && rowIsLoaded(row)),
   );
   return {
-    ok: credentials && pluginCenter && office && memory && !forbiddenLoaded,
+    ok: credentials && pluginCenter && memory && !forbiddenLoaded,
     credentials,
     pluginCenter,
-    office,
     memory,
     im,
     smokeDisabled: !smokeLoaded,
@@ -327,7 +322,6 @@ export function inventorySnapshotDocument(
     required: {
       credentials: proof.credentials,
       "plugin-center": proof.pluginCenter,
-      office: proof.office,
       memory: proof.memory,
       im: proof.im,
       smokeDisabled: proof.smokeDisabled,

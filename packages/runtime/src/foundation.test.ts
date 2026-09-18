@@ -107,7 +107,7 @@ test("embed-runtime is target-aware and reads the release contract", () => {
   assert.match(src, /win32-x86_64/);
   assert.match(src, /darwin-x86_64/);
   assert.match(src, /materializeDshClosure/);
-  assert.match(src, /rmSync\(staging, \{ recursive: true, force: true, maxRetries: 5, retryDelay: 100 \}\)/);
+  assert.match(src, /rmSync\(staging, \{[\s\S]*recursive: true,[\s\S]*force: true,[\s\S]*maxRetries: 5,[\s\S]*retryDelay: 100,[\s\S]*\}\)/);
   assert.match(src, /execFileSync\("ditto", \[extractedRoot, nodeDest\]\)/);
   assert.match(src, /copyFileSync\(targetPath, child\)/);
   assert.match(src, /cpSync\(extractedRoot, nodeDest, \{ recursive: true, dereference: true \}\)/);

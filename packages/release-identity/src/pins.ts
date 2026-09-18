@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.6.2";
+export const PRODUCT_VERSION = "0.6.3";
 export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
@@ -36,18 +36,18 @@ export const PINNED_NODE_DARWIN_X64_SHA256 =
 export const PINNED_NODE_WIN32_X64_SHA256 =
   "1177b4137ba5adaa56354ae40f1080c7450e8ae09cecb47da459d1c52ac99f97";
 /** Exact official npm pre-release cohort reconciled to the fixed upstream tag. */
-export const PINNED_DSH = "0.1.5-rc.2";
-export const PINNED_DSH_COMMIT = "fb2c4b9e698e30edb738bca4cf0618587db7d203";
-export const PINNED_DSH_TAG = "dsh-v0.1.5-rc.2";
+export const PINNED_DSH = "0.1.6-alpha.2";
+export const PINNED_DSH_COMMIT = "ddefc45fbc7f8e46dd73185e68295696d1297887";
+export const PINNED_DSH_TAG = "dsh-v0.1.6-alpha.2";
 export const PINNED_DSH_REPOSITORY = "https://github.com/deepseek-ai/DeepSeek-Harness.git";
 export const PINNED_DSH_NPM_INTEGRITY =
-  "sha512-8Xc8hCQHcIWRmTCVU/xZdp6/qMsWMeAd2ObChKDEsfhUPJFXx6H0lgeb1DxUMD86HZrrVN+1bCvn1ppjZ/fOxw==";
-export const PINNED_DSH_NPM_SHASUM = "2c78db39568d910868f1e4f34062a4f346d4815d";
+  "sha512-PHR/3ZHpJNWXlDQ3U9weFb7calWbSMJd2GD3z2iPJ8zAKL7ipuzyPy5xGbaXf2OA8hc0SAGJeoUW7nfatCNOYw==";
+export const PINNED_DSH_NPM_SHASUM = "37d635377c9807c47d49d662ca00d6d5ea5792de";
 export const PINNED_DSH_TARBALL_SHA256 =
-  "f4c54839d69e82bf1c3a5a41a910c3ce1405cd9e9d97d753c0c04f406c7d7480";
+  "a3c14d175c051023dcde078fb273b287b13b4b77654ea90b52d956cbf409178d";
 export const PINNED_DSH_CLOSURE_MANIFEST_SHA256 =
-  "aae93e0a7a84be840738f0a237ec3cefe06d5ef4006efd79ee4986d332d830ae";
-export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 279;
+  "eee9d9b1d350d337eb74489efd2ecbfd069054e0ef8751d45a94b857e691fd7f";
+export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 307;
 export const PINNED_LARK_SDK = "1.73.3";
 export const PINNED_LARK_COMMIT = "af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513";
 export const PINNED_DINGTALK_STREAM = "2.1.5";
@@ -120,14 +120,14 @@ export const REQUIRED_HARD_FAMILIES = [
 export const GITHUB_ACTIONS_STATUS = "AVAILABLE";
 export const CANDIDATE_SOURCE_SHA_NONE = "NONE";
 export const UPDATER_CHANNEL = "desktop-v0.5";
-/** Monotonic after immutable public v0.6.1, sequence 10. */
-export const UPDATER_SEQUENCE = 11;
+/** Monotonic after immutable public v0.6.2, sequence 11. */
+export const UPDATER_SEQUENCE = 12;
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.6.2",
-  release: "v0.6.2",
-  channel: "stable-v0.6.2",
+  tag: "v0.6.3",
+  release: "v0.6.3",
+  channel: "stable-v0.6.3",
 });
 
 export const RELEASE_TARGETS = [
@@ -135,34 +135,34 @@ export const RELEASE_TARGETS = [
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.6.2_macos_aarch64.dmg",
+    installer: "Penglai_0.6.3_macos_aarch64.dmg",
   },
   {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
-    installer: "Penglai_0.6.2_windows_x64_setup.exe",
+    installer: "Penglai_0.6.3_windows_x64_setup.exe",
   },
   {
     key: "linux-loong64",
     platform: "linux",
     arch: "loong64",
-    installer: "Penglai_0.6.2_uos_loong64.deb",
+    installer: "Penglai_0.6.3_uos_loong64.deb",
   },
 ] as const;
 
 export type ReleaseTargetKey = (typeof RELEASE_TARGETS)[number]["key"];
 
-/** Known packaging/host key retained for historical validation. Not a 0.6.2 release target. */
+/** Known packaging/host key retained for historical validation. Not a 0.6.3 release target. */
 export const EXCLUDED_CURRENT_RELEASE_TARGET_KEY = "darwin-x86_64" as const;
 
-/** Mac/Windows native install/lifecycle gates. linux-loong64 host evidence remains OWNER_POST_RELEASE, not a 0.6.2 PASS. */
+/** Mac/Windows native install/lifecycle gates. linux-loong64 host evidence remains OWNER_POST_RELEASE, not a 0.6.3 PASS. */
 export const NATIVE_INSTALLED_TARGET_KEYS = [
   "darwin-aarch64",
   "win32-x86_64",
 ] as const satisfies readonly ReleaseTargetKey[];
 
-/** Current 0.6.2 native lifecycle: fresh install and 0.6.1 upgrade on Mac/Windows, restart, rollback, and default uninstall. */
+/** Current 0.6.3 native lifecycle: fresh install and 0.6.2 upgrade on Mac/Windows, restart, rollback, and default uninstall. */
 export const CURRENT_NATIVE_LIFECYCLE = Object.freeze({
   requiredGate: "verify:upgrade-uninstall",
   olderInstalledUpgradeStatus: "REQUIRED",
@@ -311,9 +311,6 @@ export const USER_CATALOG_PACKAGES = [
   "@penglai/asr",
   "@penglai/moss-tts",
   "@penglai/memory",
-  "@penglai/office",
-  "@penglai/budget",
-  "@penglai/companion",
   "@penglai/plugin-reference",
 ] as const;
 

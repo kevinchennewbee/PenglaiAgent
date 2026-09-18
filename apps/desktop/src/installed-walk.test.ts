@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import test from "node:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,33 +29,65 @@ import { PINNED_DSH } from "../../../packages/release-identity/src/pins.js";
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 test("R50-E2E-003 separates fresh settings from explicit full composition", () => {
-  assert.deepEqual([...REQUIRED_FRESH_SETTINGS_WALK], [
-    "ui-penglai",
-    "ui-center",
-    "ui-office",
-    "ui-memory",
-    "ui-update",
-    "ui-uninstall",
-  ]);
-  assert.deepEqual([...REQUIRED_FULL_SETTINGS_WALK], [...REQUIRED_SETTINGS_WALK]);
-  assert.equal(settingsWalkComplete(["ui-update", "ui-center"], "fresh"), false);
-  assert.equal(settingsWalkComplete([...REQUIRED_FRESH_SETTINGS_WALK], "fresh"), true);
-  assert.equal(settingsWalkComplete([...REQUIRED_FRESH_SETTINGS_WALK], "full"), false);
-  assert.equal(settingsWalkComplete([...REQUIRED_FULL_SETTINGS_WALK], "full"), true);
+  assert.deepEqual(
+    [...REQUIRED_FRESH_SETTINGS_WALK],
+    [
+      "ui-penglai",
+      "ui-center",
+      "ui-memory",
+      "ui-update",
+      "ui-uninstall",
+    ],
+  );
+  assert.deepEqual(
+    [...REQUIRED_FULL_SETTINGS_WALK],
+    [...REQUIRED_SETTINGS_WALK],
+  );
+  assert.equal(
+    settingsWalkComplete(["ui-update", "ui-center"], "fresh"),
+    false,
+  );
+  assert.equal(
+    settingsWalkComplete([...REQUIRED_FRESH_SETTINGS_WALK], "fresh"),
+    true,
+  );
+  assert.equal(
+    settingsWalkComplete([...REQUIRED_FRESH_SETTINGS_WALK], "full"),
+    false,
+  );
+  assert.equal(
+    settingsWalkComplete([...REQUIRED_FULL_SETTINGS_WALK], "full"),
+    true,
+  );
 });
 
 test("wizard resume ignores the HTML shell until a ledger step is painted", () => {
-  assert.deepEqual([...WIZARD_RESUME_STEPS], ["appearance", "models", "credential", "test"]);
+  assert.deepEqual(
+    [...WIZARD_RESUME_STEPS],
+    ["appearance", "models", "credential", "test"],
+  );
   assert.equal(wizardResumeReady({ wizard: true, wizardStep: "" }), false);
   assert.equal(wizardResumeReady({ wizard: true }), false);
-  assert.equal(wizardResumeReady({ wizard: false, wizardStep: "credential" }), false);
-  assert.equal(wizardResumeReady({ wizard: true, wizardStep: "welcome" }), false);
-  assert.equal(wizardResumeReady({ wizard: true, wizardStep: "credential" }), true);
+  assert.equal(
+    wizardResumeReady({ wizard: false, wizardStep: "credential" }),
+    false,
+  );
+  assert.equal(
+    wizardResumeReady({ wizard: true, wizardStep: "welcome" }),
+    false,
+  );
+  assert.equal(
+    wizardResumeReady({ wizard: true, wizardStep: "credential" }),
+    true,
+  );
   const e2e = readFileSync(join(root, "scripts/e2e-installed.mjs"), "utf8");
   assert.match(e2e, /wizardResumeReady/);
   assert.match(e2e, /requestBrowserClose\(walkSession/);
   assert.match(e2e, /rmSync\(gatewayFile, \{ force: true \}\)/);
-  assert.doesNotMatch(e2e, /waitEval\(attached\.session, SNAPSHOT_JS, \(s\) => Boolean\(s && s\.wizard\),/);
+  assert.doesNotMatch(
+    e2e,
+    /waitEval\(attached\.session, SNAPSHOT_JS, \(s\) => Boolean\(s && s\.wizard\),/,
+  );
 });
 
 test("keyless installed walk does not require official DSH HTTP/WS while the wizard is showing", () => {
@@ -60,26 +98,54 @@ test("keyless installed walk does not require official DSH HTTP/WS while the wiz
 });
 
 test("wizard keyless walk treats a no-exit step as FAIL and credential empty as honest stop", () => {
-  assert.deepEqual([...REQUIRED_WIZARD_KEYLESS], ["welcome", "privacy", "appearance", "models", "credential"]);
+  assert.deepEqual(
+    [...REQUIRED_WIZARD_KEYLESS],
+    ["welcome", "privacy", "appearance", "models", "credential"],
+  );
   assert.equal(wizardKeylessComplete(["welcome", "privacy"]), false);
-  assert.equal(wizardKeylessComplete(["welcome", "privacy", "appearance", "models", "credential"]), true);
   assert.equal(
-    wizardStepDeadEnd({ continueDisabled: true, skipEnabled: false, backEnabled: false }),
+    wizardKeylessComplete([
+      "welcome",
+      "privacy",
+      "appearance",
+      "models",
+      "credential",
+    ]),
     true,
   );
   assert.equal(
-    wizardStepDeadEnd({ continueDisabled: true, skipEnabled: false, backEnabled: true }),
+    wizardStepDeadEnd({
+      continueDisabled: true,
+      skipEnabled: false,
+      backEnabled: false,
+    }),
+    true,
+  );
+  assert.equal(
+    wizardStepDeadEnd({
+      continueDisabled: true,
+      skipEnabled: false,
+      backEnabled: true,
+    }),
     false,
   );
   assert.equal(
-    wizardStepDeadEnd({ continueDisabled: true, skipEnabled: false, backEnabled: false, hasForwardInput: true }),
+    wizardStepDeadEnd({
+      continueDisabled: true,
+      skipEnabled: false,
+      backEnabled: false,
+      hasForwardInput: true,
+    }),
     false,
   );
 });
 
 test("installed e2e drives packaged BrowserWindow via CDP and has no in-app probe", () => {
   const e2e = readFileSync(join(root, "scripts/e2e-installed.mjs"), "utf8");
-  const walk = readFileSync(join(root, "scripts/lib/browser-window-walk.mjs"), "utf8");
+  const walk = readFileSync(
+    join(root, "scripts/lib/browser-window-walk.mjs"),
+    "utf8",
+  );
   const cdp = readFileSync(join(root, "scripts/lib/cdp.mjs"), "utf8");
   assert.doesNotMatch(e2e, /PENGLAI_INSTALLED_PROBE/);
   assert.doesNotMatch(walk, /PENGLAI_INSTALLED_PROBE/);
@@ -104,12 +170,21 @@ test("installed e2e drives packaged BrowserWindow via CDP and has no in-app prob
   assert.match(walk, /welcome-dismiss/);
   assert.match(walk, /duplicate-dsh-onboarding/);
   assert.match(walk, /document\.getElementById\("root"\)\?\.inert/);
-  assert.match(walk, /Add an API key to get started\|添加一个 API Key 开始使用/);
+  assert.match(
+    walk,
+    /Add an API key to get started\|添加一个 API Key 开始使用/,
+  );
   assert.doesNotMatch(walk, /officialByok: headings\.some\(\(h\) => \/API Key/);
   assert.match(walk, /upstream-window-title/);
-  assert.match(walk, /target\.readyFlag \? 30_000 : target\.flag \? 15_000 : 5_000/);
+  assert.match(
+    walk,
+    /target\.readyFlag \? 30_000 : target\.flag \? 15_000 : 5_000/,
+  );
   assert.match(walk, /snapshot\?\.\[target\.flag\]/);
-  assert.match(walk, /snapshot\?\.\[target\.readyFlag\] === target\.readyValue/);
+  assert.match(
+    walk,
+    /snapshot\?\.\[target\.readyFlag\] === target\.readyValue/,
+  );
   assert.match(walk, /\^软件更新\$/);
   assert.match(walk, /const visibleButtons = buttons\.filter\(visible\)/);
   assert.doesNotMatch(walk, /official-byok-dismiss/);
@@ -122,7 +197,8 @@ test("installed e2e drives packaged BrowserWindow via CDP and has no in-app prob
 });
 
 test("collapsed official DSH settings trigger opens through its dialog semantics", async () => {
-  const { settingsTriggerClickScript } = await import("../../../scripts/lib/browser-window-walk.mjs");
+  const { settingsTriggerClickScript } =
+    await import("../../../scripts/lib/browser-window-walk.mjs");
   let clicked = false;
   const button = {
     disabled: false,
@@ -132,11 +208,16 @@ test("collapsed official DSH settings trigger opens through its dialog semantics
       if (name === "aria-expanded") return "false";
       return null;
     },
-    click() { clicked = true; },
+    click() {
+      clicked = true;
+    },
   };
   const document = {
     querySelectorAll: () => [button],
-    querySelector: (selector: string) => selector === 'button[aria-haspopup="dialog"][aria-expanded]' ? button : null,
+    querySelector: (selector: string) =>
+      selector === 'button[aria-haspopup="dialog"][aria-expanded]'
+        ? button
+        : null,
   };
   const result = runInNewContext(settingsTriggerClickScript(), { document });
   assert.equal(result.ok, true);
@@ -145,14 +226,17 @@ test("collapsed official DSH settings trigger opens through its dialog semantics
 });
 
 test("installed settings walk defers expensive renderer click work outside the CDP request", async () => {
-  const { settingsTriggerClickScript } = await import("../../../scripts/lib/browser-window-walk.mjs");
+  const { settingsTriggerClickScript } =
+    await import("../../../scripts/lib/browser-window-walk.mjs");
   let clicked = false;
   let scheduled: (() => void) | undefined;
   const button = {
     disabled: false,
     textContent: "Settings",
     getAttribute: () => null,
-    click() { clicked = true; },
+    click() {
+      clicked = true;
+    },
   };
   const document = {
     querySelectorAll: () => [button],
@@ -173,20 +257,25 @@ test("installed settings walk defers expensive renderer click work outside the C
 });
 
 test("installed settings walk ignores hidden duplicate navigation buttons", async () => {
-  const { clickButtonText } = await import("../../../scripts/lib/browser-window-walk.mjs");
+  const { clickButtonText } =
+    await import("../../../scripts/lib/browser-window-walk.mjs");
   let hiddenClicked = false;
   let visibleClicked = false;
   const hidden = {
     disabled: false,
     textContent: "Storage and uninstall",
     getBoundingClientRect: () => ({ width: 0, height: 0 }),
-    click() { hiddenClicked = true; },
+    click() {
+      hiddenClicked = true;
+    },
   };
   const visible = {
     disabled: false,
     textContent: "Storage and uninstall",
     getBoundingClientRect: () => ({ width: 120, height: 30 }),
-    click() { visibleClicked = true; },
+    click() {
+      visibleClicked = true;
+    },
   };
   const result = runInNewContext(clickButtonText(["^Storage and uninstall$"]), {
     document: { querySelectorAll: () => [hidden, visible] },
@@ -198,7 +287,8 @@ test("installed settings walk ignores hidden duplicate navigation buttons", asyn
 });
 
 test("installed soak samples bundled IM without bypassing native owner approval", async () => {
-  const { bundledOptionalPluginDefaultOffSample } = await import("../../../scripts/lib/browser-window-walk.mjs");
+  const { bundledOptionalPluginDefaultOffSample } =
+    await import("../../../scripts/lib/browser-window-walk.mjs");
   const sha256 = "a".repeat(64);
   const sample = bundledOptionalPluginDefaultOffSample({
     id: "@penglai/im",
@@ -212,8 +302,17 @@ test("installed soak samples bundled IM without bypassing native owner approval"
     },
     packageSha256: sha256,
     desiredEnabled: false,
-    inventoryEntry: { moduleName: "@penglai/im", enabled: false, fiberPhase: null },
-    centerCard: { id: "@penglai/im", installed: "not-installed", loaded: false, actions: ["installEnable"] },
+    inventoryEntry: {
+      moduleName: "@penglai/im",
+      enabled: false,
+      fiberPhase: null,
+    },
+    centerCard: {
+      id: "@penglai/im",
+      installed: "not-installed",
+      loaded: false,
+      actions: ["installEnable"],
+    },
   });
   assert.equal(sample.ok, true);
   assert.equal(sample.catalogBound, true);
@@ -226,27 +325,47 @@ test("installed soak samples bundled IM without bypassing native owner approval"
       catalogEntry: { id: "@penglai/im", sha256 },
       packageSha256: sha256,
       desiredEnabled: false,
-      inventoryEntry: { moduleName: "@penglai/im", enabled: false, fiberPhase: null },
-      centerCard: { id: "@penglai/im", loaded: false, actions: ["installEnable"] },
+      inventoryEntry: {
+        moduleName: "@penglai/im",
+        enabled: false,
+        fiberPhase: null,
+      },
+      centerCard: {
+        id: "@penglai/im",
+        loaded: false,
+        actions: ["installEnable"],
+      },
     }).ok,
     false,
   );
 });
 
 test("live installed evidence captures public screenshots only after model selection and completed onboarding", () => {
-  const live = readFileSync(new URL("../../../scripts/e2e-installed-live.mjs", import.meta.url), "utf8");
+  const live = readFileSync(
+    new URL("../../../scripts/e2e-installed-live.mjs", import.meta.url),
+    "utf8",
+  );
   assert.match(live, /PENGLAI_CAPTURE_PUBLIC_SHOTS/);
   assert.match(live, /models-loaded\.png/);
   assert.match(live, /onboarding-complete\.png/);
   assert.match(live, /walkInstalledBrowserWindow/);
   assert.match(live, /data-dsh-boot/);
   assert.match(live, /Penglai product UI plugin boot failed/);
-  assert.doesNotMatch(live, /captureShot\([^\n]*keytest|captureShot\([^\n]*credential/i);
+  assert.doesNotMatch(
+    live,
+    /captureShot\([^\n]*keytest|captureShot\([^\n]*credential/i,
+  );
 });
 
 test("native release workflow proves bundled optional plugins across restart", () => {
-  const workflow = readFileSync(join(root, ".github/workflows/native-release-candidate.yml"), "utf8");
-  const compat = readFileSync(join(root, "scripts/u3-first-party-plugins.mjs"), "utf8");
+  const workflow = readFileSync(
+    join(root, ".github/workflows/native-release-candidate.yml"),
+    "utf8",
+  );
+  const compat = readFileSync(
+    join(root, "scripts/u3-first-party-plugins.mjs"),
+    "utf8",
+  );
   assert.match(workflow, /mode:\s*\n\s+description:/);
   assert.match(workflow, /default: native/);
   assert.match(workflow, /inputs\.mode == 'native'/g);
@@ -257,49 +376,74 @@ test("native release workflow proves bundled optional plugins across restart", (
       `npm-cohort:[\\s\\S]*?steps:[\\s\\S]*?fetch-depth: 0[\\s\\S]*?Check out immutable official DSH ${PINNED_DSH.replaceAll(".", "\\.")} source`,
     ),
   );
-  const macosWorkflow = workflow.slice(workflow.indexOf("\n  macos:"), workflow.indexOf("\n  windows:"));
-  const windowsWorkflow = workflow.slice(workflow.indexOf("\n  windows:"), workflow.indexOf("\n  linux:"));
-  const linuxWorkflow = workflow.slice(workflow.indexOf("\n  linux:"), workflow.indexOf("\n  aggregate:"));
+  const macosWorkflow = workflow.slice(
+    workflow.indexOf("\n  macos:"),
+    workflow.indexOf("\n  windows:"),
+  );
+  const windowsWorkflow = workflow.slice(
+    workflow.indexOf("\n  windows:"),
+    workflow.indexOf("\n  linux:"),
+  );
+  const linuxWorkflow = workflow.slice(
+    workflow.indexOf("\n  linux:"),
+    workflow.indexOf("\n  aggregate:"),
+  );
   for (const nativeWorkflow of [macosWorkflow, windowsWorkflow]) {
-    assert.ok(nativeWorkflow.indexOf("Build source from the clean checkout") >= 0);
-    assert.ok(nativeWorkflow.indexOf("Audit target-specific supply chain") >= 0);
+    assert.ok(
+      nativeWorkflow.indexOf("Build source from the clean checkout") >= 0,
+    );
+    assert.ok(
+      nativeWorkflow.indexOf("Audit target-specific supply chain") >= 0,
+    );
     assert.ok(
       nativeWorkflow.indexOf("Build source from the clean checkout") <
         nativeWorkflow.indexOf("Audit target-specific supply chain"),
     );
   }
   assert.match(windowsWorkflow, /expectedSize = 2362938/);
-  assert.match(windowsWorkflow, /56581f90db321581c5381193d796fffcf2d24b2f8fed2160a6c6a3baa67f2c4f/);
-  const windowsWorkflowLines = windowsWorkflow.split(/\r?\n/).map((line) => line.trim());
+  assert.match(
+    windowsWorkflow,
+    /56581f90db321581c5381193d796fffcf2d24b2f8fed2160a6c6a3baa67f2c4f/,
+  );
+  const windowsWorkflowLines = windowsWorkflow
+    .split(/\r?\n/)
+    .map((line) => line.trim());
   assert.equal(
     windowsWorkflowLines.some(
-      (line) => line === "'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.12/nsis-3.12.zip',",
+      (line) =>
+        line ===
+        "'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.12/nsis-3.12.zip',",
     ),
     true,
   );
   assert.equal(
     windowsWorkflowLines.some(
-      (line) => line === "'https://mirrors.mit.edu/macports/distfiles/nsis/nsis-3.12.zip'",
+      (line) =>
+        line ===
+        "'https://mirrors.mit.edu/macports/distfiles/nsis/nsis-3.12.zip'",
     ),
     true,
   );
-  assert.match(windowsWorkflow, /actualSize -eq \$expectedSize -and \$actual -eq \$expected/);
-  assert.match(macosWorkflow, /Penglai_0\.6\.2_macos_aarch64\.dmg/);
-  assert.doesNotMatch(macosWorkflow, /Penglai_0\.6\.2_macos_x64\.dmg/);
+  assert.match(
+    windowsWorkflow,
+    /actualSize -eq \$expectedSize -and \$actual -eq \$expected/,
+  );
+  assert.match(macosWorkflow, /Penglai_0\.6\.3_macos_aarch64\.dmg/);
+  assert.doesNotMatch(macosWorkflow, /Penglai_0\.6\.3_macos_x64\.dmg/);
   assert.doesNotMatch(macosWorkflow, /macos-15-intel/);
   assert.doesNotMatch(macosWorkflow, /darwin-x86_64/);
-  assert.match(windowsWorkflow, /Penglai_0\.6\.2_windows_x64_setup\.exe/);
+  assert.match(windowsWorkflow, /Penglai_0\.6\.3_windows_x64_setup\.exe/);
   assert.match(linuxWorkflow, /package:linux-deb/);
   assert.match(linuxWorkflow, /OWNER_POST_RELEASE/);
-  assert.match(linuxWorkflow, /Penglai_0\.6\.2_uos_loong64\.deb/);
+  assert.match(linuxWorkflow, /Penglai_0\.6\.3_uos_loong64\.deb/);
   assert.doesNotMatch(linuxWorkflow, /test:e2e:installed/);
   assert.doesNotMatch(linuxWorkflow, /verify:upgrade-uninstall/);
   assert.doesNotMatch(linuxWorkflow, /verify:fresh-install-uninstall/);
   assert.match(macosWorkflow, /verify:fresh-install-uninstall/);
   assert.match(windowsWorkflow, /verify:fresh-install-uninstall/);
   assert.match(workflow, /fetch:upgrade-sources/);
-  assert.match(macosWorkflow, /Fetch immutable 0\.6\.1 installer/);
-  assert.match(windowsWorkflow, /Fetch immutable 0\.6\.1 installer/);
+  assert.match(macosWorkflow, /Fetch immutable 0\.6\.2 installer/);
+  assert.match(windowsWorkflow, /Fetch immutable 0\.6\.2 installer/);
   assert.match(macosWorkflow, /pnpm verify:upgrade-uninstall/);
   assert.match(windowsWorkflow, /pnpm verify:upgrade-uninstall/);
   assert.match(workflow, /needs: \[macos, windows, linux\]/);
@@ -309,7 +453,10 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.match(compat, /inspectPackagedCandidate/);
   assert.match(compat, /all-enabled-after-restart/);
   assert.match(compat, /optionalSettingsReady/);
-  assert.match(compat, /requireOptionalPlugins: name === "all-enabled-after-restart"/);
+  assert.match(
+    compat,
+    /requireOptionalPlugins: name === "all-enabled-after-restart"/,
+  );
   assert.match(compat, /all-disabled-after-restart/);
   assert.match(compat, /fiberPhase/);
   assert.match(compat, /official\.websocket/);
@@ -318,35 +465,60 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.match(compat, /credentialRef: "DEEPSEEK_API_KEY"/);
   assert.match(compat, /join\(fixtureDshHome, "\.credentials\.yaml"\)/);
   assert.match(compat, /phase\.official\.mounted/);
-  assert.match(compat, /writeFileSync\(profilePatch, text, \{ mode: 0o600 \}\)/);
+  assert.match(
+    compat,
+    /writeFileSync\(profilePatch, text, \{ mode: 0o600 \}\)/,
+  );
   assert.doesNotMatch(compat, /ftruncateSync/);
-  const welcome = readFileSync(join(root, "scripts/u3-welcome-smoke.mjs"), "utf8");
+  const welcome = readFileSync(
+    join(root, "scripts/u3-welcome-smoke.mjs"),
+    "utf8",
+  );
   assert.match(welcome, /startup\.error\.log/);
   assert.match(welcome, /dsh\.stderr\.log/);
   assert.doesNotMatch(compat, /pre-DSH wizard/);
-  const bundled = readFileSync(join(root, "scripts/verify-bundled-runtime.mjs"), "utf8");
+  const bundled = readFileSync(
+    join(root, "scripts/verify-bundled-runtime.mjs"),
+    "utf8",
+  );
   assert.match(bundled, /Contents", "Resources"/);
   assert.match(bundled, /mnemon/);
-  assert.match(bundled, /penglai_office_commit/);
+  assert.doesNotMatch(bundled, /penglai_office_commit/);
   assert.doesNotMatch(bundled, /join\(ROOT, "third_party"/);
   assert.doesNotMatch(compat, /PENGLAI_ALLOW_TEST_HARNESS/);
 });
 
 test("Windows NSIS compiles UTF-8 source and exposes bilingual component copy", () => {
-  const packager = readFileSync(join(root, "scripts/package-windows-nsis.mjs"), "utf8");
-  const installer = readFileSync(join(root, "scripts/nsis/Penglai.nsi"), "utf8");
+  const packager = readFileSync(
+    join(root, "scripts/package-windows-nsis.mjs"),
+    "utf8",
+  );
+  const installer = readFileSync(
+    join(root, "scripts/nsis/Penglai.nsi"),
+    "utf8",
+  );
   const license = readFileSync(join(root, "scripts/nsis/license.rtf"), "utf8");
   assert.match(packager, /"\/INPUTCHARSET",\s*"UTF8"/);
   assert.match(installer, /Unicode true/);
-  assert.match(installer, /LangString NAME_Desktop \$\{LANG_SIMPCHINESE\} "桌面快捷方式"/);
-  assert.match(installer, /LangString DESC_App \$\{LANG_SIMPCHINESE\} "安装蓬莱桌面客户端、官方 DSH 核心和内置插件。"/);
-  assert.match(installer, /MUI_DESCRIPTION_TEXT \$\{SecDesktop\} "\$\(DESC_Desktop\)"/);
+  assert.match(
+    installer,
+    /LangString NAME_Desktop \$\{LANG_SIMPCHINESE\} "桌面快捷方式"/,
+  );
+  assert.match(
+    installer,
+    /LangString DESC_App \$\{LANG_SIMPCHINESE\} "安装蓬莱桌面客户端、官方 DSH 核心和内置插件。"/,
+  );
+  assert.match(
+    installer,
+    /MUI_DESCRIPTION_TEXT \$\{SecDesktop\} "\$\(DESC_Desktop\)"/,
+  );
   assert.doesNotMatch(installer, /0\.5\.3/);
   assert.doesNotMatch(license, /0\.5\.3/);
 });
 
 test("plugin transport observation does not wait for the post-wizard DOM", async () => {
-  const { observeOfficialTransport } = await import("../../../scripts/lib/browser-window-walk.mjs");
+  const { observeOfficialTransport } =
+    await import("../../../scripts/lib/browser-window-walk.mjs");
   const expressions: string[] = [];
   const session = {
     send: async (method: string, params: { expression: string }) => {
@@ -367,14 +539,21 @@ test("plugin transport observation does not wait for the post-wizard DOM", async
 });
 
 test("installed harness shutdown waits for the process close after SIGKILL", () => {
-  const helper = readFileSync(join(root, "scripts/lib/installed-app.mjs"), "utf8");
-  assert.match(helper, /closed\.then\(\(value\) => \(\{ exited: true, value \}\)\)/);
+  const helper = readFileSync(
+    join(root, "scripts/lib/installed-app.mjs"),
+    "utf8",
+  );
+  assert.match(
+    helper,
+    /closed\.then\(\(value\) => \(\{ exited: true, value \}\)\)/,
+  );
   assert.match(helper, /did not exit after SIGKILL/);
   assert.doesNotMatch(helper, /resolveClose\(\[null, "SIGKILL"\]\)/);
 });
 
 test("installed restart requests the product lifecycle before signal fallback", async () => {
-  const { requestBrowserClose } = await import("../../../scripts/lib/installed-app.mjs");
+  const { requestBrowserClose } =
+    await import("../../../scripts/lib/installed-app.mjs");
   const calls: unknown[][] = [];
   let closed = false;
   const session = {
@@ -390,29 +569,60 @@ test("installed restart requests the product lifecycle before signal fallback", 
   assert.deepEqual(calls, [["Browser.close", {}, 321]]);
   assert.equal(closed, true);
 
-  const compat = readFileSync(join(root, "scripts/u3-first-party-plugins.mjs"), "utf8");
-  const fresh = readFileSync(join(root, "scripts/verify-fresh-install-uninstall.mjs"), "utf8");
+  const compat = readFileSync(
+    join(root, "scripts/u3-first-party-plugins.mjs"),
+    "utf8",
+  );
+  const fresh = readFileSync(
+    join(root, "scripts/verify-fresh-install-uninstall.mjs"),
+    "utf8",
+  );
   assert.match(compat, /requestBrowserClose\(cdpSession\)/);
   assert.match(compat, /stopChild\(launched\.child(?:,\s*[\d_]+)?\)/);
   assert.ok(
-    compat.indexOf("requestBrowserClose(cdpSession)") < compat.indexOf("stopChild(launched.child"),
+    compat.indexOf("requestBrowserClose(cdpSession)") <
+      compat.indexOf("stopChild(launched.child"),
   );
   assert.match(fresh, /requestNativeApplicationClose/);
   assert.match(fresh, /waitForChildExitNoKill/);
-  assert.match(fresh, /forced process termination; that is not a graceful application shutdown/);
-  assert.ok(fresh.indexOf("requestNativeApplicationClose") < fresh.indexOf("forceStopChild(child)"));
+  assert.match(
+    fresh,
+    /forced process termination; that is not a graceful application shutdown/,
+  );
+  assert.ok(
+    fresh.indexOf("requestNativeApplicationClose") <
+      fresh.indexOf("forceStopChild(child)"),
+  );
 });
 
 test("Windows child shutdown kills the process tree so NSIS upgrade is not blocked", () => {
-  const helper = readFileSync(join(root, "scripts/lib/installed-app.mjs"), "utf8");
-  const upgrade = readFileSync(join(root, "scripts/verify-upgrade-uninstall.mjs"), "utf8");
-  const fresh = readFileSync(join(root, "scripts/verify-fresh-install-uninstall.mjs"), "utf8");
+  const helper = readFileSync(
+    join(root, "scripts/lib/installed-app.mjs"),
+    "utf8",
+  );
+  const upgrade = readFileSync(
+    join(root, "scripts/verify-upgrade-uninstall.mjs"),
+    "utf8",
+  );
+  const fresh = readFileSync(
+    join(root, "scripts/verify-fresh-install-uninstall.mjs"),
+    "utf8",
+  );
   const force = helper.indexOf("export async function forceStopChild");
   const stop = helper.indexOf("export async function stopChild");
-  const taskkill = helper.indexOf('spawnSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"]', force);
+  const taskkill = helper.indexOf(
+    'spawnSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"]',
+    force,
+  );
   const posixKill = helper.indexOf('child.kill("SIGKILL")', force);
-  assert.ok(force >= 0 && taskkill > force, "forceStopChild must tree-kill Windows descendants");
-  assert.ok(posixKill > taskkill, "POSIX SIGKILL remains the non-Windows fallback");
+  assert.ok(
+    force >= 0 && taskkill > force,
+    "forceStopChild must tree-kill Windows descendants",
+  );
+  assert.ok(
+    posixKill > taskkill,
+    "POSIX SIGKILL remains the non-Windows fallback",
+  );
   assert.ok(stop > force, "stopChild must reuse the forced tree-kill path");
   assert.match(helper, /return forceStopChild\(child\)/);
   assert.match(upgrade, /leftoversByCommand|windows-process-scope/);
@@ -430,10 +640,25 @@ test("Windows child shutdown kills the process tree so NSIS upgrade is not block
   assert.match(fresh, /isolateUserData: false/);
   assert.match(fresh, /windowsFreshProfilePreflight/);
   assert.match(fresh, /waitOwnedWindowsProcessesGone/);
-  const cleanupFn = fresh.slice(fresh.indexOf("async function cleanupProcesses"), fresh.indexOf("function launchFreshApp"));
-  assert.ok(cleanupFn.indexOf("waitOwnedWindowsProcessesGone") < cleanupFn.indexOf("reapWindowsInstallTree"));
-  assert.ok(fresh.indexOf("windowsFreshProfilePreflight") < fresh.indexOf("writeFileSync(sentinelPath"));
-  assert.doesNotMatch(fresh.slice(fresh.indexOf("function installWindowsDefault"), fresh.indexOf("async function shutdownFresh")), /\/D=/);
+  const cleanupFn = fresh.slice(
+    fresh.indexOf("async function cleanupProcesses"),
+    fresh.indexOf("function launchFreshApp"),
+  );
+  assert.ok(
+    cleanupFn.indexOf("waitOwnedWindowsProcessesGone") <
+      cleanupFn.indexOf("reapWindowsInstallTree"),
+  );
+  assert.ok(
+    fresh.indexOf("windowsFreshProfilePreflight") <
+      fresh.indexOf("writeFileSync(sentinelPath"),
+  );
+  assert.doesNotMatch(
+    fresh.slice(
+      fresh.indexOf("function installWindowsDefault"),
+      fresh.indexOf("async function shutdownFresh"),
+    ),
+    /\/D=/,
+  );
   assert.match(helper, /export async function reapWindowsInstallTree/);
   assert.match(helper, /windows-process-scope/);
   assert.match(upgrade, /`_\?=\$\{app\}`/);
@@ -497,29 +722,48 @@ test("installed harness shutdown returns only after the child is gone", async (c
 });
 
 test("single-instance ownership is scoped after the app-private userData path", () => {
-  const main = readFileSync(join(root, "apps/desktop/src/electron-main.ts"), "utf8");
+  const main = readFileSync(
+    join(root, "apps/desktop/src/electron-main.ts"),
+    "utf8",
+  );
   const configure = main.indexOf("configureGenerationPaths({");
   const lock = main.indexOf("app.requestSingleInstanceLock()");
-  assert.ok(configure >= 0 && lock > configure, "userData must be configured before acquiring the instance lock");
+  assert.ok(
+    configure >= 0 && lock > configure,
+    "userData must be configured before acquiring the instance lock",
+  );
 });
 
 test("linux desktop boot is admitted only after releaseTarget so x64 Linux is not official", () => {
-  const main = readFileSync(join(root, "apps/desktop/src/electron-main.ts"), "utf8");
+  const main = readFileSync(
+    join(root, "apps/desktop/src/electron-main.ts"),
+    "utf8",
+  );
   const target = main.indexOf("releaseTarget(platform, process.arch)");
   const configure = main.indexOf("configureGenerationPaths({");
   assert.match(main, /process.platform === "linux"/);
-  assert.ok(target >= 0 && configure > target, "unsupported Linux arches must fail before userData is created");
+  assert.ok(
+    target >= 0 && configure > target,
+    "unsupported Linux arches must fail before userData is created",
+  );
 });
 
 test("installed app helper refuses Electron executable and wrong Info.plist identity", async () => {
-  const helper = readFileSync(join(root, "scripts/lib/installed-app.mjs"), "utf8");
+  const helper = readFileSync(
+    join(root, "scripts/lib/installed-app.mjs"),
+    "utf8",
+  );
   assert.match(helper, /CFBundleExecutable/);
   assert.match(helper, /com\.penglai\.dsh/);
-  assert.doesNotMatch(helper, /for \(const name of \["Penglai", "Electron"\]\)/);
+  assert.doesNotMatch(
+    helper,
+    /for \(const name of \["Penglai", "Electron"\]\)/,
+  );
 });
 
 test("installed UI harness executes only the exact installed resources/app", async () => {
-  const { installedHarnessEnvironment, installedHarnessSpec } = await import("../../../scripts/lib/installed-app.mjs");
+  const { installedHarnessEnvironment, installedHarnessSpec } =
+    await import("../../../scripts/lib/installed-app.mjs");
   const rootDir = mkdtempSync(join(tmpdir(), "penglai-installed-harness-"));
   const harness = join(rootDir, "Electron");
   const resources = join(rootDir, "installed", "resources");
@@ -580,25 +824,52 @@ test("soak runner samples IM offline sleep without faking lifecycle proof", () =
   assert.doesNotMatch(soak, /mark\("update"|mark\("uninstall"/);
   assert.match(soak, /SIGSTOP/);
   assert.match(soak, /penglai-windows-host\.exe/);
-  const desktopMain = readFileSync(join(root, "apps/desktop/src/electron-main.ts"), "utf8");
-  assert.match(desktopMain, /setInterval\(\(\) => void writeHealth\(\), 15_000\)/);
+  const desktopMain = readFileSync(
+    join(root, "apps/desktop/src/electron-main.ts"),
+    "utf8",
+  );
+  assert.match(
+    desktopMain,
+    /setInterval\(\(\) => void writeHealth\(\), 15_000\)/,
+  );
   assert.match(desktopMain, /await verifyOfficialSurfaces\(allowedOrigin\)/);
-  const installedHelper = readFileSync(join(root, "scripts/lib/installed-app.mjs"), "utf8");
+  const installedHelper = readFileSync(
+    join(root, "scripts/lib/installed-app.mjs"),
+    "utf8",
+  );
   assert.match(installedHelper, /process-suspend/);
   assert.match(installedHelper, /process-resume/);
-  const windowsPayload = readFileSync(join(root, "scripts/package-windows-payload.mjs"), "utf8");
+  const windowsPayload = readFileSync(
+    join(root, "scripts/package-windows-payload.mjs"),
+    "utf8",
+  );
   assert.match(windowsPayload, /build-windows-host\.mjs/);
   assert.match(windowsPayload, /scripts\/bundle-desktop\.mjs/);
-  assert.doesNotMatch(windowsPayload, /if \(!existsSync\(join\(ROOT, "dist", "desktop-bundle", "electron-main\.js"\)\)\)/);
-  assert.match(windowsPayload, /desktop bundle is missing or does not match the current startup page/);
+  assert.doesNotMatch(
+    windowsPayload,
+    /if \(!existsSync\(join\(ROOT, "dist", "desktop-bundle", "electron-main\.js"\)\)\)/,
+  );
+  assert.match(
+    windowsPayload,
+    /desktop bundle is missing or does not match the current startup page/,
+  );
   assert.match(windowsPayload, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
-  assert.match(windowsPayload, /join\(staging, "runtime", "helpers", "penglai-windows-host\.exe"\)/);
+  assert.match(
+    windowsPayload,
+    /join\(staging, "runtime", "helpers", "penglai-windows-host\.exe"\)/,
+  );
   assert.match(windowsPayload, /stamp-windows-exe\.mjs/);
   assert.match(windowsPayload, /release-info\.json/);
-  const embedRuntime = readFileSync(join(root, "scripts/embed-runtime.mjs"), "utf8");
+  const embedRuntime = readFileSync(
+    join(root, "scripts/embed-runtime.mjs"),
+    "utf8",
+  );
   assert.match(embedRuntime, /packedPlugins !== stagedPlugins/);
   assert.match(embedRuntime, /cpSync\(packedPlugins, stagedPlugins/);
-  const verifyInstalled = readFileSync(join(root, "scripts/verify-installed.mjs"), "utf8");
+  const verifyInstalled = readFileSync(
+    join(root, "scripts/verify-installed.mjs"),
+    "utf8",
+  );
   assert.match(verifyInstalled, /R50-WIN-009/);
   assert.match(verifyInstalled, /R50-MAC-010/);
   assert.match(soak, /remote-debugging-port/);

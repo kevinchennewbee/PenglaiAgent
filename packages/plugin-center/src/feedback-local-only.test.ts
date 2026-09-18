@@ -29,7 +29,7 @@ function loadClient(): ClientExports {
   });
 }
 
-test("0.6.2 lets the enabled official feedback client register truthful local-only copy", () => {
+test("0.6.3 lets the enabled official feedback client register truthful local-only copy", () => {
   const client = loadClient();
   let registered: { namespace: string; dictionaries: Record<string, Record<string, string>> } | undefined;
   const context = {
@@ -56,7 +56,7 @@ test("0.6.2 lets the enabled official feedback client register truthful local-on
   assert.equal(dispose(), undefined);
 });
 
-test("0.6.2 enables exactly one official feedback row without Plugin Center injection", () => {
+test("0.6.3 enables exactly one official feedback row without Plugin Center injection", () => {
   const patch = readFileSync(
     new URL("../../../profile-seed/web/cordis.patch.yml", import.meta.url),
     "utf8",

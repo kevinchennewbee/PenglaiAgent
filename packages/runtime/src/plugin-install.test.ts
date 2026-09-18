@@ -41,9 +41,6 @@ function writeTrustedPluginSet(app: string, markers: Record<string, string> = {}
       "@penglai/asr",
       "@penglai/moss-tts",
       "@penglai/memory",
-      "@penglai/office",
-      "@penglai/budget",
-      "@penglai/companion",
     ].includes(metadata.id);
     writeFileSync(
       join(stage, "dist", "index.js"),
@@ -101,10 +98,10 @@ test("installFirstPartyPlugins isolates a forged overlay instead of trusting or 
   const tx = mkdtempSync(join(tmpdir(), "penglai-plugin-trust-tx-"));
   const userData = mkdtempSync(join(tmpdir(), "penglai-plugin-trust-user-"));
   mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
-  writeTrustedPluginSet(app, { "@penglai/office": "bundled-office" });
+  writeTrustedPluginSet(app, { "@penglai/memory": "bundled-memory" });
   const layout = resolveRuntimeLayout(app);
-  installFirstPartyPlugins(layout, profile, tx, ["@penglai/office"], userData);
-  const dest = join(profile, "node_modules", "@penglai", "office");
+  installFirstPartyPlugins(layout, profile, tx, ["@penglai/memory"], userData);
+  const dest = join(profile, "node_modules", "@penglai", "memory");
   const ownerMarker = join(dest, "owner-bytes.txt");
   writeFileSync(ownerMarker, "owner-installed-bytes\n");
   const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf8")) as {
@@ -118,8 +115,8 @@ test("installFirstPartyPlugins isolates a forged overlay instead of trusting or 
     sha256: "ab".repeat(32),
     dshExact: pkg.penglaiPlugin.dshExact,
   });
-  installFirstPartyPlugins(layout, profile, tx, ["@penglai/office"], userData);
-  assert.match(readFileSync(join(dest, "dist", "index.js"), "utf8"), /bundled-office/);
+  installFirstPartyPlugins(layout, profile, tx, ["@penglai/memory"], userData);
+  assert.match(readFileSync(join(dest, "dist", "index.js"), "utf8"), /bundled-memory/);
   assert.equal(existsSync(ownerMarker), false);
   const quarantined = readdirSync(tx).filter((name) => name.startsWith("uncertain-plugin-"));
   assert.equal(quarantined.length >= 1, true);
@@ -138,7 +135,7 @@ function quarantineHas(tx: string, needle: string): boolean {
   });
 }
 
-function newerOfficePackage(dest: string): {
+function newerMemoryPackage(dest: string): {
   version: string;
   digest: string;
   archive: Buffer;
@@ -159,8 +156,8 @@ function newerOfficePackage(dest: string): {
   const archive = readFileSync(archivePath);
   const digest = createHash("sha256").update(archive).digest("hex");
   const target = runtimePluginTarget();
-  const artifactName = `penglai-office-${pkg.version}-${target}.tgz`;
-  const tag = `office-v${pkg.version}`;
+  const artifactName = `penglai-memory-${pkg.version}-${target}.tgz`;
+  const tag = `memory-v${pkg.version}`;
   const now = Date.now();
   const catalog = parseSignedPluginCatalog(
     {
@@ -173,15 +170,15 @@ function newerOfficePackage(dest: string): {
       signingKeyId: "pm-source-fixture",
       entries: [
         {
-          id: "@penglai/office",
+          id: "@penglai/memory",
           version: pkg.version,
-          title: { en: "Office", "zh-CN": "办公" },
+          title: { en: "Memory", "zh-CN": "记忆" },
           summary: { en: "Source test fixture", "zh-CN": "源码测试" },
           publisher: "Penglai",
           provenanceClass: "penglai-first-party",
           license: "MIT",
           dsh: { exact: pkg.penglaiPlugin.dshExact },
-          minPenglai: "0.6.2",
+          minPenglai: "0.6.3",
           capabilities: [],
           permissions: [],
           defaultEnabled: false,
@@ -241,18 +238,18 @@ test("installFirstPartyPlugins retains a newer install only when CAS bytes match
   const tx = mkdtempSync(join(tmpdir(), "penglai-plugin-cas-tx-"));
   const userData = mkdtempSync(join(tmpdir(), "penglai-plugin-cas-user-"));
   mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
-  writeTrustedPluginSet(app, { "@penglai/office": "newer-verified-office" });
+  writeTrustedPluginSet(app, { "@penglai/memory": "newer-verified-memory" });
   const layout = resolveRuntimeLayout(app);
-  installFirstPartyPlugins(layout, profile, tx, ["@penglai/office"], userData);
-  const dest = join(profile, "node_modules", "@penglai", "office");
-  const newer = newerOfficePackage(dest);
+  installFirstPartyPlugins(layout, profile, tx, ["@penglai/memory"], userData);
+  const dest = join(profile, "node_modules", "@penglai", "memory");
+  const newer = newerMemoryPackage(dest);
   writeCasArtifact(userData, newer.digest, newer.archive);
   withVerifiedSnapshot(newer.catalog, () => {
-    installFirstPartyPlugins(layout, profile, tx, ["@penglai/office"], userData);
+    installFirstPartyPlugins(layout, profile, tx, ["@penglai/memory"], userData);
   });
   const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf8")) as { version: string };
   assert.equal(pkg.version, newer.version);
-  assert.match(readFileSync(join(dest, "dist", "index.js"), "utf8"), /newer-verified-office/);
+  assert.match(readFileSync(join(dest, "dist", "index.js"), "utf8"), /newer-verified-memory/);
   assert.equal(readdirSync(tx).some((name) => name.startsWith("uncertain-plugin-")), false);
 });
 
@@ -262,21 +259,21 @@ test("installFirstPartyPlugins isolates a CAS-authenticated overlay whose execut
   const tx = mkdtempSync(join(tmpdir(), "penglai-plugin-tamper-tx-"));
   const userData = mkdtempSync(join(tmpdir(), "penglai-plugin-tamper-user-"));
   mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
-  writeTrustedPluginSet(app, { "@penglai/office": "bundled-office" });
+  writeTrustedPluginSet(app, { "@penglai/memory": "bundled-memory" });
   const layout = resolveRuntimeLayout(app);
-  installFirstPartyPlugins(layout, profile, tx, ["@penglai/office"], userData);
-  const dest = join(profile, "node_modules", "@penglai", "office");
-  const newer = newerOfficePackage(dest);
+  installFirstPartyPlugins(layout, profile, tx, ["@penglai/memory"], userData);
+  const dest = join(profile, "node_modules", "@penglai", "memory");
+  const newer = newerMemoryPackage(dest);
   writeCasArtifact(userData, newer.digest, newer.archive);
   const originalJs = readFileSync(join(dest, "dist", "index.js"), "utf8");
   writeFileSync(join(dest, "dist", "index.js"), `${originalJs}\nexport const pmModifiedAfterVerification = true;\n`);
   withVerifiedSnapshot(newer.catalog, () => {
-    installFirstPartyPlugins(layout, profile, tx, ["@penglai/office"], userData);
+    installFirstPartyPlugins(layout, profile, tx, ["@penglai/memory"], userData);
   });
-  assert.match(readFileSync(join(dest, "dist", "index.js"), "utf8"), /bundled-office/);
+  assert.match(readFileSync(join(dest, "dist", "index.js"), "utf8"), /bundled-memory/);
   assert.equal(readFileSync(join(dest, "dist", "index.js"), "utf8").includes("pmModifiedAfterVerification"), false);
   const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf8")) as { version: string };
-  assert.equal(pkg.version, FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/office")?.version);
+  assert.equal(pkg.version, FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/memory")?.version);
   assert.equal(quarantineHas(tx, "pmModifiedAfterVerification"), true);
 });
 
@@ -286,16 +283,16 @@ test("installFirstPartyPlugins isolates when the expected CAS artifact is missin
   const tx = mkdtempSync(join(tmpdir(), "penglai-plugin-missing-cas-tx-"));
   const userData = mkdtempSync(join(tmpdir(), "penglai-plugin-missing-cas-user-"));
   mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
-  writeTrustedPluginSet(app, { "@penglai/office": "bundled-office" });
+  writeTrustedPluginSet(app, { "@penglai/memory": "bundled-memory" });
   const layout = resolveRuntimeLayout(app);
-  installFirstPartyPlugins(layout, profile, tx, ["@penglai/office"], userData);
-  const dest = join(profile, "node_modules", "@penglai", "office");
-  const newer = newerOfficePackage(dest);
+  installFirstPartyPlugins(layout, profile, tx, ["@penglai/memory"], userData);
+  const dest = join(profile, "node_modules", "@penglai", "memory");
+  const newer = newerMemoryPackage(dest);
   writeFileSync(join(dest, "owner-kept.txt"), "keep-owner\n");
   withVerifiedSnapshot(newer.catalog, () => {
-    installFirstPartyPlugins(layout, profile, tx, ["@penglai/office"], userData);
+    installFirstPartyPlugins(layout, profile, tx, ["@penglai/memory"], userData);
   });
-  assert.match(readFileSync(join(dest, "dist", "index.js"), "utf8"), /bundled-office/);
+  assert.match(readFileSync(join(dest, "dist", "index.js"), "utf8"), /bundled-memory/);
   assert.equal(
     readdirSync(tx).some(
       (name) => name.startsWith("uncertain-plugin-") && existsSync(join(tx, name, "owner-kept.txt")),
@@ -310,16 +307,16 @@ test("installFirstPartyPlugins isolates a corrupt CAS object even when overlay m
   const tx = mkdtempSync(join(tmpdir(), "penglai-plugin-corrupt-cas-tx-"));
   const userData = mkdtempSync(join(tmpdir(), "penglai-plugin-corrupt-cas-user-"));
   mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
-  writeTrustedPluginSet(app, { "@penglai/office": "bundled-office" });
+  writeTrustedPluginSet(app, { "@penglai/memory": "bundled-memory" });
   const layout = resolveRuntimeLayout(app);
-  installFirstPartyPlugins(layout, profile, tx, ["@penglai/office"], userData);
-  const dest = join(profile, "node_modules", "@penglai", "office");
-  const newer = newerOfficePackage(dest);
+  installFirstPartyPlugins(layout, profile, tx, ["@penglai/memory"], userData);
+  const dest = join(profile, "node_modules", "@penglai", "memory");
+  const newer = newerMemoryPackage(dest);
   writeCasArtifact(userData, newer.digest, Buffer.from("not-the-signed-tarball"));
   withVerifiedSnapshot(newer.catalog, () => {
-    installFirstPartyPlugins(layout, profile, tx, ["@penglai/office"], userData);
+    installFirstPartyPlugins(layout, profile, tx, ["@penglai/memory"], userData);
   });
-  assert.match(readFileSync(join(dest, "dist", "index.js"), "utf8"), /bundled-office/);
+  assert.match(readFileSync(join(dest, "dist", "index.js"), "utf8"), /bundled-memory/);
   const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf8")) as { version: string };
   assert.notEqual(pkg.version, newer.version);
 });
@@ -330,11 +327,11 @@ test("installFirstPartyPlugins isolates a newer overlay whose embedded DSH pin d
   const tx = mkdtempSync(join(tmpdir(), "penglai-plugin-dsh-tx-"));
   const userData = mkdtempSync(join(tmpdir(), "penglai-plugin-dsh-user-"));
   mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
-  writeTrustedPluginSet(app, { "@penglai/office": "bundled-office" });
+  writeTrustedPluginSet(app, { "@penglai/memory": "bundled-memory" });
   const layout = resolveRuntimeLayout(app);
-  installFirstPartyPlugins(layout, profile, tx, ["@penglai/office"], userData);
-  const dest = join(profile, "node_modules", "@penglai", "office");
-  const newer = newerOfficePackage(dest);
+  installFirstPartyPlugins(layout, profile, tx, ["@penglai/memory"], userData);
+  const dest = join(profile, "node_modules", "@penglai", "memory");
+  const newer = newerMemoryPackage(dest);
   const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf8")) as {
     version: string;
     penglaiPlugin: { dshExact: string };
@@ -343,11 +340,10 @@ test("installFirstPartyPlugins isolates a newer overlay whose embedded DSH pin d
   writeFileSync(join(dest, "package.json"), JSON.stringify(pkg));
   writeCasArtifact(userData, newer.digest, newer.archive);
   withVerifiedSnapshot(newer.catalog, () => {
-    installFirstPartyPlugins(layout, profile, tx, ["@penglai/office"], userData);
+    installFirstPartyPlugins(layout, profile, tx, ["@penglai/memory"], userData);
   });
   const restored = JSON.parse(readFileSync(join(dest, "package.json"), "utf8")) as {
     penglaiPlugin: { dshExact: string };
   };
-  assert.equal(restored.penglaiPlugin.dshExact, "0.1.5-rc.2");
+  assert.equal(restored.penglaiPlugin.dshExact, "0.1.6-alpha.2");
 });
-

@@ -20,7 +20,7 @@ function parsePluginDesiredState(bytes) {
   return parsed;
 }
 
-/** Create a meaningful 0.6.1 owner-state fixture after its installed boot. */
+/** Create a meaningful previous-release owner-state fixture after its installed boot. */
 export function seedUpgradePluginDesiredState(path, pluginId = "@penglai/im") {
   if (typeof pluginId !== "string" || !pluginId.startsWith("@penglai/")) {
     throw new Error("upgrade plugin fixture requires a first-party plugin id");

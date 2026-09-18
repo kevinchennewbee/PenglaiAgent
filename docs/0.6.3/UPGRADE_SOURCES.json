@@ -1,0 +1,58 @@
+{
+  "schema": 2,
+  "repository": "kevinchennewbee/PenglaiAgent",
+  "currentWorkflow": {
+    "fetchPreviousInstallers": true,
+    "requiredNativeUpgradePaths": [
+      "0.6.2->0.6.3/darwin-aarch64",
+      "0.6.2->0.6.3/win32-x86_64"
+    ],
+    "olderInstalledUpgradeStatus": "REQUIRED",
+    "requiredLifecycleGate": "verify:upgrade-uninstall",
+    "nativeUosStatus": "OWNER_POST_RELEASE",
+    "twoHourSoak": "OWNER_EXCLUDED"
+  },
+  "sources": [
+    {
+      "version": "0.6.2",
+      "tag": "v0.6.2",
+      "releaseId": 387670584,
+      "sourceSha": "83ce4aa3c153b63d9f84c6a5d650a3727e8cfec6",
+      "updateSequence": 11,
+      "immutable": true,
+      "digestAuthority": "immutable GitHub asset digest",
+      "assets": [
+        {
+          "name": "Penglai_0.6.2_macos_aarch64.dmg",
+          "id": 559772975,
+          "size": 284537443,
+          "sha256": "7a9e6d851c954e74d8af8ad8d4054838ad212dd575a82ad783cabd09bfdd9348"
+        },
+        {
+          "name": "Penglai_0.6.2_windows_x64_setup.exe",
+          "id": 559772976,
+          "size": 371269392,
+          "sha256": "3e97111bfcefa3c1ab72e70aad6b160acb76f6bef70391f8be4818d80edb8cda"
+        },
+        {
+          "name": "Penglai_0.6.2_uos_loong64.deb",
+          "id": 559772974,
+          "size": 293093278,
+          "sha256": "d16d6b9569095b4d599e9da5afd5c325ebbb661ac7de21ce993fd281bf2998f7"
+        },
+        {
+          "name": "update-manifest-v1.json",
+          "id": 559779444,
+          "size": 1621,
+          "sha256": "dc7d17006df08432b1ed1be0ebdbbf1785a90de5cdb88a6f8a9bb1bf433f0bd2"
+        },
+        {
+          "name": "update-manifest-v1.json.sig",
+          "id": 559779443,
+          "size": 64,
+          "sha256": "0a1bbaf9873903244e94ebb97a21816eb26f0ea7ff1783b20ede06423f7c6cbe"
+        }
+      ]
+    }
+  ]
+}

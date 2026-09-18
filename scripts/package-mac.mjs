@@ -246,7 +246,7 @@ const info = {
   electron: releasePins.electron,
   node: releasePins.node,
   embeddedNode: releasePins.node,
-  dsh: "0.1.5-rc.2",
+  dsh: "0.1.6-alpha.2",
   dshSource: releasePins.dshSource,
   profileSchema: 3,
   catalogSchema: 3,
@@ -279,11 +279,17 @@ if (native.status !== 0) {
   );
   process.exit(native.status ?? 1);
 }
-const sealed = spawnSync("codesign", ["--force", "--deep", "--sign", "-", appDir], {
-  encoding: "utf8",
-});
+const sealed = spawnSync(
+  "codesign",
+  ["--force", "--deep", "--sign", "-", appDir],
+  {
+    encoding: "utf8",
+  },
+);
 if (sealed.status !== 0) {
-  process.stderr.write(sealed.stderr || sealed.stdout || "codesign --sign failed\n");
+  process.stderr.write(
+    sealed.stderr || sealed.stdout || "codesign --sign failed\n",
+  );
   process.exit(sealed.status ?? 1);
 }
 const verified = spawnSync(
@@ -293,19 +299,30 @@ const verified = spawnSync(
 );
 if (verified.status !== 0) {
   process.stderr.write(
-    verified.stderr || verified.stdout || "codesign --verify --deep --strict failed\n",
+    verified.stderr ||
+      verified.stdout ||
+      "codesign --verify --deep --strict failed\n",
   );
   process.exit(verified.status ?? 1);
 }
-const display = spawnSync("codesign", ["-dv", "--verbose=2", appDir], { encoding: "utf8" });
+const display = spawnSync("codesign", ["-dv", "--verbose=2", appDir], {
+  encoding: "utf8",
+});
 const displayText = `${display.stdout ?? ""}\n${display.stderr ?? ""}`;
 if (!/Identifier=com\.penglai\.dsh/.test(displayText)) {
-  console.error("package:mac refused: ad-hoc seal identifier is not com.penglai.dsh");
+  console.error(
+    "package:mac refused: ad-hoc seal identifier is not com.penglai.dsh",
+  );
   process.stderr.write(displayText);
   process.exit(1);
 }
-if (/Info\.plist=not bound/.test(displayText) || /linker-signed/.test(displayText)) {
-  console.error("package:mac refused: leftover Electron linker-signed Mach-O is not a sealed app");
+if (
+  /Info\.plist=not bound/.test(displayText) ||
+  /linker-signed/.test(displayText)
+) {
+  console.error(
+    "package:mac refused: leftover Electron linker-signed Mach-O is not a sealed app",
+  );
   process.stderr.write(displayText);
   process.exit(1);
 }

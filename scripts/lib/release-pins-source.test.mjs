@@ -16,13 +16,13 @@ import {
 
 test("release identity copies resolve from the one authoritative pins source", () => {
   const pins = readReleaseIdentityPins();
-  assert.equal(pins.productVersion, "0.6.2");
-  assert.equal(pins.dsh, "0.1.5-rc.2");
+  assert.equal(pins.productVersion, "0.6.3");
+  assert.equal(pins.dsh, "0.1.6-alpha.2");
   assert.equal(
     pins.dshSource.commit,
-    "fb2c4b9e698e30edb738bca4cf0618587db7d203",
+    "ddefc45fbc7f8e46dd73185e68295696d1297887",
   );
-  assert.equal(pins.dshSource.packageCount, 279);
+  assert.equal(pins.dshSource.packageCount, 307);
   assert.equal(pins.node, "22.23.2");
   assert.equal(pins.targets.length, 3);
   assert.deepEqual(
@@ -51,6 +51,17 @@ test("version verifier consumes the authority instead of declaring a second expe
   assert.match(source, /readReleaseIdentityPins\(\)/);
   assert.match(source, /const EXPECT = pins\.productVersion/);
   assert.doesNotMatch(source, /const EXPECT = "0\.5\.8"/);
+});
+
+test("runtime downloads use compiled release pins and only compare the JSON contract", () => {
+  const source = readFileSync(
+    new URL("../embed-runtime.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /RUNTIME_INPUTS\.find/);
+  assert.match(source, /JSON\.stringify\(contractNodeInput\) !== JSON\.stringify\(nodeInput\)/);
+  assert.match(source, /archivePath, nodeInput\.url/);
+  assert.doesNotMatch(source, /const inputs = \(contract\.runtimeInputs/);
 });
 
 test("release pin reader fails closed when an authority is duplicated", () => {

@@ -17,16 +17,10 @@ function requiredRows(overrides: Record<string, object> = {}) {
       moduleName: "@deepseek-ai/dsh-credentials-local",
       enabled: true,
       fiberPhase: "active",
-      version: "0.1.5-rc.2",
+      version: "0.1.6-alpha.2",
     },
     "@penglai/plugin-center": {
       moduleName: "@penglai/plugin-center",
-      enabled: true,
-      fiberPhase: "active",
-      version: "0.5.12",
-    },
-    "@penglai/office": {
-      moduleName: "@penglai/office",
       enabled: true,
       fiberPhase: "active",
       version: "0.5.12",
@@ -41,15 +35,14 @@ function requiredRows(overrides: Record<string, object> = {}) {
   return REQUIRED_INVENTORY_IDS.map((id) => ({ ...defaults[id], ...(overrides[id] ?? {}) }));
 }
 
-test("R56-CORE-003 required inventory needs exact Office and Memory proofs", () => {
+test("R63-CORE-003 required inventory needs exact Memory proof", () => {
   const proof = evaluateInventory({ entries: requiredRows() });
   assert.equal(proof.ok, true);
   assert.equal(proof.credentials, true);
   assert.equal(proof.pluginCenter, true);
-  assert.equal(proof.office, true);
   assert.equal(proof.memory, true);
   assert.equal(proof.im, false);
-  assert.equal(proof.required.length, 4);
+  assert.equal(proof.required.length, 3);
   assert.deepEqual(
     proof.required.map((row) => row.id),
     [...REQUIRED_INVENTORY_IDS],
@@ -71,12 +64,7 @@ test("R56-CORE-003 optional IM does not become required when it is loaded", () =
   assert.equal(proof.im, true);
 });
 
-test("R56-CORE-003 missing Office or Memory fails Runtime Ready", () => {
-  const withoutOffice = evaluateInventory({
-    entries: requiredRows().filter((row) => row.moduleName !== "@penglai/office"),
-  });
-  assert.equal(withoutOffice.ok, false);
-  assert.equal(withoutOffice.office, false);
+test("R63-CORE-003 missing or unhealthy Memory fails Runtime Ready", () => {
   const disabledMemory = evaluateInventory({
     entries: requiredRows({
       "@penglai/memory": { enabled: false, fiberPhase: "active" },
@@ -84,20 +72,20 @@ test("R56-CORE-003 missing Office or Memory fails Runtime Ready", () => {
   });
   assert.equal(disabledMemory.ok, false);
   assert.equal(disabledMemory.memory, false);
-  const inactiveOffice = evaluateInventory({
+  const inactiveMemory = evaluateInventory({
     entries: requiredRows({
-      "@penglai/office": { fiberPhase: "starting" },
+      "@penglai/memory": { fiberPhase: "starting" },
     }),
   });
-  assert.equal(inactiveOffice.ok, false);
-  assert.equal(inactiveOffice.office, false);
-  const unhealthyOffice = evaluateInventory({
+  assert.equal(inactiveMemory.ok, false);
+  assert.equal(inactiveMemory.memory, false);
+  const unhealthyMemory = evaluateInventory({
     entries: requiredRows({
-      "@penglai/office": { healthy: false },
+      "@penglai/memory": { healthy: false },
     }),
   });
-  assert.equal(unhealthyOffice.ok, false);
-  assert.equal(unhealthyOffice.required.find((row) => row.id === "@penglai/office")?.health, "failed");
+  assert.equal(unhealthyMemory.ok, false);
+  assert.equal(unhealthyMemory.required.find((row) => row.id === "@penglai/memory")?.health, "failed");
 });
 
 test("R56-CORE-004 similar plugin ids cannot satisfy required proof", () => {
@@ -105,28 +93,24 @@ test("R56-CORE-004 similar plugin ids cannot satisfy required proof", () => {
     entries: [
       { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active" },
       { moduleName: "@penglai/plugin-center-extra", enabled: true, fiberPhase: "active" },
-      { moduleName: "@penglai/office-reader", enabled: true, fiberPhase: "active" },
       { moduleName: "@penglai/memory-sources", enabled: true, fiberPhase: "active" },
-      { name: "office", enabled: true, fiberPhase: "active" },
-      { entryId: "fiber:penglai-office-reader", enabled: true, fiberPhase: "active" },
     ],
   });
   assert.equal(fuzzy.ok, false);
   assert.equal(fuzzy.pluginCenter, false);
-  assert.equal(fuzzy.office, false);
   assert.equal(fuzzy.memory, false);
-  assert.equal(exactPluginId({ moduleName: "@penglai/office-reader" }, "@penglai/office"), false);
-  assert.equal(matchesPlugin({ moduleName: "@penglai/office-reader" }, ["@penglai/office", "office"]), false);
-  assert.equal(exactPluginId({ entryId: "plugin:@penglai/office" }, "@penglai/office"), true);
-  assert.equal(exactPluginId({ entryId: "fiber:penglai-office" }, "@penglai/office"), true);
+  assert.equal(exactPluginId({ moduleName: "@penglai/memory-sources" }, "@penglai/memory"), false);
+  assert.equal(matchesPlugin({ moduleName: "@penglai/memory-sources" }, ["@penglai/memory", "memory"]), false);
+  assert.equal(exactPluginId({ entryId: "plugin:@penglai/memory" }, "@penglai/memory"), true);
+  assert.equal(exactPluginId({ entryId: "fiber:penglai-memory" }, "@penglai/memory"), true);
 });
 
 test("R56-CORE-004 snapshot requiredProofs cannot upgrade a missing exact row", () => {
   const proof = evaluateInventory({
-    entries: requiredRows().filter((row) => row.moduleName !== "@penglai/office"),
+    entries: requiredRows().filter((row) => row.moduleName !== "@penglai/memory"),
     requiredProofs: [
       {
-        id: "@penglai/office",
+        id: "@penglai/memory",
         version: "0.5.12",
         source: "builtin",
         enabled: true,
@@ -136,8 +120,8 @@ test("R56-CORE-004 snapshot requiredProofs cannot upgrade a missing exact row", 
     ],
   });
   assert.equal(proof.ok, false);
-  assert.equal(proof.office, false);
-  assert.equal(proof.required.find((row) => row.id === "@penglai/office")?.health, "failed");
+  assert.equal(proof.memory, false);
+  assert.equal(proof.required.find((row) => row.id === "@penglai/memory")?.health, "failed");
 });
 
 test("R56-CORE-003 exact required ids can take version from the pinned catalog", () => {
@@ -145,27 +129,25 @@ test("R56-CORE-003 exact required ids can take version from the pinned catalog",
     entries: [
       { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active" },
       { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active" },
-      { moduleName: "@penglai/office", enabled: true, fiberPhase: "active" },
       { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active" },
     ],
   });
   assert.equal(proof.ok, true);
-  assert.equal(proof.required.find((row) => row.id === "@penglai/office")?.version, "0.6.2");
+  assert.equal(proof.required.find((row) => row.id === "@penglai/memory")?.version, "0.6.3");
   assert.equal(
     proof.required.find((row) => row.id === "@deepseek-ai/dsh-credentials-local")?.version,
-    "0.1.5-rc.2",
+    "0.1.6-alpha.2",
   );
 });
 
-test("inventory snapshot document records Office and Memory without requiring IM", () => {
+test("inventory snapshot document records Memory without requiring IM", () => {
   const document = inventorySnapshotDocument(requiredRows());
   assert.equal(document.ok, true);
-  assert.equal(document.required.office, true);
   assert.equal(document.required.memory, true);
   assert.equal(document.required.im, false);
   assert.equal(document.requiredProofs?.every((row) => row.id !== "@penglai/im"), true);
   assert.equal(EMPTY_INVENTORY_PROOF.ok, false);
-  assert.equal(EMPTY_INVENTORY_PROOF.office, false);
+  assert.equal(EMPTY_INVENTORY_PROOF.memory, false);
 });
 
 test("R56-CORE-005 required inventory ids cannot be disabled by alias", () => {
@@ -175,7 +157,7 @@ test("R56-CORE-005 required inventory ids cannot be disabled by alias", () => {
       (error: unknown) => error instanceof PenglaiError && error.message === "required plugin cannot be disabled",
     );
   }
-  assert.throws(() => refuseRequiredPluginDisable("penglai-office"));
+  refuseRequiredPluginDisable("penglai-office");
   assert.throws(() => refuseRequiredPluginDisable("@penglai/plugin-center"));
   refuseRequiredPluginDisable("@penglai/im");
 });

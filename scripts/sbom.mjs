@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { MNEMON_ASSETS, MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
 import { collectLockPackageIds, splitLockPackageId } from "./lib/sbom-lock.mjs";
+import { EXCLUDED_DSH_RUNTIME_PACKAGES } from "./lib/dsh-closure.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
 
 mkdirSync("evidence/generated", { recursive: true });
@@ -10,7 +11,9 @@ const lock = readFileSync("pnpm-lock.yaml", "utf8");
 // Git may materialize the lockfile with CRLF on Windows. Parse logical lines,
 // not host-specific bytes, so Windows release assembly cannot silently emit a
 // six-component SBOM while the same source emits the full closure on macOS.
-const sorted = collectLockPackageIds(lock);
+const sorted = collectLockPackageIds(lock).filter(
+  (id) => !EXCLUDED_DSH_RUNTIME_PACKAGES.has(splitLockPackageId(id).name),
+);
 const licenseEvidence = JSON.parse(readFileSync("evidence/generated/licenses.json", "utf8"));
 if (licenseEvidence.schema !== 2 || !Array.isArray(licenseEvidence.completeInstalled)) {
   throw new Error("run pnpm audit:licenses before pnpm sbom");
@@ -61,21 +64,6 @@ components.push({
     { name: "penglai:archive.sha256", value: "2bb02ea00d3367c1d93681f1e64bf030813f059f0cd62ef9c523dad1ab3b984b" },
     { name: "penglai:archive.bytes", value: "12029018" },
     { name: "penglai:historical-v3.0.5", value: "64587b3b6162fa34f1c3ddb335a254d4154c9175" },
-  ],
-});
-const fontSource = JSON.parse(readFileSync("packages/office/fonts/SOURCE.json", "utf8"));
-components.push({
-  type: "file",
-  name: "Noto Sans SC variable font",
-  version: fontSource.upstreamCommit,
-  "bom-ref": `pkg:github/notofonts/noto-cjk@${fontSource.upstreamCommit}`,
-  licenses: [{ license: { id: "OFL-1.1" } }],
-  properties: [
-    { name: "penglai:distribution", value: "bundled-in-office-plugin" },
-    { name: "penglai:upstream.file", value: fontSource.upstreamFile },
-    { name: "penglai:upstream.sha256", value: fontSource.upstreamSha256 },
-    { name: "penglai:bundled.sha256", value: fontSource.bundledSha256 },
-    { name: "penglai:modified", value: String(fontSource.modified) },
   ],
 });
 components.push({

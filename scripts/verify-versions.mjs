@@ -11,8 +11,12 @@ import {
 
 const pins = readReleaseIdentityPins();
 const EXPECT = pins.productVersion;
+const RETIRED_WORKSPACE_PACKAGES = new Set(["budget", "companion", "image-size-disabled", "office"]);
 const pkgs = [join(ROOT, "package.json"), join(ROOT, "apps/desktop/package.json")];
 for (const name of readdirSync(join(ROOT, "packages"))) {
+  // These directories preserve immutable release history but are not part of
+  // the 0.6.3 workspace or product. Do not retitle retired source as current.
+  if (RETIRED_WORKSPACE_PACKAGES.has(name)) continue;
   const manifest = join(ROOT, "packages", name, "package.json");
   if (existsSync(manifest)) pkgs.push(manifest);
 }

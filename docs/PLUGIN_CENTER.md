@@ -4,27 +4,24 @@
 
 Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settings.plugins.tab`。它不是 Electron 外壳里的第二商店，也不是一个只写 `desired.json` 的状态页。
 
-## 2. 0.5 数据代际内置 catalog（当前开发候选 v0.6.2）
+## 2. 0.5 数据代际内置 catalog（当前开发候选 v0.6.3）
 
 只允许 app 内签入并离线验证的包：
 
 - `@penglai/plugin-center`
-- `@penglai/office`（required-builtin，fresh active）
 - `@penglai/memory`（required-builtin，fresh active）
 - `@penglai/im`
 - `@penglai/asr`
 - `@penglai/moss-tts`
-- `@penglai/companion`
-- `@penglai/budget`（内部策略能力，不显示独立产品卡）
 - `@penglai/plugin-reference`（默认 disabled，仅用于 platform proof）
 - `@penglai/plugin-smoke`（测试 profile only，不进入用户 catalog）
 
-`@penglai/credentials-keychain` 不进入默认 profile、打包清单或 catalog。未审核社区插件不显示为可用。面向用户的产品卡固定为六张：消息连接、蓬莱办公、蓬莱语音识别、蓬莱语音生成、蓬莱记忆、蓬莱主动陪伴。ASR/MOSS-TTS 只有真实 host/client、model manager、当前发布 target engine 与验收存在时才显示为可启用；Office/Memory/Companion 也必须满足 `docs/PRODUCT.md` 与 `docs/ARCHITECTURE.md` 的完整合同，不得先做空卡。UOS 20 `linux-loong64` 没有 MOSS ONNX 本机引擎，卡片仍在目录中，但平台列表不含该 target，Center 显示“本机不提供此功能”并拒绝启用（`docs/0.6.0/MOSS_LOONG64.md`）。ASR 继续使用 WASM sherpa。
+`@penglai/credentials-keychain` 不进入默认 profile、打包清单或 catalog。未审核社区插件不显示为可用。面向用户的产品卡固定为四张：消息连接、蓬莱语音识别、蓬莱语音生成和蓬莱记忆。LibreOffice、Office/PDF、Budget 与 Companion 不进入 0.6.3 catalog、profile 或安装包。ASR/MOSS-TTS 只有真实 host/client、model manager、当前发布 target engine 与验收存在时才显示为可启用。UOS 20 `linux-loong64` 没有 MOSS ONNX 本机引擎，卡片仍在目录中，但平台列表不含该 target，Center 显示“本机不提供此功能”并拒绝启用（`docs/0.6.0/MOSS_LOONG64.md`）。ASR 继续使用 WASM sherpa。
 
 ## 2.1 生态来源与未来扩展
 
 - `official-core`：DSH 核心插件，Center 可显示只读来源/版本/健康，但不冒充 Penglai package，也不随意卸载核心依赖。
-- `penglai-builtin`：Center、Office 与 Memory 随 fresh profile 安装并 active；Memory 包内含授权资料索引与来源卡，不再加载独立 Context 插件。IM/ASR/TTS/Companion 随 app 离线携带，但 fresh 默认未安装、未加载。
+- `penglai-builtin`：Center 与 Memory 随 fresh profile 安装并 active；Memory 包内含授权资料索引与来源卡，不再加载独立 Context 插件。IM/ASR/TTS 随 app 离线携带，但 fresh 默认未安装、未加载。
 - `penglai-first-party`：蓬莱维护并完成兼容审核的扩展；以后蓬莱原生能力也只有完整实现和验收后才进入 catalog。
 - `community-reviewed`：未来优质社区插件，必须经过来源与许可证审核、作者/package identity、签名或受信 checksum、权限、DSH range、平台/ABI、sandbox、安全测试、migration 和 rollback。
 
@@ -34,11 +31,11 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 
 0.5.1 起，Center 只从公开仓库 `kevinchennewbee/PenglaiPluginRegistry` 的不可变 GitHub Release 发现远程插件。目录 JSON 与每个 tar 包分别使用内置 Ed25519 信任根验签；sequence 只能前进，断网时只读已验签的 last-good。远程包默认关闭，用户确认权限后才安装；包先写入用户私有的 `Penglai/0.5/plugins/packages`，不得修改应用内置插件目录。
 
-0.5.7 首次将 `@penglai/office` 与 `@penglai/memory` 设为 fresh-install required-builtin；
-该边界延续到当前 v0.6.2 候选；当前公开版本仍是 v0.6.1，直到 v0.6.2
-不可变附件发布并回读。远程不可变目录 [`plugin-catalog-v1.000006`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000006) 不列下载插件，并用精确 id/version/SHA 撤销已被完整蓬莱办公替代的 `@penglai/office-reader` 0.1.3。已安装的旧 Reader 会在 DSH loader 启动前停用；历史 000005 Release 保持不可变。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端；插件包更新成功后，当前客户端只会在已授权且事务身份完全匹配时重启内置 DSH，以免 Node 模块缓存继续运行旧代码。GitHub REST 的匿名限流只允许回退到版本化 Release Atom 发现；最终信任仍来自精确 tag、目录签名、package 签名、asset id、size 与 SHA-256，绝不信任 mutable `latest`。
+0.5.7 历史版本曾将 `@penglai/office` 与 `@penglai/memory` 设为 required-builtin；
+0.6.3 只保留 Memory。远程目录对旧 `@penglai/office-reader` 的撤销历史保持不可变，
+但这不构成 0.6.3 Office 支持。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端；插件包更新成功后，当前客户端只会在已授权且事务身份完全匹配时重启内置 DSH，以免 Node 模块缓存继续运行旧代码。GitHub REST 的匿名限流只允许回退到版本化 Release Atom 发现；最终信任仍来自精确 tag、目录签名、package 签名、asset id、size 与 SHA-256，绝不信任 mutable `latest`。
 
-安装包离线携带这些 tarball 是为了让普通用户无需联网取代码即可选择扩展。fresh profile 安装 Center、Office 与 Memory；其余可选插件仅在用户点击“安装并启用”后才校验、写入、加载。完成 BYOK 后 official DSH、Office 与 Memory 必须独立可用；任一可选插件 absent/disabled/unconfigured 都不得阻断 DSH core、已安装 IM 的 text 链或无关插件。
+安装包离线携带这些 tarball 是为了让普通用户无需联网取代码即可选择扩展。fresh profile 安装 Center 与 Memory；其余可选插件仅在用户点击“安装并启用”后才校验、写入、加载。完成 BYOK 后 official DSH 与 Memory 必须独立可用；任一可选插件 absent/disabled/unconfigured 都不得阻断 DSH core、已安装 IM 的 text 链或无关插件。
 
 ## 3. manifest
 
@@ -47,8 +44,8 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 ```json
 {
   "id": "@penglai/im",
-  "version": "0.6.2",
-  "dshRange": "0.1.5-rc.2",
+  "version": "0.6.3",
+  "dshRange": "0.1.6-alpha.2",
   "platforms": ["darwin-aarch64", "win32-x86_64", "linux-loong64"],
   "capabilities": ["settings-ui", "im-weixin", "im-feishu"],
   "permissions": ["credentials-service", "local-database", "outbound-network"],
@@ -101,12 +98,12 @@ UI 主状态必须来自 `actual`。desired 与 actual 不一致时显示 `apply
 - disable/update/uninstall先cancel download/inference/playback、释放native/WASM session和AudioHandle，再验证resource-zero。
 - ASR/TTS互为可选能力，不得相互成为DSH core启动硬依赖；IM缺语音能力时必须text降级。
 
-## 6.2 Context/Memory/Budget/Companion 的特殊规则
+## 6.2 Memory 的特殊规则
 
-- plugin actual 与 product configuration 分开：Context无grant、Memory为空、Budget未设限、Companion关闭都属于`active/unconfigured`，不能显示failed或ready造假。
-- Context index/revoke、Memory candidate/commit、Budget ledger/reset、Companion schedule/outbox各自使用versioned transaction；Center update/rollback必须验证数据schema postcondition。
-- disable/uninstall先停止indexer/distiller/token subscriptions/schedules，释放DB/timer/Remote；外部授权目录和Workspace永不作为插件资源删除。
-- Memory的global/SOP写入仍需Owner确认；Companion不能由Center enable动作直接开始外发，必须另行完成产品配置与同意。
+- plugin actual 与 product configuration 分开：Memory 为空属于 `active/unconfigured`，不能显示 failed 或 ready 造假。
+- Memory candidate/commit 使用 versioned transaction；Center update/rollback 必须验证 data schema postcondition。
+- disable/uninstall 先停止 indexer/distiller，释放 DB/timer/Remote；外部授权目录和 Workspace 永不作为插件资源删除。
+- Memory 的 global/SOP 写入仍需 Owner 确认。
 
 ## 7. UI
 

@@ -679,7 +679,6 @@ export function createCenterRemote(opts: {
         required: {
           credentials: proof.credentials,
           "plugin-center": proof.pluginCenter,
-          office: proof.office,
           memory: proof.memory,
           im: proof.im,
           smokeDisabled: proof.smokeDisabled,

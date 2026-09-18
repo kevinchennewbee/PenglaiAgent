@@ -1,17 +1,13 @@
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { extname, join, relative, resolve } from "node:path";
-import { inflateRawSync, inflateSync } from "node:zlib";
 import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
 import { assertGrant, type ContextGrant } from "./service.js";
 
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
-export const MAX_EXPANDED_BYTES = 2 * 1024 * 1024;
 export const MAX_FILES_PER_SCAN = 400;
 export const MAX_TEXT_BYTES = 256 * 1024;
 export const TEXT_EXTS = new Set([".txt", ".md", ".markdown", ".json", ".csv", ".html", ".htm", ".xml", ".yml", ".yaml", ".log"]);
-export const OFFICE_EXTS = new Set([".docx", ".xlsx", ".pptx"]);
-export const PDF_EXTS = new Set([".pdf"]);
 
 export interface IngestedDoc {
   path: string;
@@ -42,110 +38,7 @@ export function extractText(path: string, buf: Buffer): string {
   if (TEXT_EXTS.has(ext)) {
     return buf.toString("utf8").slice(0, MAX_TEXT_BYTES);
   }
-  if (PDF_EXTS.has(ext)) return extractPdfText(buf).slice(0, MAX_TEXT_BYTES);
-  if (OFFICE_EXTS.has(ext)) return extractOfficeText(buf, ext).slice(0, MAX_TEXT_BYTES);
   throw new PenglaiError("INVALID_INPUT", `unsupported context type ${ext || "unknown"}`);
-}
-
-function extractPdfText(buf: Buffer): string {
-  const raw = buf.toString("latin1");
-  const chunks: string[] = [];
-  let cursor = 0;
-  let remaining = MAX_EXPANDED_BYTES;
-  while (cursor < raw.length && chunks.length < 128) {
-    const marker = raw.indexOf("stream", cursor);
-    if (marker < 0) break;
-    const afterMarker = marker + "stream".length;
-    const dataStart = raw.startsWith("\r\n", afterMarker)
-      ? afterMarker + 2
-      : raw.startsWith("\n", afterMarker)
-        ? afterMarker + 1
-        : -1;
-    if (dataStart < 0) {
-      cursor = afterMarker;
-      continue;
-    }
-    const endMarker = raw.indexOf("endstream", dataStart);
-    if (endMarker < 0) break;
-    let dataEnd = endMarker;
-    if (dataEnd > dataStart && raw[dataEnd - 1] === "\n") dataEnd -= 1;
-    if (dataEnd > dataStart && raw[dataEnd - 1] === "\r") dataEnd -= 1;
-    const payload = Buffer.from(raw.slice(dataStart, dataEnd), "latin1");
-    cursor = endMarker + "endstream".length;
-    let decoded: Buffer = payload;
-    try {
-      decoded = inflateSync(payload, { maxOutputLength: Math.max(1, remaining) });
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ERR_BUFFER_TOO_LARGE") throw new PenglaiError("INVALID_INPUT", "context expansion limit exceeded");
-      try {
-        decoded = inflateRawSync(payload, { maxOutputLength: Math.max(1, remaining) });
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ERR_BUFFER_TOO_LARGE") throw new PenglaiError("INVALID_INPUT", "context expansion limit exceeded");
-        decoded = payload;
-      }
-    }
-    remaining -= decoded.length;
-    if (remaining < 0) throw new PenglaiError("INVALID_INPUT", "context expansion limit exceeded");
-    const text = decoded.toString("utf8");
-    const literals = [...text.matchAll(/\(([^()\\]{2,})\)/g)].map((m) => m[1] ?? "");
-    if (literals.length) chunks.push(literals.join(" "));
-    else if (/[\p{L}\p{N}]/u.test(text)) chunks.push(text.replace(/[^\p{L}\p{N}\s.,;:!?-]/gu, " "));
-  }
-  const fallback = [...raw.matchAll(/\(([^()\\]{3,})\)/g)].map((m) => m[1] ?? "").join(" ");
-  return (chunks.join(" ") || fallback).replace(/\s+/g, " ").trim();
-}
-
-function extractOfficeText(buf: Buffer, ext: string): string {
-  const wanted =
-    ext === ".docx"
-      ? ["word/document.xml"]
-      : ext === ".xlsx"
-        ? ["xl/sharedStrings.xml", "xl/worksheets/sheet1.xml"]
-        : ["ppt/slides/slide1.xml", "ppt/slides/slide2.xml", "ppt/slides/slide3.xml"];
-  const files = readZipTexts(buf, wanted);
-  return stripXml(Object.values(files).join(" "));
-}
-
-function stripXml(xml: string): string {
-  const entities: Readonly<Record<string, string>> = { amp: "&", lt: "<", gt: ">", quot: '"' };
-  return xml
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&(amp|lt|gt|quot);/g, (_match, entity: string) => entities[entity] ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function readZipTexts(buf: Buffer, names: readonly string[]): Record<string, string> {
-  const eocd = buf.lastIndexOf(Buffer.from("PK\x05\x06"));
-  if (eocd < 0 || eocd + 22 > buf.length) throw new PenglaiError("INVALID_INPUT", "office archive missing central directory");
-  const count = buf.readUInt16LE(eocd + 10);
-  let offset = buf.readUInt32LE(eocd + 16);
-  const out: Record<string, string> = {};
-  let remaining = MAX_EXPANDED_BYTES;
-  for (let i = 0; i < count && offset + 46 <= buf.length; i += 1) {
-    if (buf.readUInt32LE(offset) !== 0x02014b50) break;
-    const method = buf.readUInt16LE(offset + 10);
-    const compSize = buf.readUInt32LE(offset + 20);
-    const nameLen = buf.readUInt16LE(offset + 28);
-    const extraLen = buf.readUInt16LE(offset + 30);
-    const commentLen = buf.readUInt16LE(offset + 32);
-    const localOff = buf.readUInt32LE(offset + 42);
-    const name = buf.subarray(offset + 46, offset + 46 + nameLen).toString("utf8");
-    offset += 46 + nameLen + extraLen + commentLen;
-    if (!names.includes(name)) continue;
-    if (localOff + 30 > buf.length) throw new PenglaiError("INVALID_INPUT", "office archive local header truncated");
-    if (buf.readUInt32LE(localOff) !== 0x04034b50) continue;
-    const localNameLen = buf.readUInt16LE(localOff + 26);
-    const localExtra = buf.readUInt16LE(localOff + 28);
-    const dataStart = localOff + 30 + localNameLen + localExtra;
-    if (dataStart + compSize > buf.length || ![0, 8].includes(method)) throw new PenglaiError("INVALID_INPUT", "office archive entry invalid");
-    const compressed = buf.subarray(dataStart, dataStart + compSize);
-    const data = method === 0 ? compressed : inflateRawSync(compressed, { maxOutputLength: Math.max(1, remaining) });
-    remaining -= data.length;
-    if (remaining < 0) throw new PenglaiError("INVALID_INPUT", "context expansion limit exceeded");
-    out[name] = data.toString("utf8");
-  }
-  return out;
 }
 
 export function walkGrant(grant: ContextGrant): IngestReport {
@@ -173,7 +66,7 @@ export function walkGrant(grant: ContextGrant): IngestReport {
         continue;
       }
       const ext = extname(file).toLowerCase();
-      if (!TEXT_EXTS.has(ext) && !OFFICE_EXTS.has(ext) && !PDF_EXTS.has(ext)) {
+      if (!TEXT_EXTS.has(ext)) {
         report.skipped += 1;
         continue;
       }

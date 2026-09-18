@@ -30,13 +30,11 @@ import {
 } from "./lib/release-targets.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
 
-const REQUIRED_BUILTIN = ["@penglai/office", "@penglai/memory"];
+const REQUIRED_BUILTIN = ["@penglai/memory"];
 const OPTIONAL_PLUGINS = [
   "@penglai/im",
   "@penglai/asr",
   "@penglai/moss-tts",
-  "@penglai/budget",
-  "@penglai/companion",
 ];
 const TRACKED_PLUGINS = [...REQUIRED_BUILTIN, ...OPTIONAL_PLUGINS];
 const LEGACY_PLUGIN_IDS = ["@penglai/context"];
@@ -44,7 +42,9 @@ const HIDDEN_INTERNAL_CARD_IDS = [
   "@penglai/context",
   "@penglai/plugin-reference",
   "@penglai/plugin-pilot",
+  "@penglai/office",
   "@penglai/budget",
+  "@penglai/companion",
 ];
 const capturePublicShots = process.env.PENGLAI_CAPTURE_PUBLIC_SHOTS === "1";
 
@@ -115,7 +115,7 @@ if (!harness) {
 }
 
 const resources = resourcesInside(installed.app, target);
-const alpha2Home = join(userData, "dsh-homes", "dsh-v0.1.5-rc.2");
+const alpha2Home = join(userData, "dsh-homes", "dsh-v0.1.6-alpha.2");
 const profilePatch = join(alpha2Home, "profiles", "web", "cordis.patch.yml");
 const inventoryPath = join(userData, "plugins", "inventory-snapshot.json");
 const packageRoot = join(alpha2Home, "profiles", "web", "node_modules", "@penglai");
@@ -180,7 +180,7 @@ writeFileSync(
 );
 writeFileSync(join(onboardingDir, "current-nonce.digest"), `${fixtureNonceDigest}\n`, { mode: 0o600 });
 const dshCohort = JSON.parse(
-  readFileSync(join(ROOT, "docs/0.6.2/DSH_NPM_COHORT.json"), "utf8"),
+  readFileSync(join(ROOT, "docs/0.6.3/DSH_NPM_COHORT.json"), "utf8"),
 );
 const fixtureDshHome = join(userData, "dsh-home");
 mkdirSync(fixtureDshHome, { recursive: true, mode: 0o700 });
@@ -397,7 +397,7 @@ async function runPhase(name, expectedEnabled) {
     enabledCapabilities:
       name === "all-enabled-after-restart"
         ? {
-            optionalSettingsReady: ["ui-im", "ui-asr", "ui-tts", "ui-companion"].every(
+            optionalSettingsReady: ["ui-im", "ui-asr", "ui-tts"].every(
               (id) => productWalk?.settingsWalked?.includes(id),
             ),
             settingsBlocked: productWalk?.blocked ?? ["settings-walk-missing"],
@@ -489,7 +489,7 @@ const rec = {
   publicScreenshots: capturePublicShots,
   optionalPlugins: OPTIONAL_PLUGINS,
   method:
-    "exact installed profile with a local secret-free COMPLETE onboarding fixture; mounted official DSH product UI plus HTTP/WebSocket, capability-ready Memory settings, and loader inventory; Office+Memory stay required-builtin active; enable optional plugins; restart and walk every optional settings surface; disable optional plugins; restart",
+    "exact installed profile with a local secret-free COMPLETE onboarding fixture; mounted official DSH product UI plus HTTP/WebSocket, capability-ready Memory settings, and loader inventory; Memory stays required-builtin active; verify Office/PDF, Budget, and Companion are absent; enable optional plugins; restart and walk every optional settings surface; disable optional plugins; restart",
   phases,
 };
 writeRec(rec);

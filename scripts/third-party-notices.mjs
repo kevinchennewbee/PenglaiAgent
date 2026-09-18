@@ -1,5 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { SENSEVOICE_REPOSITORY, SENSEVOICE_REVISION } from "../packages/asr/src/models.ts";
+import {
+  SENSEVOICE_REPOSITORY,
+  SENSEVOICE_REVISION,
+} from "../packages/asr/src/models.ts";
 import {
   MOSS_CODEC_REPOSITORY,
   MOSS_CODEC_REVISION,
@@ -10,12 +13,17 @@ import { MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.
 
 const rootPackage = JSON.parse(readFileSync("package.json", "utf8"));
 const release = JSON.parse(readFileSync("release-contract.json", "utf8"));
-const office = JSON.parse(readFileSync("packages/office/package.json", "utf8"));
-const feishu = JSON.parse(readFileSync("packages/channel-feishu/package.json", "utf8"));
-const font = JSON.parse(readFileSync("packages/office/fonts/SOURCE.json", "utf8"));
+const feishu = JSON.parse(
+  readFileSync("packages/channel-feishu/package.json", "utf8"),
+);
 const penglaiLicense = readFileSync("LICENSE", "utf8").trim();
-const licenseEvidence = JSON.parse(readFileSync("evidence/generated/licenses.json", "utf8"));
-if (licenseEvidence.schema !== 2 || !Array.isArray(licenseEvidence.production)) {
+const licenseEvidence = JSON.parse(
+  readFileSync("evidence/generated/licenses.json", "utf8"),
+);
+if (
+  licenseEvidence.schema !== 2 ||
+  !Array.isArray(licenseEvidence.production)
+) {
   throw new Error("run pnpm audit:licenses before pnpm notices");
 }
 
@@ -68,28 +76,6 @@ Messaging protocol and SDK references
 - Lark Node SDK ${dependency(feishu, "@larksuiteoapi/node-sdk")} - MIT; commit
   af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513:
   https://github.com/larksuite/node-sdk
-Penglai Office
---------------
-
-- docx ${dependency(office, "docx")} - MIT: https://github.com/dolanmiu/docx
-- ExcelJS ${dependency(office, "exceljs")} - MIT: https://github.com/exceljs/exceljs
-- uuid 11.1.1 - MIT; security-pinned transitive dependency used by ExcelJS:
-  https://github.com/uuidjs/uuid
-- pptfast ${dependency(office, "@liustack/pptfast")} - MIT; commit
-  7482c83436531530b46003ccdab62b1fa8c97969:
-  https://github.com/liustack/pptfast
-  Penglai bundles a deterministic Node runtime generated from that exact
-  package, plus the license text for every npm package included in the bundle.
-  Image probing is deliberately unavailable in ${rootPackage.version}: PPTX creation is text
-  only, so vulnerable optional image-size and Sharp paths are not shipped.
-- pdf-lib ${dependency(office, "pdf-lib")} and @pdf-lib/fontkit
-  ${dependency(office, "@pdf-lib/fontkit")} - MIT:
-  https://github.com/Hopding/pdf-lib
-- Noto Sans SC variable font - OFL-1.1; commit ${font.upstreamCommit}; bundled
-  unmodified SHA-256 ${font.bundledSha256}. The font, OFL text, and attribution
-  notice are inside the Office plugin:
-  ${font.upstreamRepo}
-
 Penglai Memory
 --------------
 
@@ -138,10 +124,11 @@ Audio codecs
 Plugin Center transition
 ------------------------
 
-Penglai Office and Penglai Memory are first-party bundled plugins in ${rootPackage.version}.
-The former remote @penglai/office-reader package is not part of this desktop
-Release. Historical immutable catalog Releases remain available for audit;
-catalog 000006 revokes that obsolete exact artifact after 0.5.5 is public.
+Penglai Memory is the required first-party bundled plugin in ${rootPackage.version}.
+Penglai Office, Budget, Companion, the former remote @penglai/office-reader,
+and the upstream Office/PDF/LibreOffice runtime family are not part of this
+desktop release. Historical immutable catalog releases remain available only
+for audit; catalog 000006 revokes the obsolete exact Office Reader artifact.
 
 Complete production dependency inventory
 ----------------------------------------

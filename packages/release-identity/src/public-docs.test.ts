@@ -126,7 +126,7 @@ test("current product, architecture and security contracts use the selected rele
   assert.match(im, /八个平台都有真实连接入口/);
   assert.match(im, /未经修改的官方 npm 字节/);
   const constitution = readFileSync(join(root, "PRODUCT_CONSTITUTION.md"), "utf8");
-  assert.ok(constitution.includes(`当前产品与发布契约为 **Penglai v${PRODUCT_VERSION}**`));
+  assert.ok(constitution.includes(`当前开发契约为 **Penglai v${PRODUCT_VERSION}**`));
 });
 
 const publicationManifestPath = join(root, `docs/PUBLICATION_MANIFEST_${PRODUCT_VERSION}.md`);

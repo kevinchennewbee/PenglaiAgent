@@ -273,19 +273,16 @@ const required = inventoryRaw?.required ?? inventoryRaw ?? {};
 const proofs = Array.isArray(inventoryRaw?.requiredProofs) ? inventoryRaw.requiredProofs : [];
 const requiredReady = (id) =>
   proofs.some((row) => row.id === id && row.enabled === true && row.active === true && row.health === "ready");
-const officeReady = required.office === true || requiredReady("@penglai/office");
 const memoryReady = required.memory === true || requiredReady("@penglai/memory");
 const inventory = {
   ok: Boolean(
     required.credentials &&
       (required["plugin-center"] || required.pluginCenter) &&
-      officeReady &&
       memoryReady &&
       required.smokeDisabled !== false,
   ),
   credentials: Boolean(required.credentials),
   pluginCenter: Boolean(required["plugin-center"] ?? required.pluginCenter),
-  office: officeReady,
   memory: memoryReady,
   im: Boolean(required.im),
   smokeDisabled: required.smokeDisabled !== false,

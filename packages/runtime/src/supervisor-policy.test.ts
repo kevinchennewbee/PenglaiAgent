@@ -80,7 +80,7 @@ test("R56-CORE-009 recovery diagnostics omit home, token, and command", () => {
       trigger: "health-check-failed",
       lastFailure: "restart-start-failed",
     },
-    requiredPlugins: [{ id: "@penglai/office", ok: true }],
+    requiredPlugins: [{ id: "@penglai/memory", ok: true }],
     errorCodes: ["DSH_UNAVAILABLE", "secret-lowercase-must-drop"],
     home: "/Users/secret",
     token: "sk-secret",
@@ -122,7 +122,7 @@ test("recovery diagnostics reject unsafe metadata and keep a stable reference", 
       trigger: "process-exit" as const,
       lastFailure: "process-exit" as const,
     },
-    requiredPlugins: [{ id: "@penglai/office private", ok: true }],
+    requiredPlugins: [{ id: "@penglai/memory private", ok: true }],
     errorCodes: ["DSH_PROCESS_EXIT", "private error"],
   };
   const first = redactSupervisorDiagnostic(input);

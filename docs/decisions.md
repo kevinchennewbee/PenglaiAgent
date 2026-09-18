@@ -600,6 +600,38 @@
 - 体验：README 与官网改为亲切、笃定、面向普通用户的中英文表达，减少工程报告式
   堆砌，但不得弱化安全边界或虚构公开/真机证据。
 
+### D-077 — 0.6.3 立即适配 DSH 0.1.6-alpha.2，合并后停在三端发布前
+
+- 日期：2026-09-18。
+- 决定：不等待 rc；Penglai 0.6.3 原子采用官方 DSH `0.1.6-alpha.2`、tag
+  `dsh-v0.1.6-alpha.2`、commit `ddefc45fbc7f8e46dd73185e68295696d1297887`
+  的完整 307 包 cohort，并固定独立发布的六个 LibreOffice Kit 平台包。
+- 范围：完成源码、lockfile、runtime/profile、Session Controller、DSH Home、
+  全部第一方插件、Plugin Center、隐私边界、发布合同、确定性门禁、PR 与 `main`
+  合并。DSH session log 与 free-form plugin manager 默认关闭，Penglai 只保留签名
+  catalog 安装路径。
+- 停止点：不触发三目标 native candidate、安装/升级验收、publish-release 或官网
+  部署。Apple Silicon/Windows 的 0.6.2 到 0.6.3 安装升级、三端安装包、UOS native
+  与公网不可变回读均保持 `NOT_RUN` 或 `OWNER_POST_RELEASE`，不得从源码门禁推导 PASS。
+- 公开边界：v0.6.2 仍是当前公开版本；README 与官网继续指向 v0.6.2，直到未来
+  v0.6.3 不可变附件发布并完成公网回读。
+
+### D-078 — 0.6.3 移除 LibreOffice、PDF/办公、预算与主动陪伴
+
+- 日期：2026-09-18。
+- 决定：Owner 明确要求“不使用 LibreOffice，不做 PDF，不做办公插件，不做预算模块
+  和主动陪伴模块，其他继续”。Memory 是 0.6.3 唯一 required-builtin 第一方功能
+  插件；IM、ASR、TTS 随包但默认关闭。
+- 实现边界：`packages/office`、`packages/budget`、`packages/companion` 与仅供 Office
+  使用的 `image-size` stub 保留历史源码但退出 workspace 和构建；profile、catalog、
+  Owner action、IM 命令与主动外发接口、Memory-Budget 耦合、插件 tarball、产品 SBOM、
+  native staging 和验收均不得重新引入它们。Memory 授权资料只索引文本类格式，不解析
+  PDF 或 OOXML；IM 收到这些文件时只作为 official DSH generic file，不生成 Office handle
+  或调用 Office 工具。
+- 上游边界：307 包 cohort 仍作为完整上游身份审计清单；DSH Office-to-PDF、document
+  preview 与六个 LibreOffice Kit 包从 Penglai 产品运行闭包精确剪除。审计到上游包不
+  等于随包或支持声明。
+
 ## Superseded
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。

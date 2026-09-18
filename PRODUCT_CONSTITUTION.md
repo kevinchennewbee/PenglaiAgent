@@ -17,7 +17,7 @@
 3. **BYOK 复用 DSH 的 Pi 模型体系。** 复用官方 Models、模型发现、默认模型和 `credentials` service；不得另造模型 registry、供应商 gateway 或平行密钥库。
 4. **0.5 使用官方 YAML credentials。** API key、微信 token、飞书 App Secret 等都通过官方 `credentials.set/describe/resolve/unset` seam 管理，由 `@deepseek-ai/dsh-credentials-local` 写入 app-private `DSH_HOME/.credentials.yaml`；renderer 永远不能读回明文。Keychain 不是 0.5 产品路径。macOS 用目录/文件 mode 收紧，Windows 用当前用户 ACL 收紧。
 5. **增强能力都是可独立组合的 DSH 插件。** Host 能力和 Web 界面通过 DSH/Cordis 插件、client module、slot、settings/onboarding 扩展点接入。任一可选插件缺失、disabled、未配置或升级失败，都不能阻断 DSH core 或无关插件；组合能力只通过标准类型化 service 形成。上游确无扩展点时，只能做有版本门、checksum、ADR 和回归测试的最小 overlay。
-6. **IM 是一个第一方插件。** `@penglai/im` 内含统一绑定、命令、因果路由、持久化、恢复和 adapter registry；微信、飞书只是 adapter，不能各自直接调用 Agent。ASR/TTS/Context/Memory/Budget/Companion 都是独立 DSH 服务插件，IM 只能通过类型化能力接口调用，不能把这些引擎复制进 adapter。
+6. **IM 是一个第一方插件。** `@penglai/im` 内含统一绑定、命令、因果路由、持久化、恢复和 adapter registry；微信、飞书只是 adapter，不能各自直接调用 Agent。0.6.3 的 ASR、TTS 与 Memory 是独立 DSH 服务插件，IM 只能通过类型化能力接口调用，不能把这些引擎复制进 adapter。Office/PDF、Budget 与 Companion 不属于 0.6.3 产品运行时。
 7. **IM 连接必须诚实。** 0.5.7 的历史发行边界为八个平台连接入口，WhatsApp 当时仅保留不可操作的兼容性说明卡且未分发 runtime、设备绑定或二维码。从 0.5.8 起，现行产品面、catalog、manifest、路由、adapter/runtime、依赖、安装包、测试矩阵和路线图都不得再出现 WhatsApp；它不是延期、实验或未来能力。微信使用真实 iLink QR，飞书只使用官方应用注册/凭据路径。Slack、Telegram、Discord 禁止伪装扫码。QQ 只做官方 Bot 路径。扫码或配置成功后仍需绑定 exact official Workspace/Session；不得按最近窗口猜 scope。
 8. **插件中心属于 DSH Web。** 蓬莱插件中心嵌入 DSH Plugins settings，并以真实 loader/profile inventory 为唯一事实源；desired/config 写入不能冒充 installed/active。0.5 可把审核过的插件代码离线预装进安装包，但用户仍可在 DSH 内自行组合；未下载模型、未授权目录、未设策略或未同意主动外发时，插件必须保持真实惰性状态。
 9. **安装包必须自带可运行产品。** 干净 Mac/Windows 不应预装 Node、pnpm、Python、系统 ffmpeg 或 `dsh`。包内固定目标平台运行时、完整 DSH 闭包、profile seed、第一方插件（含语音 native/WASM engines）、许可证、SBOM 与完整性清单；生产禁止静默回退系统 PATH。大型 ASR/TTS 权重可在用户明确操作后按 immutable manifest/hash 按需下载，不得成为 DSH 启动依赖。
@@ -39,31 +39,32 @@
 
 ## 当前发行边界
 
-- 当前产品与发布契约为 **Penglai v0.6.2**（D-076）。公开下载身份在不可变
-  `v0.6.2` GitHub Release 回读前仍是已发布的 **v0.6.1**。已发布的
-  **v0.5.10**、**v0.5.11**、**v0.5.12**、**v0.6.0** 与 **v0.6.1** tag
+- 当前开发契约为 **Penglai v0.6.3**（D-077）；当前公开下载仍是已发布并完成
+  不可变回读的 **v0.6.2**。已发布的 **v0.5.10**、**v0.5.11**、**v0.5.12**、
+  **v0.6.0**、**v0.6.1** 与 **v0.6.2** tag
   和附件保持不可变。
-  0.6.2 消费官方 DSH `0.1.5-rc.2` 完整 npm cohort（tag
-  `dsh-v0.1.5-rc.2` / commit `fb2c4b9e698e30edb738bca4cf0618587db7d203`，
-  279 包）。机器可读候选身份来自 `packages/release-identity/src/pins.ts` 与
+  0.6.3 消费官方 DSH `0.1.6-alpha.2` 完整 npm cohort（tag
+  `dsh-v0.1.6-alpha.2` / commit `ddefc45fbc7f8e46dd73185e68295696d1297887`，
+  307 包）。机器可读候选身份来自 `packages/release-identity/src/pins.ts` 与
   `release-contract.json`。公开下载事实只来自不可变 GitHub Release 回读。
-  蓬莱办公与蓬莱记忆为 required-builtin DSH 插件；消息连接、语音识别、
-  语音生成、主动陪伴随包但默认关闭。0.6.2 UOS 20 原生安装/启动/功能为 Owner
+  蓬莱记忆是唯一 required-builtin 第一方功能插件；消息连接、语音识别和
+  语音生成随包但默认关闭。Office/PDF、LibreOffice、Budget 与 Companion 均不
+  进入 workspace、profile、catalog、运行闭包、安装包或 0.6.3 验收。0.6.3 UOS 20 原生安装/启动/功能为 Owner
   发布后验收（`OWNER_POST_RELEASE`）：Owner 将在发布后手动测试安装包。不得标
   PASS，也不得因此省略所选精确目标包。
-- 0.6.2 精确三个 target key：`darwin-aarch64`、`win32-x86_64`、
+- 0.6.3 精确三个 target key：`darwin-aarch64`、`win32-x86_64`、
   `linux-loong64`（统信桌面操作系统 20 专业版 1070 / Loongson-3A6000-HV /
   内核 4.19.0-loongson-3-desktop，旧世界用户态；不是 V25）。Owner 2026-09-11
   排除 `darwin-x86_64`。精确附件十项：三安装包加七项元数据。目标安装包为
-  `Penglai_0.6.2_macos_aarch64.dmg`、
-  `Penglai_0.6.2_windows_x64_setup.exe`、`Penglai_0.6.2_uos_loong64.deb`。
+  `Penglai_0.6.3_macos_aarch64.dmg`、
+  `Penglai_0.6.3_windows_x64_setup.exe`、`Penglai_0.6.3_uos_loong64.deb`。
   禁止把 ARM Electron 改名成 Intel 包；禁止把 Windows 预检、交叉编译、QEMU
   或 linux-x64 写成龙芯 native PASS。缺任一所选目标仍失败；把 Intel 加入本版
   精确集合仍失败。已发布 v0.6.0 四端十一附件保持不可变。
 - 0.5.0 已发布的 Apple Silicon 客户端只能手动覆盖安装到 0.5.1；0.5.1 之后同平台才走 PUDP。不得声称 0.5.0 可一键升级。Intel/Windows 在 0.5.0 没有客户端，视为全新安装。
 - PPDP 是 0.5.1 产品能力，不是未来 TODO：签名目录、受限 GitHub 资产下载、默认禁用、主进程 Owner capability、DSH loader/profile 事务、inventory 回读。
-- 本地语音与第一方插件合同：`@penglai/asr`、`@penglai/moss-tts` 必须进入真实 DSH loader/Center，并服务 DSH Web 与 live 微信/飞书的受支持能力。会话 Read 朗读原文，不冒充翻译。`@penglai/office` 与 `@penglai/memory` 是 required-builtin；`@penglai/im`、`@penglai/asr`、`@penglai/moss-tts`、`@penglai/companion` 随包且默认关闭。旧 `@penglai/context` 只用于迁移。Goal/Todo/Skills/MCP/Web/图片 Attachments/Schedule/TokenMeter 使用 official DSH。alpha.2 已有 official generic file Turn（uploadFile receipt）；仍不得用 DOM hack 或第二会话引擎补齐，也不得在 Penglai 未接线前宣称会话输入框支持普通文档。
-- fresh 安装完成引导后必须先得到可独立使用的 official DSH core，并且 Office 与 Memory 已在 official inventory 中 `active`。IM、ASR、MOSS-TTS、Companion 默认未加载。
+- 本地语音与第一方插件合同：`@penglai/asr`、`@penglai/moss-tts` 必须进入真实 DSH loader/Center，并服务 DSH Web 与 live 微信/飞书的受支持能力。会话 Read 朗读原文，不冒充翻译。`@penglai/memory` 是唯一 required-builtin 第一方功能插件；`@penglai/im`、`@penglai/asr`、`@penglai/moss-tts` 随包且默认关闭。`@penglai/office`、`@penglai/budget`、`@penglai/companion`、DSH Office-to-PDF、DSH document preview 与 LibreOffice Kit 均被精确排除。旧 `@penglai/context` 只用于迁移。Goal/Todo/Skills/MCP/Web/图片 Attachments/Schedule/TokenMeter 使用 official DSH。不得用 DOM hack 或第二会话引擎补齐文件能力，也不得在 Penglai 未接线前宣称会话输入框支持普通文档或 PDF。
+- fresh 安装完成引导后必须先得到可独立使用的 official DSH core，并且 Memory 已在 official inventory 中 `active`。IM、ASR 与 MOSS-TTS 默认未加载；Office/PDF、Budget 与 Companion 不得出现在 inventory 或产品卡中。
 - 0.4.1 到 0.5.0 是明确的架构代际切换：不提供自动升级，不导入旧会话、凭据或配置，不删除旧数据。0.5.0 使用隔离的数据根 `Penglai/0.5`。0.5.1 必须提供 rc.8 → rc.1 的显式、可回滚数据迁移。
 - community trust tier 不变：macOS ad-hoc / not notarized；Windows 无 Authenticode/SmartScreen 声誉。安装包及更新/插件清单仍须有 SHA-256、SBOM/notices，并诚实提示系统信誉警告。Penglai 自己的 Ed25519 更新/插件签名必须使用。
 - GitHub Actions 与 required CodeQL 当前可用，但不能替代安装包验收。Apple Silicon 本机可产生 darwin-aarch64 候选；Intel 与 Windows 的 native PASS 必须来自对应原生 runner。交叉构建或 Rosetta 只能作为补充证据。
@@ -80,12 +81,20 @@
   telemetry；任何未来反馈 UI 必须先解决“会发送当前会话记录”的部署文案与真实
   传输边界。若以后采用 rc.2 或后续核心版本，必须原子迁移完整 cohort 并重新执行
   source、closure、profile/plugin、native、publication 全流程，禁止局部替换安装包。
-- **0.6.2 全流程授权**（D-076）：采用官方 DSH `0.1.5-rc.2` 完整 279 包
+- **0.6.2 全流程授权与完成记录**（D-076）：采用官方 DSH `0.1.5-rc.2` 完整 279 包
   cohort，恢复 0.6.1 到 0.6.2 的 Apple Silicon/Windows 安装版升级验证，并完成
   三目标开发、修复、正常测试、合并、构建、发布、README/官网与公开回读。反馈
   保留但只说明真实本机边界；公开材料与日志必须脱敏。两小时测试仍排除。UOS 一个
   完整安装包的包/ABI/闭包在发布前验证，真机安装、启动、界面、文件选择器、休眠
   恢复与功能仍为 `OWNER_POST_RELEASE`。
+- **0.6.3 上游 alpha.2 开发授权与范围收缩**（D-077/D-078）：采用官方 DSH `0.1.6-alpha.2`
+  完整 307 包上游审计 cohort；该审计清单中的 Office/PDF 与六个 LibreOffice Kit
+  包不进入 Penglai 产品运行闭包。0.6.3 明确不做 LibreOffice、PDF/Office 插件、
+  Budget 或 Companion，只保留其历史源码，不加入 workspace、profile、catalog、
+  安装包、SBOM 产品闭包或验收。完成源码适配、其余第一方插件、隐私/profile、确定性门禁、PR 与
+  `main` 合并；随后停止，不触发三目标原生候选、安装/升级验证、不可变发布或网站
+  部署。DSH session log 与通用 free-form plugin manager 默认关闭；Penglai 签名
+  Plugin Center 保持唯一安装入口。三端与公开发布证据保持 `NOT_RUN`，等待后续授权。
 - **0.6.1 IM 追踪与可选 iMessage**（D-072）：继续第一方改写追踪 dsh-im，不安装社区 runtime。已采用 rewrite-source 仍是 4.17.1 `464c0a9…`；当前已发布上游是 4.18.1 `d01bd34…`；未发布 `606ced1…` 只作为别名参考，不得写成 v4.18.1 字节。可选 iMessage 仅 Darwin、仅私聊文本、默认关闭；用户未明确启用并授予完全磁盘访问/自动化前，不得读取 Messages 数据或调用 Messages 自动化。权限不足或未配置不得记为已连接。Windows/UOS 只暴露不支持状态，不得调用 macOS helper。WhatsApp、wecom-app 回调、第二套管理 HTTP、Office 当 IM、DOM 注入与第二 Agent 核心仍禁止。Telegram Rich Draft 心跳不适用：保持官方终态投递。
 
 0.5.8 的预览方向不改写已经公开的 0.5.7 tag、Release、附件或历史文档。迁移到新 DSH 时必须从现行源代码与产品表面移除 WhatsApp 的说明卡、channel identity、连接路径、adapter/runtime 接线、Baileys/libsignal 依赖以及任何支持或路线图声明；Git 历史与明确标注为历史的发行审计记录继续保留。移除完成后需用 catalog、依赖闭包、lockfile、SBOM、许可证、安装包内容和用户界面反向证明 WhatsApp 不再属于 Penglai。
@@ -108,8 +117,9 @@
 - 微信、飞书或可选 iMessage 是否绕过统一 binding、commands、causal router 或 DSH AgentHandle？
 - 是否在用户未启用 iMessage、未绑定对端/Workspace/Session 或未授予系统权限时读取 Messages 数据库或调用 Messages 自动化？
 - ASR/TTS 是否创建了第二 Agent/session/UI，或 IM adapter 是否直接拥有模型引擎而不是调用 DSH plugin service？
-- Context/Memory/Budget/Companion 是否复制了 DSH 的 Workspace/Session/Turn/Skills/Schedule/TokenMeter，或按最近项目/窗口猜 scope？
-- Context 是否能越过用户授权根、修改源文件或让模型伪造来源状态？Memory 是否允许模型无确认写 global/SOP？Companion 是否能无人值守执行工具或绕过 quiet-hours/budget/IM binding？
+- Memory 是否复制了 DSH 的 Workspace/Session/Turn/Skills，或按最近项目/窗口猜 scope？
+- Memory 授权资料是否能越过用户授权根、修改源文件或让模型伪造来源状态？Memory 是否允许模型无确认写 global/SOP？
+- LibreOffice、Office/PDF、Budget 或 Companion 是否重新进入 workspace、profile、catalog、运行闭包、安装包或产品验收？
 - 语音是否依赖系统 ffmpeg/Python/PATH、未固定模型下载，或把原始音频/转写/声音参考泄漏到日志/evidence？
 - 任一 renderer、日志、数据库、evidence 或截图是否能读到真实 secret、二维码或聊天正文？
 - 飞书是否用假二维码或用户 OAuth Device Flow 冒充一键扫码，或把官方 `app/registration` 落地页 URL 直接当图片地址？

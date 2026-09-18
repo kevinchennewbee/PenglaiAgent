@@ -6,7 +6,6 @@ const CLIENTS = [
   ["ASR", "../../asr/src/dsh-client.js"],
   ["TTS", "../../moss-tts/src/dsh-client.js"],
   ["Memory sources", "../../context/src/dsh-client.js"],
-  ["Office", "../../office/src/dsh-client.js"],
   ["IM", "../../im/src/dsh-client.js"],
   ["Plugin Center", "./dsh-client.js"],
 ] as const;

@@ -48,7 +48,9 @@ const embed = run(process.execPath, [
   LINUX_LOONG64_TARGET,
 ]);
 if (embed !== 0) {
-  console.error("stage-linux-loong64 refused: embed-runtime linux-loong64 failed");
+  console.error(
+    "stage-linux-loong64 refused: embed-runtime linux-loong64 failed",
+  );
   process.exit(embed);
 }
 
@@ -58,7 +60,9 @@ const ensure = spawnSync(
   { cwd: ROOT, encoding: "utf8" },
 );
 if (ensure.status !== 0) {
-  process.stderr.write(ensure.stderr || ensure.stdout || "ensure-electron failed\n");
+  process.stderr.write(
+    ensure.stderr || ensure.stdout || "ensure-electron failed\n",
+  );
   process.exit(ensure.status ?? 4);
 }
 const electronBin = String(ensure.stdout || "")
@@ -76,9 +80,12 @@ mkdirSync(payload, { recursive: true });
 cpSync(electronDir, payload, { recursive: true, dereference: true });
 const electronExe = join(payload, "electron");
 const penglai = join(payload, "Penglai");
-if (existsSync(electronExe) && !existsSync(penglai)) renameSync(electronExe, penglai);
+if (existsSync(electronExe) && !existsSync(penglai))
+  renameSync(electronExe, penglai);
 if (!existsSync(penglai)) {
-  console.error("stage-linux-loong64 refused: Penglai binary missing after Electron copy");
+  console.error(
+    "stage-linux-loong64 refused: Penglai binary missing after Electron copy",
+  );
   process.exit(1);
 }
 try {
@@ -95,17 +102,23 @@ mkdirSync(resources, { recursive: true });
 cpSync(join(ROOT, "dist", "desktop-bundle"), join(resources, "app"), {
   recursive: true,
 });
-cpSync(join(staging, "runtime"), join(resources, "runtime"), { recursive: true });
+cpSync(join(staging, "runtime"), join(resources, "runtime"), {
+  recursive: true,
+});
 cpSync(join(staging, "profile-seed"), join(resources, "profile-seed"), {
   recursive: true,
 });
-cpSync(join(staging, "plugins"), join(resources, "plugins"), { recursive: true });
+cpSync(join(staging, "plugins"), join(resources, "plugins"), {
+  recursive: true,
+});
 if (!existsSync(join(staging, "mnemon"))) {
   console.error("stage-linux-loong64 refused: required Mnemon engine missing");
   process.exit(1);
 }
 cpSync(join(staging, "mnemon"), join(resources, "mnemon"), { recursive: true });
-cpSync(join(staging, "licenses"), join(resources, "licenses"), { recursive: true });
+cpSync(join(staging, "licenses"), join(resources, "licenses"), {
+  recursive: true,
+});
 for (const name of [
   "runtime-manifest.json",
   "release-contract.json",
@@ -116,7 +129,10 @@ for (const name of [
   if (existsSync(src)) {
     cpSync(
       src,
-      join(resources, name === ".closure-complete" ? "closure-credential.json" : name),
+      join(
+        resources,
+        name === ".closure-complete" ? "closure-credential.json" : name,
+      ),
     );
   }
 }
@@ -139,7 +155,9 @@ writeFileSync(
   )}\n`,
 );
 
-assertUos20OldWorldAddonFiles(join(resources, "runtime", "dsh", "node_modules"));
+assertUos20OldWorldAddonFiles(
+  join(resources, "runtime", "dsh", "node_modules"),
+);
 console.log(
   JSON.stringify({
     verdict: "STAGED",

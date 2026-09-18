@@ -15,7 +15,7 @@ function fixture(): PluginCatalogDocument {
       ...entry,
       sha256: "a".repeat(64),
       target: "darwin-arm64",
-      hasClient: ["@penglai/plugin-center", "@penglai/im", "@penglai/asr", "@penglai/moss-tts", "@penglai/office", "@penglai/memory"].includes(entry.id),
+      hasClient: ["@penglai/plugin-center", "@penglai/im", "@penglai/asr", "@penglai/moss-tts", "@penglai/memory"].includes(entry.id),
     })),
   };
 }
@@ -25,7 +25,7 @@ test("runtimePluginTarget maps loongarch64 to linux-loong64", () => {
   assert.equal(runtimePluginTarget("linux", "loongarch64"), "linux-loong64");
 });
 
-test("catalog v3 marks six user-visible products and office+memory as required-builtin", () => {
+test("catalog v3 marks four user-visible products and memory as required-builtin", () => {
   const visible = FIRST_PARTY_PLUGIN_METADATA.filter((entry) => entry.userVisible).map(
     (entry) => entry.id,
   );
@@ -33,25 +33,22 @@ test("catalog v3 marks six user-visible products and office+memory as required-b
     [...visible].sort(),
     [
       "@penglai/asr",
-      "@penglai/companion",
       "@penglai/im",
       "@penglai/memory",
       "@penglai/moss-tts",
-      "@penglai/office",
     ],
   );
-  const office = FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/office");
   const memory = FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/memory");
-  assert.equal(office?.installClass, "required-builtin");
   assert.equal(memory?.installClass, "required-builtin");
-  assert.equal(office?.defaultEnabled, true);
   assert.equal(memory?.defaultEnabled, true);
-  assert.equal(office?.provenanceClass, "penglai-builtin");
   assert.equal(memory?.provenanceClass, "penglai-builtin");
   assert.equal(
     FIRST_PARTY_PLUGIN_METADATA.some((entry) => entry.id === "@penglai/context"),
     false,
   );
+  for (const excluded of ["@penglai/office", "@penglai/budget", "@penglai/companion"]) {
+    assert.equal(FIRST_PARTY_PLUGIN_METADATA.some((entry) => entry.id === excluded), false);
+  }
   assert.ok(memory?.capabilities.includes("authorized-sources"));
   assert.ok(memory?.permissions.includes("authorized-files-read"));
   assert.deepEqual(memory?.platforms, [
@@ -88,7 +85,6 @@ test("linux-loong64 catalog keeps moss in the set without advertising the host",
         "@penglai/im",
         "@penglai/asr",
         "@penglai/moss-tts",
-        "@penglai/office",
         "@penglai/memory",
       ].includes(entry.id),
     })),
@@ -103,7 +99,7 @@ test("linux-loong64 catalog keeps moss in the set without advertising the host",
 
 test("trusted plugin catalog binds exact metadata, checksum, and target", () => {
   const valid = fixture();
-  assert.equal(validatePluginCatalog(valid, "darwin-arm64").entries.length, 9);
+  assert.equal(validatePluginCatalog(valid, "darwin-arm64").entries.length, 6);
   assert.throws(
     () => validatePluginCatalog(valid, "darwin-x64"),
     /target mismatch/,

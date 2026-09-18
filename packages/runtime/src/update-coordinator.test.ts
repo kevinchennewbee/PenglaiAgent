@@ -174,7 +174,6 @@ test("R50-UPD-001..009 signed assisted update commits with optional IM disabled 
         asrBusy: false,
         ttsBusy: false,
         indexerBusy: false,
-        companionArmed: false,
       }),
       backup: async ({ operationId }) => {
         const path = join(root, "backups", operationId);
@@ -412,7 +411,6 @@ test("R50-UPD-007 drain and app-private backup are hard gates", async () => {
           asrBusy: false,
           ttsBusy: false,
           indexerBusy: false,
-          companionArmed: false,
         }),
         backup: async () => ({ path: "/tmp/never-called" }),
       },
@@ -432,7 +430,6 @@ test("R50-UPD-007 drain and app-private backup are hard gates", async () => {
           asrBusy: false,
           ttsBusy: false,
           indexerBusy: false,
-          companionArmed: false,
         }),
         backup: async () => ({ path: join(root, "outside-backups") }),
       },

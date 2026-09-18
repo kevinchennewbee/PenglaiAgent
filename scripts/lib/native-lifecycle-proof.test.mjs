@@ -111,7 +111,7 @@ test("forced stopChild termination is not a graceful application shutdown", asyn
     verdict: "PASS",
     target: liveTarget,
     sourceSha: "a".repeat(40),
-    installer: windowsHost ? "Penglai_0.6.2_windows_x64_setup.exe" : "Penglai_0.6.2_macos_aarch64.dmg",
+    installer: windowsHost ? "Penglai_0.6.3_windows_x64_setup.exe" : "Penglai_0.6.3_macos_aarch64.dmg",
     installerSha256: "b".repeat(64),
     host: windowsHost ? { platform: "win32", arch: "x64" } : { platform: "darwin", arch: "arm64" },
     destination: windowsHost ? "C:\\Users\\runner\\AppData\\Local\\Penglai\\app\\0.5" : "/tmp/Penglai.app",
@@ -251,7 +251,7 @@ test("Node SIGTERM on Windows and taskkill /F are never graceful shutdown proof"
   );
 });
 
-test("publication workflow consumes the current 0.6.2 native evidence set and ten-asset contract", async () => {
+test("publication workflow consumes the current 0.6.3 native evidence set and ten-asset contract", async () => {
   const { EXACT_RELEASE_ASSETS } = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/contract.ts")).href);
   const publish = readFileSync(join(ROOT, ".github/workflows/publish-release.yml"), "utf8");
   const native = readFileSync(join(ROOT, ".github/workflows/native-release-candidate.yml"), "utf8");
@@ -274,7 +274,7 @@ test("publication workflow consumes the current 0.6.2 native evidence set and te
   assert.doesNotMatch(mismatched, new RegExp(`name:\\s*penglai-${PRODUCT_VERSION}-native-evidence-set`));
 });
 
-function writeSnap(root, { nonce, pid, entries = [{ id: "@penglai/office", enabled: true, fiberPhase: "active" }] }) {
+function writeSnap(root, { nonce, pid, entries = [{ id: "@penglai/memory", enabled: true, fiberPhase: "active" }] }) {
   mkdirSync(join(root, "plugins"), { recursive: true });
   writeFileSync(
     join(root, "plugins", "inventory-snapshot.json"),
@@ -283,7 +283,7 @@ function writeSnap(root, { nonce, pid, entries = [{ id: "@penglai/office", enabl
       launchNonce: nonce,
       dshPid: pid,
       entries,
-      required: { office: true, memory: true, credentials: true, "plugin-center": true, im: false, smokeDisabled: true },
+      required: { memory: true, credentials: true, "plugin-center": true, im: false, smokeDisabled: true },
       requiredProofs: [],
       ok: true,
     }, null, 2),
@@ -292,7 +292,7 @@ function writeSnap(root, { nonce, pid, entries = [{ id: "@penglai/office", enabl
 
 test("stable inventory ignores process instance IDs and ordering while preserving plugin identity and multiplicity", () => {
   const entries = [
-    { entryId: "include:office", moduleName: "@penglai/office", enabled: true, fiberPhase: "active", healthy: true, health: "ready" },
+    { entryId: "include:memory", moduleName: "@penglai/memory", enabled: true, fiberPhase: "active", healthy: true, health: "ready" },
     { entryId: "process-instance-a", moduleName: "@deepseek-ai/dsh-host-directory-picker-native", enabled: true, fiberPhase: "active", healthy: true, health: "ready" },
   ];
   const snapshot = { at: "first", launchNonce: "boot-a", dshPid: 101, entries, ok: true, requiredProofs: [] };
@@ -361,7 +361,7 @@ test("current-generation restart accepts writer nonce/PID change and rejects sta
     const stale = currentGenerationProfileIdentity(root);
     assert.ok(profileRestartProblems(previous, stale).includes("stale process-bound readiness"));
 
-    writeSnap(root, { nonce: "other", pid: 33, entries: [{ id: "@penglai/memory", enabled: true, fiberPhase: "active" }] });
+    writeSnap(root, { nonce: "other", pid: 33, entries: [{ id: "@penglai/im", enabled: true, fiberPhase: "active" }] });
     const changed = currentGenerationProfileIdentity(root);
     assert.ok(profileRestartProblems(previous, changed).includes("changed stable generation state"));
 
@@ -711,5 +711,3 @@ test("opened required profile file that grows past the byte cap after read is re
   assert.equal(persistedProfileProofValid(restored), true);
   assert.equal(restored.digest, before.digest);
 });
-
-

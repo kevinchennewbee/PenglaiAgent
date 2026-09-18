@@ -2,8 +2,8 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 
-const PRODUCT_VERSION = "0.6.2";
-const DSH_VERSION = "0.1.5-rc.2";
+const PRODUCT_VERSION = "0.6.3";
+const DSH_VERSION = "0.1.6-alpha.2";
 const VENDOR_VERSIONS = Object.freeze({
   "@deepseek-ai/cordis": "4.0.2",
   "@deepseek-ai/cordis-plugin-group": "1.0.2",
@@ -16,10 +16,14 @@ const VENDOR_VERSIONS = Object.freeze({
   "@deepseek-ai/schemastery": "3.18.2",
 });
 const DEPENDENCY_FIELDS = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"];
+const RETIRED_WORKSPACE_PACKAGES = new Set(["budget", "companion", "image-size-disabled", "office"]);
 const WRITE = process.argv.includes("--write");
 
 const manifestPaths = [join(ROOT, "package.json"), join(ROOT, "apps", "desktop", "package.json")];
 for (const name of readdirSync(join(ROOT, "packages"))) {
+  // Retired package source remains byte-compatible with its historical release
+  // and is intentionally outside the current pnpm workspace/product closure.
+  if (RETIRED_WORKSPACE_PACKAGES.has(name)) continue;
   const path = join(ROOT, "packages", name, "package.json");
   if (existsSync(path)) manifestPaths.push(path);
 }
@@ -64,7 +68,7 @@ for (const path of manifestPaths) {
 }
 
 if (failures.length > 0) {
-  throw new Error(`0.6.2 manifest migration required:\n${failures.join("\n")}`);
+  throw new Error(`0.6.3 manifest migration required:\n${failures.join("\n")}`);
 }
 console.log(JSON.stringify({
   verdict: "PASS",

@@ -21,12 +21,11 @@ export * from "./inbound-media-receipt.js";
 export * from "./bounded-http.js";
 export * from "./closed-enum.js";
 export * from "./safe-https.js";
-export * from "./session-snapshot.js";
 export * from "./center-journal.js";
 export * from "./usage-projection.js";
 
 export const SCHEMA_VERSION = 13;
-export const RELEASE = "0.6.2";
+export const RELEASE = "0.6.3";
 
 export const CONFIG = Object.freeze({
   pairingTtlMs: 5 * 60_000,
@@ -226,6 +225,8 @@ export interface PenglaiImSource {
   voice?: PenglaiVoiceMetadata;
 }
 
+// `office` and `pdf` remain read-compatible values for persisted pre-0.6.3
+// receipts. Current admission classifies those attachments as generic `file`.
 export type MediaKind = "image" | "audio" | "office" | "pdf" | "file";
 
 /** Official DSH rc.2 image attachment media types. */
@@ -341,6 +342,7 @@ export interface MediaEnvelope {
   durationMs?: number;
   officialImage?: OfficialImageRef;
   officialFile?: OfficialFileRef;
+  /** Legacy pre-0.6.3 receipt field; current admission does not create it. */
   officeHandle?: string;
   audioHandle?: string;
 }
@@ -390,10 +392,8 @@ export function classifyMedia(input: { filename?: string; mime?: string; bytes: 
   if (magic.startsWith("RIFF") || magic.startsWith("OggS") || magic.startsWith("ID3") || magic.startsWith("#!SILK") || mime.startsWith("audio/")) {
     return "audio";
   }
-  if (magic.startsWith("%PDF") || mime === "application/pdf" || name.endsWith(".pdf")) return "pdf";
-  if (magic.startsWith("PK") || name.endsWith(".docx") || name.endsWith(".xlsx") || name.endsWith(".pptx")) {
-    return "office";
-  }
+  if (magic.startsWith("%PDF") || mime === "application/pdf" || name.endsWith(".pdf")) return "file";
+  if (magic.startsWith("PK") || name.endsWith(".docx") || name.endsWith(".xlsx") || name.endsWith(".pptx")) return "file";
   return "file";
 }
 
@@ -424,9 +424,7 @@ export function userFacingMediaPrompt(media: MediaEnvelope): string {
       ? "用户发送了一张图片。"
       : "图片已收到，但未能提交到官方 DSH 附件服务。";
   }
-  if (media.kind === "office" || media.kind === "pdf") {
-    return "用户发送了一份文档。请使用 penglai_office_inspect_attached 查看当前会话已绑定的附件。";
-  }
+  if (media.kind === "office" || media.kind === "pdf") return "用户发送了一个文件。";
   if (media.kind === "audio") return "用户发送了一条语音。";
   return "用户发送了一个文件。";
 }
@@ -440,7 +438,7 @@ function mimeForKind(kind: MediaKind, bytes: Buffer, declared?: string): string 
 }
 
 /**
- * App-private content-addressed object store for Office/audio handles.
+ * App-private content-addressed object store for legacy document/audio handles.
  * Handles are opaque; bytes are never exposed as host paths to the model.
  */
 export class ObjectStore {
@@ -792,8 +790,6 @@ export type ControlCommand =
   | { type: "clear_queue" }
   | { type: "context_status" }
   | { type: "memory_status" }
-  | { type: "budget_status" }
-  | { type: "companion_status" }
   | { type: "voice_status" }
   | { type: "voice_reply_mode"; mode: VoiceReplyMode }
   | { type: "voice_id"; voiceId?: string }

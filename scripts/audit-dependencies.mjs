@@ -5,14 +5,12 @@ import { resolvePackageMetadata } from "./lib/package-metadata.mjs";
 
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const npmrc = readFileSync(".npmrc", "utf8");
-const workspace = readFileSync("pnpm-workspace.yaml", "utf8");
 if (!/^ignore-scripts=true$/m.test(npmrc)) {
   console.error("install scripts must stay disabled");
   process.exit(1);
 }
 const mossReq = createRequire(`${process.cwd()}/packages/moss-tts/package.json`);
 const audioReq = createRequire(`${process.cwd()}/packages/audio-codecs/package.json`);
-const officeReq = createRequire(`${process.cwd()}/packages/office/package.json`);
 
 function packageRoot(name, resolver = mossReq, fromDir = join(process.cwd(), "packages/moss-tts")) {
   return resolvePackageMetadata(name, resolver, fromDir, process.cwd());
@@ -73,36 +71,6 @@ if (
   !readFileSync(opusGenerated).includes(Buffer.from([0x00, 0x61, 0x73, 0x6d]))
 ) {
   console.error("libopus-wasm pinned embedded WASM closure drift");
-  process.exit(1);
-}
-const pptfast = packageRoot("@liustack/pptfast", officeReq, join(process.cwd(), "packages/office"));
-const pptfastReq = createRequire(join(pptfast.root, "package.json"));
-const pptxgenjs = packageRoot("pptxgenjs", pptfastReq, pptfast.root);
-const pptxgenReq = createRequire(join(pptxgenjs.root, "package.json"));
-const imageSize = packageRoot("image-size", pptxgenReq, pptxgenjs.root);
-const sharp = packageRoot("sharp", pptfastReq, pptfast.root);
-const exceljs = packageRoot("exceljs", officeReq, join(process.cwd(), "packages/office"));
-const excelReq = createRequire(join(exceljs.root, "package.json"));
-const uuid = packageRoot("uuid", excelReq, exceljs.root);
-const lock = readFileSync("pnpm-lock.yaml", "utf8");
-if (
-  !workspace.includes("'pptxgenjs>image-size': 'workspace:*'") ||
-  !workspace.includes("'@liustack/pptfast>sharp': '0.35.4'") ||
-  !workspace.includes("'exceljs>uuid': '11.1.1'") ||
-  imageSize.metadata.version !== pkg.version ||
-  imageSize.metadata.license !== "MIT" ||
-  sharp.metadata.version !== "0.35.4" ||
-  uuid.metadata.version !== "11.1.1" ||
-  uuid.metadata.license !== "MIT" ||
-  !lock.includes("image-size: link:packages/image-size-disabled") ||
-  !lock.includes("sharp@0.35.4:") ||
-  !lock.includes("uuid@11.1.1:") ||
-  /(?:^|\n)\s{2}image-size@1\.2\.1:/.test(lock) ||
-  /(?:^|\n)\s{2}sharp@0\.34\.5:/.test(lock) ||
-  /(?:^|\n)\s{2}sharp@0\.35\.3:/.test(lock) ||
-  /(?:^|\n)\s{2}uuid@8\.3\.2:/.test(lock)
-) {
-  console.error("Office transitive security closure drift");
   process.exit(1);
 }
 console.log("audit:dependencies ok allowlist", allowed.join(","));

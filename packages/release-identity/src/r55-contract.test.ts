@@ -18,15 +18,15 @@ import { FIRST_PARTY_PLUGIN_METADATA } from "../../runtime/src/plugin-catalog.js
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 
-test("release truth pins Penglai 0.6.2", () => {
-  assert.equal(PRODUCT_VERSION, "0.6.2");
+test("release truth pins Penglai 0.6.3", () => {
+  assert.equal(PRODUCT_VERSION, "0.6.3");
 });
 
-test("DSH rc.1 source commit and closure digests are exact", () => {
-  assert.equal(PINNED_DSH, "0.1.5-rc.2");
-  assert.equal(PINNED_DSH_COMMIT, "fb2c4b9e698e30edb738bca4cf0618587db7d203");
-  assert.equal(PINNED_DSH_TARBALL_SHA256, "f4c54839d69e82bf1c3a5a41a910c3ce1405cd9e9d97d753c0c04f406c7d7480");
-  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "aae93e0a7a84be840738f0a237ec3cefe06d5ef4006efd79ee4986d332d830ae");
+test("DSH alpha.2 source commit and closure digests are exact", () => {
+  assert.equal(PINNED_DSH, "0.1.6-alpha.2");
+  assert.equal(PINNED_DSH_COMMIT, "ddefc45fbc7f8e46dd73185e68295696d1297887");
+  assert.equal(PINNED_DSH_TARBALL_SHA256, "a3c14d175c051023dcde078fb273b287b13b4b77654ea90b52d956cbf409178d");
+  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "eee9d9b1d350d337eb74489efd2ecbfd069054e0ef8751d45a94b857e691fd7f");
 });
 
 test("R55-TRUTH-003 three exact target installers including linux-loong64", () => {
@@ -37,7 +37,7 @@ test("R55-TRUTH-003 three exact target installers including linux-loong64", () =
 });
 
 test("release version has no older tag drift", () => {
-  assert.equal(PRODUCT_VERSION, "0.6.2");
+  assert.equal(PRODUCT_VERSION, "0.6.3");
   assert.equal(PRODUCT_VERSION.includes("0.5.6") || PRODUCT_VERSION.includes("0.5.7"), false);
 });
 
@@ -48,11 +48,12 @@ test("bundled Mnemon uses its actual Apache-2.0 license", () => {
   assert.equal(MNEMON_UPSTREAM.license, "Apache-2.0");
   assert.equal(manifest.license, "Apache-2.0");
   assert.equal(manifest.licenseSha256, MNEMON_UPSTREAM.licenseSha256);
-  assert.equal(sbomSource.includes("Noto Sans SC variable font"), true);
+  assert.equal(sbomSource.includes("Noto Sans SC variable font"), false);
   assert.equal(sbomSource.includes("Mnemon"), true);
   assert.equal(sbomSource.includes("Poppler pdftoppm"), false);
   assert.equal(noticesSource.includes("Poppler pdftoppm"), false);
-  assert.equal(noticesSource.includes("Penglai Office"), true);
+  assert.equal(noticesSource.includes("Penglai Office, Budget, Companion"), true);
+  assert.equal(noticesSource.includes("are not part of this"), true);
   assert.equal(noticesSource.includes("Penglai Memory"), true);
 });
 
@@ -68,7 +69,7 @@ test("0.5.12 does not ship bundled Poppler pdftoppm", () => {
 });
 
 test("official Web/Agent/Session/Workspace stay on the one fixed DSH core", () => {
-  assert.equal(PINNED_DSH, "0.1.5-rc.2");
+  assert.equal(PINNED_DSH, "0.1.6-alpha.2");
 });
 
 test("R55-DSH-002 official attachment/settings/slot seams used", () => {
@@ -85,17 +86,15 @@ test("R55-DSH-003 no parallel model/provider/chat runtime", () => {
   assert.match(constitution, /DeepSeek Harness/);
 });
 
-test("R55-DSH-004 Office/Memory failure does not block DSH", () => {
+test("R63-DSH-004 Memory failure does not replace the DSH core", () => {
   assert.equal(
     FIRST_PARTY_PLUGIN_METADATA.find((row) => row.id === "@penglai/plugin-center")?.defaultEnabled,
     true,
   );
 });
 
-test("R55-BUILTIN-001 fresh profile loads Office+Memory", () => {
-  const office = FIRST_PARTY_PLUGIN_METADATA.find((row) => row.id === "@penglai/office");
+test("R63-BUILTIN-001 fresh profile loads Memory", () => {
   const memory = FIRST_PARTY_PLUGIN_METADATA.find((row) => row.id === "@penglai/memory");
-  assert.equal(office?.defaultEnabled, true);
   assert.equal(memory?.defaultEnabled, true);
 });
 
@@ -131,16 +130,12 @@ test("R55-BUILTIN-005 overlay failure returns last-good/baseline", () => {
   assert.match(runtime, /last-good-profile/);
 });
 
-test("R55-BUILTIN-006 Office disable preserves documents", () => {
-  assert.equal(FIRST_PARTY_PLUGIN_METADATA.find((row) => row.id === "@penglai/office")?.installClass, "required-builtin");
-});
-
 test("R55-BUILTIN-007 Memory disable preserves data and stops recall", () => {
   assert.equal(FIRST_PARTY_PLUGIN_METADATA.find((row) => row.id === "@penglai/memory")?.installClass, "required-builtin");
 });
 
 test("R55-BUILTIN-008 enable/restart persistence", () => {
-  assert.equal(FIRST_PARTY_PLUGIN_METADATA.find((row) => row.id === "@penglai/office")?.updatePolicy, "signed-overlay");
+  assert.equal(FIRST_PARTY_PLUGIN_METADATA.find((row) => row.id === "@penglai/memory")?.updatePolicy, "signed-overlay");
 });
 
 test("R55-BUILTIN-009 delete resource differs from disable", () => {
@@ -158,7 +153,7 @@ test("R55-BUILTIN-011 no orphan resource after lifecycle operations", () => {
 });
 
 test("R55-BUILTIN-012 DSH core remains usable in every state", () => {
-  assert.equal(PINNED_DSH, "0.1.5-rc.2");
+  assert.equal(PINNED_DSH, "0.1.6-alpha.2");
 });
 
 test("R55-COMM-001 exact provenance lock", () => {

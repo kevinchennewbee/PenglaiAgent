@@ -80,7 +80,11 @@ export function inspectPackagedCandidate({
   const appPresent = windows
     ? Boolean(app && existsSync(join(app, "Penglai.exe")))
     : linux
-      ? Boolean(app && existsSync(join(app, "Penglai")) && existsSync(join(app, "chrome-sandbox")))
+      ? Boolean(
+          app &&
+          existsSync(join(app, "Penglai")) &&
+          existsSync(join(app, "chrome-sandbox")),
+        )
       : Boolean(app && existsSync(join(app, "Contents/Info.plist")));
   if (!appPresent) {
     return {
@@ -94,9 +98,8 @@ export function inspectPackagedCandidate({
     };
   }
 
-  const resources = windows || linux
-    ? join(app, "resources")
-    : join(app, "Contents/Resources");
+  const resources =
+    windows || linux ? join(app, "resources") : join(app, "Contents/Resources");
   const releasePath = join(resources, "release-info.json");
   const manifestPath = join(resources, "runtime-manifest.json");
   const credentialPath = join(resources, "closure-credential.json");
@@ -235,8 +238,13 @@ export function inspectPackagedCandidate({
       };
     }
   }
-  for (const [relativePath, expectedSha256] of Object.entries(REQUIRED_LEGAL_FILES)) {
-    if (!seen.has(relativePath) || sha256File(join(resources, relativePath)) !== expectedSha256) {
+  for (const [relativePath, expectedSha256] of Object.entries(
+    REQUIRED_LEGAL_FILES,
+  )) {
+    if (
+      !seen.has(relativePath) ||
+      sha256File(join(resources, relativePath)) !== expectedSha256
+    ) {
       return {
         verdict: "FAIL",
         reason: `required packaged legal material missing or changed: ${relativePath}`,
@@ -244,7 +252,6 @@ export function inspectPackagedCandidate({
       };
     }
   }
-
   const nodeBin = windows
     ? join(resources, "runtime/node/node.exe")
     : join(resources, "runtime/node/bin/node");

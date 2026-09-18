@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   collectDshClosure,
   DSH_RUNTIME_INTEGRATION_ROOTS,
+  EXCLUDED_DSH_RUNTIME_PACKAGES,
   locateWorkspaceDsh,
   materializeDshClosure,
   materializeNestedVersionConflicts,
@@ -55,6 +56,24 @@ test("alpha runtime closure includes every Penglai client injection root", () =>
   for (const name of DSH_RUNTIME_INTEGRATION_ROOTS) assert.equal(links.has(name), true, name);
   for (const name of REQUIRED_DSH_RUNTIME_PACKAGES) assert.equal(links.has(name), true, name);
   assert.equal(links.has("@deepseek-ai/dsh-host-apiproxy"), false);
+  for (const name of EXCLUDED_DSH_RUNTIME_PACKAGES) {
+    assert.equal(links.has(name), false, name);
+  }
+});
+
+test("Office/PDF dependencies are intentionally pruned even when required upstream", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-dsh-pruned-"));
+  const app = join(root, "app");
+  mkdirSync(app, { recursive: true });
+  writeFileSync(
+    join(app, "package.json"),
+    JSON.stringify({
+      name: "pruned-fixture",
+      dependencies: { "@deepseek-ai/dsh-office-to-pdf": "1.0.0" },
+    }),
+  );
+  const links = collectDshClosure(join(app, "package.json"), []);
+  assert.equal(links.has("@deepseek-ai/dsh-office-to-pdf"), false);
 });
 
 test("target closure excludes optional native packages for other operating systems and CPUs", () => {

@@ -31,7 +31,7 @@ export function redactDshLaunchTokens(value: string): string {
 }
 
 /**
- * Accept only the exact loopback launch URL shape emitted by DSH 0.1.5-rc.2.
+ * Accept only the exact loopback launch URL shape emitted by DSH 0.1.6-alpha.2.
  * The optional LAN URL on the same line is deliberately ignored.
  */
 export function parseDshWebLaunchUrl(line: string, expectedPort: number): string | undefined {

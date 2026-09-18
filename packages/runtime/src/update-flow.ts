@@ -248,9 +248,8 @@ export function drainOwnedServices(flags: {
   asrBusy: boolean;
   ttsBusy: boolean;
   indexerBusy: boolean;
-  companionArmed: boolean;
 }): { drained: boolean } {
-  if (flags.dshRunning || flags.asrBusy || flags.ttsBusy || flags.indexerBusy || flags.companionArmed) {
+  if (flags.dshRunning || flags.asrBusy || flags.ttsBusy || flags.indexerBusy) {
     throw new PenglaiError("INVALID_INPUT", "owned services still busy");
   }
   return { drained: true };

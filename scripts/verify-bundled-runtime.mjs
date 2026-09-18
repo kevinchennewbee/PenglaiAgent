@@ -1,8 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
@@ -12,7 +11,6 @@ import { beginEvidenceRun, finishEvidenceRun, recordCommand, HOST_TARGET } from 
 import { MnemonMemoryService } from "../packages/memory/src/engine/service.ts";
 import {
   EmbeddedDshSupervisor,
-  OwnerApprovalBroker,
   activatePrivateProfile,
   ensurePrivateHome,
   installFirstPartyPlugins,
@@ -98,58 +96,10 @@ await engine.forget(row.id);
 engine.close();
 
 const layout = resolveRuntimeLayout(resources);
-const officeUser = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-bundled-office-")));
-ensurePrivateHome(officeUser);
-activatePrivateProfile(layout, officeUser);
-installFirstPartyPlugins(layout, officeUser.profileWeb, officeUser.transactions, ["@penglai/office"], officeUser.root);
-const officeMod = await import(
-  pathToFileURL(join(officeUser.profileWeb, "node_modules", "@penglai", "office", "dist", "index.js")).href
-);
-const workspace = mkdtempSync(join(tmpdir(), "penglai-bundled-ws-"));
-const tools = new Map();
-const ctx = {
-  tools: {
-    register(def) {
-      if (!def?.output || typeof def.output.render !== "function") {
-        throw new TypeError(`tool "${def.name}" must declare output { schema, render }`);
-      }
-      tools.set(def.name, def);
-    },
-  },
-  workspaceRegistry: { list: () => [{ id: "ws-bundled", path: workspace, sessionIds: ["sess-bundled"] }] },
-};
-process.env.PENGLAI_USER_DATA = officeUser.root;
-const owner = new OwnerApprovalBroker(officeUser.root, { dialog: async () => "approved" });
-const svc = officeMod.createOfficeService({ userData: officeUser.root, owner });
-officeMod.registerOfficeTools(ctx, svc);
-const exec = { agent: { id: "sess-bundled" } };
-const created = await tools.get("penglai_office_create").execute({ format: "pdf", text: "蓬莱办公中文" }, exec);
-const planned = await tools.get("penglai_office_plan").execute({
-  job_id: created.id,
-  operation: { kind: "pdf.watermark", text: "preview" },
-}, exec);
-const preview = await tools.get("penglai_office_preview").execute({ job_id: planned.id }, exec);
-if (!preview?.preview) {
-  const manifest = finishEvidenceRun(run, "FAIL", "packed office preview missing");
-  finish("FAIL", { command: "verify:bundled-runtime", reason: manifest.reason, dir: manifest.dir });
-}
-const committed = await tools.get("penglai_office_commit").execute({ job_id: planned.id, filename: "note.pdf" }, exec);
-if (!String(committed?.dest ?? "").endsWith("note.pdf")) {
-  const manifest = finishEvidenceRun(run, "FAIL", "packed office commit did not write workspace basename");
-  finish("FAIL", { command: "verify:bundled-runtime", reason: manifest.reason, dir: manifest.dir });
-}
-const inspected = await svc.inspect(readFileSync(committed.dest));
-if (!String(inspected.text ?? "").includes("蓬莱办公中文") && !String(inspected.text ?? "").includes("preview")) {
-  const manifest = finishEvidenceRun(run, "FAIL", "packed office CJK/pdf inspect missed created text");
-  finish("FAIL", { command: "verify:bundled-runtime", reason: manifest.reason, dir: manifest.dir });
-}
-await tools.get("penglai_office_undo").execute({ job_id: planned.id }, exec);
-
 const failOpenUser = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-bundled-failopen-")));
 ensurePrivateHome(failOpenUser);
 activatePrivateProfile(layout, failOpenUser);
 installFirstPartyPlugins(layout, failOpenUser.profileWeb, failOpenUser.transactions, [
-  "@penglai/office",
   "@penglai/memory",
 ], failOpenUser.root);
 const emptyApp = mkdtempSync(join(tmpdir(), "penglai-empty-app-"));
@@ -176,12 +126,10 @@ try {
 }
 
 rmSync(dataDir, { recursive: true, force: true });
-rmSync(officeUser.root, { recursive: true, force: true });
 rmSync(failOpenUser.root, { recursive: true, force: true });
 rmSync(emptyApp, { recursive: true, force: true });
-rmSync(workspace, { recursive: true, force: true });
 
-const manifest = finishEvidenceRun(run, "PASS", "bundled mnemon remember/search/forget, packed office tools, authenticated memory-missing DSH still HTTP 200", {
+const manifest = finishEvidenceRun(run, "PASS", "bundled mnemon remember/search/forget and authenticated memory-missing DSH still HTTP 200", {
   mnemon: mnemonBin,
   sourceSha: packaged.release.sourceSha,
 });

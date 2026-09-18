@@ -39,7 +39,7 @@ function passingPath(version, sourceSha, installerSha256) {
   };
 }
 
-test("current 0.6.2 workflow requires the 0.6.1 native upgrade path", () => {
+test("current 0.6.3 workflow requires the 0.6.2 native upgrade path", () => {
   const scope = currentNativeLifecycleScope(sources);
   assert.equal(scope.fetchPreviousInstallers, true);
   assert.equal(scope.olderInstalledUpgradeStatus, "REQUIRED");
@@ -61,9 +61,9 @@ test("release aggregation consumes native upgrade evidence instead of rerunning 
   );
 });
 
-test("0.6.2 updater sequence is exactly one after immutable v0.6.1", () => {
-  assert.equal(assertNextUpdaterSequence(sources, 11), 10);
-  assert.throws(() => assertNextUpdaterSequence(sources, 10), /must follow public sequence 10/);
+test("0.6.3 updater sequence is exactly one after immutable v0.6.2", () => {
+  assert.equal(assertNextUpdaterSequence(sources, 12), 11);
+  assert.throws(() => assertNextUpdaterSequence(sources, 11), /must follow public sequence 11/);
   assert.throws(
     () => assertNextUpdaterSequence({ sources: [{ ...sources.sources[0], updateSequence: undefined }] }, 11),
     /must pin its public updater sequence/,
@@ -99,7 +99,7 @@ test("native upgrade seeds an explicit previous-version plugin preference", () =
 
 test("native upgrade set follows every pinned previous version, not a hardcoded pair", () => {
   const expected = expectedUpgradeSourceVersions(sources);
-  assert.deepEqual(expected, ["0.6.1"]);
+  assert.deepEqual(expected, ["0.6.2"]);
   assert.equal(expected.length, sources.sources.length);
   assert.deepEqual(expected, [...expected].sort());
   const sourceSha = "a".repeat(40);
