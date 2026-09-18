@@ -104,8 +104,12 @@ for (const mode of modes) {
       "@deepseek-ai/dsh-client-ui-sidebar-documentpreview",
       "@deepseek-ai/libreoffice-kit",
     ]) {
-      if (proof.entries.some((entry) => exactPluginId(entry, excluded))) {
-        throw new Error(`excluded 0.6.3 plugin loaded: ${excluded}`);
+      if (
+        proof.entries.some(
+          (entry) => exactPluginId(entry, excluded) && rowIsLoaded(entry),
+        )
+      ) {
+        throw new Error(`excluded 0.6.3 plugin active: ${excluded}`);
       }
     }
     const im = loaded(proof, "@penglai/im");

@@ -12,7 +12,9 @@ function input(root) {
     "dist/pnpm.mjs": "// fixture bundle\n",
     "LICENSE": "license fixture",
     "dist/node_modules/@reflink/reflink-darwin-arm64/reflink.darwin-arm64.node": "native fixture",
+    "dist/node_modules/@reflink/reflink-darwin-arm64/package.json": "{\"name\":\"@reflink/reflink-darwin-arm64\"}",
     "dist/node_modules/@reflink/reflink-win32-x64-msvc/reflink.win32-x64-msvc.node": "native fixture",
+    "dist/node_modules/@reflink/reflink-win32-x64-msvc/package.json": "{\"name\":\"@reflink/reflink-win32-x64-msvc\"}",
     "dist/vendor/fastlist-0.3.0-x64.exe": "native fixture",
   };
   for (const [path, body] of Object.entries(files)) {
@@ -34,6 +36,18 @@ test("pnpm target projection retains exact JS/notices and excludes foreign helpe
       assert.equal(readFileSync(join(dest, "LICENSE"), "utf8"), "license fixture");
       assert.equal(existsSync(join(dest, "dist/vendor/fastlist-0.3.0-x64.exe")), target === "win32-x86_64");
       assert.equal(existsSync(join(dest, "dist/node_modules/@reflink/reflink-darwin-arm64/reflink.darwin-arm64.node")), target === "darwin-aarch64");
+      assert.equal(existsSync(join(dest, "dist/node_modules/@reflink/reflink-darwin-arm64/package.json")), target === "darwin-aarch64");
+      assert.equal(existsSync(join(dest, "dist/node_modules/@reflink/reflink-win32-x64-msvc/package.json")), target === "win32-x86_64");
+      if (target === "linux-loong64") {
+        assert.equal(
+          result.omitted.some((path) => path.includes("reflink-darwin-arm64")),
+          true,
+        );
+        assert.equal(
+          result.omitted.some((path) => path.includes("reflink-win32-x64-msvc")),
+          true,
+        );
+      }
     }
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
