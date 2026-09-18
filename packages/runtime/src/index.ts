@@ -16,8 +16,7 @@ import {
   readdirSync,
 } from "node:fs";
 import { userInfo } from "node:os";
-import { pathToFileURL } from "node:url";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, win32 as win32Path } from "node:path";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { createConnection, createServer } from "node:net";
 import { PenglaiError, RELEASE, readExactRegularFile, assertCenterJournalHeader, centerProfileWasUntouched } from "@penglai/contracts";
@@ -826,6 +825,24 @@ export function pinOfficialBrowseDirectoryPicker(user: UserLayout): boolean {
   return true;
 }
 
+/** pnpm's `file:` dependency syntax is a filesystem specifier, not a file URL.
+ * Keep Windows 8.3 names such as RUNNER~1 literal: URL serialization can turn
+ * `~` into `%7E`, which pnpm may then treat as part of the filesystem path.
+ */
+export function pnpmLocalFileSpecifier(
+  absolutePath: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  const absolute =
+    platform === "win32" ? win32Path.isAbsolute(absolutePath) : isAbsolute(absolutePath);
+  if (!absolute) {
+    throw new PenglaiError("INVALID_INPUT", "pnpm local package path must be absolute");
+  }
+  const normalized =
+    platform === "win32" ? absolutePath.replaceAll("\\", "/") : absolutePath;
+  return `file:${normalized}`;
+}
+
 /** Bind profile package operations to the immutable bundled tarballs. The
  * seed's version placeholders are not public registry package coordinates.
  * External dependencies, bundle selections and every feature toggle survive.
@@ -845,7 +862,7 @@ export function prepareOpenPluginProfile(layout: RuntimeLayout, user: UserLayout
   }
   const dependencies = { ...manifest.dependencies };
   for (const entry of loadPluginCatalog(layout.pluginsDir, runtimePluginTarget(), true).entries) {
-    dependencies[entry.id] = pathToFileURL(resolve(layout.pluginsDir, entry.packageFile)).href;
+    dependencies[entry.id] = pnpmLocalFileSpecifier(resolve(layout.pluginsDir, entry.packageFile));
   }
   for (const id of ["@penglai/office", "@penglai/budget", "@penglai/companion", "@penglai/image-size-disabled"]) delete dependencies[id];
   const next = { ...manifest, dependencies, packageManager: "pnpm@11.11.0" };

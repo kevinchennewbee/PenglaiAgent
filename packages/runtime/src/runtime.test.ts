@@ -34,6 +34,7 @@ import {
   linkOfficialDeepseek,
   mergeLegacyContextIntoMemory,
   pinProductWebPatchReload,
+  pnpmLocalFileSpecifier,
   PRODUCT_WEB_PATCH_RELOAD,
   probeOfficialDsh,
   recoverProfile,
@@ -356,6 +357,22 @@ test("activatePrivateProfile pins lived-in live HMR to official startup without 
   assert.deepEqual(manifest.dsh.profile.bundles, ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]);
   assert.match(manifest.dependencies["@penglai/memory"], /^file:/);
   assert.match(manifest.dependencies["@penglai/memory"], /penglai-memory-0\.6\.3\.tgz$/);
+});
+
+test("pnpm local file specifiers preserve Windows 8.3 short paths without URL escaping", () => {
+  assert.equal(
+    pnpmLocalFileSpecifier("C:\\Users\\RUNNER~1\\AppData\\Local\\Penglai\\plugins\\memory.tgz", "win32"),
+    "file:C:/Users/RUNNER~1/AppData/Local/Penglai/plugins/memory.tgz",
+  );
+  assert.doesNotMatch(
+    pnpmLocalFileSpecifier("C:\\Users\\RUNNER~1\\pkg.tgz", "win32"),
+    /%7E/i,
+  );
+  assert.equal(
+    pnpmLocalFileSpecifier("/Applications/Penglai.app/Contents/Resources/plugins/memory.tgz", "darwin"),
+    "file:/Applications/Penglai.app/Contents/Resources/plugins/memory.tgz",
+  );
+  assert.throws(() => pnpmLocalFileSpecifier("relative/pkg.tgz", "darwin"), /must be absolute/);
 });
 
 test("R2-DIST-011 seed activates private profile once", () => {

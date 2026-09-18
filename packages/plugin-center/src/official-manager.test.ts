@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import test, { type TestContext } from "node:test";
 import type { Context } from "@deepseek-ai/cordis";
 import { boot, composeEntries, initProfile, readProfileManifest, readProfilePatches, type ProfileContext } from "@deepseek-ai/dsh-app-boot";
+import { pnpmLocalFileSpecifier } from "@penglai/runtime";
 import { createOfficialPluginManager } from "./official-manager.js";
 
 /** Real pinned Loader/Include/manager and pnpm. The feature payload is a small
@@ -45,7 +46,7 @@ async function fixture(t: TestContext) {
     cpSync(path, destination, { recursive: true });
   }
   const manifest = readProfileManifest("dsh", dir);
-  manifest.dependencies = { "fixture-core": pathToFileURL(core).href, "@penglai/memory": pathToFileURL(memory).href };
+  manifest.dependencies = { "fixture-core": pnpmLocalFileSpecifier(core), "@penglai/memory": pnpmLocalFileSpecifier(memory) };
   writeFileSync(join(dir, "package.json"), JSON.stringify({ ...manifest, packageManager: "pnpm@11.11.0" }));
   writeFileSync(join(dir, "cordis.yml"), "[]\n");
   const cli = fileURLToPath(new URL("../../../node_modules/pnpm/bin/pnpm.mjs", import.meta.url));
