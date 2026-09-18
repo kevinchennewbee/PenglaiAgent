@@ -103,7 +103,7 @@ window.__ModuleLoader__.load({
     const codec = (kind) => ({
       mode: "strict",
       typeSymbol: `@penglai/plugin-center/client#${kind}`,
-      schema: kind === "input" ? inputSchema : resultSchema,
+      create: () => (kind === "input" ? inputSchema : resultSchema),
     });
     const descriptor = (namespace, method, hasInput = false) => ({
       id: `@penglai/plugin-center#${namespace}/${method}`,

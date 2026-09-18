@@ -324,22 +324,22 @@ test("Penglai settings mounts strict generated-client descriptors before using r
     (row) => row.namespace === "penglaiCenter" && row.method === "enable",
   ) as {
     parameters: Array<{
-      codec: { mode: string; schema: { parse(value: unknown): unknown } };
+      codec: { mode: string; create(): { parse(value: unknown): unknown } };
     }>;
-    result: { mode: string; schema: { parse(value: unknown): unknown } };
+    result: { mode: string; create(): { parse(value: unknown): unknown } };
   };
   assert.equal(enable.parameters[0]?.codec.mode, "strict");
   assert.deepEqual(
-    enable.parameters[0]?.codec.schema.parse({ id: "@penglai/im" }),
+    enable.parameters[0]?.codec.create().parse({ id: "@penglai/im" }),
     { id: "@penglai/im" },
   );
   assert.throws(
-    () => enable.parameters[0]?.codec.schema.parse(new Date()),
+    () => enable.parameters[0]?.codec.create().parse(new Date()),
     /plain object/,
   );
   const cyclic: Record<string, unknown> = {};
   cyclic.self = cyclic;
-  assert.throws(() => enable.result.schema.parse(cyclic), /cyclic/);
+  assert.throws(() => enable.result.create().parse(cyclic), /cyclic/);
 });
 
 test("each independent Penglai client owns only its typed Remote lifecycle", () => {
