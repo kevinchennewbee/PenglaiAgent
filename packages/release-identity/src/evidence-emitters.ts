@@ -570,35 +570,44 @@ export const EVIDENCE_EMITTERS: readonly EmitterEntry[] = [
   },
 
   // ---- Docs: prose must agree with release facts --------------------------
+  // The marker is the bare id literal, because the proof requires ONE file that
+  // both names the id and calls `recordAssertion`. `release-facts.ts` declares
+  // each id but only returns findings; `release-facts.test.ts` is the emitter and
+  // lists exactly these ids, asserting that inspection returns the same set.
+  //
+  // These entries used to carry a marker shared between all five, which
+  // `markers.some()` matched in the emitter file regardless of whether the
+  // individual id survived — so the check proved the emitter list existed, not
+  // that any particular id was still declared.
   {
     id: "R50-DOC-001",
     domain: "DOC",
     files: [`${IDENTITY_SUITE}/release-facts.ts`, `${IDENTITY_SUITE}/release-facts.test.ts`],
-    markers: ['id: "R50-DOC-001"', 'REQUIRED_DOC_IDS'],
+    markers: ['"R50-DOC-001"'],
   },
   {
     id: "R50-DOC-002",
     domain: "DOC",
     files: [`${IDENTITY_SUITE}/release-facts.ts`, `${IDENTITY_SUITE}/release-facts.test.ts`],
-    markers: ['id: "R50-DOC-002"', 'REQUIRED_DOC_IDS'],
+    markers: ['"R50-DOC-002"'],
   },
   {
     id: "R50-DOC-003",
     domain: "DOC",
     files: [`${IDENTITY_SUITE}/release-facts.ts`, `${IDENTITY_SUITE}/release-facts.test.ts`],
-    markers: ['id: "R50-DOC-003"', 'REQUIRED_DOC_IDS'],
+    markers: ['"R50-DOC-003"'],
   },
   {
     id: "R50-DOC-004",
     domain: "DOC",
     files: [`${IDENTITY_SUITE}/release-facts.ts`, `${IDENTITY_SUITE}/release-facts.test.ts`],
-    markers: ['id: "R50-DOC-004"', 'REQUIRED_DOC_IDS'],
+    markers: ['"R50-DOC-004"'],
   },
   {
     id: "R50-DOC-005",
     domain: "DOC",
     files: [`${IDENTITY_SUITE}/release-facts.ts`, `${IDENTITY_SUITE}/release-facts.test.ts`],
-    markers: ['id: "R50-DOC-005"', 'REQUIRED_DOC_IDS'],
+    markers: ['"R50-DOC-005"'],
   },
 
   // ---- Reverse existence: the excluded scope must not be shipped -----------
