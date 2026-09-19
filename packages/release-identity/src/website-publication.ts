@@ -82,6 +82,21 @@ function publicationPath(path: string, version: string): boolean {
 }
 
 export function assertPublicationOnlyChanges(paths: string[], version = PRODUCT_VERSION): void {
+  // `paths` is the diff over the PUBLICATION WINDOW — tag to the commit that
+  // first recorded this version's publication manifest — not tag to HEAD.
+  //
+  // `scripts/verify-website-release.mjs` computes that window. It used to pass
+  // `tag..HEAD`, which made this check unsatisfiable as soon as normal
+  // development resumed: `main` moves on after a release, so the very first
+  // source commit after the tag made `forbidden.length === 0` permanently
+  // false, and the release's website could never be deployed again. Redeploying
+  // a released version's site is a real need (#185 was exactly that for v0.6.1).
+  //
+  // The whitelist below is deliberately NOT widened to cover governance
+  // documents. Widening it would trade a real property — "nothing but
+  // publication files changes between the tag and the recorded readback" — for
+  // the ability to edit those documents later, which the bounded window already
+  // grants without giving anything up.
   const changed = sortedUnique(paths.filter(Boolean));
   const forbidden = changed.filter((path) => !publicationPath(path, version));
   invariant(forbidden.length === 0, `post-tag website deployment contains non-publication changes: ${forbidden.join(", ")}`);

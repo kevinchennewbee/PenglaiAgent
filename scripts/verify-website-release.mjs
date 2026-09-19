@@ -125,7 +125,33 @@ const asset = (name) => assets.find((entry) => entry.name === name);
 const sumsBytes = await downloadSmallPublicAsset(asset("SHA256SUMS"), "SHA256SUMS");
 const manifestBytes = await downloadSmallPublicAsset(asset("release-manifest.json"), "release-manifest.json");
 const releaseManifest = JSON.parse(manifestBytes.toString("utf8"));
-const changedPaths = git(["diff", "--name-only", `${peeledSourceSha}..${head}`]).split(/\r?\n/).filter(Boolean);
+const manifestPath = `docs/PUBLICATION_MANIFEST_${contract.version}.md`;
+// The forbidden-path check is scoped to the publication window, not to HEAD.
+//
+// It used to diff `<tag>..HEAD`. That bound is wrong twice over: `main` moves on
+// after a release, so the first ordinary source commit after the tag made
+// `forbidden.length === 0` permanently false and the release's website could
+// never be deployed again. Redeploying a released version's website is a real
+// need — #185 was exactly that, a post-tag website fix for v0.6.1.
+//
+// The window is [tag, the commit that first recorded this version's publication
+// manifest]. Inside it only publication paths may change, which is the property
+// the check was written to protect. After it, development resumes and the diff
+// is expected to contain source changes, so it is no longer evidence of anything.
+const manifestCommit = git([
+  "log",
+  "--format=%H",
+  "--reverse",
+  `${peeledSourceSha}..${head}`,
+  "--",
+  manifestPath,
+])
+  .split(/\r?\n/)
+  .filter(Boolean)[0];
+const publicationWindowEnd = manifestCommit ?? head;
+const changedPaths = git(["diff", "--name-only", `${peeledSourceSha}..${publicationWindowEnd}`])
+  .split(/\r?\n/)
+  .filter(Boolean);
 const sums = parseSha256Sums(sumsBytes.toString("utf8"));
 const installers = contract.targets.map((target) => {
   const publicAsset = asset(target.installer);
