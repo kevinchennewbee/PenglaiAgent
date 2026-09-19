@@ -433,6 +433,11 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.doesNotMatch(macosWorkflow, /macos-15-intel/);
   assert.doesNotMatch(macosWorkflow, /darwin-x86_64/);
   assert.match(windowsWorkflow, /Penglai_0\.6\.3_windows_x64_setup\.exe/);
+  assert.match(
+    windowsWorkflow,
+    /Verify native closure, artifact, fuses, and signing contract[\s\S]*?shell: bash[\s\S]*?pnpm verify:closure/,
+    "Windows closure verification must stop on the first non-zero native gate",
+  );
   assert.match(linuxWorkflow, /package:linux-deb/);
   assert.match(linuxWorkflow, /OWNER_POST_RELEASE/);
   assert.match(linuxWorkflow, /Penglai_0\.6\.3_uos_loong64\.deb/);

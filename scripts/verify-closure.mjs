@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ROOT, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
@@ -111,14 +111,36 @@ if (target !== hostTarget()) {
     reason: "cross-staged closure is structurally complete but requires the matching native runner",
   });
 }
+const probeEnv =
+  target === "win32-x86_64"
+    ? (() => {
+        const windowsRoot = process.env.SystemRoot || process.env.WINDIR || "C:\\Windows";
+        return {
+          SystemRoot: windowsRoot,
+          WINDIR: process.env.WINDIR || windowsRoot,
+          ComSpec: process.env.ComSpec || join(windowsRoot, "System32", "cmd.exe"),
+          PATHEXT: process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD",
+          TEMP: process.env.TEMP || process.env.TMP || staging,
+          TMP: process.env.TMP || process.env.TEMP || staging,
+          PATH: [dirname(nodeBin), join(windowsRoot, "System32"), windowsRoot].join(delimiter),
+          NODE_PATH: "",
+        };
+      })()
+    : { PATH: "/usr/bin:/bin", NODE_PATH: "" };
 const probe = spawnSync(nodeBin, [dsh, "--version"], {
   encoding: "utf8",
-  env: { PATH: "/usr/bin:/bin", NODE_PATH: "" },
-  cwd: "/tmp",
+  env: probeEnv,
+  cwd: staging,
 });
 const output = `${probe.stdout ?? ""}${probe.stderr ?? ""}`;
 if (probe.status !== 0 || !output.includes(PINNED_DSH)) {
-  finish("FAIL", { command: "verify:closure", target, reason: "embedded DSH closure probe failed" });
+  finish("FAIL", {
+    command: "verify:closure",
+    target,
+    reason: "embedded DSH closure probe failed",
+    probeStatus: probe.status,
+    probeError: probe.error?.code ?? null,
+  });
 }
 const launcherProbe = spawnSync(nodeBin, [launcher, "--version"], {
   encoding: "utf8",
