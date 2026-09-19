@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PRODUCT_VERSION, PINNED_DSH } from "./pins.js";
 
-/** Immutable published 0.6.0 notes/README/website freeze the current DSH pin. */
+/** Immutable current-release notes/README/website freeze the selected DSH pin. */
 const PUBLISHED_DSH = PINNED_DSH;
 import {
   assertCommittedTemplateIdentity,
@@ -97,14 +97,23 @@ test("website keeps the full bilingual visual site during publication preparatio
   assert.match(en, /<html lang="en">/);
   assert.match(zh, /<html lang="zh-CN">/);
   assert.match(enCompat, /<html lang="en">/);
+  const currentInstallers = [
+    `Penglai_${PRODUCT_VERSION}_macos_aarch64.dmg`,
+    `Penglai_${PRODUCT_VERSION}_windows_x64_setup.exe`,
+    `Penglai_${PRODUCT_VERSION}_uos_loong64.deb`,
+  ];
   for (const html of [zh, en, enCompat]) {
     assert.match(html, /shots\/0\.5\.5\/welcome\.png/);
     assert.match(html, /shots\/0\.5\.5\/plugin-center\.png/);
-    assert.match(html, /shots\/0\.5\.5\/office\.png/);
     assert.match(html, /shots\/0\.5\.5\/memory\.png/);
-    assert.match(html, /releases\/download\/v0\.6\.2\/Penglai_0\.6\.2_macos_aarch64\.dmg/);
-    assert.match(html, /releases\/download\/v0\.6\.2\/Penglai_0\.6\.2_windows_x64_setup\.exe/);
-    assert.match(html, /releases\/download\/v0\.6\.2\/Penglai_0\.6\.2_uos_loong64\.deb/);
+    for (const installer of currentInstallers) {
+      assert.ok(
+        html.includes(
+          `releases/download/v${PRODUCT_VERSION}/${installer}`,
+        ),
+        `${installer} is missing from a current website page`,
+      );
+    }
     assert.doesNotMatch(html, /82\.156\.107\.151|releases\/v0\.6\.1/);
   }
   assert.match(css, /\.download-grid/);

@@ -1,103 +1,94 @@
-# Penglai 0.6.3 development notes
+# Penglai 0.6.3 release notes
 
-Status: source candidate, not released. Native installers, installed lifecycle
-validation, immutable publication, public readback, and website deployment are
-`NOT_RUN`.
+Status: `PUBLIC_READBACK_PASS`. The immutable `v0.6.3` Release was published
+from `1c103212ad25b7d2a0061c2c4bfa595cd413c138`; all ten public assets passed
+post-publication byte, SHA-256, update-signature, and installer-signature
+readback.
 
 ## English
 
 Penglai 0.6.3 moves the desktop distribution from official DeepSeek Harness
-0.1.5-rc.2 to the exact 0.1.6-alpha.2 cohort: tag
+0.1.5-rc.2 to the exact `0.1.6-alpha.2` cohort: tag
 `dsh-v0.1.6-alpha.2`, commit
 `ddefc45fbc7f8e46dd73185e68295696d1297887`, and 307 source-cohort packages
-with registry integrity. The upstream ledger also records Office/PDF and the
-six independent LibreOffice Kit packages, but Penglai prunes those packages
-from the 0.6.3 product runtime.
+with registry integrity.
 
-The main compatibility change is Session ownership. Memory provenance,
-onboarding final-message proof, and IM
-recovery/deduplication now use official asynchronous Session Controller
-inspection instead of deprecated synchronous event reads. DSH Home migration
-creates an isolated alpha.2 generation from the published rc.2 generation and
-activates it only after validation.
+The main compatibility work is Session ownership and alpha.2 client/runtime
+contracts. Memory provenance, onboarding final-message proof, and IM
+recovery/deduplication use official asynchronous Session Controller inspection.
+First-party browser Remote codecs use the alpha.2 `codec.create()` contract.
+DSH Home activation is isolated by generation and switches only after
+validation.
 
-The alpha.2 DeepSeek adapter no longer advertises the former
-`deepseek-v4-flash-vision-exp` model ID. Image turns now use the advertised
-`deepseek-flash` / `DeepSeek-V41-Flash` route, its `text,image` capability, and
-the `/v1/messages` SSE protocol.
+The alpha.2 DeepSeek adapter advertises `deepseek-flash` /
+`DeepSeek-V41-Flash` for the supported `text,image` route. Penglai keeps the
+one official DSH host and does not add a parallel agent executor.
 
-The upstream generation also expands terminal, browser/computer-use, SSH, PTC,
-MCP resource, workspace-change, preview, Office conversion, plan, deliverable,
-and subagent/sidebar surfaces. Penglai audits their exact package graph but
-does not add a parallel host or executor. All first-party plugins remain on the
-one official DSH runtime.
+Penglai 0.6.3 intentionally excludes LibreOffice, Office/PDF, Budget, and
+Companion from the product runtime, profile closure, installer staging and
+product SBOM. Memory is bundled and enabled by default but may be disabled by
+the Owner without deleting its package or data. Mobile Messaging is installed
+and active while every adapter/account remains unconfigured until connected.
+ASR and MOSS-TTS are bundled but disabled by default; model weights are
+separate pinned downloads. MOSS-TTS is unavailable on UOS LoongArch.
 
-Penglai 0.6.3 does not include LibreOffice, Office/PDF, Budget, or Companion.
-Their historical workspaces are excluded and their upstream packages are
-removed from the profile, catalog, product runtime closure, installer staging,
-and product SBOM. Memory is the only required first-party feature plugin.
+Package management uses the exact official DSH alpha.2 plugin manager as the
+sole mutable profile backend. Penglai provides application-owned Node 22.23.2
+and pnpm 11.11.0. Installing a package and approving its build scripts remain
+separate explicit trust actions. The historical signed Penglai catalog is not
+an ecosystem allowlist.
 
-Mobile Messaging is installed and active on a fresh profile, while every
-channel and account remains unconfigured until the user connects it. ASR and
-MOSS-TTS stay disabled by default. Their plugin code, UI, services, and
-supported-target inference runtimes are bundled; model weights are separate,
-pinned downloads. MOSS-TTS remains unavailable on UOS LoongArch because the
-pinned ONNX Runtime has no supported native engine for that target.
+Native publication validation completed on the same source SHA:
 
-Privacy remains stricter than the upstream defaults: the canonical
-session-log/upload path stays disabled. Package management now uses the exact
-official DSH alpha.2 plugin manager as the sole backend; its official UI/tool are
-enabled through Penglai Center, package operations use application-owned
-Node/pnpm, and build-script approval remains a separate explicit trust action.
-The historical signed Penglai catalog is not an ecosystem allowlist.
+- Apple Silicon: exact DMG, closure/artifact/profile, full installed onboarding,
+  welcome/process, first-party compatibility, fresh install → restart → default
+  uninstall.
+- Windows x64: exact NSIS installer, closure/artifact/fuses/signing, complete
+  profile matrix, Simplified Chinese installer UI, full installed onboarding,
+  first-party compatibility, fresh install → restart → default uninstall.
+- UnionTech UOS 20 LoongArch: exact `.deb`, package identity, ABI, runtime,
+  architecture and full closure.
 
-The planned target set remains Apple Silicon, Windows x64, and UnionTech UOS 20
-LoongArch. Native validation must prove fresh install, restart, and default
-uninstall on Mac and Windows. The exact 0.6.2-to-0.6.3 installed upgrade is
-`OWNER_EXCLUDED` and is not a publication PASS requirement. UOS native use
-remains `OWNER_POST_RELEASE`; the two-hour soak is also `OWNER_EXCLUDED`.
-macOS is expected to remain ad-hoc signed and not notarized;
-Windows is expected to remain without Authenticode. None of those native or
-publication statements is a PASS in this source candidate.
+The exact `0.6.2 → 0.6.3` installed-upgrade journey and the two-hour installed
+soak are `OWNER_EXCLUDED` and are not claimed as PASS. UOS real-machine
+acceptance remains `OWNER_POST_RELEASE`. macOS is ad-hoc signed and not notarized;
+Windows has no Authenticode.
+
+Authoritative downloads and exact public hashes are recorded in
+[`PUBLICATION_MANIFEST_0.6.3.md`](PUBLICATION_MANIFEST_0.6.3.md) and the
+immutable [`v0.6.3` Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.3).
 
 ## 中文
 
-Penglai 0.6.3 将桌面发行版从官方 DeepSeek Harness 0.1.5-rc.2 原子升级到
-0.1.6-alpha.2：固定 tag `dsh-v0.1.6-alpha.2`、commit
+Penglai 0.6.3 将桌面发行版从官方 DeepSeek Harness 0.1.5-rc.2 升级到精确的
+`0.1.6-alpha.2` cohort：固定 tag `dsh-v0.1.6-alpha.2`、commit
 `ddefc45fbc7f8e46dd73185e68295696d1297887`，并锁定带 registry integrity 的
-307 个源码 cohort 包。上游审计清单仍记录 Office/PDF 和六个 LibreOffice Kit 包，
-但这些包不会进入 0.6.3 产品运行闭包。
+307 个源码 cohort 包。
 
-本次最主要的适配是 Session 所有权：记忆来源证明、首次
-引导终态取证，以及 IM 恢复和去重，全部改用官方异步 Session Controller inspection，
-不再读取已弃用的同步事件快照。DSH Home 从已发布 rc.2 复制到隔离的 alpha.2
-generation，只有验证通过后才切换。
+本版主要完成 Session 所有权、alpha.2 浏览器 client/Remote 契约和运行时适配。记忆
+来源证明、首次引导终态，以及 IM 恢复/去重改用官方异步 Session Controller；第一方
+浏览器 Remote codec 改为 alpha.2 的 `codec.create()` 契约；DSH Home 按 generation
+隔离并在验证完成后才切换。
 
-alpha.2 的 DeepSeek adapter 不再提供旧的 `deepseek-v4-flash-vision-exp`
-模型 ID；图片消息改用其实际公布且支持 `text,image` 的 `deepseek-flash` /
-`DeepSeek-V41-Flash` 路由及 `/v1/messages` SSE 协议。
+0.6.3 明确不包含 LibreOffice、Office/PDF、预算或主动陪伴。记忆随包且默认启用，
+Owner 可以关闭而不删除包或数据；手机消息插件已安装并 active，但通道与账号在用户
+连接前保持未配置。ASR 与 MOSS-TTS 默认关闭，模型权重按固定版本另行下载；UOS 龙芯
+不支持 MOSS-TTS。
 
-上游还新增或重构了终端、浏览器/计算机操作、SSH、PTC、MCP resource、Workspace
-变更、预览、Office 转换、计划、交付物和 subagent/sidebar 能力。蓬莱审计完整精确
-依赖图，但不增加第二套 Host、执行器或会话引擎；全部第一方插件仍运行在唯一官方
-DSH 核心上。
+插件管理只使用官方 DSH alpha.2 manager 作为唯一 mutable profile 包管理后端，使用
+应用内 Node 22.23.2 / pnpm 11.11.0。安装插件和批准 build script 是两个独立的显式
+信任动作，历史签名目录不再是整个插件生态的 allowlist。
 
-Penglai 0.6.3 不包含 LibreOffice、Office/PDF、预算或主动陪伴。其历史 workspace
-被排除，上游对应包也从 profile、catalog、产品运行闭包、安装包 staging 和产品
-SBOM 中移除。记忆是唯一必装的第一方功能插件。
+同一源码 `1c103212ad25b7d2a0061c2c4bfa595cd413c138` 上完成了三端发布验证：
+Apple 芯片通过 DMG、完整安装态引导、第一方插件兼容、全新安装→重启→默认卸载；
+Windows x64 通过 NSIS、closure/artifact/fuses/signing、简体中文安装器 UI、完整安装态
+引导、第一方插件兼容、全新安装→重启→默认卸载；UOS 龙芯 `.deb` 通过包身份、ABI、
+运行时、架构与完整闭包。
 
-手机消息在 fresh profile 中已经安装并 active，但所有通道与账号仍保持未配置，只有
-用户连接后才会启动。ASR 与 MOSS-TTS 默认关闭；其插件代码、UI、服务和受支持目标的
-推理运行时随包，模型权重按固定版本与哈希另行下载。UOS 龙芯没有受支持的原生 ONNX
-Runtime，因此该端仍不能启用 MOSS-TTS。
+`0.6.2 → 0.6.3` 真实安装版升级和两小时安装版 soak 均为 `OWNER_EXCLUDED`，本版不
+宣称这两项 PASS。UOS 真机验收仍为 `OWNER_POST_RELEASE`。macOS 未公证，Windows
+无 Authenticode。
 
-隐私仍采用更严格默认值：Penglai profile 默认关闭 canonical session log/upload。
-插件管理改为只使用官方 DSH alpha.2 manager 作为唯一包管理后端，通过 Penglai Center
-开放官方 UI/工具；包操作固定使用应用内 Node/pnpm，build script 仍需单独显式批准。
-历史签名目录不再作为整个插件生态的 allowlist。
-
-计划目标仍为 Apple 芯片、Windows x64 和统信 UOS 20 龙芯。三端阶段必须验证
-Mac/Windows 全新安装、重启和默认卸载；0.6.2 到 0.6.3 的真实安装版升级在本版为
-`OWNER_EXCLUDED`，不作为发布 PASS 条件。UOS 真机仍为 `OWNER_POST_RELEASE`，
-两小时测试同样为 `OWNER_EXCLUDED`。当前仍是发布候选，
-候选，三端安装包、原生安装、公开发布、官网更新与公网回读均为 `NOT_RUN`。
+权威下载、十附件大小和 SHA-256 见
+[`PUBLICATION_MANIFEST_0.6.3.md`](PUBLICATION_MANIFEST_0.6.3.md) 与不可变
+[`v0.6.3` Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.3)。
