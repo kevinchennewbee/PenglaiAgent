@@ -196,6 +196,13 @@ jobs:
             evidence/generated/licenses-${{ matrix.target }}.json
             evidence/generated/sbom-${{ matrix.target }}.json
             evidence/generated/THIRD_PARTY_NOTICES-${{ matrix.target }}.txt
+            # The aggregate re-derives the installed assertions from these two
+            # records. Both are produced here and neither is target-suffixed, so
+            # the collector's `*-<target>.json` sweep does not pick them up: the
+            # emitter reads `local-dmg.json` and `installed-e2e.json` by name, and
+            # without them its guards can never pass on the aggregate runner.
+            evidence/generated/local-dmg.json
+            evidence/generated/installed-e2e.json
 
   windows:
     name: Windows win32-x86_64
@@ -480,6 +487,13 @@ jobs:
           # Target uploads preserve a dist/ prefix. Collect every contract
           # installer from its artifact tree rather than a flattened name.
           node scripts/collect-native-installers.mjs
+          # The two records that carry no target suffix, so the sweep above cannot
+          # see them. The installed-evidence emitter reads both by name.
+          cp .native/darwin-aarch64/evidence/generated/local-dmg.json evidence/generated/
+          cp .native/darwin-aarch64/evidence/generated/installed-e2e.json evidence/generated/
+          # The emitter inspects the application copied back out of the mounted
+          # installer, which the aggregate only receives as an installer.
+          node scripts/collect-dmg-payload.mjs --target darwin-arm64
       - name: Verify complete native evidence set
         run: |
           pnpm verify:native-set -- --command verify:closure
@@ -505,3 +519,20 @@ jobs:
           path: |
             evidence/generated/*.json
             evidence/generated/THIRD_PARTY_NOTICES.txt
+      # The aggregate is where `verify:release` runs, so a failure here is the one
+      # a maintainer has to diagnose — and the strict upload above is skipped when
+      # it fails. This carries the per-id evidence summary and the raw assertion
+      # streams, which are small: without it the only way to see which registered
+      # ids went unemitted is to download the three installers again.
+      - name: Upload native evidence when the aggregate fails
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: penglai-0.6.5-native-aggregate-diagnostic
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            evidence/generated/evidence-summary.json
+            evidence/generated/verify-release.json
+            evidence/generated/verify-drift.json
+            evidence/generated/*-assertions.jsonl
