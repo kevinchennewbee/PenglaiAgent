@@ -12,6 +12,7 @@ import {
   assertObservedReleaseFacts,
   assertReleaseIdentity,
 } from "./identity.js";
+import { newestRecordedRelease } from "./release-facts.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -97,10 +98,21 @@ test("website keeps the full bilingual visual site during publication preparatio
   assert.match(en, /<html lang="en">/);
   assert.match(zh, /<html lang="zh-CN">/);
   assert.match(enCompat, /<html lang="en">/);
+  // The site names the release a visitor can actually download: this version
+  // once its own publication manifest exists, the newest recorded release
+  // before that.
+  //
+  // This used to name `PRODUCT_VERSION` unconditionally, which was true only
+  // while the version being built was also the published one. The moment the
+  // version moved ahead of the last publication it became a demand to advertise
+  // installers that do not exist, and the download claim moved with it.
+  const advertisedVersion = existsSync(join(root, `docs/PUBLICATION_MANIFEST_${PRODUCT_VERSION}.md`))
+    ? PRODUCT_VERSION
+    : newestRecordedRelease();
   const currentInstallers = [
-    `Penglai_${PRODUCT_VERSION}_macos_aarch64.dmg`,
-    `Penglai_${PRODUCT_VERSION}_windows_x64_setup.exe`,
-    `Penglai_${PRODUCT_VERSION}_uos_loong64.deb`,
+    `Penglai_${advertisedVersion}_macos_aarch64.dmg`,
+    `Penglai_${advertisedVersion}_windows_x64_setup.exe`,
+    `Penglai_${advertisedVersion}_uos_loong64.deb`,
   ];
   for (const html of [zh, en, enCompat]) {
     assert.match(html, /shots\/0\.5\.5\/welcome\.png/);
@@ -109,7 +121,7 @@ test("website keeps the full bilingual visual site during publication preparatio
     for (const installer of currentInstallers) {
       assert.ok(
         html.includes(
-          `releases/download/v${PRODUCT_VERSION}/${installer}`,
+          `releases/download/v${advertisedVersion}/${installer}`,
         ),
         `${installer} is missing from a current website page`,
       );
@@ -135,7 +147,33 @@ test("current product, architecture and security contracts use the selected rele
   assert.match(im, /八个平台都有真实连接入口/);
   assert.match(im, /未经修改的官方 npm 字节/);
   const constitution = readFileSync(join(root, "PRODUCT_CONSTITUTION.md"), "utf8");
-  assert.ok(constitution.includes(`当前开发契约为 **Penglai v${PRODUCT_VERSION}**`));
+  // The constitution must NOT pin the current version.
+  //
+  // It used to be required to, and that is what turned it into a release
+  // ledger: a version string has to change every release, while
+  // `website-publication.ts` only permits post-tag edits to a small path
+  // whitelist that does not include the constitution. So the moment a tag was
+  // cut, the constitution began contradicting the product and could not be
+  // corrected. By 0.6.5 it carried 51 lines of per-release authorisations
+  // alongside rules that never change, and eight documents shipped claiming a
+  // published version was unpublished.
+  //
+  // A constitution is the part of the contract that is true regardless of
+  // version. Anything that moves per release belongs in docs/decisions.md and
+  // release-contract.json. Asserting the absence is what keeps it that way.
+  assert.doesNotMatch(
+    constitution,
+    /当前开发契约为|current development contract is/i,
+    "the constitution must state invariants, not the current release; put the version in docs/decisions.md",
+  );
+  assert.doesNotMatch(
+    constitution,
+    new RegExp(PRODUCT_VERSION.replaceAll(".", "\\.")),
+    `the constitution must not pin the current version ${PRODUCT_VERSION}`,
+  );
+  // It must still be the governing document, and must still name the core.
+  assert.match(constitution, /DeepSeek Harness/);
+  assert.match(constitution, /反偏航自检/);
 });
 
 const publicationManifestPath = join(root, `docs/PUBLICATION_MANIFEST_${PRODUCT_VERSION}.md`);

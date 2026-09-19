@@ -7,10 +7,21 @@ export const ILINK_CDN_BASE = "https://novac2c.cdn.weixin.qq.com/c2c";
 export const DEFAULT_ILINK_BOT_TYPE = "3";
 export const ILINK_APP_ID = "bot";
 export const ILINK_BOT_AGENT = `Penglai/${RELEASE}`;
-/** Exact Tencent channel package pinned by docs/compatibility/WEIXIN_R2.md. */
-export const ILINK_CHANNEL_VERSION = "2.4.6";
-/** 0x00MMNNPP, matching Tencent's buildClientVersion("2.4.6"). */
-export const ILINK_APP_CLIENT_VERSION = (2 << 16) | (4 << 8) | 6;
+/**
+ * Tencent channel build this client identifies as.
+ *
+ * Previously `2.4.6`, published 2026-06-22. Tencent shipped `2.4.8`
+ * (2026-09-01) and `2.4.9` (2026-09-17) from the same `@tencent-weixin` scope
+ * while this stayed put; the value is announced to the server on every request
+ * through `iLink-App-ClientVersion` and `channel_version`, so a stale build id
+ * is a real compatibility risk rather than a cosmetic one. Track it with the
+ * `dsh-im-channel` drift probe.
+ *
+ * Pinned by `docs/compatibility/WEIXIN_R2.md`.
+ */
+export const ILINK_CHANNEL_VERSION = "2.4.9";
+/** 0x00MMNNPP, matching Tencent's buildClientVersion("2.4.9"). */
+export const ILINK_APP_CLIENT_VERSION = (2 << 16) | (4 << 8) | 9;
 /** Exact April 2026 Hermes native-voice request identity, probe-only. */
 export const ILINK_LEGACY_VOICE_CHANNEL_VERSION = "2.2.0";
 export const ILINK_LEGACY_VOICE_CLIENT_VERSION = (2 << 16) | (2 << 8);
@@ -52,6 +63,56 @@ export function assertRedirectBase(url: string): string {
     throw new Error("redirect host not allowlisted");
   }
   return `${parsed.protocol}//${parsed.host}`;
+}
+
+/**
+ * The iLink bot surface does not declare `application/json`.
+ *
+ * Tencent answers every endpoint with `Content-Type: application/octet-stream`
+ * while the body is the documented JSON envelope. Verified live on the whole
+ * published surface; `get_bot_qrcode` returns HTTP 200 with
+ * `{"qrcode":"...","qrcode_img_content":"...","ret":0}` under that content type.
+ *
+ * A `Content-Type` allowlist therefore rejects a healthy response, and the
+ * channel gates on `readIlinkEnvelope` plus the pinned origin instead. That pair
+ * is strictly stronger than a header check, because it validates the body
+ * rather than a claim about the body.
+ *
+ * Kept as an exported constant so the reason travels with the call site.
+ */
+export const ILINK_CONTENT_TYPE_IS_ADVISORY = true;
+
+export type IlinkEnvelope =
+  | { ok: true }
+  | { ok: false; ret: number; message: string };
+
+/**
+ * Read the shared iLink response envelope.
+ *
+ * Every endpoint carries a numeric `ret`, `0` for success. Failures add
+ * `err_msg`. Observed live:
+ *
+ *     GET get_bot_qrcode                 -> {"err_msg":"missing bot_type","ret":1}
+ *     GET get_bot_qrcode?bot_type=999    -> {"err_msg":"invalid bot_type","ret":2}
+ *     GET get_qrcode_status?qrcode=...   -> {"ret":0,"status":"..."}
+ *
+ * Endpoints that predate `ret` (the send/poll family, which reports through
+ * `errcode`) omit it, and an absent field is not a failure here. Callers keep
+ * their own endpoint-specific reading of `errcode`.
+ *
+ * This is the check that replaces the content-type gate. It is deliberately
+ * total: it never throws, so the caller decides the error class.
+ */
+export function readIlinkEnvelope(raw: Record<string, unknown>): IlinkEnvelope {
+  const ret = raw.ret;
+  if (ret === undefined || ret === null) return { ok: true };
+  if (typeof ret !== "number" || !Number.isSafeInteger(ret)) {
+    return { ok: false, ret: Number.NaN, message: "ilink ret is not an integer" };
+  }
+  if (ret === 0) return { ok: true };
+  const errMsg = raw.err_msg;
+  const message = typeof errMsg === "string" && errMsg.trim().length > 0 ? errMsg.trim() : `ilink ret=${ret}`;
+  return { ok: false, ret, message };
 }
 
 export const MessageType = { NONE: 0, USER: 1, BOT: 2 } as const;

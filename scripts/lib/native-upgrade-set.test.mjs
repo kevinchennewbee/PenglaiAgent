@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ROOT } from "./repo.mjs";
-import { PRODUCT_VERSION } from "./product.mjs";
+import { PRODUCT_VERSION, UPDATER_SEQUENCE } from "./product.mjs";
 import {
   assertNextUpdaterSequence,
   currentNativeLifecycleScope,
@@ -39,7 +39,7 @@ function passingPath(version, sourceSha, installerSha256) {
   };
 }
 
-test("current 0.6.3 workflow owner-excludes older installed upgrade", () => {
+test("current 0.6.5 workflow owner-excludes older installed upgrade", () => {
   const scope = currentNativeLifecycleScope(sources);
   assert.equal(scope.fetchPreviousInstallers, false);
   assert.equal(scope.olderInstalledUpgradeStatus, "OWNER_EXCLUDED");
@@ -61,11 +61,24 @@ test("release aggregation does not consume owner-excluded upgrade evidence", () 
   );
 });
 
-test("0.6.3 updater sequence is exactly one after immutable v0.6.2", () => {
-  assert.equal(assertNextUpdaterSequence(sources, 12), 11);
-  assert.throws(() => assertNextUpdaterSequence(sources, 11), /must follow public sequence 11/);
+test("0.6.5 updater sequence is exactly one after immutable v0.6.3", () => {
+  // The pinned predecessor v0.6.3 published updater sequence 12, so the release
+  // under development must carry exactly 13. `UPDATER_SEQUENCE` is the value the
+  // invariant is about, so it is the input; 12 is the historical fact being
+  // pinned, so it stays a literal. The old form hardcoded the input (12) as well,
+  // which meant a bump that forgot to advance the pin still failed here — for the
+  // right reason, but with nothing left to compare the pin against.
+  assert.equal(assertNextUpdaterSequence(sources, UPDATER_SEQUENCE), 12);
   assert.throws(
-    () => assertNextUpdaterSequence({ sources: [{ ...sources.sources[0], updateSequence: undefined }] }, 11),
+    () => assertNextUpdaterSequence(sources, UPDATER_SEQUENCE - 1),
+    /must follow public sequence 12/,
+  );
+  assert.throws(
+    () =>
+      assertNextUpdaterSequence(
+        { sources: [{ ...sources.sources[0], updateSequence: undefined }] },
+        UPDATER_SEQUENCE,
+      ),
     /must pin its public updater sequence/,
   );
 });
@@ -99,7 +112,7 @@ test("native upgrade seeds an explicit previous-version plugin preference", () =
 
 test("native upgrade set follows every pinned previous version, not a hardcoded pair", () => {
   const expected = expectedUpgradeSourceVersions(sources);
-  assert.deepEqual(expected, ["0.6.2"]);
+  assert.deepEqual(expected, ["0.6.3"]);
   assert.equal(expected.length, sources.sources.length);
   assert.deepEqual(expected, [...expected].sort());
   const sourceSha = "a".repeat(40);

@@ -16,7 +16,7 @@ import {
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, type InstallerKind } from "@penglai/contracts";
 import { assertSafeDownloadUrl } from "@penglai/plugin-registry";
 import {
   nextUpdateState,
@@ -44,7 +44,7 @@ export async function downloadVerifiedPayload(opts: {
   fetchImpl?: typeof fetch;
   resume?: boolean;
   signal?: AbortSignal;
-}): Promise<{ path: string; bytes: number; kind: "dmg" | "setup" }> {
+}): Promise<{ path: string; bytes: number; kind: InstallerKind }> {
   if (!opts.url.startsWith("https://") || opts.url.includes("latest")) {
     throw new PenglaiError("SECURITY_POLICY", "mutable or non-https asset URL");
   }

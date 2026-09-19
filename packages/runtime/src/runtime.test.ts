@@ -36,6 +36,7 @@ import {
   pinProductWebPatchReload,
   pnpmLocalFileSpecifier,
   PRODUCT_WEB_PATCH_RELOAD,
+  PRODUCT_VERSION,
   probeOfficialDsh,
   recoverProfile,
   resetManagedDshModuleFallback,
@@ -356,7 +357,12 @@ test("activatePrivateProfile pins lived-in live HMR to official startup without 
   assert.equal(manifest.dsh.profile.patchReload, "startup");
   assert.deepEqual(manifest.dsh.profile.bundles, ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]);
   assert.match(manifest.dependencies["@penglai/memory"], /^file:/);
-  assert.match(manifest.dependencies["@penglai/memory"], /penglai-memory-0\.6\.3\.tgz$/);
+  // The bundled first-party tarballs are named after the product release. Derive
+  // the name from the release pin: the previous `penglai-memory-0\.6\.3\.tgz`
+  // expectation escaped its dots, so the version bump's plain-string replace
+  // could not reach it and it kept asserting the old version.
+  const memoryTarball = `penglai-memory-${PRODUCT_VERSION.replaceAll(".", "\\.")}\\.tgz$`;
+  assert.match(manifest.dependencies["@penglai/memory"], new RegExp(memoryTarball));
 });
 
 test("pnpm local file specifiers preserve Windows 8.3 short paths without URL escaping", () => {

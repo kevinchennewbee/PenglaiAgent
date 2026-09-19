@@ -206,24 +206,24 @@ test("retention requires a signed catalog record distinct from the overlay claim
   const digest = "b".repeat(64);
   const installed = {
     id: "@penglai/memory",
-    version: "0.6.3.1",
+    version: "0.6.5.1",
     overlaySha256: digest,
     dshExact: PINNED_PLUGIN_DSH,
   };
   assert.equal(
     firstPartyRetentionDecision({
       pluginId: "@penglai/memory",
-      bundledVersion: "0.6.3",
+      bundledVersion: "0.6.5",
       bundledSha256: "a".repeat(64),
       installed,
-      signed: { version: "0.6.3.1", sha256: digest, dshExact: PINNED_PLUGIN_DSH },
+      signed: { version: "0.6.5.1", sha256: digest, dshExact: PINNED_PLUGIN_DSH },
     }),
     true,
   );
   assert.equal(
     firstPartyRetentionDecision({
       pluginId: "@penglai/memory",
-      bundledVersion: "0.6.3",
+      bundledVersion: "0.6.5",
       bundledSha256: "a".repeat(64),
       installed,
     }),
@@ -232,20 +232,20 @@ test("retention requires a signed catalog record distinct from the overlay claim
   assert.equal(
     firstPartyRetentionDecision({
       pluginId: "@penglai/memory",
-      bundledVersion: "0.6.3",
+      bundledVersion: "0.6.5",
       bundledSha256: "a".repeat(64),
       installed,
-      signed: { version: "0.6.3.1", sha256: "c".repeat(64), dshExact: PINNED_PLUGIN_DSH },
+      signed: { version: "0.6.5.1", sha256: "c".repeat(64), dshExact: PINNED_PLUGIN_DSH },
     }),
     false,
   );
   assert.equal(
     firstPartyRetentionDecision({
       pluginId: "@penglai/memory",
-      bundledVersion: "0.6.3",
+      bundledVersion: "0.6.5",
       bundledSha256: "a".repeat(64),
       installed: { ...installed, dshExact: "0.1.5-alpha.1" },
-      signed: { version: "0.6.3.1", sha256: digest, dshExact: PINNED_PLUGIN_DSH },
+      signed: { version: "0.6.5.1", sha256: digest, dshExact: PINNED_PLUGIN_DSH },
     }),
     false,
   );
@@ -286,7 +286,7 @@ test("first-party retention uses signed catalog identity, not the overlay as bot
 
 function writeMinimalPluginTree(root: string, js: string): { id: string; version: string; target: ReturnType<typeof runtimePluginTarget> } {
   const id = "@penglai/memory";
-  const version = "0.6.3-test";
+  const version = "0.6.5-test";
   const target = runtimePluginTarget();
   mkdirSync(join(root, "dist"), { recursive: true });
   writeFileSync(join(root, "dist", "index.js"), js);

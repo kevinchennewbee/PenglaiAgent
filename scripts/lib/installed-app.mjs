@@ -627,7 +627,7 @@ export function ownedRuntimeProcessPaths(app, resources) {
   const windows = existsSync(join(app, "Penglai.exe"));
   const root = resolve(resources);
   const nodeBin = resolve(join(root, windows ? "runtime/node/node.exe" : "runtime/node/bin/node"));
-  // 0.6.3 launches DSH through the application-owned, manifest-bound wrapper.
+  // 0.6.5 launches DSH through the application-owned, manifest-bound wrapper.
   // Looking for upstream lib/bin.js misses the real child process even though
   // the gateway and inventory are healthy.
   const dshEntry = resolve(join(root, "runtime/dsh/lib/penglai-dsh-launcher.mjs"));

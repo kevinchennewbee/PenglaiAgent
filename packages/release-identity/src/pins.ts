@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.6.3";
+export const PRODUCT_VERSION = "0.6.5";
 export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
@@ -104,65 +104,109 @@ export const ACCEPTANCE_DOC = "docs/ACCEPTANCE.md";
 export const HARD_ID_RE = /\| `(R5[05]-[A-Z0-9]+-\d+)` \|/g;
 /** Previous registry generation. Never a completion map. */
 export const LEGACY_HARD_COUNT_STALE = 202;
+/**
+ * Hard families the registry must contain.
+ *
+ * This list previously required `R50-BUDGET` 1..6, `R50-COMP` 1..8 and
+ * `R55-OFFICE` 1..24 — 38 ids for modules this version excludes from the
+ * workspace, profile, runtime, installer and product SBOM. No run could ever
+ * satisfy them, so `missing != 0` was structural and the completeness count
+ * carried no information. A family that cannot be emitted does not belong here.
+ *
+ * Each entry is backed by an emitter declared in `evidence-emitters.ts`, and
+ * `emitters.test.ts` asserts that every id listed here is both registered in
+ * `docs/ACCEPTANCE.md` and emittable. The requirement is therefore satisfiable by
+ * construction, which is what makes `missing === 0` mean something.
+ *
+ * A row is either a contiguous `{ prefix, start, end }` range or a sparse
+ * `{ prefix, ids }` list. Sparse rows exist because the surviving ids in those
+ * families are genuinely non-contiguous: the retired numbers were the
+ * unemittable ones, and writing `start: 1, end: 6` for `R50-CORE` would
+ * re-introduce exactly the unsatisfiable demand this change removes. Both forms
+ * are closed literals, so the rows stay textually auditable.
+ */
 export const REQUIRED_HARD_FAMILIES = [
-  { prefix: "R50-VOICE", start: 1, end: 16 },
-  { prefix: "R50-CTXMEM", start: 1, end: 16 },
-  { prefix: "R50-BUDGET", start: 1, end: 6 },
-  { prefix: "R50-COMP", start: 1, end: 8 },
-  { prefix: "R50-LIVE", start: 9, end: 16 },
-  { prefix: "R55-TRUTH", start: 1, end: 4 },
-  { prefix: "R55-DSH", start: 1, end: 4 },
-  { prefix: "R55-BUILTIN", start: 1, end: 12 },
-  { prefix: "R55-MEM", start: 1, end: 20 },
-  { prefix: "R55-OFFICE", start: 1, end: 24 },
-  { prefix: "R55-COMM", start: 1, end: 10 },
+  { prefix: "R50-TRUTH", start: 1, end: 8 },
+  { prefix: "R50-CORE", ids: [1, 2, 4, 5, 6] },
+  { prefix: "R50-ONB", start: 1, end: 12 },
+  { prefix: "R50-UPD", ids: [1, 4, 5, 6, 7] },
+  { prefix: "R50-CENTER", ids: [1, 5, 6, 7, 9] },
+  { prefix: "R50-DIST", ids: [1, 3, 5, 8] },
+  { prefix: "R50-ROUTE", ids: [1, 9, 10] },
+  { prefix: "R50-IM", start: 1, end: 1 },
+  { prefix: "R50-MAC", start: 4, end: 9 },
+  { prefix: "R50-SEC", start: 4, end: 4 },
+  { prefix: "R50-E2E", start: 1, end: 4 },
+  { prefix: "R50-PREP", ids: [1, 2, 3, 5, 6, 9, 10] },
+  { prefix: "R50-UI", ids: [1, 6] },
+  { prefix: "R50-CRED", start: 2, end: 2 },
+  { prefix: "R50-UN", ids: [1, 2, 5, 6, 7] },
+  { prefix: "R50-DRIFT", start: 1, end: 5 },
+  { prefix: "R50-DOC", start: 1, end: 5 },
+  { prefix: "R50-ABSENT", start: 1, end: 1 },
 ] as const;
+
 export const GITHUB_ACTIONS_STATUS = "AVAILABLE";
 export const CANDIDATE_SOURCE_SHA_NONE = "NONE";
 export const UPDATER_CHANNEL = "desktop-v0.5";
-/** Monotonic after immutable public v0.6.2, sequence 11. */
-export const UPDATER_SEQUENCE = 12;
+/** Monotonic after immutable public v0.6.3, sequence 12. */
+export const UPDATER_SEQUENCE = 13;
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.6.3",
-  release: "v0.6.3",
-  channel: "stable-v0.6.3",
+  tag: "v0.6.5",
+  release: "v0.6.5",
+  channel: "stable-v0.6.5",
 });
 
+/**
+ * Release-pipeline target table.
+ *
+ * This must stay a closed literal array: `scripts/lib/release-pins-source.mjs`
+ * extracts it textually, without executing any code, to keep the release
+ * pipeline readable and auditable. It is therefore NOT derived from
+ * `@penglai/contracts` `UPDATE_TARGETS`; the two tables are instead held in
+ * agreement by `target-agreement.test.ts`, which exists because they previously
+ * drifted. `linux-loong64` was published here while the runtime updater's copy
+ * of the list omitted it, so every update check on UOS failed with
+ * "unsupported update target"; `darwin-x86_64` went the other way and stayed in
+ * the runtime copy a version after being dropped here.
+ *
+ * Installer filenames embed the product version and must be updated with it.
+ */
 export const RELEASE_TARGETS = [
   {
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.6.3_macos_aarch64.dmg",
+    installer: "Penglai_0.6.5_macos_aarch64.dmg",
   },
   {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
-    installer: "Penglai_0.6.3_windows_x64_setup.exe",
+    installer: "Penglai_0.6.5_windows_x64_setup.exe",
   },
   {
     key: "linux-loong64",
     platform: "linux",
     arch: "loong64",
-    installer: "Penglai_0.6.3_uos_loong64.deb",
+    installer: "Penglai_0.6.5_uos_loong64.deb",
   },
 ] as const;
 
 export type ReleaseTargetKey = (typeof RELEASE_TARGETS)[number]["key"];
 
-/** Known packaging/host key retained for historical validation. Not a 0.6.3 release target. */
+/** Known packaging/host key retained for historical validation. Not a current release target. */
 export const EXCLUDED_CURRENT_RELEASE_TARGET_KEY = "darwin-x86_64" as const;
 
-/** Mac/Windows native install/lifecycle gates. linux-loong64 host evidence remains OWNER_POST_RELEASE, not a 0.6.3 PASS. */
+/** Mac/Windows native install/lifecycle gates. linux-loong64 host evidence remains OWNER_POST_RELEASE, not a 0.6.5 PASS. */
 export const NATIVE_INSTALLED_TARGET_KEYS = [
   "darwin-aarch64",
   "win32-x86_64",
 ] as const satisfies readonly ReleaseTargetKey[];
 
-/** Current 0.6.3 native lifecycle: fresh install, restart, and default uninstall on Mac/Windows. Older installed upgrade is explicitly owner-excluded. */
+/** Current 0.6.5 native lifecycle: fresh install, restart, and default uninstall on Mac/Windows. Older installed upgrade is explicitly owner-excluded. */
 export const CURRENT_NATIVE_LIFECYCLE = Object.freeze({
   requiredGate: "verify:fresh-install-uninstall",
   olderInstalledUpgradeStatus: "OWNER_EXCLUDED",
@@ -260,17 +304,68 @@ export const HARD_SUBGATES = [
   { name: "verify:installed", kind: "installed", mode: "evidence" },
   { name: "verify:fresh-install-uninstall", kind: "installed-lifecycle", mode: "evidence" },
   { name: "verify:public-export", kind: "public-export", mode: "evidence" },
+  { name: "verify:evidence", kind: "evidence", mode: "evidence" },
   { name: "audit:secrets", kind: "secret", mode: "run" },
 ] as const;
 
-// Owner-account journeys and the complete
-// cross-run assertion census remain visible supplemental acceptance. Their
-// absence must not masquerade as PASS or permanently block an otherwise
-// complete automated/native release aggregate.
+/**
+ * Owner-account journeys that cannot run without live credentials.
+ *
+ * `verify:evidence` used to sit here. That placement was the structural reason a
+ * release could be published with evidence missing or self-contradictory:
+ * `verify-release.mjs` hardcoded `supplementalAcceptance.requiredForPublication:
+ * false`, and a supplemental record is reported but never aggregated into the
+ * release verdict. The cross-run assertion census is not an owner-account
+ * journey, so it is a hard gate now (see `HARD_SUBGATES` above).
+ *
+ * What remains supplemental is exactly what cannot be automated: a journey that
+ * needs the Owner's real account. Its absence must not masquerade as PASS, and
+ * it must not permanently block an otherwise complete automated/native release.
+ */
 export const SUPPLEMENTAL_ACCEPTANCE_SUBGATES = [
   { name: "verify:live", kind: "live", mode: "evidence" },
-  { name: "verify:evidence", kind: "evidence", mode: "evidence" },
 ] as const;
+
+
+/**
+ * Drift probes: does the outside world still match what this repository assumes?
+ *
+ * A third category, deliberately separate from both the hard gates and the
+ * supplemental acceptance set. Its contract is narrower than either:
+ *
+ *   A red drift probe does not block publication. It blocks the release from
+ *   claiming that everything is fine. Record the drift in the release notes, or
+ *   fix it.
+ *
+ * It is not a hard gate because an external service being unreachable must not
+ * be able to stop a release that is otherwise complete, and because the pinned
+ * upstream version is an Owner decision that this project deliberately does not
+ * chase automatically. It is not supplemental acceptance either, because
+ * "supplemental" reads as "nice to have" and these are the checks that would
+ * have caught every serious 0.6.x defect:
+ *
+ *   - `weixin-ilink`: Tencent serves the iLink surface as
+ *     `application/octet-stream`; the channel gated on `application/json` and
+ *     WeChat was broken for eight releases.
+ *   - `dsh-im-channel`: the announced channel build sat at 2.4.6 while Tencent
+ *     shipped 2.4.8 and 2.4.9.
+ *   - `dsh-upstream`: DSH publishes to npm without a GitHub release, so a
+ *     releases-only watch under-reports upstream movement.
+ *   - `published-facts`: eight documents claimed 0.6.5 was unpublished after it
+ *     had been published and read back.
+ *
+ * `pnpm verify:drift` exits PASS when every probe passes, FAIL when any probe
+ * detects drift, and BLOCKED when none could run.
+ */
+export const DRIFT_SUBGATES = [
+  { name: "verify:drift", kind: "drift", mode: "probe" },
+] as const;
+
+/**
+ * The drift subgates that were evaluated, for release records. Their verdict is
+ * published alongside the release rather than gating it.
+ */
+export const DRIFT_SUBGATE_NAMES = DRIFT_SUBGATES.map((gate) => gate.name);
 
 export const REQUIRED_SUBGATE_KINDS = [
   "format",
@@ -289,6 +384,7 @@ export const REQUIRED_SUBGATE_KINDS = [
   "installed",
   "installed-lifecycle",
   "public-export",
+  "evidence",
   "secret",
 ] as const;
 

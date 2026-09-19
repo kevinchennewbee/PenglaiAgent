@@ -1,0 +1,92 @@
+name: Drift probes
+
+# Does the outside world still match what this repository assumes?
+#
+# This workflow is intentionally separate from every release gate. A red run here
+# does not block a release; it means a release must not claim that everything is
+# fine. See DRIFT_SUBGATES in packages/release-identity/src/pins.ts.
+#
+# Every serious 0.6.x defect had this shape: Penglai froze an assumption about
+# something outside the repository and nothing ever re-checked it.
+#   - Tencent serves the iLink surface as `application/octet-stream`, not
+#     `application/json`. WeChat was broken for eight releases.
+#   - `update.ts` required the semver minor to be `5`. Assisted update was dead
+#     for four releases.
+#   - `pi-ai` knew 27 models while the provider served 37.
+#
+# Running daily rather than on every push is deliberate: these probes are
+# event-driven with respect to the outside world, not to our commits.
+
+on:
+  schedule:
+    # 01:17 UTC daily. Off the hour so it does not queue behind the many jobs
+    # that start at :00.
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drift-probes
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    name: External drift probes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.2
+      - name: Install pinned dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.11.0 --activate
+          pnpm install --frozen-lockfile
+      - name: Run drift probes
+        id: probes
+        continue-on-error: true
+        # The script exits 1 for drift and 4 when every probe was blocked. The
+        # exit code is recorded because `continue-on-error` collapses both into
+        # the same step outcome, which is how this workflow would have turned a
+        # fully-blocked run red after documenting that it must not.
+        run: |
+          pnpm verify:drift && code=0 || code=$?
+          echo "exitCode=$code" >> "$GITHUB_OUTPUT"
+          exit $code
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "### Drift probes"
+            echo
+            echo "A red probe does not block publication. It blocks the release from"
+            echo "claiming everything is fine. Record the drift in the release notes,"
+            echo "or fix it."
+            echo
+            echo '```'
+            cat evidence/generated/verify-drift.json 2>/dev/null || echo "no evidence written"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload probe evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: drift-probes
+          path: evidence/generated/verify-drift.json
+          if-no-files-found: warn
+          retention-days: 30
+      # Fails only when a probe found drift (exit 1). A run where every probe was
+      # blocked (exit 4) is not drift: an unreachable vendor must not turn the run
+      # red, and the script already reports that state as BLOCKED.
+      - name: Fail on drift
+        if: steps.probes.outputs.exitCode == '1'
+        run: |
+          echo "Drift detected. This does not block a release, but the release notes"
+          echo "must state it. See the job summary for the probe results."
+          exit 1

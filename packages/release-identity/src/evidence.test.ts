@@ -28,7 +28,7 @@ test("rejects hardcoded PASS", () => {
   );
 });
 
-test("R50-E2E-005 one assertion cannot fan out to many IDs", () => {
+test("one assertion cannot fan out to many acceptance ids", () => {
   assert.throws(
     () =>
       assertNoFanOut([
@@ -59,22 +59,18 @@ test("R50-E2E-005 one assertion cannot fan out to many IDs", () => {
       ]),
     /fan-out/,
   );
-  recordAssertion({
-    acceptanceId: "R50-E2E-005",
-    runnerId: "release-identity.evidence",
-    testId: "fan-out-rejected",
-    assertionId: "one-assertion-one-id",
-    status: "PASS",
-    candidateSourceSha: "a".repeat(40),
-    exitCode: 0,
-  });
+  // This test deliberately records nothing against the registry. It used to
+  // record R50-E2E-005 against a placeholder source SHA, which tallied as STALE
+  // and proved only that a fake record can be written. The fan-out guard is a
+  // property of every id, so it is asserted here and applied to real evidence by
+  // `assertNoFanOut` inside `verify-evidence.mjs`.
 });
 
-test("R50-E2E-007 translated-as-native is rejected", () => {
+test("translated-as-native is rejected", () => {
   assert.throws(
     () =>
       recordAssertion({
-        acceptanceId: "R50-MAC-010",
+        acceptanceId: "R50-MAC-009",
         runnerId: "rosetta",
         testId: "x64",
         assertionId: "native-lie",
@@ -86,15 +82,6 @@ test("R50-E2E-007 translated-as-native is rejected", () => {
       }),
     /translated\/emulated/,
   );
-  recordAssertion({
-    acceptanceId: "R50-E2E-007",
-    runnerId: "release-identity.evidence",
-    testId: "translated-native-rejected",
-    assertionId: "reject-translated-as-native",
-    status: "PASS",
-    candidateSourceSha: "a".repeat(40),
-    exitCode: 0,
-  });
 });
 
 test("PASS without assertionId is rejected", () => {

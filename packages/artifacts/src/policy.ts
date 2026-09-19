@@ -11,7 +11,7 @@ export const ARTIFACT_LIMITS = {
 } as const;
 
 // `office` and `document` are retained only so older persisted artifact rows can
-// still be read during upgrade. Current 0.6.3 admission is text/media-only.
+// still be read during upgrade. Current 0.6.5 admission is text/media-only.
 export const ARTIFACT_SOURCES = ["composer", "office", "im", "memory", "generated"] as const;
 export const ARTIFACT_SCOPES = ["turn", "workspace", "memory-source"] as const;
 export const ARTIFACT_KINDS = ["image", "document", "audio", "file"] as const;

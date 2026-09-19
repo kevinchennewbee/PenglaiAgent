@@ -9,6 +9,12 @@ import {
   pickFromMenu,
 } from "./menu.js";
 import { parseCommand, versionText } from "./commands.js";
+import { PRODUCT_VERSION } from "../../release-identity/src/pins.js";
+
+/** `.` is a regex metacharacter, so the release pin must be escaped before use. */
+function literal(value: string): string {
+  return value.replaceAll(".", "\\.");
+}
 
 test("project menu numbers every workspace under 未分组", () => {
   const { text, menu } = formatProjectMenu(
@@ -116,7 +122,13 @@ test("/version is a local control command and does not mention a second host", (
   assert.deepEqual(parseCommand("/version"), { type: "version" });
   assert.deepEqual(parseCommand("/版本"), { type: "version" });
   const text = versionText();
-  assert.match(text, /Penglai 0\.6\.3/);
+  // The banner reports the product release, so the expectation is the release
+  // pin, not a literal. `/Penglai 0\.6\.3/` looked version-agnostic to a version
+  // bump: the escape means a plain `0.6.3 -> 0.6.5` string replace never matches
+  // it, so the expectation silently stayed behind and failed instead of moving
+  // with the version. Anchoring the line also makes it exact rather than a
+  // substring that any embedded version string could satisfy.
+  assert.match(text, new RegExp(`^Penglai ${literal(PRODUCT_VERSION)}$`, "m"));
   assert.match(text, /DSH 0\.1\.6-alpha\.2/);
   assert.match(text, /ddefc45fbc7f8e46dd73185e68295696d1297887/);
   assert.match(text, /DSH-IM adopted rewrite-source v4\.17\.1/);

@@ -630,7 +630,7 @@ export async function apply(ctx: {
   );
   // Legacy Center transactions may have interrupted while rewriting the profile.
   // Recover the profile itself, but never project the old desired.json state into
-  // 0.6.3: the official DSH profile patch is now the sole enablement authority.
+  // 0.6.5: the official DSH profile patch is now the sole enablement authority.
   recoverInterruptedTransaction({
     userDataRoot: userData,
     profileDir,

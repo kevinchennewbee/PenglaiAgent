@@ -787,9 +787,10 @@ test("legacy IM failure storage migrates and retains only safe transport fields"
       "weixin-default",
     );
     const reconstructed = bots.getChannelFailure("weixin", "weixin-default");
-    assert.equal(reconstructed?.action, "check_network_retry");
-    assert.match(reconstructed?.messageZh ?? "", /平台返回了非预期响应/);
-    assert.match(reconstructed?.messageEn ?? "", /unexpected response/);
+    // Re-derived from the code, never trusted from the row.
+    assert.equal(reconstructed?.action, "retry_with_reference");
+    assert.match(reconstructed?.messageZh ?? "", /平台返回了蓬莱无法识别的响应/);
+    assert.match(reconstructed?.messageEn ?? "", /could not recognise/);
     assert.doesNotMatch(
       JSON.stringify(reconstructed),
       /private database text|delete_everything/,

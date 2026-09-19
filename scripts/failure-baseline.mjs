@@ -105,7 +105,13 @@ async function probeFanout() {
         resultDigest: "d",
       },
       {
-        acceptanceId: "R50-LIVE-001",
+        // The two records must share `runnerId::testId` and differ in
+        // `acceptanceId` — that pair IS the fan-out condition `assertNoFanOut`
+        // keys on. An earlier edit made both ids the same, which turns this into
+        // a duplicate-assertion case instead: `ids.size` stays 1, nothing is
+        // rejected, and the probe reports REPRODUCED for a defect it no longer
+        // exercises.
+        acceptanceId: "R50-TRUTH-002",
         runnerId: "smoke",
         testId: "one",
         assertionId: "same",
@@ -146,14 +152,14 @@ async function probeStaleAlpha() {
 function probeVersions() {
   const root = readJson("package.json");
   const info = readJson("release-info.json");
-  const ok = root.version === "0.6.3" && info.productVersion === "0.6.3";
+  const ok = root.version === "0.6.5" && info.productVersion === "0.6.5";
   if (!ok) {
-    return result("FB-VERSIONS", "REPRODUCED", "workspace/release-info not 0.6.3", {
+    return result("FB-VERSIONS", "REPRODUCED", "workspace/release-info not 0.6.5", {
       packageVersion: root.version,
       productVersion: info.productVersion,
     });
   }
-  return result("FB-VERSIONS", "CLOSED", "root and release-info are 0.6.3", { version: root.version });
+  return result("FB-VERSIONS", "CLOSED", "root and release-info are 0.6.5", { version: root.version });
 }
 
 async function probeAggregator() {
@@ -185,9 +191,9 @@ function probePublication() {
   const pub = info.publication ?? {};
   const ok =
     pub.repo === "kevinchennewbee/PenglaiAgent" &&
-    pub.tag === "v0.6.3" &&
-    pub.release === "v0.6.3" &&
-    pub.channel === "stable-v0.6.3";
+    pub.tag === "v0.6.5" &&
+    pub.release === "v0.6.5" &&
+    pub.channel === "stable-v0.6.5";
   if (!ok) {
     return result("FB-PUBLICATION", "REPRODUCED", "publication fields do not match the owner-authorized destination", { pub });
   }
@@ -346,7 +352,7 @@ const dir = join(ROOT, "evidence", "generated");
 mkdirSync(dir, { recursive: true });
 writeFileSync(
   join(dir, "failure-baseline.json"),
-  JSON.stringify({ schema: 3, version: "0.6.3", probes: out, mustClose: MUST_CLOSE }, null, 2),
+  JSON.stringify({ schema: 3, version: "0.6.5", probes: out, mustClose: MUST_CLOSE }, null, 2),
 );
 console.log(
   "failure-baseline",

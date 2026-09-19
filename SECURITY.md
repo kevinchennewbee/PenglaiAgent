@@ -17,10 +17,12 @@ Penglai 0.6.3 is the current **community-verified** immutable public desktop dis
 | Earlier 0.5.x | Historical releases; use the documented migration path |
 | 0.4.1 and earlier | Unsupported; 0.5 does not silently import or delete old secrets or databases |
 
-The 0.6.3 release contract requires ten files: three
+The 0.6.5 release contract requires ten files: three
 installers (Apple Silicon, Windows x64, UnionTech UOS 20 LoongArch), signed
 update metadata, SHA256SUMS, the release-set SBOM, third-party notices, and
-the public source-export manifest. Intel Mac is excluded from 0.6.3. The
+the public source-export manifest. Intel Mac is excluded from 0.6.5. Until
+immutable 0.6.5 bytes are published and read back, 0.6.3 remains the current
+public download. The
 published 0.6.2 and earlier immutable releases remain historical bytes; the
 0.5.9 release contains only its three installers and its missing metadata is a
 historical publication defect. Do not infer signed updater coverage for that
@@ -59,7 +61,7 @@ Adapters cannot call a parallel Agent. `docs/0.5.7/LIVE_IM_MATRIX.md` preserves
 historical account-test requirements; it does not establish current-version live
 results. Current account journeys are claimed only with current evidence. Slack,
 Telegram, and Discord do not fake QR.
-WhatsApp is not displayed, supported, planned, or bundled in 0.6.3.
+WhatsApp is not displayed, supported, planned, or bundled in 0.6.5.
 
 - Weixin: real QR login. The scanner is the only allowed identity unless the user expands the allowlist.
 - Feishu: the official application-registration QR flow is used where available, with manual App ID/Secret setup as a fallback. Penglai does not host the application or invent a login QR.
@@ -99,6 +101,8 @@ Intel Mac 不是 0.6.3 安装目标。UOS 龙芯包身份、ABI、运行时、�
 
 0.6.3 的正式发布包含十项完整附件，包括三个安装包、签名更新清单、校验和、
 SBOM、第三方声明与 public export manifest，并已完成不可变公网字节回读。
+开发中的 0.6.5 使用同一固定 DSH cohort；其三端安装包、真机验收与不可变公网回读
+均为 `NOT_RUN`，在不可变 0.6.5 字节回读通过前公开下载仍为 0.6.3。
 0.5.9 历史发布只有三个安装包，缺少元数据属于当时的发布缺陷；不能据此声称该版
 签名更新链路完整。原有不可变附件未被修改。Windows 原生检查使用托管运行器现有
 安全配置，尚未验证默认开启 Defender 的系统。

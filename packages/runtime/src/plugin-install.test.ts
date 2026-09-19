@@ -178,7 +178,7 @@ function newerMemoryPackage(dest: string): {
           provenanceClass: "penglai-first-party",
           license: "MIT",
           dsh: { exact: pkg.penglaiPlugin.dshExact },
-          minPenglai: "0.6.3",
+          minPenglai: "0.6.5",
           capabilities: [],
           permissions: [],
           defaultEnabled: false,

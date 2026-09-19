@@ -27,7 +27,7 @@ export const DSH_HOME_ALPHA13_VERSION = "0.1.3-alpha.2";
 export const DSH_HOME_ALPHA15_VERSION = "0.1.5-alpha.1";
 /** Published 0.6.1 generation. Later homes preserve its original session and settings bytes. */
 export const DSH_HOME_RC1_VERSION = "0.1.5-rc.1";
-/** Published 0.6.2 generation. 0.6.3 copies this tree and keeps original session and settings bytes. */
+/** Published 0.6.2 generation. 0.6.5 copies this tree and keeps original session and settings bytes. */
 export const DSH_HOME_RC2_VERSION = "0.1.5-rc.2";
 export const DSH_HOME_TARGET_VERSION = "0.1.6-alpha.2";
 type SourceVersion =
@@ -1080,7 +1080,7 @@ export function readActiveDshHome(
 }
 
 /**
- * Select the 0.1.6-alpha.2 DSH Home used by 0.6.3 by copying the verified
+ * Select the 0.1.6-alpha.2 DSH Home used by 0.6.5 by copying the verified
  * active previous generation. Prior mutable state is never used in place. A prepared generation is resumable:
  * the active pointer is written only after the embedded Host and required
  * first-party plugins have been observed healthy.

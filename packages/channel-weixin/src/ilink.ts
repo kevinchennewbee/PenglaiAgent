@@ -2,7 +2,6 @@ import {
   BOUNDED_HTTP_MAX_BYTES,
   PenglaiError,
   isRecord,
-  jsonMimeAllowed,
   readBoundedResponse,
 } from "@penglai/contracts";
 import {
@@ -20,6 +19,7 @@ import {
   buildLegacyVisibleVoiceSendBody,
   mapQrStatus,
   randomWechatUin,
+  readIlinkEnvelope,
   type OfficialQrStatus,
   type OfficialWeixinMessage,
 } from "./protocol.js";
@@ -214,10 +214,24 @@ export class ILinkClient {
   async getQr(botType = DEFAULT_ILINK_BOT_TYPE): Promise<QrStart> {
     const url = `${this.base}/ilink/bot/get_bot_qrcode?bot_type=${encodeURIComponent(botType)}`;
     const raw = await this.post(url, { local_token_list: this.localTokenList }, undefined);
-    const qrRef = String(raw.qrcode ?? "");
-    if (!qrRef) throw new PenglaiError("AUTH_EXPIRED", "qr missing");
-    const payload = String(raw.qrcode_img_content ?? "");
-    if (!payload) throw new PenglaiError("INVALID_INPUT", "weixin qr image missing");
+    // `get_bot_qrcode` refuses a bad request with `ret:1` ("missing bot_type") or
+    // `ret:2` ("invalid bot_type") and no `qrcode`. That used to fall through to
+    // `AUTH_EXPIRED`, which tells the user their credentials expired and to
+    // reconnect — a wrong instruction for a refused request. The envelope is
+    // read here so the numeric vendor code is surfaced and the error class
+    // matches what actually happened. The vendor `err_msg` is reported as a
+    // diagnostic only and never becomes user-facing text.
+    const envelope = readIlinkEnvelope(raw);
+    if (!envelope.ok) {
+      throw new PenglaiError(
+        "DELIVERY_PERMANENT",
+        `ILINK_QR_RET_${Number.isNaN(envelope.ret) ? "INVALID" : envelope.ret}`,
+      );
+    }
+    const qrRef = typeof raw.qrcode === "string" ? raw.qrcode : "";
+    if (!qrRef) throw new PenglaiError("DELIVERY_PERMANENT", "ILINK_QR_START_SHAPE");
+    const payload = typeof raw.qrcode_img_content === "string" ? raw.qrcode_img_content : "";
+    if (!payload) throw new PenglaiError("DELIVERY_PERMANENT", "ILINK_QR_IMAGE_SHAPE");
     return {
       qrRef,
       qrImageRef: await renderWeixinQrImage(payload),
@@ -461,7 +475,14 @@ export class ILinkClient {
         maxBytes: BOUNDED_HTTP_MAX_BYTES.weixinIlink,
         category: "weixin-ilink",
         timeoutMs: 30_000,
-        mimeAllowed: jsonMimeAllowed,
+        // No `mimeAllowed` here on purpose. Tencent serves this whole surface as
+        // `application/octet-stream` while the body is the documented JSON
+        // envelope, so `jsonMimeAllowed` rejected a healthy response and broke
+        // the channel for eight releases. The guards that remain are stronger
+        // than the header check they replace: the origin is a module constant
+        // plus `ALLOWED_REDIRECT_HOSTS`, the body is size- and time-bounded, and
+        // the parsed envelope is validated by `readIlinkEnvelope` below.
+        // See `ILINK_CONTENT_TYPE_IS_ADVISORY` in protocol.ts.
         ...(init.signal ? { signal: init.signal } : {}),
       });
       text = bounded.bytes.toString("utf8");
@@ -509,6 +530,15 @@ export class ILinkClient {
           observation,
         );
       }
+      // `ret` is deliberately NOT rejected here. Its meaning is per-endpoint:
+      // `getuploadurl` reports a retryable vendor code through it and `cdn.ts`
+      // maps that code to AUTH_EXPIRED / DELIVERY_TRANSIENT itself, surfacing
+      // only a numeric diagnostic so vendor text never crosses the host
+      // boundary. A blanket rejection here would pre-empt that mapping and turn
+      // a retryable upload failure into a permanent one.
+      //
+      // `readIlinkEnvelope` is applied by the endpoints that do need it, and is
+      // exported for the drift probe.
       return parsed;
     } catch (error) {
       if (error instanceof WeixinIlinkResponseError) throw error;

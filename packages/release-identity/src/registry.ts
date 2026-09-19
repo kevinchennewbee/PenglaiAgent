@@ -71,6 +71,14 @@ export function familyId(prefix: string, n: number): string {
 export function requiredFamilyIds(): string[] {
   const ids: string[] = [];
   for (const fam of REQUIRED_HARD_FAMILIES) {
+    // A row is either a contiguous range or an explicit sparse id list. Sparse
+    // rows exist because the surviving ids in those families are non-contiguous
+    // after the unemittable numbers were retired; expanding them as a range
+    // would demand ids that no emitter can produce.
+    if ("ids" in fam) {
+      for (const n of fam.ids) ids.push(familyId(fam.prefix, n));
+      continue;
+    }
     for (let n = fam.start; n <= fam.end; n += 1) ids.push(familyId(fam.prefix, n));
   }
   return ids;

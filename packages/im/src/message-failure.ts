@@ -17,6 +17,7 @@ export const MESSAGE_FAILURE_CODES = [
   "CHANNEL_DELIVERY_UNCERTAIN",
   "CHANNEL_AUTH",
   "CHANNEL_PROTOCOL",
+  "CHANNEL_RESPONSE_TOO_LARGE",
   "CHANNEL_NO_QR",
   "PRESET_UNAVAILABLE",
   "INPUT_INVALID",
@@ -64,8 +65,20 @@ const COPY: Record<MessageFailureCode, { zh: string; en: string }> = {
     en: "Credentials are invalid or expired. Connect again.",
   },
   CHANNEL_PROTOCOL: {
-    zh: "平台返回了非预期响应。请记下参考号后重试；若持续出现，请检查网络或平台状态。",
-    en: "The platform returned an unexpected response. Note the reference id and retry; if it persists, check the network or platform status.",
+    // Deliberately does NOT tell the user to check their network or "platform
+    // status". The previous copy did, and it was wrong twice over: the response
+    // it described was usually refused by Penglai's own content-type gate, and
+    // even when the platform really did answer oddly, inspecting the network is
+    // not something the user can act on. The reference id is, so that is what
+    // the copy asks for.
+    zh: "平台返回了蓬莱无法识别的响应。请记下参考号后重试；若持续出现，请把参考号反馈给我们。",
+    en: "The platform returned a response Penglai could not recognise. Note the reference id and retry; if it persists, report the reference id to us.",
+  },
+  CHANNEL_RESPONSE_TOO_LARGE: {
+    // A Penglai limit, not a platform fault. Reporting it as a platform anomaly
+    // sent users to look in the wrong place.
+    zh: "平台的响应超过了蓬莱允许的大小上限，已安全丢弃。请记下参考号后重试。",
+    en: "The platform response exceeded the size limit Penglai allows and was discarded safely. Note the reference id and retry.",
   },
   CHANNEL_NO_QR: {
     zh: "这个平台没有官方扫码捷径。请按官方 Token / Manifest 步骤连接。",
@@ -125,7 +138,12 @@ export function classifyMessageFailure(error: unknown): MessageFailure {
       : undefined;
   const code: MessageFailureCode = typedIlinkCode ?? (/CHANNEL_NO_QR/.test(text)
     ? "CHANNEL_NO_QR"
-    : /BOUNDED_HTTP_(?:MIME|JSON|EMPTY|TOO_LARGE|DECLARED_LENGTH)/.test(text)
+    // Penglai's own byte bounds are split out from the platform-shape codes.
+    // They are this product's limit being hit by a large but legitimate
+    // response, so blaming the platform for them was a misreport.
+    : /BOUNDED_HTTP_(?:TOO_LARGE|DECLARED_LENGTH)/.test(text)
+      ? "CHANNEL_RESPONSE_TOO_LARGE"
+    : /BOUNDED_HTTP_(?:MIME|JSON|EMPTY)/.test(text)
       ? "CHANNEL_PROTOCOL"
     : /AUTH_EXPIRED|TOKEN_INVALID|credentials missing/.test(text)
       ? "CHANNEL_AUTH"
@@ -168,7 +186,8 @@ export const RECOVERY_ACTION_BY_CODE: Record<MessageFailureCode, string> = {
   CHANNEL_DELIVERY: "retry",
   CHANNEL_DELIVERY_UNCERTAIN: "confirm_manually",
   CHANNEL_AUTH: "reconnect",
-  CHANNEL_PROTOCOL: "check_network_retry",
+  CHANNEL_PROTOCOL: "retry_with_reference",
+  CHANNEL_RESPONSE_TOO_LARGE: "retry",
   CHANNEL_NO_QR: "use_official_token",
   PRESET_UNAVAILABLE: "select_project_new_session",
   INPUT_INVALID: "fix_input",

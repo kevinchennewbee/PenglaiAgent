@@ -882,7 +882,7 @@ export function prepareOpenPluginProfile(layout: RuntimeLayout, user: UserLayout
   }
   patch = `${patch.trimEnd()}\n# Open manager migration: preserve subsequent Owner choices.\n- id: tool-plugin-manager\n  disabled: false\n- id: ui-plugin-manager\n  disabled: false\n`;
   writeFileAtomic(patchPath, patch, 0o600);
-  writeFileAtomic(marker, `${JSON.stringify({ schema: 1, manager: "official-dsh", version: "0.6.3" })}\n`, 0o600);
+  writeFileAtomic(marker, `${JSON.stringify({ schema: 1, manager: "official-dsh", version: "0.6.5" })}\n`, 0o600);
 }
 
 export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout): void {

@@ -100,11 +100,13 @@ if (process.argv.includes("--aggregate")) {
   const records = present.map((target) => {
     const rec = JSON.parse(readFileSync(join(evidenceDir, evidenceName("installed-e2e", target)), "utf8"));
     const expectedInstaller = installerForTarget(target);
+    // `present` comes from NATIVE_INSTALLED_TARGETS, which cannot contain the
+    // Intel target this version excludes, so only these two arms are reachable.
+    // The Intel arm that used to sit between them could never fire; leaving it
+    // in made the code look like it validated a target that does not exist.
     const hostMatches = target === "darwin-aarch64"
       ? rec.host?.platform === "darwin" && rec.host?.arch === "arm64"
-      : target === "darwin-x86_64"
-        ? rec.host?.platform === "darwin" && rec.host?.arch === "x64"
-        : rec.host?.platform === "win32" && rec.host?.arch === "x64";
+      : rec.host?.platform === "win32" && rec.host?.arch === "x64";
     if (
       rec.schema !== 2 ||
       rec.command !== "test:e2e:installed" ||
@@ -246,16 +248,17 @@ identity.recordAssertion({
   assertionId: "exact-installer-installed-suite",
   details: { safe: `${target} exact installer suite recorded official boot observations` },
 });
-if (target === "darwin-x86_64") {
-  identity.recordAssertion({
-    ...common,
-    acceptanceId: "R50-MAC-010",
-    runnerId: "installed",
-    testId: "verify-installed",
-    assertionId: "intel-native-runner",
-    details: { safe: "Intel installer evidence was recorded on a native darwin-x86_64 runner" },
-  });
-}
+// Intel Mac is not a target of this version, so no Intel assertion is recorded.
+// The Intel branch that used to sit here could never fire: the assertion was
+// emitted only for the excluded Intel target, which
+// `EXCLUDED_CURRENT_RELEASE_TARGET_KEY` names and `RELEASE_TARGETS` cannot
+// select. Keeping a dead branch would make the id look satisfied when nothing
+// could ever produce it.
+//
+// This comment deliberately does not spell either the id or the target key out.
+// `installed-walk.test.ts` asserts the absence of both from this file, and a
+// bare mention here would satisfy those patterns while the code stayed removed —
+// turning a check that the branch is gone into a check that a string appears.
 identity.recordAssertion({
   ...common,
   acceptanceId: "R50-ONB-002",

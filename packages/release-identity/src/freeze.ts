@@ -34,6 +34,7 @@ import {
   PINNED_WEIXIN_REF,
   USER_CATALOG_PACKAGES,
 } from "./pins.js";
+import { previousRecordedRelease } from "./release-facts.js";
 
 export type MigrationDecision = "DSH_REUSE" | "PENGLAI_PLUGIN" | "DISTRIBUTION" | "REJECT_DUPLICATE" | "EXCLUDED_0_6_3";
 
@@ -153,7 +154,7 @@ export function assertNoLatestDownloads(text: string): void {
   }
 }
 
-export const COHORT_FREEZE_KIND = "penglai-0.6.3-development-cohort-freeze" as const;
+export const COHORT_FREEZE_KIND = "penglai-0.6.5-development-cohort-freeze" as const;
 export const PUBLISHED_0512_FREEZE_KIND = "penglai-0.5.12-development-cohort-freeze" as const;
 export const PUBLISHED_0512_REJECTED_DSH_SUCCESSOR_TAG = "dsh-v0.1.3-alpha.1" as const;
 export const NEXT_DSH_REVIEW_BOUNDARY = "later-than-dsh-v0.1.6-alpha.2" as const;
@@ -165,7 +166,7 @@ export interface CohortFreezeRecord {
   publicRelease: { productVersion: string; tag: string; immutable: boolean };
   previousPublicRelease?: { productVersion: string; tag: string; immutable: true };
   development: {
-    versionLabel: "0.6.3";
+    versionLabel: "0.6.5";
     publicationAuthorized: boolean;
     identityRetitled: boolean;
   };
@@ -201,33 +202,39 @@ export function assertCohortFreeze(input: {
   if (freeze.schema !== 1 || freeze.kind !== COHORT_FREEZE_KIND) {
     throw new PenglaiError("INVALID_INPUT", "cohort freeze identity");
   }
+  // The predecessor is read from the repository's own publication records rather
+  // than written here. A literal cannot survive a version move: the move knows
+  // the version it moves to, not which release that version supersedes. That is
+  // how this check came to assert v0.6.2 after v0.6.3 had been published and
+  // read back.
+  const previous = previousRecordedRelease(PRODUCT_VERSION);
   if (freeze.status === "publication-authorized") {
     if (freeze.development.publicationAuthorized !== true || freeze.development.identityRetitled !== true) {
-      throw new PenglaiError("SECURITY_POLICY", "publication-authorized freeze must retitle 0.6.3");
+      throw new PenglaiError("SECURITY_POLICY", "publication-authorized freeze must retitle the version under development");
     }
     if (freeze.publicRelease.immutable !== true) {
       throw new PenglaiError("SECURITY_POLICY", "current public identity must stay immutable once tagged");
     }
     if (
-      freeze.previousPublicRelease?.productVersion !== "0.6.2" ||
-      freeze.previousPublicRelease.tag !== "v0.6.2" ||
+      freeze.previousPublicRelease?.productVersion !== previous ||
+      freeze.previousPublicRelease.tag !== `v${previous}` ||
       freeze.previousPublicRelease.immutable !== true
     ) {
-      throw new PenglaiError("SECURITY_POLICY", "published 0.6.2 identity must stay immutable");
+      throw new PenglaiError("SECURITY_POLICY", `published ${previous} identity must stay immutable`);
     }
   } else if (freeze.status === "development-frozen") {
     if (freeze.development.publicationAuthorized !== false || freeze.development.identityRetitled !== true) {
-      throw new PenglaiError("SECURITY_POLICY", "0.6.3 identity is retitled and development-frozen until publication");
+      throw new PenglaiError("SECURITY_POLICY", "the version under development is retitled and development-frozen until publication");
     }
     if (freeze.publicRelease.immutable === true) {
-      throw new PenglaiError("SECURITY_POLICY", "0.6.3 public identity is not immutable until the GitHub Release exists");
+      throw new PenglaiError("SECURITY_POLICY", `${PRODUCT_VERSION} public identity is not immutable until the GitHub Release exists`);
     }
     if (
-      freeze.previousPublicRelease?.productVersion !== "0.6.2" ||
-      freeze.previousPublicRelease.tag !== "v0.6.2" ||
+      freeze.previousPublicRelease?.productVersion !== previous ||
+      freeze.previousPublicRelease.tag !== `v${previous}` ||
       freeze.previousPublicRelease.immutable !== true
     ) {
-      throw new PenglaiError("SECURITY_POLICY", "published 0.6.2 identity must stay immutable");
+      throw new PenglaiError("SECURITY_POLICY", `published ${previous} identity must stay immutable`);
     }
   } else {
     throw new PenglaiError("INVALID_INPUT", "cohort freeze identity");

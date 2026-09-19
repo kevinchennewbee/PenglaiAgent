@@ -12,7 +12,13 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { PenglaiError } from "@penglai/contracts";
+import {
+  PenglaiError,
+  UPDATE_TARGET_KEY_LIST,
+  updateInstallerName,
+  updateTargetFor,
+  type InstallerKind,
+} from "@penglai/contracts";
 
 export const UPDATE_STATES = [
   "IDLE",
@@ -48,7 +54,17 @@ export interface UpdateManifest {
   publicExportTreeSha256: string;
   releaseManifestSha256: string;
   migration: {
-    generation: "0.5";
+    /**
+     * Data-root generation this release belongs to, e.g. `penglai-dsh-v0.5`.
+     *
+     * Declared by `release-contract.json` (`generationId`) and carried through
+     * the signed manifest. It is deliberately NOT derived from the product
+     * version: the product moved 0.5.x -> 0.6.x while the data generation stayed
+     * `v0.5`. The previous check parsed the semver minor and required `5`, which
+     * silently rejected every 0.6.x candidate from 0.6.0 onward and disabled
+     * assisted update without a single failing test.
+     */
+    generation: string;
     fromVersion: string;
     throughVersion: string;
     toVersion: string;
@@ -58,7 +74,7 @@ export interface UpdateManifest {
 
 export interface UpdateAsset {
   target: string;
-  kind: "dmg" | "setup";
+  kind: InstallerKind;
   version: string;
   url: string;
   sha256: string;
@@ -77,9 +93,16 @@ export interface UpdateManifestPolicy {
   allowedAssetHosts?: string[];
   allowCurrentCheck?: boolean;
   currentOsVersion?: string;
+  /**
+   * Data-root generation of the running install, from `release-contract.json`
+   * (`generationId`). `assertUpdateManifest` refuses to authorise any update
+   * whose manifest declares a different generation, and refuses to run at all
+   * when this is absent: a boundary that cannot be evaluated must fail closed.
+   */
+  currentGeneration?: string;
 }
 
-const UPDATE_TARGETS = ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"] as const;
+const UPDATE_TARGETS = UPDATE_TARGET_KEY_LIST;
 
 function assertSha(value: unknown, label: string): asserts value is string {
   if (typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value) || /^0{64}$/.test(value)) {
@@ -159,10 +182,14 @@ export function assertUpdateManifest(
   if (compareSemver(currentVersion, o.minimumVersion) < 0) {
     throw new PenglaiError("SECURITY_POLICY", "below minimum");
   }
-  const currentCore = parseSemver(currentVersion).core;
-  const nextCore = parseSemver(o.version).core;
-  if (currentCore[0] !== 0 || currentCore[1] !== 5 || nextCore[0] !== 0 || nextCore[1] !== 5) {
-    throw new PenglaiError("SECURITY_POLICY", "update crossed clean-generation boundary");
+  // The clean-generation boundary is a data-root identity, not a version range.
+  // `o.minimumVersion` above already refuses a candidate that is too old; the
+  // declared-generation comparison below refuses one from a different data
+  // generation, which is the case that would actually risk user data. A
+  // boundary that cannot be evaluated must fail closed rather than disappear.
+  const currentGeneration = policy.currentGeneration;
+  if (typeof currentGeneration !== "string" || currentGeneration.length === 0) {
+    throw new PenglaiError("SECURITY_POLICY", "current data generation is unknown");
   }
   if (!o.signatureKeyId || o.signatureKeyId.length > 128) {
     throw new PenglaiError("SECURITY_POLICY", "manifest signing key id missing");
@@ -183,10 +210,17 @@ export function assertUpdateManifest(
   if (policy.expectedPublicExportTreeSha256 && o.publicExportTreeSha256 !== policy.expectedPublicExportTreeSha256) {
     throw new PenglaiError("SECURITY_POLICY", "public export identity mismatch");
   }
-  if (
-    o.migration?.generation !== "0.5" ||
-    o.migration.toVersion !== o.version
-  ) {
+  const declaredGeneration = o.migration?.generation;
+  if (typeof declaredGeneration !== "string" || declaredGeneration.length === 0) {
+    throw new PenglaiError("SECURITY_POLICY", "update manifest declares no data generation");
+  }
+  if (declaredGeneration !== currentGeneration) {
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      `update crossed clean-generation boundary: ${currentGeneration} -> ${declaredGeneration}`,
+    );
+  }
+  if (o.migration.toVersion !== o.version) {
     throw new PenglaiError("SECURITY_POLICY", "update migration identity mismatch");
   }
   parseSemver(o.migration.fromVersion);
@@ -201,15 +235,14 @@ export function assertUpdateManifest(
   if (asset.target !== target || asset.version !== o.version) {
     throw new PenglaiError("SECURITY_POLICY", "asset target/version mismatch");
   }
-  const expectedKind = target.startsWith("darwin-") ? "dmg" : target === "win32-x86_64" ? "setup" : undefined;
-  if (!expectedKind || asset.kind !== expectedKind) {
+  const spec = updateTargetFor(target);
+  if (!spec || asset.kind !== spec.kind) {
     throw new PenglaiError("SECURITY_POLICY", "asset installer kind mismatch");
   }
-  const expectedFilename = target === "darwin-aarch64"
-    ? `Penglai_${o.version}_macos_aarch64.dmg`
-    : target === "darwin-x86_64"
-      ? `Penglai_${o.version}_macos_x64.dmg`
-      : `Penglai_${o.version}_windows_x64_setup.exe`;
+  const expectedFilename = updateInstallerName(target, o.version);
+  if (!expectedFilename) {
+    throw new PenglaiError("SECURITY_POLICY", "unsupported update target");
+  }
   const assetUrl = immutableHttpsUrl(asset.url, "asset");
   if (policy.allowedAssetHosts?.length && !policy.allowedAssetHosts.includes(assetUrl.hostname)) {
     throw new PenglaiError("SECURITY_POLICY", "asset host not allowlisted");
@@ -531,7 +564,7 @@ interface VerifiedInstallerReceipt {
   sha256: string;
   size: number;
   signature: Buffer;
-  kind: "dmg" | "setup";
+  kind: InstallerKind;
 }
 
 /**
@@ -556,7 +589,7 @@ export class VerifiedInstallerHandoff {
     sha256: string;
     size: number;
     signature: Buffer;
-  }): { operationId: string; kind: "dmg" | "setup"; ready: true } {
+  }): { operationId: string; kind: InstallerKind; ready: true } {
     if (!/^[A-Za-z0-9_-]{8,128}$/.test(input.operationId)) {
       throw new PenglaiError("INVALID_INPUT", "invalid update operation id");
     }
@@ -566,7 +599,13 @@ export class VerifiedInstallerHandoff {
       throw new PenglaiError("SECURITY_POLICY", "installer outside trusted update staging");
     }
     if (!/^[0-9a-f]{64}$/.test(input.sha256)) throw new PenglaiError("SECURITY_POLICY", "installer sha256 required");
-    const kind = path.endsWith(".dmg") ? "dmg" : path.endsWith(".exe") ? "setup" : undefined;
+    const kind: InstallerKind | undefined = path.endsWith(".dmg")
+      ? "dmg"
+      : path.endsWith(".exe")
+        ? "setup"
+        : path.endsWith(".deb")
+          ? "deb"
+          : undefined;
     if (!kind) throw new PenglaiError("INVALID_INPUT", "unknown installer kind");
     this.#verifyFile(path, input.size, input.sha256, input.signature);
     this.#receipts.set(input.operationId, {
@@ -580,8 +619,8 @@ export class VerifiedInstallerHandoff {
 
   open(
     operationId: string,
-    opts: { silent?: boolean; open?: (path: string, kind: "dmg" | "setup") => void } = {},
-  ): { opened: true; silent: false; kind: "dmg" | "setup"; operationId: string } {
+    opts: { silent?: boolean; open?: (path: string, kind: InstallerKind) => void } = {},
+  ): { opened: true; silent: false; kind: InstallerKind; operationId: string } {
     if (opts.silent) throw new PenglaiError("SECURITY_POLICY", "silent update forbidden");
     const receipt = this.#receipts.get(operationId);
     if (!receipt) throw new PenglaiError("SECURITY_POLICY", "unknown or consumed verified installer operation");
@@ -598,11 +637,32 @@ export class VerifiedInstallerHandoff {
   }
 }
 
-export function spawnVerifiedInstaller(path: string, kind: "dmg" | "setup"): void {
+export function spawnVerifiedInstaller(path: string, kind: InstallerKind): void {
   if (kind === "dmg") {
+    // macOS: hand the disk image to the system installer.
     spawn("open", [path], { detached: true, stdio: "ignore" }).unref();
     return;
   }
+  if (kind === "deb") {
+    // UOS 20 / LoongArch: hand the package to the desktop's package installer so
+    // a system window still asks the user to confirm. Never run `dpkg -i` here:
+    // that would install without a system prompt, which this product forbids.
+    //
+    // UNVERIFIED. `xdg-open` is the freedesktop-standard way to reach whatever
+    // handler the desktop registers for a `.deb`, but nobody has run this on UOS:
+    // that platform's native install is `OWNER_POST_RELEASE` and its installer
+    // has never been executed on real hardware. UOS ships
+    // `deepin-deb-installer`, and whether `xdg-open` routes there is exactly the
+    // kind of assumption that broke the WeChat channel for eight releases.
+    //
+    // Unreachable today: `assemble-release.mjs` emits update platforms from
+    // `NATIVE_INSTALLED_TARGETS`, which excludes LoongArch, and the coordinator
+    // reports "no update channel" for a target the manifest does not carry. This
+    // becomes reachable only after that verification is done — which is the point.
+    spawn("xdg-open", [path], { detached: true, stdio: "ignore" }).unref();
+    return;
+  }
+  // Windows: the signed NSIS setup executable.
   spawn(path, [], { detached: true, stdio: "ignore" }).unref();
 }
 

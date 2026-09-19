@@ -50,7 +50,7 @@ export const DSH_NATIVE_SYSTEM_VERSIONS = Object.freeze({
   "@deepseek-ai/node-addon-system-linux-x64": "0.1.2",
 });
 
-/** Upstream-audit-only Office engine family; Penglai 0.6.3 prunes it from product runtime closure. */
+/** Upstream-audit-only Office engine family; Penglai 0.6.5 prunes it from product runtime closure. */
 export const DSH_EXTERNAL_PACKAGES = Object.freeze({
   "@deepseek-ai/libreoffice-kit": Object.freeze({ version: "0.0.1", integrity: "sha512-e4JZqohz5TEVfI3sfUK/dHRLjqlQep96CmqNM93Rm7LY9PuECiJakIX2BdHi5OkmbK9Mo47SiW44HNTTiwW1yw==" }),
   "@deepseek-ai/libreoffice-kit-darwin-arm64": Object.freeze({ version: "0.0.1", integrity: "sha512-3vrYUIZihcb+F9qjjHdWNSxW83fLihrBV63qaw5kxW1Q7hbZPPMDsjlRJ2rX6VUi06By4nJH9YLKZ73iGN5iEQ==" }),

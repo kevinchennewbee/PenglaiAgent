@@ -11,6 +11,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { AssistedUpdateCoordinator, type AssistedUpdateConfig } from "./update-coordinator.js";
 import { crashSafeUpdate, downloadVerifiedPayload } from "./update-flow.js";
+import { PRODUCT_VERSION } from "../../release-identity/src/pins.js";
 import {
   UPDATE_STATES,
   verifyManifestBytes,
@@ -46,7 +47,38 @@ function keys(): { privateKey: KeyObject; publicKeyHex: string; keyId: string } 
   };
 }
 
-function signedFixture(version = NEXT): SignedFixture {
+/**
+ * Data-root generation under test. Every fixture used to hardcode `"0.5"` here
+ * *and* a `0.5.x` current version, so no test ever exercised a 0.6.x install.
+ * That blind spot is why `update.ts` could require the semver minor to be `5`
+ * for four shipped versions without a single failing test.
+ */
+const GENERATION = "penglai-dsh-v0.5";
+
+/** The next patch of the same `0.6.x` line, so the pair stays strictly ordered. */
+function nextPatch(version: string): string {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+  if (!match) throw new Error(`cannot derive a successor version from ${version}`);
+  return `${match[1]}.${match[2]}.${Number(match[3]) + 1}`;
+}
+
+/**
+ * The install under test is the version being developed, and the candidate it
+ * discovers is the next patch on the same data generation.
+ *
+ * These fixtures previously spelled the pair as two literals — originally
+ * `signedFixture("0.6.5", "0.6.3")`, meaning "installed 0.6.3, candidate 0.6.5".
+ * A version bump rewrote both literals to the new current version, which turned
+ * the fixture into "installed 0.6.5, candidate 0.6.5" — a same-version replay —
+ * and the tests then failed on the replay guard before ever reaching the
+ * generation check they exist to protect. Deriving the pair keeps the direction
+ * of travel (current -> strictly newer, same generation) intact no matter which
+ * version is current.
+ */
+const CURRENT_PRODUCT = PRODUCT_VERSION;
+const NEXT_PRODUCT = nextPatch(PRODUCT_VERSION);
+
+function signedFixture(version = NEXT, current = CURRENT): SignedFixture {
   const identity = keys();
   const payload = Buffer.from(`fixture-installer:${version}`);
   const payloadSha = createHash("sha256").update(payload).digest("hex");
@@ -55,7 +87,7 @@ function signedFixture(version = NEXT): SignedFixture {
     schemaVersion: 1,
     channel: "desktop-v0.5",
     version,
-    minimumVersion: CURRENT,
+    minimumVersion: current,
     publishedAt: "2026-08-17T00:00:00.000Z",
     notesUrl: `https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v${version}`,
     signatureKeyId: identity.keyId,
@@ -63,9 +95,9 @@ function signedFixture(version = NEXT): SignedFixture {
     publicExportTreeSha256: "b".repeat(64),
     releaseManifestSha256: releaseIdentity,
     migration: {
-      generation: "0.5",
-      fromVersion: CURRENT,
-      throughVersion: version === CURRENT ? CURRENT : "0.5.0",
+      generation: GENERATION,
+      fromVersion: current,
+      throughVersion: current,
       toVersion: version,
     },
     platforms: {
@@ -133,6 +165,7 @@ function coordinatorConfig(
       expectedPublicExportTreeSha256: fixture.manifest.publicExportTreeSha256,
       allowedAssetHosts: ["github.com"],
       currentOsVersion: "14.6",
+      currentGeneration: GENERATION,
     },
     fetchImpl: fixtureFetch(fixture),
     discoverUpdates: false,
@@ -219,6 +252,7 @@ test("R50-UPD-002/003/004 signed manifest rejects tamper wrong key target replay
         expectedPublicExportTreeSha256: "b".repeat(64),
         allowedAssetHosts: ["github.com"],
         currentOsVersion: "14.6",
+        currentGeneration: GENERATION,
         ...policy,
       },
     });
@@ -510,4 +544,96 @@ test("completed updates resume normal discovery after launch and reject version 
     if (currentVersion === CURRENT) assert.equal((await coordinator.check()).state, "CURRENT");
     else await assert.rejects(coordinator.check(), /cannot check update/);
   }
+});
+
+test("a 0.6.x install in the same data generation can discover and prepare an update", async () => {
+  // Regression pin for the shipped defect. `assertUpdateManifest` required the
+  // semver MINOR of both current and target to be `5`, so from the 0.6.0 version
+  // bump onward every real update check threw "update crossed clean-generation
+  // boundary". The desktop surfaced only the generic localised "更新操作失败" /
+  // "Update operation failed" string, and the state machine never reached
+  // AVAILABLE. Four releases shipped in that state because every fixture here
+  // used a 0.5.x current version.
+  const root = mkdtempSync(join(tmpdir(), "penglai-update-generation-"));
+  const fixture = signedFixture(NEXT_PRODUCT, CURRENT_PRODUCT);
+  const coordinator = new AssistedUpdateCoordinator(
+    coordinatorConfig(root, fixture, { currentVersion: CURRENT_PRODUCT }),
+  );
+
+  const checked = await coordinator.check();
+  assert.equal(checked.state, "AVAILABLE");
+  assert.equal(checked.version, NEXT_PRODUCT);
+
+  const downloaded = await coordinator.download();
+  assert.equal(downloaded.state, "READY_FOR_USER");
+  assert.equal(downloaded.version, NEXT_PRODUCT);
+});
+
+test("an update whose manifest declares a different data generation is refused", async () => {
+  // The boundary that replaced the version literal must still hold: a manifest
+  // from another data generation is rejected even when its version is newer.
+  const fixture = signedFixture(NEXT_PRODUCT, CURRENT_PRODUCT);
+  const foreign: SignedFixture = {
+    ...fixture,
+    manifest: {
+      ...fixture.manifest,
+      migration: { ...fixture.manifest.migration, generation: "penglai-dsh-v0.6" },
+    },
+  };
+  const bytes = Buffer.from(JSON.stringify(foreign.manifest), "utf8");
+  await assert.rejects(
+    async () =>
+      verifyManifestBytes({
+        bytes,
+        signature: sign(null, bytes, foreign.privateKey),
+        publicKeyHex: foreign.publicKeyHex,
+        currentVersion: CURRENT_PRODUCT,
+        target: TARGET,
+        policy: {
+          allowedAssetHosts: ["github.com"],
+          currentOsVersion: "14.6",
+          currentGeneration: GENERATION,
+        },
+      }),
+    /clean-generation boundary/,
+  );
+});
+
+test("an update check without a known data generation fails closed", async () => {
+  // Removing the version literal must not remove the boundary. When the running
+  // generation cannot be established the check refuses rather than proceeding.
+  const fixture = signedFixture(NEXT_PRODUCT, CURRENT_PRODUCT);
+  await assert.rejects(
+    async () =>
+      verifyManifestBytes({
+        bytes: fixture.manifestBytes,
+        signature: fixture.manifestSignature,
+        publicKeyHex: fixture.publicKeyHex,
+        currentVersion: CURRENT_PRODUCT,
+        target: TARGET,
+        policy: { allowedAssetHosts: ["github.com"], currentOsVersion: "14.6" },
+      }),
+    /current data generation is unknown/,
+  );
+});
+
+test("a target the manifest does not carry reports CURRENT, not a failed check", async () => {
+  // The manifest is emitted for NATIVE_INSTALLED_TARGETS, which is deliberately
+  // narrower than the published target set: LoongArch is published — users
+  // install its .deb by hand — but it is not an update target, because its
+  // native install is OWNER_POST_RELEASE and has never been run on real
+  // hardware. Carrying it would create an automatic update path on a platform
+  // whose installer nobody has executed.
+  //
+  // This used to throw `INVALID_INPUT / platform missing`, which told a UOS user
+  // their update check had failed when the truth is that the platform has no
+  // update channel at all.
+  const root = mkdtempSync(join(tmpdir(), "penglai-update-no-channel-"));
+  const fixture = signedFixture(NEXT_PRODUCT, CURRENT_PRODUCT);
+  const coordinator = new AssistedUpdateCoordinator(
+    coordinatorConfig(root, fixture, { currentVersion: CURRENT_PRODUCT, target: "linux-loong64" }),
+  );
+  const status = await coordinator.check();
+  assert.equal(status.state, "CURRENT");
+  assert.equal(status.version, CURRENT_PRODUCT);
 });
