@@ -24,7 +24,7 @@ observed public bytes. The committed release template intentionally remains
 | CodeQL run | [35420130845](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/35420130845), `Analyze (javascript-typescript)` success |
 | Native targets | [35420146587](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/35420146587): darwin-aarch64, win32-x86_64, linux-loong64; exact aggregate PASS |
 | Publish and immutable readback | [35429171949](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/35429171949) |
-| Website deploy and readback | pending post-release publication-only deployment |
+| Website deploy and readback | [35430335780](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/35430335780) PASS; site source `2dbadb7a76ba12ad0791b97378d87922ca3a570e`; Cloudflare Pages 34/34 files PASS; GitHub Pages 34/34 files PASS |
 | Trust | community-verified; macOS ad-hoc and not notarized; Windows no Authenticode |
 | Native UOS | package/ABI/runtime/closure PASS; real-machine acceptance `OWNER_POST_RELEASE` |
 | Signed updater | Apple Silicon and Windows x64 |
