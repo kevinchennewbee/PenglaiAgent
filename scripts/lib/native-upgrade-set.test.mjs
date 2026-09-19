@@ -39,23 +39,23 @@ function passingPath(version, sourceSha, installerSha256) {
   };
 }
 
-test("current 0.6.3 workflow requires the 0.6.2 native upgrade path", () => {
+test("current 0.6.3 workflow owner-excludes older installed upgrade", () => {
   const scope = currentNativeLifecycleScope(sources);
-  assert.equal(scope.fetchPreviousInstallers, true);
-  assert.equal(scope.olderInstalledUpgradeStatus, "REQUIRED");
-  assert.equal(scope.requiredLifecycleGate, "verify:upgrade-uninstall");
+  assert.equal(scope.fetchPreviousInstallers, false);
+  assert.equal(scope.olderInstalledUpgradeStatus, "OWNER_EXCLUDED");
+  assert.equal(scope.requiredLifecycleGate, "verify:fresh-install-uninstall");
   assert.equal(scope.nativeUosStatus, "OWNER_POST_RELEASE");
-  assert.equal(currentWorkflowFetchesPreviousInstallers(sources), true);
-  assert.equal(currentWorkflowRequiresNativeUpgradePaths(sources), true);
+  assert.equal(currentWorkflowFetchesPreviousInstallers(sources), false);
+  assert.equal(currentWorkflowRequiresNativeUpgradePaths(sources), false);
   const historical = currentNativeLifecycleScope({ sources: sources.sources });
   assert.equal(historical.fetchPreviousInstallers, true);
   assert.equal(historical.olderInstalledUpgradeStatus, "REQUIRED");
   assert.equal(historical.requiredLifecycleGate, "verify:upgrade-uninstall");
 });
 
-test("release aggregation consumes native upgrade evidence instead of rerunning lifecycle mutation", () => {
+test("release aggregation does not consume owner-excluded upgrade evidence", () => {
   const releaseVerifier = readFileSync(join(ROOT, "scripts", "verify-release.mjs"), "utf8");
-  assert.match(
+  assert.doesNotMatch(
     releaseVerifier,
     /const nativeSetGates = new Set\(\[[\s\S]*?"verify:upgrade-uninstall"[\s\S]*?\]\);/,
   );

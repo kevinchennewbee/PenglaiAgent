@@ -324,17 +324,20 @@ test("fresh lifecycle set requires every Mac/Windows target and rejects a UOS na
   assert.ok(withUos.failReasons.includes("fabricated/deferred native PASS"));
 });
 
-test("current 0.6.3 native workflow restores the pinned 0.6.2 upgrade path", () => {
+test("current 0.6.3 native workflow owner-excludes the pinned 0.6.2 upgrade path", () => {
   const workflow = readFileSync(join(ROOT, ".github/workflows/native-release-candidate.yml"), "utf8");
   assert.match(workflow, /verify:fresh-install-uninstall/);
-  assert.match(workflow, /fetch:upgrade-sources/);
-  assert.match(workflow, /Fetch immutable 0\.6\.2 installer/);
+  assert.doesNotMatch(workflow, /fetch:upgrade-sources/);
+  assert.doesNotMatch(workflow, /Fetch immutable 0\.6\.2 installer/);
+  assert.doesNotMatch(workflow, /pnpm verify:upgrade-uninstall/);
   assert.doesNotMatch(workflow, /Penglai_0\.5\.12_macos/);
-  assert.match(workflow, /pnpm verify:upgrade-uninstall/);
   const sources = JSON.parse(
     readFileSync(join(ROOT, "docs", PRODUCT_VERSION, "UPGRADE_SOURCES.json"), "utf8"),
   );
-  assert.equal(sources.currentWorkflow.fetchPreviousInstallers, true);
+  assert.equal(sources.currentWorkflow.fetchPreviousInstallers, false);
+  assert.equal(sources.currentWorkflow.olderInstalledUpgradeStatus, "OWNER_EXCLUDED");
+  assert.equal(sources.currentWorkflow.requiredLifecycleGate, "verify:fresh-install-uninstall");
+  assert.deepEqual(sources.currentWorkflow.requiredNativeUpgradePaths, []);
   assert.deepEqual(sources.sources.map((row) => row.version), ["0.6.2"]);
 });
 

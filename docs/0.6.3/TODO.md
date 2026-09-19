@@ -12,8 +12,8 @@ turn an unrun native or public check into PASS.
 - [x] Disable upstream session logging/upload; integrate one exact official DSH
       alpha.2 plugin manager with official UI/tool, bundled Node/pnpm, retained
       built-ins, Memory disable persistence, and explicit build-script approval.
-- [x] Make Apple Silicon and Windows x64 installed upgrades from immutable
-      0.6.2 packages a required lifecycle gate.
+- [x] Mark the Apple Silicon and Windows x64 installed upgrade from immutable
+      0.6.2 packages `OWNER_EXCLUDED`; keep immutable source pins without a PASS claim.
 - [x] Add a fail-closed UOS `.deb` verifier for package identity, ABI, closure,
       runtime, plugins, licenses, and architecture.
 - [x] Harden evidence output, secret scanning, and owner-path redaction.
@@ -22,8 +22,8 @@ turn an unrun native or public check into PASS.
       workspace, profile, catalog, runtime closure, installer staging, and
       product acceptance. Keep their upstream identities only in the upstream
       audit ledger.
-- [ ] Complete native Mac and Windows fresh-install, restart, upgrade, rollback,
-      and default-uninstall evidence on the exact frozen SHA.
+- [ ] Complete native Mac and Windows fresh-install, restart, and
+      default-uninstall evidence on the exact frozen SHA.
 - [ ] Build and verify the exact UOS package on that same SHA.
 - [ ] Publish and read back the exact immutable asset set.
 - [ ] Replace candidate wording with observed public sizes, hashes, and source
@@ -32,4 +32,5 @@ turn an unrun native or public check into PASS.
       sleep/resume, model conversation, and Memory.
 
 Unchecked native/public items are `NOT_RUN` until executed in the authorized
-full-release sequence. The two-hour installed soak is `OWNER_EXCLUDED`.
+full-release sequence. The 0.6.2 installed-upgrade journey and the two-hour
+installed soak are both `OWNER_EXCLUDED`.

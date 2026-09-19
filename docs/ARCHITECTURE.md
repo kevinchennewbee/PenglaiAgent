@@ -132,19 +132,22 @@ Session V3 upgrades write a successor log and keep the original bytes.
 Fresh profile invariants:
 
 - official DSH `0.1.6-alpha.2` is pinned with exact npm integrity and source tag;
-- DSH session-log upload and the upstream free-form plugin manager/tool/UI are disabled by default;
-- Plugin Center and Memory are installed and active;
-- IM, ASR, and MOSS-TTS are present in the installer but disabled;
+- DSH session-log upload is disabled by default;
+- Plugin Center owns one exact official DSH alpha.2 plugin-manager instance; its official UI/tool are enabled;
+- Plugin Center, Memory, and IM are installed and active; IM adapters/accounts remain unconfigured until the user connects them;
+- ASR and MOSS-TTS are present in the installer but disabled;
 - LibreOffice, Office/PDF, Budget, and Companion are absent from workspace,
   profile, catalog, product closure, installer, and acceptance;
 - the reference fixture is internal/hidden; and
 - old `@penglai/context` is not loaded; migration may import only its authorised
   data after preview and schema checks.
 
-Plugin Center updates use a lock, staging directory, exact catalog/package
-identity, signature/digest/permission/compatibility checks, versioned profile
-patch, atomic switch, official loader inventory readback, and rollback. Required
-plugins cannot be disabled. Optional plugin failure cannot block DSH.
+Plugin Center uses the exact official DSH alpha.2 plugin manager as the sole
+mutable profile package backend. Penglai supplies application-owned Node/pnpm,
+keeps management infrastructure and credentials required, preserves bundled
+first-party code as app-owned, and treats package installation and build-script
+approval as separate explicit trust actions. Loader inventory remains the live
+activation authority; optional plugin failure cannot block DSH.
 
 ### 6. Owner approval broker
 

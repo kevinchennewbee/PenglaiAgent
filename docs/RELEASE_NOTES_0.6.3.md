@@ -44,16 +44,19 @@ supported-target inference runtimes are bundled; model weights are separate,
 pinned downloads. MOSS-TTS remains unavailable on UOS LoongArch because the
 pinned ONNX Runtime has no supported native engine for that target.
 
-Privacy and installation authority remain stricter than the upstream defaults:
-the canonical session-log/upload plugin and upstream free-form plugin manager,
-tool, and UI are disabled in the Penglai profile. Only the signed Penglai Plugin
-Center may install catalog artifacts.
+Privacy remains stricter than the upstream defaults: the canonical
+session-log/upload path stays disabled. Package management now uses the exact
+official DSH alpha.2 plugin manager as the sole backend; its official UI/tool are
+enabled through Penglai Center, package operations use application-owned
+Node/pnpm, and build-script approval remains a separate explicit trust action.
+The historical signed Penglai catalog is not an ecosystem allowlist.
 
 The planned target set remains Apple Silicon, Windows x64, and UnionTech UOS 20
-LoongArch. The later native phase must prove fresh install, restart, default
-uninstall, and the exact 0.6.2-to-0.6.3 installed upgrade on Mac and Windows.
-UOS native use remains `OWNER_POST_RELEASE`; the two-hour soak remains
-`OWNER_EXCLUDED`. macOS is expected to remain ad-hoc signed and not notarized;
+LoongArch. Native validation must prove fresh install, restart, and default
+uninstall on Mac and Windows. The exact 0.6.2-to-0.6.3 installed upgrade is
+`OWNER_EXCLUDED` and is not a publication PASS requirement. UOS native use
+remains `OWNER_POST_RELEASE`; the two-hour soak is also `OWNER_EXCLUDED`.
+macOS is expected to remain ad-hoc signed and not notarized;
 Windows is expected to remain without Authenticode. None of those native or
 publication statements is a PASS in this source candidate.
 
@@ -88,11 +91,13 @@ SBOM 中移除。记忆是唯一必装的第一方功能插件。
 推理运行时随包，模型权重按固定版本与哈希另行下载。UOS 龙芯没有受支持的原生 ONNX
 Runtime，因此该端仍不能启用 MOSS-TTS。
 
-隐私和安装权限继续采用更严格默认值：Penglai profile 默认关闭 canonical session
-log/upload，以及上游自由安装插件的 manager/tool/UI；只有签名的蓬莱插件中心可以
-安装目录内制品。
+隐私仍采用更严格默认值：Penglai profile 默认关闭 canonical session log/upload。
+插件管理改为只使用官方 DSH alpha.2 manager 作为唯一包管理后端，通过 Penglai Center
+开放官方 UI/工具；包操作固定使用应用内 Node/pnpm，build script 仍需单独显式批准。
+历史签名目录不再作为整个插件生态的 allowlist。
 
-计划目标仍为 Apple 芯片、Windows x64 和统信 UOS 20 龙芯。后续三端阶段必须验证
-Mac/Windows 全新安装、重启、默认卸载和 0.6.2 到 0.6.3 的真实安装版升级。UOS
-真机仍为 `OWNER_POST_RELEASE`，两小时测试仍为 `OWNER_EXCLUDED`。当前只是源码
+计划目标仍为 Apple 芯片、Windows x64 和统信 UOS 20 龙芯。三端阶段必须验证
+Mac/Windows 全新安装、重启和默认卸载；0.6.2 到 0.6.3 的真实安装版升级在本版为
+`OWNER_EXCLUDED`，不作为发布 PASS 条件。UOS 真机仍为 `OWNER_POST_RELEASE`，
+两小时测试同样为 `OWNER_EXCLUDED`。当前仍是发布候选，
 候选，三端安装包、原生安装、公开发布、官网更新与公网回读均为 `NOT_RUN`。

@@ -171,14 +171,6 @@ jobs:
           PENGLAI_TARGET: ${{ matrix.target }}
           PENGLAI_LIFECYCLE_ALLOW_NATIVE: "1"
         run: pnpm verify:fresh-install-uninstall
-      - name: Fetch immutable 0.6.2 installer and prove native upgrade, rollback-safe data preservation, and uninstall
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PENGLAI_TARGET: ${{ matrix.target }}
-          PENGLAI_LIFECYCLE_ALLOW_NATIVE: "1"
-        run: |
-          pnpm fetch:upgrade-sources
-          pnpm verify:upgrade-uninstall
       - name: Upload installer and target evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -196,7 +188,6 @@ jobs:
             evidence/generated/installed-e2e-${{ matrix.target }}.json
             evidence/generated/verify-installed-${{ matrix.target }}.json
             evidence/generated/verify-fresh-install-uninstall-${{ matrix.target }}.json
-            evidence/generated/verify-upgrade-uninstall-${{ matrix.target }}.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json
             evidence/generated/u3-welcome-smoke-${{ matrix.target }}.json
@@ -240,7 +231,7 @@ jobs:
           $paths = @($pref.ExclusionPath)
           $penglai = $paths | Where-Object { $_ -and ($_ -match 'Penglai') }
           if ($penglai) {
-            throw "Windows Defender has a Penglai exclusion; Penglai must not add exclusions to pass native upgrade"
+            throw "Windows Defender has a Penglai exclusion; Penglai must not add exclusions to pass native lifecycle validation"
           }
           if ($pref.DisableRealtimeMonitoring) {
             Write-Host "INCOMPLETE: runner baseline already has realtime monitoring disabled; Penglai will not mutate Defender; I02 default-OS remains unproven on this runner"
@@ -359,15 +350,6 @@ jobs:
           PENGLAI_TARGET: win32-x86_64
           PENGLAI_LIFECYCLE_ALLOW_NATIVE: "1"
         run: pnpm verify:fresh-install-uninstall
-      - name: Fetch immutable 0.6.2 installer and prove native upgrade, rollback-safe data preservation, and uninstall
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PENGLAI_TARGET: win32-x86_64
-          PENGLAI_LIFECYCLE_ALLOW_NATIVE: "1"
-        run: |
-          pnpm fetch:upgrade-sources
-          pnpm verify:upgrade-uninstall
       - name: Upload installer and target evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -385,7 +367,6 @@ jobs:
             evidence/generated/installed-e2e-win32-x86_64.json
             evidence/generated/verify-installed-win32-x86_64.json
             evidence/generated/verify-fresh-install-uninstall-win32-x86_64.json
-            evidence/generated/verify-upgrade-uninstall-win32-x86_64.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json
             evidence/generated/u3-welcome-smoke-win32-x86_64.json
@@ -507,7 +488,6 @@ jobs:
           pnpm verify:native-set -- --command verify:profile
           pnpm verify:installed -- --aggregate
           pnpm verify:native-set -- --command verify:fresh-install-uninstall
-          pnpm verify:native-set -- --command verify:upgrade-uninstall
           pnpm verify:uos-package
           pnpm aggregate:supply-chain
       - name: Verify source export and complete release aggregate
