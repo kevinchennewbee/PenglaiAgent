@@ -291,8 +291,14 @@ export function inspectStampedRecords(contract: ReleaseContractShape): DocFindin
       problems.push(`${rel} does not name version ${stamped}`);
     }
   }
+  // The readback status is required only once the publication manifest exists.
+  // Before publication there is nothing to have read back, and demanding the
+  // marker would make the draft release notes un-writable — the same mistake as
+  // requiring the manifest itself. `docs/PUBLICATION_MANIFEST_<version>.md` is
+  // produced by the readback, so its presence is exactly the condition.
   const currentNotes = readDoc(`docs/RELEASE_NOTES_${contract.version}.md`);
-  if (currentNotes && !/PUBLIC_READBACK_PASS/.test(currentNotes)) {
+  const currentManifest = readDoc(`docs/PUBLICATION_MANIFEST_${contract.version}.md`);
+  if (currentManifest && currentNotes && !/PUBLIC_READBACK_PASS/.test(currentNotes)) {
     problems.push(
       `docs/RELEASE_NOTES_${contract.version}.md does not record the public readback status of the published bytes`,
     );
@@ -300,7 +306,6 @@ export function inspectStampedRecords(contract: ReleaseContractShape): DocFindin
   // Only the CURRENT version's manifest must agree with the contract's installer
   // list. A historical manifest describes the installers of its own release, and
   // the contract moves on without it.
-  const currentManifest = readDoc(`docs/PUBLICATION_MANIFEST_${contract.version}.md`);
   if (currentManifest) {
     for (const target of contract.targets) {
       if (target.installer && !currentManifest.includes(target.installer)) {
