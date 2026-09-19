@@ -58,17 +58,51 @@ if (FROM === TO) {
 }
 
 /**
- * Paths that must never be rewritten. Each entry is a publication record for a
- * version that is already immutable, or a historical per-version directory.
+ * Paths that must never be rewritten.
+ *
+ * Two categories, and the first one was learned the hard way.
+ *
+ * 1. The record directory of the version being LEFT. Every file inside
+ *    `docs/<FROM>/` documents that release, not the one being moved to. The
+ *    first version of this list stopped at `0.6.[0-2]` and so left `docs/0.6.3/`
+ *    unprotected; the bump then rewrote the 0.6.3 outcome banners to read
+ *    "Penglai 0.6.5 was published", inside the directory that documents 0.6.3.
+ * 2. Every earlier per-version directory, which is history by construction.
  */
 const NEVER_REWRITE = [
-  // The 0.6.3 publication record. Immutable history; rewriting it would be a lie.
   `docs/PUBLICATION_MANIFEST_${FROM}.md`,
   `docs/RELEASE_NOTES_${FROM}.md`,
-  // Every earlier per-version directory, which is history by construction.
-  /^docs\/0\.[0-5]\.\d+\//,
-  /^docs\/0\.6\.[0-2]\//,
+  // The record directory of the version being left behind. Listed explicitly
+  // because a range that stops one short silently misses the current one.
+  new RegExp(`^docs/${FROM.replaceAll(".", "\\.")}/`),
+  /^docs\/0\.\d+\.\d+\//,
 ];
+
+/**
+ * Sentences that assert something about PUBLICATION STATE and merely happen to
+ * contain a version. Rewriting the version inside them flips a true claim to a
+ * false one, because the version being moved to has not been published yet.
+ *
+ * The first bump turned "0.6.3 is the current public release" into "0.6.5 is the
+ * current public release" and "0.6.3 was published" into "0.6.5 was published"
+ * across README, SECURITY, AGENTS, PRODUCT and the 0.6.3 banners, and left
+ * SECURITY.md citing a `docs/PUBLICATION_MANIFEST_0.6.5.md` that does not exist.
+ * Those are precisely the false claims this release exists to remove.
+ *
+ * They are reported, not rewritten. Make them version-agnostic by hand before a
+ * bump, so a mechanical replace cannot turn them into lies.
+ */
+const PUBLICATION_CLAIM = new RegExp(
+  [
+    `${FROM}\\s+(?:is|was)\\s+the\\s+current\\s+public`,
+    `${FROM}\\s+was\\s+published`,
+    `当前公开版本为\\s*v?${FROM}`,
+    `${FROM}\\s*已发布`,
+    `${FROM}\\s*是当前公开`,
+    `PUBLICATION_MANIFEST_${FROM}\\.md`,
+  ].join("|"),
+  "i",
+);
 
 function isProtected(path) {
   return NEVER_REWRITE.some((rule) =>
@@ -83,6 +117,7 @@ const tracked = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" 
 
 const edits = [];
 const skipped = [];
+const claims = [];
 for (const path of tracked) {
   if (isProtected(path)) {
     let hits = 0;
@@ -101,7 +136,14 @@ for (const path of tracked) {
     continue;
   }
   const hits = text.split(FROM).length - 1;
-  if (hits > 0) edits.push({ path, hits });
+  if (hits > 0) {
+    // A file may both need the version moved and contain a publication claim.
+    // The claim is reported either way, because after the replace it would read
+    // as an assertion that the NEW version is published, which is false.
+    const claimed = text.split("\n").filter((line) => PUBLICATION_CLAIM.test(line));
+    if (claimed.length > 0) claims.push({ path, lines: claimed.length });
+    edits.push({ path, hits });
+  }
 }
 
 // Non-version facts that move with the release and a plain replace would miss.
@@ -124,6 +166,16 @@ console.log("");
 console.log(`  UPDATER_SEQUENCE: ${seq} -> ${nextSeq}`);
 console.log(`  PUBLICATION_TARGET names v${FROM}: ${publicationTag ? "yes, must move" : "no"}`);
 console.log("");
+if (claims.length > 0) {
+  console.log(`  !! ${claims.length} file(s) assert something about PUBLICATION STATE while carrying "${FROM}":`);
+  for (const row of claims) console.log(`      ${row.path}  (${row.lines} line(s))`);
+  console.log("");
+  console.log("     Replacing the version there would turn a true claim into a false one:");
+  console.log(`     "v${FROM} was published" would become "v${TO} was published", and v${TO}`);
+  console.log("     has not been published. Make these lines version-agnostic first.");
+  console.log("     This script reports them and refuses to run with --write while any remain.");
+  console.log("");
+}
 console.log("  requires, not done by this script:");
 console.log(`    docs/${TO}/UPGRADE_SOURCES.json must exist before assemble:release`);
 console.log("    workflow hardcodes in .github/workflows/{native-release-candidate,publish-release,deploy-website}.yml");
@@ -132,6 +184,17 @@ console.log("");
 if (!WRITE) {
   console.log("dry run. pass --write to apply.");
   process.exit(0);
+}
+
+// Refuse to write while a publication claim would be falsified. This is the
+// guard the first bump lacked, and the reason it produced eleven false
+// statements about a version that has not been published.
+if (claims.length > 0) {
+  console.error("");
+  console.error(`refusing to write: ${claims.length} file(s) would assert that v${TO} was published`);
+  for (const row of claims) console.error(`  ${row.path}`);
+  console.error("make those lines version-agnostic first, then re-run");
+  process.exit(1);
 }
 
 let changed = 0;
