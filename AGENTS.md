@@ -85,8 +85,8 @@
 - The onboarding wizard must never strand a user. Verify fresh install, restart,
   Back/retry, invalid folder rejection, credential failure recovery, first official
   message, and default uninstall on Apple Silicon and Windows x64.
-  The 0.6.2 to 0.6.3 installed upgrade is required on Apple Silicon and
-  Windows x64. UOS native install/startup/function is `OWNER_POST_RELEASE` and
+  The 0.6.2 to 0.6.3 installed upgrade is `OWNER_EXCLUDED` for this release:
+  do not fetch/run it or label it PASS. UOS native install/startup/function is `OWNER_POST_RELEASE` and
   must not be labeled PASS; the UOS package/ABI/closure still require
   verification.
 - Native artifacts for all three selected 0.6.3 targets must come from one clean
@@ -154,8 +154,8 @@
   不得改写既有发布 tag/附件，也不得在不可变 0.6.3 公网字节回读通过前更新公开
   下载声明。
 - Mac/Windows 安装引导必须验证全新安装、重启续跑、返回/重试、非法目录、凭据
-  失败恢复、首条官方消息和默认卸载。Apple 芯片和 Windows x64 必须完成 0.6.2
-  到 0.6.3 的真实安装版升级验收。UOS 真机
+  失败恢复、首条官方消息和默认卸载。0.6.2 到 0.6.3 的真实安装版升级在本版为
+  `OWNER_EXCLUDED`，不得执行或标记 PASS。UOS 真机
   安装/启动/功能为 `OWNER_POST_RELEASE`，不得标 PASS；UOS 包/ABI/闭包仍须验证。
   三个所选安装包必须来自同一个干净 main SHA。Intel Mac 不在本版。缺任一所选
   目标仍失败；把 Intel 加入本版精确集合仍失败。

@@ -645,6 +645,21 @@
   SentencePiece 只随 Mac/Windows 目标包。UOS LoongArch 因没有受支持的
   `onnxruntime-node` 原生引擎而不可启用 MOSS-TTS。
 
+### D-080 — 0.6.3 最终发布范围：旧版安装升级 OWNER_EXCLUDED
+
+- 日期：2026-09-19。
+- 决定：Owner 明确要求 0.6.3 发布不再考虑 0.6.2 到 0.6.3 的真实安装版升级。
+  `verify:upgrade-uninstall` 从 hard release gate 移出并标记 `OWNER_EXCLUDED`；native
+  workflow 不下载旧安装器、不执行升级，也不得把未运行升级写成 PASS。
+- 仍为硬门禁：Apple Silicon / Windows x64 的 fresh install、首次启动、重启、
+  引导/第一方插件兼容、默认卸载；UOS `.deb` 的 package/ABI/runtime/closure；同一 clean
+  `main` SHA 的 source/native aggregate；不可变发布与公网 byte readback。
+- 历史边界：`UPGRADE_SOURCES.json` 继续保留不可变 v0.6.2 release/asset/update-sequence
+  pin，供 updater identity 与未来历史验证使用，但这些 pin 不等于本版升级验收。
+- 本决议同时确认当前 0.6.3 已采用 exact official DSH alpha.2 plugin manager 作为唯一
+  mutable profile package backend；D-077 中“关闭 free-form manager”与“合并 main 后停止”
+  的旧执行边界不再适用于当前 0.6.3 发布流程。
+
 ## Superseded
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。

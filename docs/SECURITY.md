@@ -64,8 +64,8 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - 同OS用户高权限本地进程可能读取文件，UI/文档必须诚实。
 - permission/ACL invalid、corrupt、write denied、resolve failed全部fail closed；无env/MemoryVault/SQLite/Keychain fallback。
 - 0.4.1 credential不读取、迁移或删除。
-- official DSH 0.1.6-alpha.2 源码内含 session log/telemetry 能力；Penglai profile 将其默认关闭，也关闭上游 free-form plugin manager/tool/UI。
-  蓬莱不运营该后端；owned DSH 的封闭环境白名单固定注入
+- official DSH 0.1.6-alpha.2 源码内含 session log/telemetry 能力；Penglai profile 将 session log/upload 默认关闭。
+  插件包管理只使用 exact official DSH alpha.2 manager，官方 UI/tool 通过 Penglai Center 开放，并固定使用应用内 Node/pnpm；安装插件与批准 build script 是两个独立的显式信任动作。蓬莱不运营遥测后端；owned DSH 的封闭环境白名单固定注入
   `DSH_TELEMETRY_DISABLED=1`，且不转发 `DSH_TELEMETRY_MODE` 或
   `DSH_TELEMETRY_OTLP_URL`。DSH 会在 profile patch 之后禁用该行，不创建 telemetry
   SDK provider 或上传管线。未来若产品要提供 opt-in，必须另行设计可见 Owner 同意和

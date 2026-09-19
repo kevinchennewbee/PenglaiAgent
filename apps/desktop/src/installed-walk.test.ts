@@ -441,11 +441,11 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.doesNotMatch(linuxWorkflow, /verify:fresh-install-uninstall/);
   assert.match(macosWorkflow, /verify:fresh-install-uninstall/);
   assert.match(windowsWorkflow, /verify:fresh-install-uninstall/);
-  assert.match(workflow, /fetch:upgrade-sources/);
-  assert.match(macosWorkflow, /Fetch immutable 0\.6\.2 installer/);
-  assert.match(windowsWorkflow, /Fetch immutable 0\.6\.2 installer/);
-  assert.match(macosWorkflow, /pnpm verify:upgrade-uninstall/);
-  assert.match(windowsWorkflow, /pnpm verify:upgrade-uninstall/);
+  assert.doesNotMatch(workflow, /fetch:upgrade-sources/);
+  assert.doesNotMatch(macosWorkflow, /Fetch immutable 0\.6\.2 installer/);
+  assert.doesNotMatch(windowsWorkflow, /Fetch immutable 0\.6\.2 installer/);
+  assert.doesNotMatch(macosWorkflow, /pnpm verify:upgrade-uninstall/);
+  assert.doesNotMatch(windowsWorkflow, /pnpm verify:upgrade-uninstall/);
   assert.match(workflow, /needs: \[macos, windows, linux\]/);
   assert.match(workflow, /pnpm test:u3:plugins/g);
   assert.match(workflow, /u3-first-party-plugins\.json/g);

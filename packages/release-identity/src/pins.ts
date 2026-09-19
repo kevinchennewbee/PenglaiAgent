@@ -162,20 +162,22 @@ export const NATIVE_INSTALLED_TARGET_KEYS = [
   "win32-x86_64",
 ] as const satisfies readonly ReleaseTargetKey[];
 
-/** Current 0.6.3 native lifecycle: fresh install and 0.6.2 upgrade on Mac/Windows, restart, rollback, and default uninstall. */
+/** Current 0.6.3 native lifecycle: fresh install, restart, and default uninstall on Mac/Windows. Older installed upgrade is explicitly owner-excluded. */
 export const CURRENT_NATIVE_LIFECYCLE = Object.freeze({
-  requiredGate: "verify:upgrade-uninstall",
-  olderInstalledUpgradeStatus: "REQUIRED",
+  requiredGate: "verify:fresh-install-uninstall",
+  olderInstalledUpgradeStatus: "OWNER_EXCLUDED",
   nativeUosStatus: "OWNER_POST_RELEASE",
   twoHourSoak: "OWNER_EXCLUDED",
-  fetchPreviousInstallers: true,
+  fetchPreviousInstallers: false,
   requiredTargets: NATIVE_INSTALLED_TARGET_KEYS,
 });
 
 export const OWNER_EXCLUDED_SUBGATES: readonly Readonly<{
   name: string;
   status: "OWNER_EXCLUDED";
-}>[] = Object.freeze([]);
+}>[] = Object.freeze([
+  { name: "verify:upgrade-uninstall", status: "OWNER_EXCLUDED" },
+]);
 
 /** Vendor archive names stay as published (darwin-x64, win-x64). Selection uses RELEASE_TARGETS.key only. */
 export const RUNTIME_INPUTS = [
@@ -257,7 +259,6 @@ export const HARD_SUBGATES = [
   { name: "verify:signing", kind: "signing", mode: "evidence" },
   { name: "verify:installed", kind: "installed", mode: "evidence" },
   { name: "verify:fresh-install-uninstall", kind: "installed-lifecycle", mode: "evidence" },
-  { name: "verify:upgrade-uninstall", kind: "installed-lifecycle", mode: "evidence" },
   { name: "verify:public-export", kind: "public-export", mode: "evidence" },
   { name: "audit:secrets", kind: "secret", mode: "run" },
 ] as const;

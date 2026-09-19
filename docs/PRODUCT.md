@@ -32,8 +32,8 @@ The app contains its target Electron, Node, DSH closure, profile seed, bundled
 plugins, licenses, and integrity metadata. It never falls back to a system Node,
 pnpm, Python, ffmpeg, or DSH installation. Every support claim requires a build
 and installed test on the matching native platform. Current 0.6.3 native
-lifecycle is fresh install, restart, the exact 0.6.1 installed upgrade, and
-default uninstall on Apple Silicon and Windows. UOS native
+lifecycle is fresh install, restart, and default uninstall on Apple Silicon and
+Windows. The older installed-upgrade journey is `OWNER_EXCLUDED`. UOS native
 install/startup/function for 0.6.3 is `OWNER_POST_RELEASE`: the Owner tests
 the published installer. That is not a native PASS.
 
@@ -41,7 +41,7 @@ the published installer. That is not a native PASS.
 
 | Surface | Fresh state | Product behavior |
 | --- | --- | --- |
-| Plugin Center | Active | Shows real DSH loader state and signed catalog transactions |
+| Plugin Center | Active | Shows real DSH loader state and routes package operations through the exact official DSH alpha.2 plugin manager |
 | Penglai Memory | Active | Automatic current-Workspace memory, explicit personal memory, authorised sources, provenance, and graph views |
 | Mobile Messaging | Active | Bundled and enabled by default, with no account or channel connected automatically. Eight established first-party connectors plus optional macOS iMessage (nine adapter implementations). WeChat/Feishu keep native media. iMessage is private text, independently default off, and Darwin-only. Account connectivity is reported only with actual evidence; iMessage native live is `LIVE_NOT_RUN`. WhatsApp is excluded. |
 | Speech Recognition | Disabled | Local SenseVoice transcription after explicit model installation and microphone action |
@@ -186,8 +186,8 @@ Agent、模型网关、Session 存储或聊天页。
 （307 包），目标为 Apple 芯片、Windows x64，以及统信 UOS 20
 `linux-loong64`（`Penglai_0.6.3_uos_loong64.deb`）。Intel Mac 不在本版发布。用户自备模型密钥，
 选择 official 模型和 Workspace，收到第一条真实 DSH 回复后进入 official
-DSH Web。0.6.3 计划的原生生命周期是 Apple 芯片与 Windows 全新安装、重启、
-0.6.2 到 0.6.3 的真实安装版升级与默认卸载；本轮在这些验证前停止并标 `NOT_RUN`。
+DSH Web。0.6.3 的原生生命周期要求 Apple 芯片与 Windows 全新安装、重启与默认卸载；
+0.6.2 到 0.6.3 的真实安装版升级由 Owner 标记为 `OWNER_EXCLUDED`，不作为发布 PASS。
 UOS 真机安装/启动/功能为 `OWNER_POST_RELEASE`。已发布的 0.5.10、0.5.11、0.5.12、0.6.0、0.6.1 与 0.6.2
 保持不可变。
 

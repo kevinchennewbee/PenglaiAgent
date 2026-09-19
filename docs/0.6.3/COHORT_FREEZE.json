@@ -37,7 +37,7 @@
   "migration": {
     "homeGeneration": "copy the verified 0.1.5-rc.2 home into an isolated 0.1.6-alpha.2 generation and activate only after health checks",
     "center": "rebuild bundled first-party plugins for exact DSH 0.1.6-alpha.2 and use the exact official DSH manager for mutable profile packages",
-    "windowsUpgrade": "transactional 0.6.2 to 0.6.3 replacement with rollback and owner-data preservation",
+    "windowsUpgrade": "OWNER_EXCLUDED for 0.6.3 publication; immutable 0.6.2 pins remain historical evidence only",
     "mixedDshGenerations": "forbidden"
   }
 }

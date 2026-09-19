@@ -26,8 +26,9 @@ README and existing websites.
 4. Run the deterministic source, contract, integration, security, dependency,
    license, privacy, and clean-export gates.
 5. From one clean `main` commit, build Apple Silicon, Windows x64, and UOS 20
-   LoongArch. Run installed fresh and 0.6.2 upgrade journeys on Mac and
-   Windows. Verify the UOS package, ABI, runtime, and full closure.
+   LoongArch. Run installed fresh, restart, and default-uninstall journeys on
+   Mac and Windows. The 0.6.2 installed-upgrade journey is `OWNER_EXCLUDED`.
+   Verify the UOS package, ABI, runtime, and full closure.
 6. Publish only the exact asset set in `release-contract.json`, verify the
    immutable public bytes, then update README and the existing websites with
    the observed sizes and SHA-256 values and verify deployment.
@@ -36,6 +37,7 @@ README and existing websites.
 
 - No Intel Mac package, Linux amd64 package, or Windows ARM package.
 - No two-hour installed soak.
+- No 0.6.2 to 0.6.3 installed-upgrade claim; that journey is `OWNER_EXCLUDED`.
 - UOS native install, startup, UI, file picker, sleep/resume, and functional
   use remain `OWNER_POST_RELEASE`; the Owner tests the published `.deb`.
 - No notarization or Authenticode claim.
