@@ -106,6 +106,53 @@ const supplementalAcceptance = SUPPLEMENTAL_ACCEPTANCE_SUBGATES.map((gate) => {
   return { name: gate.name, kind: gate.kind, exit: resolved.exit, verdict: resolved.verdict, reason: json.reason ?? null };
 });
 
+/**
+ * Whether supplemental acceptance is required before publication.
+ *
+ * This was hardcoded `false`, which is why `verify:evidence` could never stop a
+ * release. It is now computed from what the supplemental set actually contains:
+ * the only remaining member needs the Owner's live account, and an owner-account
+ * journey that has not happened yet must not permanently block an otherwise
+ * complete automated/native release. If a gate that does not need live
+ * credentials is ever added to this set, the flag flips to `true` on its own
+ * rather than being forgotten.
+ */
+const SUPPLEMENTAL_GATES_REQUIRING_LIVE_CREDENTIALS = new Set(["verify:live"]);
+const supplementalRequiredForPublication = supplementalAcceptance.some(
+  (row) => !SUPPLEMENTAL_GATES_REQUIRING_LIVE_CREDENTIALS.has(row.name),
+);
+
+/**
+ * Evidence collected by `verify:evidence` is a hard gate, so a non-PASS verdict
+ * there already fails the aggregation above. These fields record *why* it was
+ * non-PASS, so a reader can tell a genuine failure from an environment block.
+ *
+ * FAIL means the evidence exists and contradicts itself or the registry: a
+ * duplicate assertion for one id, an assertion for an unregistered id, a result
+ * bound to the wrong source SHA, or a registry id nothing can emit. Publication
+ * stops.
+ *
+ * BLOCKED means the evidence could not be collected at all — an external service
+ * unreachable, or a runner unavailable on this host. Publication stops too, but
+ * the release notes say "not evaluated" rather than "evaluated and wrong".
+ *
+ * INCOMPLETE means collection ran and some registered ids produced nothing.
+ */
+const evidenceGate = records.find((row) => row.name === "verify:evidence");
+const evidenceSummaryVerdict = summary?.verdict ?? null;
+const evidenceBlocking = {
+  /** Kept for release records that already read this field. */
+  requiredForPublication: true,
+  isHardGate: true,
+  verdict: evidenceGate?.verdict ?? "INCOMPLETE",
+  exit: evidenceGate?.exit ?? 2,
+  summaryVerdict: evidenceSummaryVerdict,
+  failMeans: "evidence contradicts itself or the registry; publication stops",
+  blockedMeans: "evidence could not be collected on this host; publication stops, recorded as not evaluated",
+  incompleteMeans: "collection ran and registered ids produced no evidence",
+  totals: summary?.totals ?? null,
+};
+
 const info = readJson("release-info.json");
 const summaryPath = join(ROOT, "evidence/generated/evidence-summary.json");
 const summary = existsSync(summaryPath) ? JSON.parse(readFileSync(summaryPath, "utf8")) : null;
@@ -155,10 +202,11 @@ const out = {
   notaryRecordedAs: agg.notaryRecordedAs,
   records,
   supplementalAcceptance: {
-    requiredForPublication: false,
+    requiredForPublication: supplementalRequiredForPublication,
     records: supplementalAcceptance,
     totals: summary?.totals ?? null,
   },
+  evidence: evidenceBlocking,
   dryRun,
   injectFail,
 };

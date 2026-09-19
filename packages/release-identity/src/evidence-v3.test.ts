@@ -91,14 +91,15 @@ test("evaluateEvidenceV3 stays blocked while Hard IDs are NOT_RUN", () => {
   assert.equal(manifest.engine, "v3");
   assert.equal(manifest.verdict, "INCOMPLETE");
   assert.equal(readyBlocked(manifest.totals), true);
-  assert.equal(manifest.results.find((r) => r.id === "R50-VOICE-001")?.status, "NOT_RUN");
+  assert.equal(manifest.results.find((r) => r.id === "R50-TRUTH-001")?.status, "NOT_RUN");
 });
 
-test("R50-SEC/VOICE evidence recompute stays honest and scans voice/context surfaces", () => {
+test("evidence recompute stays honest and scans the secret/context surfaces", () => {
   const md = readFileSync(join(root, "docs/ACCEPTANCE.md"), "utf8");
   const registry = parseAcceptanceRegistry(md);
   assert.equal(registry.length, [...md.matchAll(/\| `(R5[05]-[A-Z0-9-]+)`/g)].length);
-  assert.ok(registry.some((e) => e.id.startsWith("R50-VOICE-")));
+  assert.ok(registry.some((e) => e.id.startsWith("R50-SEC-")));
+  assert.ok(registry.some((e) => e.id.startsWith("R50-DOC-")));
   const scanner = readFileSync(join(root, "packages/runtime/src/scanner.ts"), "utf8");
   assert.match(scanner, /transcript body/);
   assert.match(scanner, /voice reference/);

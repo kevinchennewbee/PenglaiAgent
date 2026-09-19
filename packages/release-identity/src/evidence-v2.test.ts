@@ -70,8 +70,16 @@ test("recordAssertion keeps the caller source SHA when PENGLAI_CANDIDATE_SHA dif
   const prev = process.env.PENGLAI_CANDIDATE_SHA;
   process.env.PENGLAI_CANDIDATE_SHA = OTHER;
   try {
+    // No registry record is written here. A second R50-TRUTH-001 assertion made
+    // `resultsFromAssertions` report a duplicate for that id, which tallies as
+    // FAIL. `identity.test.ts` is the single authoritative emitter for it, and the
+    // property under test — a runner SHA is never taken from the environment — is
+    // asserted on the returned record below.
     const got = recordAssertion({
-      acceptanceId: "R50-TRUTH-001",
+      // R50-TRUTH-006 is the dedicated id for this invariant: a runner SHA is
+      // never taken from the environment. Using R50-TRUTH-001 here instead
+      // produced a duplicate assertion for that id, which tallies as FAIL.
+      acceptanceId: "R50-TRUTH-006",
       runnerId: "unit",
       testId: "env-must-not-overwrite",
       assertionId: "keep-runner-source-sha",

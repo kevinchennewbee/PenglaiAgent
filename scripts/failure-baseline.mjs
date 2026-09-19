@@ -105,7 +105,7 @@ async function probeFanout() {
         resultDigest: "d",
       },
       {
-        acceptanceId: "R50-LIVE-001",
+        acceptanceId: "R50-TRUTH-001",
         runnerId: "smoke",
         testId: "one",
         assertionId: "same",

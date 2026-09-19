@@ -104,19 +104,48 @@ export const ACCEPTANCE_DOC = "docs/ACCEPTANCE.md";
 export const HARD_ID_RE = /\| `(R5[05]-[A-Z0-9]+-\d+)` \|/g;
 /** Previous registry generation. Never a completion map. */
 export const LEGACY_HARD_COUNT_STALE = 202;
+/**
+ * Hard families the registry must contain.
+ *
+ * This list previously required `R50-BUDGET` 1..6, `R50-COMP` 1..8 and
+ * `R55-OFFICE` 1..24 — 38 ids for modules this version excludes from the
+ * workspace, profile, runtime, installer and product SBOM. No run could ever
+ * satisfy them, so `missing != 0` was structural and the completeness count
+ * carried no information. A family that cannot be emitted does not belong here.
+ *
+ * Each entry is backed by an emitter declared in `evidence-emitters.ts`, and
+ * `emitters.test.ts` asserts that every id listed here is both registered in
+ * `docs/ACCEPTANCE.md` and emittable. The requirement is therefore satisfiable by
+ * construction, which is what makes `missing === 0` mean something.
+ *
+ * A row is either a contiguous `{ prefix, start, end }` range or a sparse
+ * `{ prefix, ids }` list. Sparse rows exist because the surviving ids in those
+ * families are genuinely non-contiguous: the retired numbers were the
+ * unemittable ones, and writing `start: 1, end: 6` for `R50-CORE` would
+ * re-introduce exactly the unsatisfiable demand this change removes. Both forms
+ * are closed literals, so the rows stay textually auditable.
+ */
 export const REQUIRED_HARD_FAMILIES = [
-  { prefix: "R50-VOICE", start: 1, end: 16 },
-  { prefix: "R50-CTXMEM", start: 1, end: 16 },
-  { prefix: "R50-BUDGET", start: 1, end: 6 },
-  { prefix: "R50-COMP", start: 1, end: 8 },
-  { prefix: "R50-LIVE", start: 9, end: 16 },
-  { prefix: "R55-TRUTH", start: 1, end: 4 },
-  { prefix: "R55-DSH", start: 1, end: 4 },
-  { prefix: "R55-BUILTIN", start: 1, end: 12 },
-  { prefix: "R55-MEM", start: 1, end: 20 },
-  { prefix: "R55-OFFICE", start: 1, end: 24 },
-  { prefix: "R55-COMM", start: 1, end: 10 },
+  { prefix: "R50-TRUTH", start: 1, end: 8 },
+  { prefix: "R50-CORE", ids: [1, 2, 4, 5, 6] },
+  { prefix: "R50-ONB", start: 1, end: 12 },
+  { prefix: "R50-UPD", ids: [1, 4, 5, 6, 7] },
+  { prefix: "R50-CENTER", ids: [1, 5, 6, 7, 9] },
+  { prefix: "R50-DIST", ids: [1, 3, 5, 8] },
+  { prefix: "R50-ROUTE", ids: [1, 9, 10] },
+  { prefix: "R50-IM", start: 1, end: 1 },
+  { prefix: "R50-MAC", start: 4, end: 9 },
+  { prefix: "R50-SEC", start: 4, end: 4 },
+  { prefix: "R50-E2E", start: 1, end: 4 },
+  { prefix: "R50-PREP", ids: [1, 2, 3, 5, 6, 9, 10] },
+  { prefix: "R50-UI", ids: [1, 6] },
+  { prefix: "R50-CRED", start: 2, end: 2 },
+  { prefix: "R50-UN", ids: [1, 2, 5, 6, 7] },
+  { prefix: "R50-DRIFT", start: 1, end: 5 },
+  { prefix: "R50-DOC", start: 1, end: 5 },
+  { prefix: "R50-ABSENT", start: 1, end: 1 },
 ] as const;
+
 export const GITHUB_ACTIONS_STATUS = "AVAILABLE";
 export const CANDIDATE_SOURCE_SHA_NONE = "NONE";
 export const UPDATER_CHANNEL = "desktop-v0.5";
@@ -275,17 +304,28 @@ export const HARD_SUBGATES = [
   { name: "verify:installed", kind: "installed", mode: "evidence" },
   { name: "verify:fresh-install-uninstall", kind: "installed-lifecycle", mode: "evidence" },
   { name: "verify:public-export", kind: "public-export", mode: "evidence" },
+  { name: "verify:evidence", kind: "evidence", mode: "evidence" },
   { name: "audit:secrets", kind: "secret", mode: "run" },
 ] as const;
 
-// Owner-account journeys and the complete
-// cross-run assertion census remain visible supplemental acceptance. Their
-// absence must not masquerade as PASS or permanently block an otherwise
-// complete automated/native release aggregate.
+/**
+ * Owner-account journeys that cannot run without live credentials.
+ *
+ * `verify:evidence` used to sit here. That placement was the structural reason a
+ * release could be published with evidence missing or self-contradictory:
+ * `verify-release.mjs` hardcoded `supplementalAcceptance.requiredForPublication:
+ * false`, and a supplemental record is reported but never aggregated into the
+ * release verdict. The cross-run assertion census is not an owner-account
+ * journey, so it is a hard gate now (see `HARD_SUBGATES` above).
+ *
+ * What remains supplemental is exactly what cannot be automated: a journey that
+ * needs the Owner's real account. Its absence must not masquerade as PASS, and
+ * it must not permanently block an otherwise complete automated/native release.
+ */
 export const SUPPLEMENTAL_ACCEPTANCE_SUBGATES = [
   { name: "verify:live", kind: "live", mode: "evidence" },
-  { name: "verify:evidence", kind: "evidence", mode: "evidence" },
 ] as const;
+
 
 /**
  * Drift probes: does the outside world still match what this repository assumes?
@@ -344,6 +384,7 @@ export const REQUIRED_SUBGATE_KINDS = [
   "installed",
   "installed-lifecycle",
   "public-export",
+  "evidence",
   "secret",
 ] as const;
 

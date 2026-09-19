@@ -876,6 +876,10 @@ test("soak runner samples IM offline sleep without faking lifecycle proof", () =
     "utf8",
   );
   assert.match(verifyInstalled, /R50-WIN-009/);
-  assert.match(verifyInstalled, /R50-MAC-010/);
+  // Intel Mac is excluded from this version. The Intel assertion branch that used
+  // to sit in verify-installed.mjs could never fire, because RELEASE_TARGETS
+  // cannot select darwin-x86_64. Asserting its absence is what keeps it removed.
+  assert.doesNotMatch(verifyInstalled, /R50-MAC-010/);
+  assert.doesNotMatch(verifyInstalled, /darwin-x86_64"/);
   assert.match(soak, /remote-debugging-port/);
 });

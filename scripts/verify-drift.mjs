@@ -31,11 +31,13 @@
  *   node scripts/verify-drift.mjs --probe weixin-ilink
  *   node scripts/verify-drift.mjs --json      # machine-readable only
  *   node scripts/verify-drift.mjs --offline   # skip network probes (BLOCKED)
+ *   node scripts/verify-drift.mjs --collect-only   # record assertions, print nothing
  *
  * Exit: 0 all probes PASS, 1 at least one FAIL, 4 every probe BLOCKED.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { ROOT } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { PINNED_DSH, PINNED_DSH_COMMIT, PINNED_DSH_TAG, PRODUCT_VERSION } from "./lib/product.mjs";
@@ -43,6 +45,7 @@ import { PINNED_DSH, PINNED_DSH_COMMIT, PINNED_DSH_TAG, PRODUCT_VERSION } from "
 const TIMEOUT_MS = Number(process.env.PENGLAI_DRIFT_TIMEOUT_MS ?? 20_000);
 const OFFLINE = process.argv.includes("--offline");
 const JSON_ONLY = process.argv.includes("--json");
+const COLLECT_ONLY = process.argv.includes("--collect-only");
 const ONLY = (() => {
   const i = process.argv.indexOf("--probe");
   return i >= 0 ? process.argv[i + 1] : undefined;
@@ -56,6 +59,24 @@ const PROBE_IDS = [
   "published-facts",
   "opencode-go",
 ];
+
+/**
+ * Each drift probe is a registered acceptance assertion, so a probe cannot be
+ * deleted without the registry noticing. Drift evidence is collected only when
+ * a collector supplies `PENGLAI_EVIDENCE_DIR`; a bare `pnpm verify:drift` stays
+ * a read-only observation, because a red probe deliberately does not block
+ * publication — it blocks claiming the release is fine.
+ */
+const DRIFT_ID_BY_PROBE = {
+  "weixin-ilink": "R50-DRIFT-001",
+  "dsh-upstream": "R50-DRIFT-002",
+  "dsh-im-channel": "R50-DRIFT-003",
+  "published-facts": "R50-DRIFT-004",
+  "opencode-go": "R50-DRIFT-005",
+};
+
+/** Probe verdict -> assertion verdict. An unreachable vendor is BLOCKED, never FAIL. */
+const ASSERTION_STATUS_BY_PROBE = { PASS: "PASS", FAIL: "FAIL", BLOCKED: "BLOCKED" };
 
 const PASS = "PASS";
 const FAIL = "FAIL";
@@ -295,7 +316,7 @@ const failed = results.filter((row) => row.verdict === FAIL);
 const blocked = results.filter((row) => row.verdict === BLOCKED);
 const passed = results.filter((row) => row.verdict === PASS);
 
-if (!JSON_ONLY) {
+if (!JSON_ONLY && !COLLECT_ONLY) {
   console.log(`Penglai ${PRODUCT_VERSION} drift probes`);
   for (const row of results) {
     const mark = row.verdict === PASS ? "ok  " : row.verdict === FAIL ? "DRIFT" : "skip";
@@ -310,6 +331,38 @@ if (!JSON_ONLY) {
 }
 
 const verdict = failed.length > 0 ? "FAIL" : blocked.length === results.length ? "BLOCKED" : "PASS";
+
+if (process.env.PENGLAI_EVIDENCE_DIR) {
+  const identity = await import(
+    pathToFileURL(join(ROOT, "packages/release-identity/src/index.ts")).href
+  );
+  const candidateSourceSha = identity.declaredSourceSha(ROOT);
+  for (const row of results) {
+    const acceptanceId = DRIFT_ID_BY_PROBE[row.id];
+    if (!acceptanceId) continue;
+    identity.recordAssertion({
+      acceptanceId,
+      runnerId: "drift",
+      testId: `drift-probe-${row.id}`,
+      assertionId: `drift-${row.id}`,
+      status: ASSERTION_STATUS_BY_PROBE[row.verdict],
+      candidateSourceSha,
+      exitCode: row.verdict === PASS ? 0 : 1,
+      details: { safe: `drift probe ${row.id}: ${row.detail}` },
+    });
+  }
+}
+
+if (COLLECT_ONLY) {
+  // Evidence collection for the hard `verify:evidence` gate. The drift verdict
+  // itself still does not gate publication — an unreachable vendor must not be
+  // able to stop a complete release — but the *records* must exist, so that
+  // "the probes ran" is a fact the release aggregate can see. `finish` still
+  // exits with the drift verdict so a caller that ignores the distinction sees
+  // the red probe.
+  process.exit(failed.length > 0 ? 1 : blocked.length === results.length ? 4 : 0);
+}
+
 finish(verdict, {
   command: "verify:drift",
   version: PRODUCT_VERSION,

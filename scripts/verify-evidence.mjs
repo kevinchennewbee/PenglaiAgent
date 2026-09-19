@@ -21,16 +21,23 @@ mkdirSync(evidenceDir, { recursive: true });
 const unitAssertionFile = join(evidenceDir, "unit-assertions.jsonl");
 writeFileSync(unitAssertionFile, "");
 
+/**
+ * Collector suites.
+ *
+ * Only suites that actually emit assertions belong here. The list used to run
+ * `packages/memory/src/r55-memory.test.ts` and
+ * `packages/office/src/r55-office.test.ts`; neither calls `recordAssertion`, and
+ * the office package is excluded from `pnpm-workspace.yaml` entirely, so the
+ * suite could not even resolve its imports. That made this gate fail on every
+ * run for a reason unrelated to evidence, which is how a blocking gate gets
+ * ignored. The evidence-emitting suites are `packages/release-identity/src/*.test.ts`
+ * plus the DRIFT probes and the installed runner, which are invoked separately.
+ */
+const COLLECTOR_SUITES = ["packages/release-identity/src/*.test.ts"];
+
 const collect = spawnSync(
   process.execPath,
-  [
-    "--import",
-    "tsx",
-    "--test",
-    "packages/release-identity/src/*.test.ts",
-    "packages/memory/src/r55-memory.test.ts",
-    "packages/office/src/r55-office.test.ts",
-  ],
+  ["--import", "tsx", "--test", ...COLLECTOR_SUITES],
   {
     cwd: ROOT,
     encoding: "utf8",
@@ -43,7 +50,42 @@ const collect = spawnSync(
 if (collect.status !== 0) {
   process.stderr.write(collect.stdout || "");
   process.stderr.write(collect.stderr || "");
-  finish("FAIL", { command: "verify:evidence", reason: "identity tests failed while collecting assertions" });
+  // A collector suite that cannot run is a blocked evaluation, not a failed
+  // assertion. BLOCKED (exit 4) still stops publication, but it records "not
+  // evaluated on this host" rather than "evaluated and wrong". A missing local
+  // dependency is an environment condition; claiming it as an evidence FAIL
+  // would be a false statement about the product.
+  finish("BLOCKED", {
+    command: "verify:evidence",
+    reason: "collector suites could not run on this host",
+    suites: COLLECTOR_SUITES,
+  });
+}
+
+/**
+ * Drift probes are collected here so their records exist for the release
+ * aggregate. They are run with `--collect-only`, which writes assertions without
+ * printing; the probe verdict is deliberately not allowed to change the
+ * publication decision here (an unreachable vendor must not stop a complete
+ * release), but a probe that never ran leaves `R50-DRIFT-001..005` without
+ * evidence, which this gate reports as INCOMPLETE.
+ */
+const driftAssertionFile = join(evidenceDir, "drift-assertions.jsonl");
+writeFileSync(driftAssertionFile, "");
+const driftCollect = spawnSync(
+  process.execPath,
+  ["--import", "tsx", "scripts/verify-drift.mjs", "--collect-only"],
+  {
+    cwd: ROOT,
+    encoding: "utf8",
+    env: { ...process.env, PENGLAI_EVIDENCE_DIR: driftAssertionFile },
+  },
+);
+if (driftCollect.status !== 0) {
+  // Recorded, not fatal: the drift verdict is published, not gating. The
+  // assertion records it did write are still read below.
+  process.stderr.write(driftCollect.stdout || "");
+  process.stderr.write(driftCollect.stderr || "");
 }
 
 function readAssertions(filename) {
@@ -65,6 +107,7 @@ const collections = [
   { file: "live-assertions.jsonl", class: "live-runner" },
   { file: "soak-assertions.jsonl", class: "soak-runner" },
   { file: "export-assertions.jsonl", class: "export-runner" },
+  { file: "drift-assertions.jsonl", class: "drift-runner" },
 ];
 const records = collections.flatMap((entry) => identity.tagCollection(readAssertions(entry.file), entry.class));
 

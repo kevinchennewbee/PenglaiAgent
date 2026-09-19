@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PenglaiError } from "@penglai/contracts";
-import { recordAssertion } from "./assertion.js";
+import { declaredSourceSha, recordAssertion } from "./assertion.js";
 import {
   ARM64_DEFERRED_GATES,
   assertRequiredKindsPresent,
@@ -67,7 +67,7 @@ test("R50-TRUTH-003 stale alpha.3 and alpha.2 artifacts are rejected", () => {
     testId: "stale-alpha-rejected",
     assertionId: "alpha-hashes-stale-invalidated",
     status: "PASS",
-    candidateSourceSha: "a".repeat(40),
+    candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
   });
 });
@@ -99,7 +99,7 @@ test("keychain in product-path text fails", () => {
   assert.equal(historicalClassification("@penglai/credentials-keychain"), "historical/not-product");
 });
 
-test("R50-TRUTH-007 / R50-E2E-008 aggregator lists all hard kinds and propagates failure", () => {
+test("R50-TRUTH-007 aggregator lists all hard kinds and propagates failure", () => {
   assertRequiredKindsPresent();
   for (const kind of REQUIRED_SUBGATE_KINDS) {
     assert.ok(listedSubgateKinds().includes(kind), kind);
@@ -109,7 +109,10 @@ test("R50-TRUTH-007 / R50-E2E-008 aggregator lists all hard kinds and propagates
   assert.ok(listedSubgateNames().includes("audit:secrets"));
   assert.equal(listedSubgateNames().includes("verify:live"), false);
   assert.equal(listedSubgateNames().includes("verify:soak"), false);
-  assert.equal(listedSubgateNames().includes("verify:evidence"), false);
+  // verify:evidence is a hard gate: missing or self-contradictory evidence must
+  // be able to stop a publication. It used to be supplemental, which made it
+  // reportable but never aggregated into the release verdict.
+  assert.equal(listedSubgateNames().includes("verify:evidence"), true);
   assert.equal(listedSubgateNames().includes("verify:fresh-install-uninstall"), true);
   assert.equal(listedSubgateNames().includes("verify:upgrade-uninstall"), false);
   assert.equal(CURRENT_NATIVE_LIFECYCLE.requiredGate, "verify:fresh-install-uninstall");
@@ -122,7 +125,7 @@ test("R50-TRUTH-007 / R50-E2E-008 aggregator lists all hard kinds and propagates
   );
   assert.deepEqual(
     SUPPLEMENTAL_ACCEPTANCE_SUBGATES.map((gate) => gate.name),
-    ["verify:live", "verify:evidence"],
+    ["verify:live"],
   );
   assert.equal(HARD_SUBGATES.length >= 18, true);
 
@@ -200,22 +203,16 @@ test("R50-TRUTH-007 / R50-E2E-008 aggregator lists all hard kinds and propagates
   });
   assert.equal(staleInstalled.verdict, "FAIL");
 
+  // Records the candidate source SHA from Git HEAD. A placeholder SHA here made
+  // the record tally as STALE under every run, which is indistinguishable from
+  // not emitting at all.
   recordAssertion({
     acceptanceId: "R50-TRUTH-007",
     runnerId: "release-identity.rc0",
     testId: "aggregator-nonzero",
     assertionId: "incomplete-or-fail-subgate-nonzero",
     status: "PASS",
-    candidateSourceSha: "a".repeat(40),
-    exitCode: 0,
-  });
-  recordAssertion({
-    acceptanceId: "R50-E2E-008",
-    runnerId: "release-identity.rc0",
-    testId: "aggregator-lists-kinds",
-    assertionId: "all-hard-kinds-listed-and-propagated",
-    status: "PASS",
-    candidateSourceSha: "a".repeat(40),
+    candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
   });
 });

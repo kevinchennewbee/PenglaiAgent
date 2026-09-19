@@ -246,16 +246,12 @@ identity.recordAssertion({
   assertionId: "exact-installer-installed-suite",
   details: { safe: `${target} exact installer suite recorded official boot observations` },
 });
-if (target === "darwin-x86_64") {
-  identity.recordAssertion({
-    ...common,
-    acceptanceId: "R50-MAC-010",
-    runnerId: "installed",
-    testId: "verify-installed",
-    assertionId: "intel-native-runner",
-    details: { safe: "Intel installer evidence was recorded on a native darwin-x86_64 runner" },
-  });
-}
+// Intel Mac is not a target of this version, so no Intel assertion is recorded.
+// The `R50-MAC-010` branch that used to sit here could never fire: the assertion
+// was emitted only when `target === "darwin-x86_64"`, which
+// `EXCLUDED_CURRENT_RELEASE_TARGET_KEY` excludes and `RELEASE_TARGETS` cannot
+// select. Keeping a dead branch would make the id look satisfied when nothing
+// could ever produce it.
 identity.recordAssertion({
   ...common,
   acceptanceId: "R50-ONB-002",
