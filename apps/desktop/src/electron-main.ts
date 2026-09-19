@@ -10,6 +10,7 @@ import {
   AssistedUpdateCoordinator,
   activateDshHomeBootPlan,
   DeletionAuthorizer,
+  GENERATION_ID,
   PINNED_DSH,
   PENGLAI_VERSION,
   redactSupervisorDiagnostic,
@@ -654,6 +655,10 @@ async function main(): Promise<void> {
       manifestPolicy: {
         allowedAssetHosts: releaseContract.updaterAllowedAssetHosts,
         currentOsVersion: process.getSystemVersion(),
+        // The data-root generation is a build constant, not the product version.
+        // Passing it explicitly is what lets `assertUpdateManifest` refuse a
+        // cross-generation candidate without ever parsing a version literal.
+        currentGeneration: GENERATION_ID,
       },
     });
     updater.recoverOnLaunch();

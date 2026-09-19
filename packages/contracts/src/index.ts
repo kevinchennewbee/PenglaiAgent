@@ -23,6 +23,7 @@ export * from "./closed-enum.js";
 export * from "./safe-https.js";
 export * from "./center-journal.js";
 export * from "./usage-projection.js";
+export * from "./update-targets.js";
 
 export const SCHEMA_VERSION = 13;
 export const RELEASE = "0.6.3";

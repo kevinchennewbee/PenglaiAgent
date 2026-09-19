@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync } from "node:fs";
 import { isAbsolute, join, posix, resolve, win32 } from "node:path";
-import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
+import { PenglaiError, readExactRegularFile, updateTargetKeyFor } from "@penglai/contracts";
 import {
   DATA_CATEGORIES,
   assertCanonicalManifestUrl,
@@ -78,11 +78,15 @@ export function configureGenerationPaths(input: {
 }
 
 export function releaseTarget(platform: NodeJS.Platform, arch: string): string {
-  if (platform === "darwin" && arch === "arm64") return "darwin-aarch64";
-  if (platform === "darwin" && (arch === "x64" || arch === "x86_64")) return "darwin-x86_64";
-  if (platform === "win32" && (arch === "x64" || arch === "x86_64")) return "win32-x86_64";
-  if (platform === "linux" && (arch === "loong64" || arch === "loongarch64")) return "linux-loong64";
-  throw new PenglaiError("SECURITY_POLICY", `unsupported installed update target ${platform}/${arch}`);
+  // Resolved from the shared target table in @penglai/contracts so a platform
+  // can never resolve here while the update manifest schema refuses to carry it
+  // (which is how `linux-loong64` shipped as a release target that the updater
+  // rejected as "unsupported update target" on every UOS check).
+  const key = updateTargetKeyFor(platform, arch);
+  if (!key) {
+    throw new PenglaiError("SECURITY_POLICY", `unsupported installed update target ${platform}/${arch}`);
+  }
+  return key;
 }
 
 export interface UpdaterReleaseContract {
@@ -107,7 +111,12 @@ export function loadUpdaterReleaseContract(resourcesRoot: string): UpdaterReleas
   const value = raw as Partial<UpdaterReleaseContract>;
   if (
     typeof value.version !== "string" ||
-    !/^0\.(?:5|6)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(value.version) ||
+    // Any semver is a valid release version. This used to accept only `0.5.x`
+    // and `0.6.x`, which is the same defect class as the update generation gate:
+    // a literal that silently rejects a future release instead of describing an
+    // invariant. The real version agreement is enforced by the caller comparing
+    // this against `app.getVersion()`.
+    !/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(value.version) ||
     value.updaterChannel !== "desktop-v0.5" ||
     typeof value.updaterPublicKeyId !== "string" ||
     value.updaterPublicKeyId.length < 8 ||

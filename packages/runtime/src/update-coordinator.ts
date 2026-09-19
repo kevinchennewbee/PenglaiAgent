@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { lstatSync, mkdirSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, updateInstallerName, type InstallerKind } from "@penglai/contracts";
 import {
   VerifiedInstallerHandoff,
   assertCanonicalManifestUrl,
@@ -80,7 +80,7 @@ export interface AssistedUpdateConfig {
   manifestPolicy?: Omit<UpdateManifestPolicy, "trustedKeyId" | "allowCurrentCheck">;
   fetchImpl?: typeof fetch;
   handoff?: VerifiedInstallerHandoff;
-  openInstaller?: (path: string, kind: "dmg" | "setup") => void;
+  openInstaller?: (path: string, kind: InstallerKind) => void;
 }
 
 function childOf(root: string, child: string): boolean {
@@ -273,12 +273,10 @@ export class AssistedUpdateCoordinator {
         const platform = found.manifest.platforms[this.#config.target];
         if (!platform) throw new PenglaiError("INVALID_INPUT", "platform missing");
         version = found.manifest.version;
-        const expectedFilename =
-          this.#config.target === "darwin-aarch64"
-            ? `Penglai_${version}_macos_aarch64.dmg`
-            : this.#config.target === "darwin-x86_64"
-              ? `Penglai_${version}_macos_x64.dmg`
-              : `Penglai_${version}_windows_x64_setup.exe`;
+        const expectedFilename = updateInstallerName(this.#config.target, version);
+        if (!expectedFilename) {
+          throw new PenglaiError("SECURITY_POLICY", `unsupported update target ${this.#config.target}`);
+        }
         const githubAsset = found.assets.find((row) => row.name === expectedFilename);
         if (!githubAsset || githubAsset.id !== platform.assetId || githubAsset.size !== platform.size) {
           throw new PenglaiError("SECURITY_POLICY", "update asset identity does not match GitHub release");
@@ -308,6 +306,16 @@ export class AssistedUpdateCoordinator {
           publicExportTreeSha256: found.manifest.publicExportTreeSha256,
           releaseManifestSha256,
         };
+        // A discovered manifest that declares no data generation cannot authorise
+        // an update. `parseAppUpdateManifest` reads such manifests leniently so
+        // historical releases stay inspectable, so the refusal has to happen here.
+        const declaredGeneration = found.manifest.migration.generation;
+        if (!declaredGeneration) {
+          throw new PenglaiError(
+            "SECURITY_POLICY",
+            `update manifest v${version} declares no data generation`,
+          );
+        }
         this.#manifest = {
           schemaVersion: 1,
           channel: "desktop-v0.5",
@@ -320,7 +328,7 @@ export class AssistedUpdateCoordinator {
           publicExportTreeSha256: found.manifest.publicExportTreeSha256,
           releaseManifestSha256,
           migration: {
-            generation: "0.5",
+            generation: declaredGeneration,
             fromVersion: found.manifest.minimumSourceVersion,
             throughVersion: this.#config.currentVersion,
             toVersion: version,

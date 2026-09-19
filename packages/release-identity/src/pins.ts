@@ -130,6 +130,21 @@ export const PUBLICATION_TARGET = Object.freeze({
   channel: "stable-v0.6.3",
 });
 
+/**
+ * Release-pipeline target table.
+ *
+ * This must stay a closed literal array: `scripts/lib/release-pins-source.mjs`
+ * extracts it textually, without executing any code, to keep the release
+ * pipeline readable and auditable. It is therefore NOT derived from
+ * `@penglai/contracts` `UPDATE_TARGETS`; the two tables are instead held in
+ * agreement by `target-agreement.test.ts`, which exists because they previously
+ * drifted. `linux-loong64` was published here while the runtime updater's copy
+ * of the list omitted it, so every update check on UOS failed with
+ * "unsupported update target"; `darwin-x86_64` went the other way and stayed in
+ * the runtime copy a version after being dropped here.
+ *
+ * Installer filenames embed the product version and must be updated with it.
+ */
 export const RELEASE_TARGETS = [
   {
     key: "darwin-aarch64",
@@ -153,7 +168,7 @@ export const RELEASE_TARGETS = [
 
 export type ReleaseTargetKey = (typeof RELEASE_TARGETS)[number]["key"];
 
-/** Known packaging/host key retained for historical validation. Not a 0.6.3 release target. */
+/** Known packaging/host key retained for historical validation. Not a current release target. */
 export const EXCLUDED_CURRENT_RELEASE_TARGET_KEY = "darwin-x86_64" as const;
 
 /** Mac/Windows native install/lifecycle gates. linux-loong64 host evidence remains OWNER_POST_RELEASE, not a 0.6.3 PASS. */

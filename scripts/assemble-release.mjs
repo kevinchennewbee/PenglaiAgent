@@ -20,7 +20,7 @@ import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ROOT } from "./lib/repo.mjs";
-import { PRODUCT_VERSION, UPDATER_SEQUENCE } from "./lib/product.mjs";
+import { GENERATION_ID, PRODUCT_VERSION, UPDATER_SEQUENCE } from "./lib/product.mjs";
 import { NATIVE_INSTALLED_TARGETS } from "./lib/release-targets.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { githubReleaseEndpoint } from "./lib/github-release.mjs";
@@ -337,7 +337,17 @@ const updateManifest = {
         },
       ]),
   ),
-  migration: { fromSchema: 3, toSchema: 3, backupRequired: true, rollbackCompatible: true },
+  migration: {
+    // The data-root generation, declared rather than inferred from the product
+    // version. The desktop compares this against its own GENERATION_ID before
+    // authorising an update; a version-literal comparison here is what silently
+    // disabled assisted update for every 0.6.x install.
+    generation: GENERATION_ID,
+    fromSchema: 3,
+    toSchema: 3,
+    backupRequired: true,
+    rollbackCompatible: true,
+  },
 };
 const updateBytes = Buffer.from(`${JSON.stringify(updateManifest, null, 2)}\n`);
 const updateSignature = signBytes(updateBytes, privateKey);

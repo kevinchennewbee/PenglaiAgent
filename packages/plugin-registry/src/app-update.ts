@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { BOUNDED_HTTP_MAX_BYTES, PenglaiError } from "@penglai/contracts";
+import { BOUNDED_HTTP_MAX_BYTES, PenglaiError, UPDATE_TARGET_KEY_LIST } from "@penglai/contracts";
 import { ALLOWED_ASSET_HOSTS, APP_REPO, GITHUB_OWNER, compareSemver } from "./catalog-schema.js";
 import { canonicalizeBytes } from "./canonical-json.js";
 import { downloadVerifiedBytes } from "./download.js";
@@ -42,6 +42,16 @@ export interface AppUpdateManifest {
   platforms: Record<string, AppUpdatePlatform>;
   releaseManifestSha256?: string;
   migration: {
+    /**
+     * Data-root generation this release belongs to, copied verbatim from
+     * `release-contract.json` (`generationId`, e.g. `penglai-dsh-v0.5`).
+     *
+     * Optional because manifests published before this field existed are
+     * immutable public bytes that must still parse. The runtime authorisation
+     * gate refuses to update from a manifest that omits it, so an absent
+     * generation blocks the update rather than skipping the boundary.
+     */
+    generation?: string;
     fromSchema: number;
     toSchema: number;
     backupRequired: true;
@@ -53,7 +63,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-const UPDATE_TARGETS = ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"] as const;
+const UPDATE_TARGETS = UPDATE_TARGET_KEY_LIST;
 
 function requireSemver(value: unknown, label: string): string {
   if (typeof value !== "string" || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(value)) {
@@ -115,6 +125,23 @@ export function parseAppUpdateManifest(raw: unknown, nowMs = Date.now()): AppUpd
   if (raw.migration.backupRequired !== true) {
     throw new PenglaiError("SECURITY_POLICY", "update backupRequired must be true");
   }
+  // The data generation is parsed leniently on purpose. Manifests published
+  // before it existed are immutable public bytes that must still be readable,
+  // and discovery has to be able to walk them. Whether a manifest may actually
+  // AUTHORISE an update is decided by `assertUpdateManifest` in the runtime,
+  // which refuses one that declares no generation. Read tolerant, authorise
+  // strict.
+  const rawGeneration = raw.migration.generation;
+  if (rawGeneration !== undefined && typeof rawGeneration !== "string") {
+    throw new PenglaiError("INVALID_INPUT", "update migration generation must be a string");
+  }
+  if (rawGeneration !== undefined && !/^penglai-dsh-v\d+\.\d+$/.test(rawGeneration)) {
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      "update manifest data generation must be penglai-dsh-v<major>.<minor>",
+    );
+  }
+  const generation = rawGeneration as string | undefined;
   const fromSchema = Number(raw.migration.fromSchema);
   const toSchema = Number(raw.migration.toSchema);
   if (!Number.isSafeInteger(fromSchema) || !Number.isSafeInteger(toSchema) || fromSchema < 1 || toSchema < fromSchema) {
@@ -149,6 +176,7 @@ export function parseAppUpdateManifest(raw: unknown, nowMs = Date.now()): AppUpd
       : {}),
     platforms,
     migration: {
+      ...(generation === undefined ? {} : { generation }),
       fromSchema,
       toSchema,
       backupRequired: true,
