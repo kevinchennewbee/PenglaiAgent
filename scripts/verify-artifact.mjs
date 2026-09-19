@@ -1,7 +1,7 @@
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 
 import { finish } from "./lib/exit-contract.mjs";
 import { inspectPackagedCandidate, packagedAppForTarget } from "./lib/packaged-candidate.mjs";
@@ -85,28 +85,51 @@ for (const row of packagedBytes.brandAssets ?? []) {
   }
 }
 
-const nodeVersion = execFileSync(packaged.nodeBin, ["-p", "process.version"], {
+const probeEnv =
+  expectedTarget === "win32-x86_64"
+    ? (() => {
+        const windowsRoot = process.env.SystemRoot || process.env.WINDIR || "C:\\Windows";
+        return {
+          SystemRoot: windowsRoot,
+          WINDIR: process.env.WINDIR || windowsRoot,
+          ComSpec: process.env.ComSpec || join(windowsRoot, "System32", "cmd.exe"),
+          PATHEXT: process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD",
+          TEMP: process.env.TEMP || process.env.TMP || packaged.resources,
+          TMP: process.env.TMP || process.env.TEMP || packaged.resources,
+          PATH: [dirname(packaged.nodeBin), join(windowsRoot, "System32"), windowsRoot].join(delimiter),
+          NODE_PATH: "",
+        };
+      })()
+    : { PATH: "/usr/bin:/bin", NODE_PATH: "" };
+
+const nodeProbe = spawnSync(packaged.nodeBin, ["-p", "process.version"], {
   encoding: "utf8",
-  env: { PATH: "/usr/bin:/bin" },
-  cwd: "/tmp",
-}).trim();
-if (nodeVersion !== `v${packaged.release.embeddedNode}`) {
+  env: probeEnv,
+  cwd: packaged.resources,
+});
+const nodeVersion = String(nodeProbe.stdout ?? "").trim();
+if (nodeProbe.status !== 0 || nodeVersion !== `v${packaged.release.embeddedNode}`) {
   finish("FAIL", {
     command: "verify:artifact",
-    reason: `embedded Node ${nodeVersion} != release identity v${packaged.release.embeddedNode}`,
+    reason: `embedded Node ${nodeVersion || "unavailable"} != release identity v${packaged.release.embeddedNode}`,
+    probeStatus: nodeProbe.status,
+    probeError: nodeProbe.error?.code ?? null,
   });
 }
 
-const dshVersion = execFileSync(packaged.nodeBin, [packaged.dshBin, "--version"], {
+const dshProbe = spawnSync(packaged.nodeBin, [packaged.dshBin, "--version"], {
   encoding: "utf8",
-  env: { PATH: "/usr/bin:/bin", NODE_PATH: "" },
-  cwd: "/tmp",
-}).trim();
-if (!dshVersion.includes(packaged.release.dsh)) {
+  env: probeEnv,
+  cwd: packaged.resources,
+});
+const dshVersion = `${dshProbe.stdout ?? ""}${dshProbe.stderr ?? ""}`.trim();
+if (dshProbe.status !== 0 || !dshVersion.includes(packaged.release.dsh)) {
   finish("FAIL", {
     command: "verify:artifact",
     reason: "embedded DSH version probe mismatch",
     dshVersion,
+    probeStatus: dshProbe.status,
+    probeError: dshProbe.error?.code ?? null,
   });
 }
 
