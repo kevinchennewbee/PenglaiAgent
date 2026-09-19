@@ -295,6 +295,49 @@ test("conflicting FAIL and PASS on one slot stay FAIL regardless of record order
   }
 });
 
+test("one piece of evidence recorded twice is rejected, not merged", () => {
+  // `assertNoFanOut` forbids one runner test claiming two ids. It said nothing
+  // about the reverse, so a second record for the same evidence identity was
+  // merged into the slot with the better-ranked status, and `totals.duplicate`
+  // was never incremented anywhere — which made `assertCompleteness`'s duplicate
+  // check vacuous. A green aggregate that depends on record order is not evidence.
+  const contract = entry("R50-TRUTH-001", "contract/all");
+  const first = rec({
+    acceptanceId: "R50-TRUTH-001",
+    runnerClass: "contract",
+    target: "source",
+    assertionId: "same-evidence",
+    status: "FAIL",
+  });
+  const second = rec({
+    acceptanceId: "R50-TRUTH-001",
+    runnerClass: "contract",
+    target: "source",
+    assertionId: "same-evidence",
+    status: "PASS",
+  });
+  assert.throws(() => assertNoDuplicateAssertions([first, second]), /duplicate assertion/);
+  assert.throws(
+    () => evaluateEvidenceV2({ registry: [contract], candidateSha: HEAD, records: [first, second] }),
+    /duplicate assertion/,
+  );
+  assert.throws(
+    () => evaluateEvidenceV3({ registry: [contract], candidateSha: HEAD, records: [first, second] }),
+    /duplicate assertion/,
+  );
+
+  // Different assertion ids filling one slot are NOT duplicates. That is the
+  // legitimate conflict case, and `aggregateSlotEvaluations` ranks it.
+  const distinct = rec({
+    acceptanceId: "R50-TRUTH-001",
+    runnerClass: "contract",
+    target: "source",
+    assertionId: "other-evidence",
+    status: "PASS",
+  });
+  assert.doesNotThrow(() => assertNoDuplicateAssertions([first, distinct]));
+});
+
 test("evidence key is acceptanceId+runnerClass+target+assertionId", () => {
   assert.equal(
     evidenceKey({
@@ -304,5 +347,55 @@ test("evidence key is acceptanceId+runnerClass+target+assertionId", () => {
       assertionId: "embedded-node",
     }),
     "R50-CORE-001+installed+darwin-aarch64+embedded-node",
+  );
+});
+
+test("R50-EVID one runner test recorded twice for one id is refused, not merged", () => {
+  // `assertNoFanOut` forbids one runner test claiming two acceptance ids. Nothing
+  // forbade the reverse, and the two evaluators disagreed about it:
+  // `evaluateEvidenceV2` merged the second record into the slot and kept whichever
+  // status ranked better, while `resultsFromAssertions` in registry.ts treated the
+  // same condition as a FAIL. `totals.duplicate` was never incremented anywhere, so
+  // `assertCompleteness`'s duplicate check could not fire either.
+  //
+  // A duplicate is not cosmetic: with one FAIL and one PASS recorded for the same
+  // slot, which one reaches the manifest depends on record order, so a green
+  // aggregate resting on it is not evidence of anything. It now throws.
+  const records = [
+    rec({
+      acceptanceId: "R50-CORE-001",
+      runnerClass: "installed",
+      target: "darwin-aarch64",
+      assertionId: "embedded-node",
+      status: "FAIL",
+    }),
+    rec({
+      acceptanceId: "R50-CORE-001",
+      runnerClass: "installed",
+      target: "darwin-aarch64",
+      assertionId: "embedded-node",
+      status: "PASS",
+    }),
+  ];
+  assert.throws(
+    () =>
+      evaluateEvidenceV2({
+        registry: [entry("R50-CORE-001", "installed/darwin-aarch64")],
+        candidateSha: HEAD,
+        records,
+      }),
+    /duplicate assertion/,
+  );
+  // The same records under distinct assertion ids are two different facts, not a
+  // duplicate, and must not be refused.
+  assert.doesNotThrow(() =>
+    evaluateEvidenceV2({
+      registry: [entry("R50-CORE-001", "installed/darwin-aarch64")],
+      candidateSha: HEAD,
+      records: [
+        records[0]!,
+        { ...records[1]!, assertionId: "embedded-node-second" },
+      ],
+    }),
   );
 });

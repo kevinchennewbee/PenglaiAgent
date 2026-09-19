@@ -122,6 +122,20 @@ const supplementalRequiredForPublication = supplementalAcceptance.some(
   (row) => !SUPPLEMENTAL_GATES_REQUIRING_LIVE_CREDENTIALS.has(row.name),
 );
 
+const info = readJson("release-info.json");
+const summaryPath = join(ROOT, "evidence/generated/evidence-summary.json");
+const summary = existsSync(summaryPath) ? JSON.parse(readFileSync(summaryPath, "utf8")) : null;
+
+let notaryEvidence = "absent";
+const notaryPath = join(ROOT, "dist/notarization-summary.json");
+if (existsSync(notaryPath)) {
+  const raw = JSON.parse(readFileSync(notaryPath, "utf8"));
+  if (raw.fake === true || raw.dryRun === true) notaryEvidence = "fake";
+  else if (raw.status === "Waived" || raw.verdict === "WAIVED") notaryEvidence = "claimed-waived";
+  else if (raw.status === "Accepted") notaryEvidence = "accepted";
+  else if (raw.verdict === "PASS") notaryEvidence = "claimed-pass";
+}
+
 /**
  * Evidence collected by `verify:evidence` is a hard gate, so a non-PASS verdict
  * there already fails the aggregation above. These fields record *why* it was
@@ -152,20 +166,6 @@ const evidenceBlocking = {
   incompleteMeans: "collection ran and registered ids produced no evidence",
   totals: summary?.totals ?? null,
 };
-
-const info = readJson("release-info.json");
-const summaryPath = join(ROOT, "evidence/generated/evidence-summary.json");
-const summary = existsSync(summaryPath) ? JSON.parse(readFileSync(summaryPath, "utf8")) : null;
-
-let notaryEvidence = "absent";
-const notaryPath = join(ROOT, "dist/notarization-summary.json");
-if (existsSync(notaryPath)) {
-  const raw = JSON.parse(readFileSync(notaryPath, "utf8"));
-  if (raw.fake === true || raw.dryRun === true) notaryEvidence = "fake";
-  else if (raw.status === "Waived" || raw.verdict === "WAIVED") notaryEvidence = "claimed-waived";
-  else if (raw.status === "Accepted") notaryEvidence = "accepted";
-  else if (raw.verdict === "PASS") notaryEvidence = "claimed-pass";
-}
 
 const agg = evaluateReleaseAggregation({
   candidateKind: info.candidateKind,

@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { PenglaiError } from "@penglai/contracts";
 import type { AssertionRecord } from "./assertion.js";
 import { assertNativeHonest, assertNoFanOut } from "./assertion.js";
 import { EXIT_BY_VERDICT, type VerifierVerdict } from "./exit.js";
@@ -210,6 +211,40 @@ export function aggregateSlotEvaluations(evals: readonly SlotEvaluation[]): Slot
   return [...evals].sort((a, b) => SLOT_STATUS_RANK.indexOf(a.status) - SLOT_STATUS_RANK.indexOf(b.status))[0]!;
 }
 
+/**
+ * One piece of evidence must appear once.
+ *
+ * The identity used here is the same one `assertImportableEvidence` in
+ * `evidence-v3.ts` uses for its `seenKeys` check — `acceptanceId + assertionId +
+ * target` — so the two evaluators cannot disagree about what a duplicate is.
+ *
+ * Why this needed adding: `assertNoFanOut` forbids one runner test claiming two
+ * acceptance ids, and says nothing about the reverse, where one assertion is
+ * recorded twice. `evaluateEvidenceV2` merged the second record into the slot and
+ * kept the better-ranked status, so when the two records disagreed the manifest
+ * depended on record order. `totals.duplicate` was never incremented anywhere,
+ * which made `assertCompleteness`'s duplicate check vacuous.
+ *
+ * Records that differ in `assertionId` are deliberately *not* duplicates: two
+ * assertions from the same runner test filling one slot is the legitimate
+ * conflict case that `aggregateSlotEvaluations` ranks, and
+ * `evidence-v2.test.ts` pins that behaviour.
+ */
+export function assertNoDuplicateAssertions(records: readonly EvidenceV2Record[]): void {
+  const seen = new Map<string, number>();
+  for (const rec of records) {
+    const key = `${rec.acceptanceId}+${rec.assertionId}+${rec.target ?? ""}`;
+    seen.set(key, (seen.get(key) ?? 0) + 1);
+  }
+  const duplicates = [...seen.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([key, count]) => `${key} recorded ${count} times`)
+    .sort();
+  if (duplicates.length > 0) {
+    throw new PenglaiError("SECURITY_POLICY", `duplicate assertion ${duplicates.join("; ")}`);
+  }
+}
+
 export function assertPassRecordComplete(rec: EvidenceV2Record): string | undefined {
   if (!rec.acceptanceId) return "missing acceptanceId";
   if (!rec.assertionId) return "missing assertionId";
@@ -293,6 +328,7 @@ export function evaluateEvidenceV2(opts: {
   }
   assertNoFanOut(opts.records);
   for (const rec of opts.records) assertNativeHonest(rec);
+  assertNoDuplicateAssertions(opts.records);
 
   const ids: IdEvaluation[] = [];
   const results: AcceptanceResult[] = [];
