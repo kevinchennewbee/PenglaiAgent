@@ -37,7 +37,7 @@ README and existing websites.
 
 - No Intel Mac package, Linux amd64 package, or Windows ARM package.
 - No two-hour installed soak.
-- No 0.6.2 to 0.6.5 installed-upgrade claim; that journey is `OWNER_EXCLUDED`.
+- No 0.6.3 to 0.6.5 installed-upgrade claim; that journey is `OWNER_EXCLUDED`.
 - UOS native install, startup, UI, file picker, sleep/resume, and functional
   use remain `OWNER_POST_RELEASE`; the Owner tests the published `.deb`.
 - No notarization or Authenticode claim.

@@ -108,7 +108,7 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
   const rec = JSON.parse(readFileSync(path, "utf8"));
   // The version and installer name are read from the current pins rather than
   // hardcoded. These guards said "0.5.7" and `Penglai_0.5.7_macos_aarch64.dmg`,
-  // so after the product moved to 0.6.3 they never matched and every assertion
+  // so after the product moved to 0.6.5 they never matched and every assertion
   // below became dead code that still looked like a passing emitter.
   if (rec.verdict !== "PASS" || rec.fromExactDmg !== true || rec.productVersion !== PRODUCT_VERSION) return;
   const expectedInstaller = RELEASE_TARGETS.find((t) => t.key === "darwin-aarch64")?.installer;

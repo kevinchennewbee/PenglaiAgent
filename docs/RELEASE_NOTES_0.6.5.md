@@ -12,7 +12,7 @@ English first, Chinese second. Known limitations are stated rather than omitted.
 
 ### Penglai 0.6.5
 
-A fix release. The upstream baseline is unchanged from 0.6.3 — official DSH
+A fix release. The upstream baseline is unchanged from 0.6.5 — official DSH
 `0.1.6-alpha.2` (tag `dsh-v0.1.6-alpha.2`, commit
 `ddefc45fbc7f8e46dd73185e68295696d1297887`, 307-package npm cohort). No features
 are added, and nothing that was excluded returns.
@@ -47,9 +47,23 @@ the version number changed. Every attempt failed, and the window showed only
 The data generation is now declared by the signed manifest instead of inferred
 from a version number, so this cannot recur at the next version.
 
+#### Scope: what 0.6.5 does not include
+
+This version does not bundle or ship LibreOffice, an Office/PDF plugin, a Budget
+module, or a Companion module. They are excluded from the workspace, profile,
+plugin catalog, runtime closure, installers, product SBOM and acceptance, and
+0.6.5 does not change that. Their source is retained in the repository as
+history; it is not built and it is not installed.
+
+The bundled runtime is: the official DSH core, Penglai Memory (enabled by
+default, and disableable without deleting its package or data), Mobile Messaging
+(bundled and enabled by default, with every channel inert until you connect it),
+and ASR and TTS (bundled, default off; their model weights are downloaded on
+request and are not part of the installer).
+
 #### Known limitations
 
-- **On 0.6.0 through 0.6.3, the built-in updater cannot reach 0.6.5.** That defect
+- **On 0.6.0 through 0.6.5, the built-in updater cannot reach 0.6.5.** That defect
   lives in the installed client, so it cannot be fixed by an update the client is
   unable to find. Install 0.6.5 once by hand; later versions update normally.
 - **UOS / LoongArch has no update channel.** The `.deb` is published and installs
@@ -67,7 +81,7 @@ from a version number, so this cannot recur at the next version.
   message is discarded and DingTalk is told it was delivered. A known gap, not a
   regression, and not fixed here.
 - UOS native install, startup and function remain `OWNER_POST_RELEASE`.
-- The 0.6.3 to 0.6.5 installed-upgrade journey is `OWNER_EXCLUDED`.
+- The 0.6.5 to 0.6.5 installed-upgrade journey is `OWNER_EXCLUDED`.
 - macOS builds are ad-hoc signed and not notarized. Windows builds carry no
   Authenticode signature.
 
@@ -85,7 +99,7 @@ not block a release, it blocks the release from claiming everything is fine.
 
 ### 蓬莱 0.6.5
 
-这是一个修复版本。上游基线与 0.6.3 相同 —— 官方 DSH `0.1.6-alpha.2`（tag
+这是一个修复版本。上游基线与 0.6.5 相同 —— 官方 DSH `0.1.6-alpha.2`（tag
 `dsh-v0.1.6-alpha.2`、commit `ddefc45fbc7f8e46dd73185e68295696d1297887`，307 包
 npm cohort）。不新增功能，已排除的能力也不回归。
 
@@ -111,9 +125,19 @@ npm cohort）。不新增功能，已排除的能力也不回归。
 
 现在数据代际由签名清单声明，而不是从版本号推断，所以下个版本不会再复发。
 
+#### 范围：0.6.5 不包含什么
+
+本版不随包、也不提供 LibreOffice、PDF/办公插件、预算模块与主动陪伴模块。它们被排除在
+workspace、profile、插件目录、运行闭包、安装包、产品 SBOM 与验收之外，0.6.5 不改变
+这一点。其源码作为历史保留在仓库中，但不参与构建、不被安装。
+
+随包的运行时是：官方 DSH 核心、蓬莱记忆（默认启用，可停用且不删除插件包或数据）、
+手机消息（随包且默认启用，各通道在你连接前保持惰性）、以及语音识别与语音生成
+（随包、默认关闭；模型权重按需下载，不在安装包内）。
+
 #### 已知限制
 
-- **在 0.6.0 到 0.6.3 上，内置更新器无法到达 0.6.5。** 该缺陷在已安装的客户端里，
+- **在 0.6.0 到 0.6.5 上，内置更新器无法到达 0.6.5。** 该缺陷在已安装的客户端里，
   无法通过它自己找不到的更新来修复。请手动安装一次 0.6.5；之后的版本可以正常更新。
 - **UOS / 龙芯没有更新通道。** `.deb` 随包发布、手动安装，但不进入更新清单：该平台的
   真机安装、启动与功能为 `OWNER_POST_RELEASE`，从未在真实硬件上执行过。放进去等于给
@@ -124,7 +148,7 @@ npm cohort）。不新增功能，已排除的能力也不回归。
 - **钉钉渠道可能在不告知的情况下丢弃消息。** 当钉钉轮换回复 webhook 到白名单不认识的
   形状时，消息被丢弃，而钉钉被告知投递成功。已知缺口，不是回归，本版未修。
 - UOS 真机安装、启动与功能仍为 `OWNER_POST_RELEASE`。
-- 0.6.3 到 0.6.5 的安装版升级为 `OWNER_EXCLUDED`。
+- 0.6.5 到 0.6.5 的安装版升级为 `OWNER_EXCLUDED`。
 - macOS 安装包为 ad-hoc 签名、未公证。Windows 安装包无 Authenticode 签名。
 
 #### 验证

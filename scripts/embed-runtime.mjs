@@ -269,7 +269,7 @@ if (dshVersion !== PINNED_DSH) {
   );
   process.exit(1);
 }
-const cohortPath = join(ROOT, "docs", "0.6.3", "DSH_NPM_COHORT.json");
+const cohortPath = join(ROOT, "docs", "0.6.5", "DSH_NPM_COHORT.json");
 const cohortBytes = readFileSync(cohortPath);
 const cohort = JSON.parse(cohortBytes.toString("utf8"));
 try {

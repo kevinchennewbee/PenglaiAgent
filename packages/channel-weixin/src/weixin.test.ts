@@ -435,7 +435,7 @@ test("ilink client maps endpoints and never logs token", async () => {
     const body = JSON.parse(request.body!) as { base_info?: { channel_version?: string; bot_agent?: string } };
     // Asserted against the pinned constant rather than a literal so a channel
     // build bump cannot silently leave the announced identity untested.
-    assert.deepEqual(body.base_info, { channel_version: ILINK_CHANNEL_VERSION, bot_agent: "Penglai/0.6.3" });
+    assert.deepEqual(body.base_info, { channel_version: ILINK_CHANNEL_VERSION, bot_agent: "Penglai/0.6.5" });
     assert.match(Buffer.from(request.wechatUin!, "base64").toString("utf8"), /^\d+$/);
   }
 });

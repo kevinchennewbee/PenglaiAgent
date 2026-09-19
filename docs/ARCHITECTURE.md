@@ -1,4 +1,4 @@
-# Penglai 0.6.3 development architecture
+# Penglai 0.6.5 development architecture
 
 ## English
 
@@ -21,7 +21,7 @@ Penglai.app / Penglai.exe
       └─ hidden conformance fixture
 ```
 
-0.6.3 development pins official DSH `0.1.6-alpha.2`. Official DSH is the single runtime authority. Penglai does not own a second
+0.6.5 development pins official DSH `0.1.6-alpha.2`. Official DSH is the single runtime authority. Penglai does not own a second
 provider registry, agent loop, Workspace/Session store, tool executor, approval
 system, or conversation renderer. The bootstrap wizard disappears after
 completion; the long-lived main window is official DSH Web with DSH client
@@ -179,7 +179,7 @@ links, type/magic mismatch, macro/encrypted/executable content, nested archives,
 and quota violations. Read revalidates scope. Persistence requires Owner
 approval; expiry/GC removes bindings and unreferenced CAS bytes.
 
-Penglai 0.6.3 does not load or package a document editor, PDF converter/preview,
+Penglai 0.6.5 does not load or package a document editor, PDF converter/preview,
 or LibreOffice engine. Official DSH owns any generic file Turn semantics.
 Penglai's Artifact Service remains for scoped IM/media and Memory-source
 handling without adding a second Turn representation.
@@ -286,16 +286,16 @@ readback downloads and verifies the immutable bytes again.
 
 ## 中文摘要
 
-0.6.3 仍以 official DSH `0.1.6-alpha.2` 为唯一 Agent/模型/工具/审批/Workspace/Session/Turn/UI
+0.6.5 仍以 official DSH `0.1.6-alpha.2` 为唯一 Agent/模型/工具/审批/Workspace/Session/Turn/UI
 核心。Electron Main 负责进程、Owner Broker、OS 权限、升级和卸载；renderer 只能用
 窄 preload 与 typed Remote，不能读文件、密钥或任意 IPC。
 
 IM 文件与持久附件统一使用绑定 scope 的 `artifact:<uuid>`；确认与具体动作、
 对象、Workspace/Session、摘要、目标和 revision 绑定，真实写入/发送/事务成功后才完成。
-official DSH alpha.2 的 file/image Turn 与附件服务是唯一会话附件路径；0.6.3 不做
+official DSH alpha.2 的 file/image Turn 与附件服务是唯一会话附件路径；0.6.5 不做
 DOM hack 或第二会话表示。
 
-0.6.3 明确不加载或打包 LibreOffice、PDF 转换/预览、办公插件、预算或主动陪伴；
+0.6.5 明确不加载或打包 LibreOffice、PDF 转换/预览、办公插件、预算或主动陪伴；
 上游审计清单记录这些包不等于产品运行闭包包含它们。
 
 记忆在 official `turn/end` 运行禁用工具的 official curator Agent，Host 做封闭格式和
@@ -307,8 +307,8 @@ IM 始终只有一个 `@penglai/im` 控制平面。微信、飞书、钉钉、�
 Manifest/Token，不伪造二维码。WhatsApp 不展示、不支持、不列为规划，也不捆绑运行时。ASR 麦克风需要当前手势并只申请 audio；TTS 试听和 Read 共用一个可观测播放
 状态机，Read 朗读原文。
 
-0.6.3 三端安装包必须来自同一干净 SHA 和 public-export tree，在对应原生 runner 验收。
+0.6.5 三端安装包必须来自同一干净 SHA 和 public-export tree，在对应原生 runner 验收。
 该项已完成：三端来自同一干净 SHA，十项附件不可变发布并完成公网逐字节回读；
-0.6.2 到 0.6.3 的安装版升级由 Owner 明确排除，记为排除而非缺失结果。
+0.6.3 到 0.6.5 的安装版升级由 Owner 明确排除，记为排除而非缺失结果。
 升级 manifest、release manifest、GitHub asset ID、大小、哈希和三端签名相互绑定；
 正式发布后再从公网下载十个资产逐字节回读。

@@ -44,7 +44,7 @@ test("R50-DOC every declared documentation id is inspected on every run", () => 
 });
 
 test(`R50-DOC declarations agree with Penglai ${PRODUCT_VERSION}`, () => {
-  assert.equal(PRODUCT_VERSION, "0.6.3");
+  assert.equal(PRODUCT_VERSION, "0.6.5");
 });
 
 /*

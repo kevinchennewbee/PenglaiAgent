@@ -16,7 +16,7 @@ import {
 
 test("release identity copies resolve from the one authoritative pins source", () => {
   const pins = readReleaseIdentityPins();
-  assert.equal(pins.productVersion, "0.6.3");
+  assert.equal(pins.productVersion, "0.6.5");
   assert.equal(pins.dsh, "0.1.6-alpha.2");
   assert.equal(
     pins.dshSource.commit,

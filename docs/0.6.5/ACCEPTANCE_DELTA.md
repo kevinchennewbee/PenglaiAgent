@@ -25,7 +25,7 @@ The release must satisfy the existing acceptance contract plus these deltas:
   after health validation. Original settings and sessions remain byte-for-byte
   unchanged until an explicit owner data action.
 - Prove fresh install, restart, and default uninstall on Apple Silicon and
-  Windows x64. The exact 0.6.2 to 0.6.5 installed upgrade is `OWNER_EXCLUDED`
+  Windows x64. The exact 0.6.3 to 0.6.5 installed upgrade is `OWNER_EXCLUDED`
   for this release and must not be fetched, executed, or reported as PASS.
 - Package exactly three targets from one clean `main` SHA:
   `darwin-aarch64`, `win32-x86_64`, and `linux-loong64`. Intel Mac is not a
@@ -55,7 +55,7 @@ and recommends `bubblewrap`; MOSS TTS is unavailable on LoongArch; iMessage is
 Mac-only and optional; Electron 31 is no longer maintained; UOS native UI,
 file-picker, and sleep parity await the Owner's post-release machine test.
 
-The Owner excludes both the 0.6.2 to 0.6.5 installed upgrade journey and the
+The Owner excludes both the 0.6.3 to 0.6.5 installed upgrade journey and the
 two-hour installed soak. Neither excluded item may be reported as PASS.
 The Owner authorizes the complete 0.6.5 workflow through three-target native
 validation, immutable publication, public readback, and only then README/site
@@ -68,7 +68,7 @@ publication updates. A result remains `NOT_RUN` until that exact step executes.
 消息轮次、工具和 Web UI 核心，不增加第二套 Host、模型网关或对话引擎。
 
 本版必须在 Apple 芯片 Mac 和 Windows x64 上完成全新安装、重启和默认保留数据的
-卸载。0.6.2 到 0.6.5 的真实安装版升级由 Owner 明确标记为 `OWNER_EXCLUDED`，
+卸载。0.6.3 到 0.6.5 的真实安装版升级由 Owner 明确标记为 `OWNER_EXCLUDED`，
 本版不下载、不执行，也不宣称 PASS。UOS 安装包必须是一个自带 Electron、
 Node、完整 DSH、范围内第一方插件、记忆、Mnemon、本地依赖、许可证与完整性
 清单的完整 `.deb`，不能要求用户另装开发环境。

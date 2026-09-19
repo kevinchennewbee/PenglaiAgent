@@ -80,7 +80,7 @@ function createFixture() {
     },
     {
       moduleName: "@penglai/plugin-center",
-      version: "0.6.3",
+      version: "0.6.5",
       enabled: true,
       fiberPhase: "active",
       health: "ready",
@@ -88,7 +88,7 @@ function createFixture() {
     },
     {
       moduleName: "@penglai/memory",
-      version: "0.6.3",
+      version: "0.6.5",
       enabled: true,
       fiberPhase: "active",
       health: "ready",

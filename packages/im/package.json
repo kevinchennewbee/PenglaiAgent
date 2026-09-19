@@ -1,6 +1,6 @@
 {
   "name": "@penglai/im",
-  "version": "0.6.3",
+  "version": "0.6.5",
   "private": true,
   "type": "module",
   "exports": {

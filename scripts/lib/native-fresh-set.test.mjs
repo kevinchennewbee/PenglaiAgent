@@ -324,7 +324,7 @@ test("fresh lifecycle set requires every Mac/Windows target and rejects a UOS na
   assert.ok(withUos.failReasons.includes("fabricated/deferred native PASS"));
 });
 
-test("current 0.6.3 native workflow owner-excludes the pinned 0.6.2 upgrade path", () => {
+test("current 0.6.5 native workflow owner-excludes the pinned 0.6.2 upgrade path", () => {
   const workflow = readFileSync(join(ROOT, ".github/workflows/native-release-candidate.yml"), "utf8");
   assert.match(workflow, /verify:fresh-install-uninstall/);
   assert.doesNotMatch(workflow, /fetch:upgrade-sources/);

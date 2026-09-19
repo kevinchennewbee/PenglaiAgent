@@ -109,7 +109,7 @@ for (const mode of modes) {
           (entry) => exactPluginId(entry, excluded) && rowIsLoaded(entry),
         )
       ) {
-        throw new Error(`excluded 0.6.3 plugin active: ${excluded}`);
+        throw new Error(`excluded 0.6.5 plugin active: ${excluded}`);
       }
     }
     const im = loaded(proof, "@penglai/im");

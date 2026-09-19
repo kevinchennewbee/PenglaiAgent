@@ -30,7 +30,7 @@ export const DSH_RUNTIME_INTEGRATION_ROOTS = [
   "@deepseek-ai/dsh-client-ui-slots",
 ];
 
-// The upstream cohort remains fully pinned and audited, but Penglai 0.6.3
+// The upstream cohort remains fully pinned and audited, but Penglai 0.6.5
 // intentionally does not ship or load Office/PDF conversion or LibreOffice.
 export const EXCLUDED_DSH_RUNTIME_PACKAGES = new Set([
   "@deepseek-ai/dsh-office-to-pdf",

@@ -142,7 +142,7 @@ test("current product, architecture and security contracts use the selected rele
   // `website-publication.ts` only permits post-tag edits to a small path
   // whitelist that does not include the constitution. So the moment a tag was
   // cut, the constitution began contradicting the product and could not be
-  // corrected. By 0.6.3 it carried 51 lines of per-release authorisations
+  // corrected. By 0.6.5 it carried 51 lines of per-release authorisations
   // alongside rules that never change, and eight documents shipped claiming a
   // published version was unpublished.
   //

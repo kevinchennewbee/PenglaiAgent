@@ -1,12 +1,12 @@
-# Penglai 0.6.3 开发安全与隐私合同
+# Penglai 0.6.5 开发安全与隐私合同
 
 ## 1. 信任目标
 
 0.5 数据代际保护相互关联的边界：只读 target app/runtime、app-private 0.5 DSH
 profile、official DSH Web 本地入口、credentials-local secret、IM 因果隔离、厂商
 网络输入、本地 voice/context/memory 数据、signed
-assisted update、精确卸载和可公开供应链。当前 0.6.3 候选固定 official DSH
-`0.1.6-alpha.2`；公开下载仍为 v0.6.2，直到不可变 v0.6.3 附件发布并回读。任何
+assisted update、精确卸载和可公开供应链。当前 0.6.5 候选固定 official DSH
+`0.1.6-alpha.2`；公开下载仍为 v0.6.2，直到不可变 v0.6.5 附件发布并回读。任何
 Penglai 插件都不能放宽 DSH 工具权限、sandbox 或人工审批。
 
 ## 2. 数据分级
@@ -109,7 +109,7 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 
 ## 10.1 Context 与 Memory
 
-- Context grant由用户gesture产生并绑定scope/revision；0.6.3 只索引有界文本格式并拒绝 PDF/OOXML、link escape 与超限文本。检索结果是untrusted data，source status只由host按文件digest验证。
+- Context grant由用户gesture产生并绑定scope/revision；0.6.5 只索引有界文本格式并拒绝 PDF/OOXML、link escape 与超限文本。检索结果是untrusted data，source status只由host按文件digest验证。
 - Memory 注入有行/字节上限并标记来源/时间/scope；自动 curator 使用同供应商/模型的 official no-tools Agent，并由 Host 进行封闭格式、secret、敏感内容和注入风险校验。它只能自动写 exact Workspace；personal/global/SOP 变更必须 Owner 确认，SOP 只走 official Skill service。
 - Context/Memory Remote 不返回资料正文、memory body 或 vendor target；client 只取必要摘要和用户主动打开的受控 preview。
 - LibreOffice、Office/PDF、Budget 与 Companion 必须在 workspace、profile、catalog、运行闭包、安装包与产品 SBOM 中保持缺席。
@@ -152,7 +152,7 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - updater private key、Apple/Windows credentials不进Git、命令参数、普通env dump、日志、artifact、evidence。
 - final signing只记录public key id、signature/hash/result。
 - exact三安装包绑定source/export；验收后不重建偷换。
-- v0.6.3 tag/Release/channel 在候选阶段保持未执行；发布后必须回读并冻结，
+- v0.6.5 tag/Release/channel 在候选阶段保持未执行；发布后必须回读并冻结，
   后续维护不得覆盖其字节。
 
 ## 15. 日志、诊断与evidence
@@ -200,7 +200,7 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 
 - Renderer 的 `ownerConfirmed`、布尔值、UUID 外形或模型文本都不是权限。Memory、IM、Plugin Center 和 artifact persistence 统一消费 Main Owner Broker receipt；receipt 绑定 action/object/Workspace/Session/digest/destination/revision，真实动作成功后才 complete。
 - Artifact ID 是不透明 `artifact:<uuid>`，不是 filesystem path 或 content hash。相同字节跨 Workspace 仍为不同 binding；legacy digest 只有唯一时才可解析。
-- official DSH 0.1.6-alpha.2 的通用会话附件能力只按真实接口与安装证据声明。0.6.3 不用 DOM hack、假 image 或第二会话引擎制造普通文件附件；IM 新接收的 PDF/OOXML 只作为 official generic file，不生成 Office handle 或调用 Office 工具。
+- official DSH 0.1.6-alpha.2 的通用会话附件能力只按真实接口与安装证据声明。0.6.5 不用 DOM hack、假 image 或第二会话引擎制造普通文件附件；IM 新接收的 PDF/OOXML 只作为 official generic file，不生成 Office handle 或调用 Office 工具。
 - macOS 包只声明双语麦克风用途，并剥离 Electron 默认 camera、Bluetooth 与无关 capture permission。Main 只允许由当前用户手势触发的 audio 请求。
 - 0.5.10 的唯一「消息连接」插件提供八个平台的真实连接 adapter；公开能力边界以
   当前产品合同和对应证据为准。微信、飞书、钉钉、企业微信、QQ 只显示供应商真实

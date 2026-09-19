@@ -39,7 +39,7 @@ function passingPath(version, sourceSha, installerSha256) {
   };
 }
 
-test("current 0.6.3 workflow owner-excludes older installed upgrade", () => {
+test("current 0.6.5 workflow owner-excludes older installed upgrade", () => {
   const scope = currentNativeLifecycleScope(sources);
   assert.equal(scope.fetchPreviousInstallers, false);
   assert.equal(scope.olderInstalledUpgradeStatus, "OWNER_EXCLUDED");
@@ -61,7 +61,7 @@ test("release aggregation does not consume owner-excluded upgrade evidence", () 
   );
 });
 
-test("0.6.3 updater sequence is exactly one after immutable v0.6.2", () => {
+test("0.6.5 updater sequence is exactly one after immutable v0.6.2", () => {
   assert.equal(assertNextUpdaterSequence(sources, 12), 11);
   assert.throws(() => assertNextUpdaterSequence(sources, 11), /must follow public sequence 11/);
   assert.throws(

@@ -1,4 +1,4 @@
-# Penglai 0.6.3 development contract
+# Penglai 0.6.5 development contract
 
 ## English
 
@@ -11,9 +11,9 @@ first run, process supervision, local data boundaries, assisted updates,
 uninstall, and a reviewed set of DSH plugins. It does not ship a second agent,
 provider gateway, session store, or chat page.
 
-Version 0.6.3 targets Apple Silicon, Windows x64, and UnionTech
+Version 0.6.5 targets Apple Silicon, Windows x64, and UnionTech
 UOS 20 `linux-loong64`. Intel Mac is excluded from this version. It consumes
-official DSH `0.1.6-alpha.2` (307-package npm cohort). **0.6.3 is the current
+official DSH `0.1.6-alpha.2` (307-package npm cohort). **0.6.5 is the current
 public release**: its ten-asset Release is immutable and public byte-for-byte
 readback has passed. A fresh
 user brings a provider credential, selects an official model and Workspace,
@@ -24,17 +24,17 @@ interface. Published 0.5.10, 0.5.11, 0.5.12, 0.6.0, 0.6.1 and 0.6.2 remain immut
 
 | Device | Exact installer |
 | --- | --- |
-| Apple Silicon, macOS 13+ | `Penglai_0.6.3_macos_aarch64.dmg` |
-| Windows 10+ x64 | `Penglai_0.6.3_windows_x64_setup.exe` |
-| UnionTech UOS 20 loong64 | `Penglai_0.6.3_uos_loong64.deb` |
+| Apple Silicon, macOS 13+ | `Penglai_0.6.5_macos_aarch64.dmg` |
+| Windows 10+ x64 | `Penglai_0.6.5_windows_x64_setup.exe` |
+| UnionTech UOS 20 loong64 | `Penglai_0.6.5_uos_loong64.deb` |
 
 The app contains its target Electron, Node, DSH closure, profile seed, bundled
 plugins, licenses, and integrity metadata. It never falls back to a system Node,
 pnpm, Python, ffmpeg, or DSH installation. Every support claim requires a build
-and installed test on the matching native platform. Current 0.6.3 native
+and installed test on the matching native platform. Current 0.6.5 native
 lifecycle is fresh install, restart, and default uninstall on Apple Silicon and
 Windows. The older installed-upgrade journey is `OWNER_EXCLUDED`. UOS native
-install/startup/function for 0.6.3 is `OWNER_POST_RELEASE`: the Owner tests
+install/startup/function for 0.6.5 is `OWNER_POST_RELEASE`: the Owner tests
 the published installer. That is not a native PASS.
 
 ### 3. Fresh-install capability set
@@ -87,7 +87,7 @@ untouched. Mnemon 0.2.8 is the only recall engine and is bundled per target.
 ### 6. Files and excluded document scope
 
 Official DSH remains responsible for its own generic file Turn support. Penglai
-0.6.3 does not provide or advertise LibreOffice, PDF conversion/preview,
+0.6.5 does not provide or advertise LibreOffice, PDF conversion/preview,
 document editing, or a Penglai Office plugin. Office/PDF, Budget, and Companion
 are absent from the profile, catalog, runtime closure, installers, and product
 acceptance. Penglai adds no DOM injection or second conversation engine to fill
@@ -99,7 +99,7 @@ that excluded scope.
 commands, causal routing, persistence, recovery, outbox, and adapter lifecycle.
 Adapters cannot call a parallel agent or guess the current Workspace/Session.
 
-Nine first-party adapters exist in 0.6.3. WeChat and Feishu keep native media.
+Nine first-party adapters exist in 0.6.5. WeChat and Feishu keep native media.
 Slack, Telegram, and Discord use official token/manifest flows and must not
 fake QR. Optional macOS iMessage is private text, default off, Darwin-only, and
 unsupported on Windows/UOS; native live evidence is `LIVE_NOT_RUN`. WhatsApp
@@ -162,20 +162,20 @@ macOS is ad-hoc signed and not notarized. Windows has no Authenticode.
 Gatekeeper or SmartScreen may warn. Penglai Ed25519 signatures protect updater
 and plugin bytes but do not provide Apple or Microsoft publisher identity.
 
-0.6.3 succeeds only when one clean source SHA produces its exact three
+0.6.5 succeeds only when one clean source SHA produces its exact three
 installers, source/security/privacy gates pass, Mac and Windows installed
 lifecycle evidence passes, the UOS package/ABI/runtime closure passes, and the
 immutable ten-asset Release passes public byte-for-byte readback. Native UOS use
 remains `OWNER_POST_RELEASE`. Credential-free gates do not establish an external model
 reply or account delivery. Account-based results are recorded only when executed.
 Normal functional tests apply; a two-hour installed soak is not required or pending.
-0.6.3 completed that path. Its three installers were built from one clean source
+0.6.5 completed that path. Its three installers were built from one clean source
 SHA, its ten-asset Release is immutable, and public byte-for-byte readback
-passed. The 0.6.2 to 0.6.3 installed upgrade was excluded by the Owner, so it was
+passed. The 0.6.3 to 0.6.5 installed upgrade was excluded by the Owner, so it was
 not claimed; that is a recorded exclusion, not a missing result. Native UOS use
 remains `OWNER_POST_RELEASE`. Development then resumed on the next version, whose
 own lifecycle results start at `NOT_RUN` until each step executes.
-See [the current acceptance delta](0.6.3/ACCEPTANCE_DELTA.md).
+See [the current acceptance delta](0.6.5/ACCEPTANCE_DELTA.md).
 
 ## 中文
 
@@ -188,18 +188,18 @@ Agent、模型网关、Session 存储或聊天页。
 
 当前公开版本为 v0.6.3（十项附件不可变，公网逐字节回读已通过）。开发候选消费官方
 DSH `0.1.6-alpha.2`（307 包），目标为 Apple 芯片、Windows x64，以及统信 UOS 20
-`linux-loong64`（`Penglai_0.6.3_uos_loong64.deb`）。Intel Mac 不在本版发布。用户自备模型密钥，
+`linux-loong64`（`Penglai_0.6.5_uos_loong64.deb`）。Intel Mac 不在本版发布。用户自备模型密钥，
 选择 official 模型和 Workspace，收到第一条真实 DSH 回复后进入 official
 DSH Web。原生生命周期要求 Apple 芯片与 Windows 全新安装、重启与默认卸载；
-0.6.2 到 0.6.3 的真实安装版升级由 Owner 标记为 `OWNER_EXCLUDED`，不作为发布 PASS。
-UOS 真机安装/启动/功能为 `OWNER_POST_RELEASE`。已发布的 0.5.10、0.5.11、0.5.12、0.6.0、0.6.1、0.6.2 与 0.6.3
+0.6.3 到 0.6.5 的真实安装版升级由 Owner 标记为 `OWNER_EXCLUDED`，不作为发布 PASS。
+UOS 真机安装/启动/功能为 `OWNER_POST_RELEASE`。已发布的 0.5.10、0.5.11、0.5.12、0.6.0、0.6.1、0.6.2 与 0.6.5
 保持不可变。
 
 ### 2. 全新安装
 
 插件中心、蓬莱记忆和手机消息默认 active；消息账号与通道不会自动连接。语音识别和
 语音生成的插件与受支持目标运行时随包但默认关闭，模型权重不随包。
-LibreOffice、PDF/办公插件、预算与主动陪伴不进入 0.6.3。可选插件在 disabled、未配置、离线或缺少模型时必须保持惰性，不能
+LibreOffice、PDF/办公插件、预算与主动陪伴不进入 0.6.5。可选插件在 disabled、未配置、离线或缺少模型时必须保持惰性，不能
 阻塞普通 DSH 会话。
 
 首次向导只负责语言、隐私、official 模型、真实密钥测试、Workspace 和第一条 official
@@ -219,14 +219,14 @@ official Agent 沿用当前供应商和模型，输出由 Host 封闭校验。�
 
 ### 4. 文件与明确排除范围
 
-official DSH 自己的 generic file Turn 仍由 DSH 负责。Penglai 0.6.3 不提供或宣传
+official DSH 自己的 generic file Turn 仍由 DSH 负责。Penglai 0.6.5 不提供或宣传
 LibreOffice、PDF 转换/预览、文档编辑或蓬莱办公插件；Office/PDF、预算与主动陪伴
 不进入 profile、catalog、运行闭包、安装包或产品验收。Penglai 不用 DOM hack 或
 第二套会话引擎补齐这些明确排除的范围。
 
 ### 5. IM 与语音
 
-`@penglai/im` 是唯一消息插件。0.6.3 提供九个第一方 adapter。微信和飞书保留原生
+`@penglai/im` 是唯一消息插件。0.6.5 提供九个第一方 adapter。微信和飞书保留原生
 媒体。Slack、Telegram、Discord 走官方 Token/Manifest，禁止伪装扫码。可选 macOS
 iMessage 仅私聊文本、默认关闭、只在 Darwin 可用，Windows/UOS 为不支持；真机 live
 记 `LIVE_NOT_RUN`。WhatsApp 不展示、不支持、不列为规划，也不捆绑运行时。
@@ -254,7 +254,7 @@ patch 之后硬性禁用该行，因此 owned DSH 进程不会创建 SDK provide
 0.5.0 仍需手动覆盖。默认卸载保留用户数据，完整删除必须按精确类别确认，不能删除
 Workspace、授权源、home/root、旧代数据或越界链接。
 
-macOS 为 ad-hoc 签名且未公证；Windows 没有 Authenticode。0.6.3 只有在同一干净
+macOS 为 ad-hoc 签名且未公证；Windows 没有 Authenticode。0.6.5 只有在同一干净
 源码 SHA 的三个精确安装包、Mac/Windows 安装生命周期、UOS 包/ABI/运行闭包、
 隐私门禁和不可变十资产公网回读全部成立，且当前 README 与双语官网同步后，才算
 完成正常发布；UOS 真机功能保持 `OWNER_POST_RELEASE`。无凭据测试不能证明真实模型

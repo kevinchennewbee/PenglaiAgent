@@ -6,9 +6,9 @@ import { PRODUCT_VERSION } from "./pins.js";
  * Documentation-versus-release-fact inspection.
  *
  * The 0.6.x line's most repeated defect was a document describing a different
- * release than the one in the repository: eight documents claimed 0.6.3 was
+ * release than the one in the repository: eight documents claimed 0.6.5 was
  * unpublished after it had been published and read back, and `docs/PRODUCT.md`
- * cited `Penglai_0.6.5_uos_loong64.deb` for a 0.6.3 release. Source gates stayed
+ * cited `Penglai_0.6.5_uos_loong64.deb` for a 0.6.5 release. Source gates stayed
  * green through all of it, because nothing compared prose against facts.
  *
  * This module performs the comparisons and returns findings.
@@ -34,7 +34,7 @@ const ROOT = join(import.meta.dirname, "..", "..", "..");
 export const RELEASE_FACING_DOCS = [
   "README.md",
   "docs/PRODUCT.md",
-  "docs/RELEASE_NOTES_0.6.3.md",
+  "docs/RELEASE_NOTES_0.6.5.md",
   "docs/PUBLICATION_MANIFEST_0.6.3.md",
   "docs/ACCEPTANCE.md",
 ] as const;
@@ -43,7 +43,7 @@ export const RELEASE_FACING_DOCS = [
 export const EXCLUSION_FACING_DOCS = [
   "README.md",
   "docs/PRODUCT.md",
-  "docs/RELEASE_NOTES_0.6.3.md",
+  "docs/RELEASE_NOTES_0.6.5.md",
 ] as const;
 
 /** Modules and targets this version excludes from the product runtime. */
@@ -84,15 +84,29 @@ export function readContract(rel = "release-contract.json"): ReleaseContractShap
 const INSTALLER_RE = /\bPenglai_(\d+\.\d+\.\d+)_[A-Za-z0-9]+_[A-Za-z0-9_]+\.(?:dmg|exe|deb|zip)\b/g;
 
 /**
- * Every installer filename a current-release document names must be an installer
- * this version actually produces.
+ * Every installer filename a release-facing document names must be an installer
+ * some recorded release actually produced.
  *
  * The defect this catches is a document that kept naming a different version's
- * installer, which is exactly what `Penglai_0.6.5_uos_loong64.deb` was.
+ * installer for the version under development, which is exactly what
+ * `Penglai_0.6.5_uos_loong64.deb` was before the version moved.
+ *
+ * It must NOT flag a published version's own manifest for naming that version's
+ * own installers. `docs/PUBLICATION_MANIFEST_0.6.3.md` records `Penglai_0.6.3_*`
+ * and is right to: those are the bytes that release shipped. The allowed set is
+ * therefore the current contract's targets PLUS the installers of every version
+ * the repository holds a publication record for.
  */
 export function inspectInstallerFilenames(contract: ReleaseContractShape): DocFinding {
   const documents = [...RELEASE_FACING_DOCS];
   const allowed = new Set(contract.targets.map((t) => t.installer));
+  // Add the installer names of every recorded release, derived from the
+  // publication manifest records themselves.
+  for (const version of recordedReleaseVersions()) {
+    const manifest = readDoc(`docs/PUBLICATION_MANIFEST_${version}.md`);
+    if (!manifest) continue;
+    for (const match of manifest.matchAll(INSTALLER_RE)) allowed.add(match[0]);
+  }
   const problems: string[] = [];
   const cited = new Set<string>();
   for (const rel of documents) {
@@ -138,25 +152,33 @@ export function inspectVersionAgreement(contract: ReleaseContractShape): DocFind
   }
   const recorded = new Set(recordedReleaseVersions());
   const claimed = new Set<string>();
+  // The version under development is allowed to appear without a publication
+  // record: that is what being in development means, and the release notes and
+  // acceptance delta for it are written before publication. What must never
+  // happen is a document naming a version the repository has no account of that
+  // is NOT the version being built — a stale or invented release.
+  const inDevelopment = contract.version;
+  const recordable = (version: string): boolean =>
+    version === inDevelopment || recorded.has(version);
   for (const rel of documents) {
     const source = readDoc(rel);
     if (!source) continue;
-    // A product claim is a version written as `Penglai 0.6.3` or as a tag
-    // reference `v0.6.3` that is NOT the tail of an upstream tag such as
+    // A product claim is a version written as `Penglai 0.6.5` or as a tag
+    // reference `v0.6.5` that is NOT the tail of an upstream tag such as
     // `dsh-v0.1.6-alpha.2`. Matching these two forms structurally is what stops
     // unrelated dependency versions (Node `22.23.2`, pnpm `11.11.0`) from being
     // read as product claims.
     for (const match of source.matchAll(/Penglai\s+v?(\d+\.\d+\.\d+)/g)) {
       const found = match[1]!;
       claimed.add(found);
-      if (!recorded.has(found)) {
+      if (!recordable(found)) {
         problems.push(`${rel} claims Penglai ${found}, which has no publication record`);
       }
     }
     for (const match of source.matchAll(/(?:^|[\s(])v(\d+\.\d+\.\d+)\b/gm)) {
       const found = match[1]!;
       claimed.add(found);
-      if (!recorded.has(found)) {
+      if (!recordable(found)) {
         problems.push(`${rel} references release tag v${found}, which has no publication record`);
       }
     }
@@ -283,7 +305,7 @@ export function inspectStampedRecords(contract: ReleaseContractShape): DocFindin
     // Requiring PRODUCT_VERSION here inverted the intent stated above. A
     // published record is immutable, so when the tree moves to the next version
     // these files must keep naming the version whose bytes they describe. As
-    // written, the check demanded that the immutable 0.6.3 records rename
+    // written, the check demanded that the immutable 0.6.5 records rename
     // themselves to 0.6.5 the moment the version changed, which is the opposite
     // of "must not silently follow the tree".
     const stamped = /(\d+\.\d+\.\d+)\.md$/.exec(rel)?.[1];

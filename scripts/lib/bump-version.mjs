@@ -12,11 +12,11 @@
  * publication RECORDS for the version being left behind:
  *
  *   docs/PUBLICATION_MANIFEST_0.6.3.md
- *   docs/RELEASE_NOTES_0.6.3.md
+ *   docs/RELEASE_NOTES_0.6.5.md
  *
  * Those describe a release that already happened and is immutable. Rewriting
  * their version strings would falsify published history, which the repository
- * forbids outright. A blind `0.6.3 -> 0.6.5` would do exactly that, and the
+ * forbids outright. A blind `0.6.5 -> 0.6.5` would do exactly that, and the
  * damage would be invisible in a diff of that size.
  *
  * So the exclusions below are the point of this file, not an afterthought.
@@ -64,14 +64,21 @@ if (FROM === TO) {
  *
  * 1. The record directory of the version being LEFT. Every file inside
  *    `docs/<FROM>/` documents that release, not the one being moved to. The
- *    first version of this list stopped at `0.6.[0-2]` and so left `docs/0.6.3/`
- *    unprotected; the bump then rewrote the 0.6.3 outcome banners to read
- *    "Penglai 0.6.5 was published", inside the directory that documents 0.6.3.
+ *    first version of this list stopped at `0.6.[0-2]` and so left `docs/0.6.5/`
+ *    unprotected; the bump then rewrote the 0.6.5 outcome banners to read
+ *    "Penglai 0.6.5 was published", inside the directory that documents 0.6.5.
  * 2. Every earlier per-version directory, which is history by construction.
+ * 3. `docs/decisions.md`, which is history in full. Every entry is a decision
+ *    recorded on a date, so its version numbers describe what was decided THEN.
+ *    The bump rewrote D-077, D-078 and D-080 from 0.6.3 to 0.6.5, including
+ *    "Penglai 0.6.5 原子采用官方 DSH 0.1.6-alpha.2" — a 2026-09-18 decision that
+ *    adopted the baseline for 0.6.3. A decision log that follows the tree is not
+ *    a decision log.
  */
 const NEVER_REWRITE = [
   `docs/PUBLICATION_MANIFEST_${FROM}.md`,
   `docs/RELEASE_NOTES_${FROM}.md`,
+  "docs/decisions.md",
   // The record directory of the version being left behind. Listed explicitly
   // because a range that stops one short silently misses the current one.
   new RegExp(`^docs/${FROM.replaceAll(".", "\\.")}/`),
@@ -85,7 +92,7 @@ const NEVER_REWRITE = [
  *
  * The first bump turned "0.6.3 is the current public release" into "0.6.5 is the
  * current public release" and "0.6.3 was published" into "0.6.5 was published"
- * across README, SECURITY, AGENTS, PRODUCT and the 0.6.3 banners, and left
+ * across README, SECURITY, AGENTS, PRODUCT and the 0.6.5 banners, and left
  * SECURITY.md citing a `docs/PUBLICATION_MANIFEST_0.6.5.md` that does not exist.
  * Those are precisely the false claims this release exists to remove.
  *
@@ -186,23 +193,41 @@ if (!WRITE) {
   process.exit(0);
 }
 
-// Refuse to write while a publication claim would be falsified. This is the
-// guard the first bump lacked, and the reason it produced eleven false
-// statements about a version that has not been published.
-if (claims.length > 0) {
-  console.error("");
-  console.error(`refusing to write: ${claims.length} file(s) would assert that v${TO} was published`);
-  for (const row of claims) console.error(`  ${row.path}`);
-  console.error("make those lines version-agnostic first, then re-run");
-  process.exit(1);
-}
-
+/**
+ * Replace the version line by line, skipping lines that assert a publication
+ * state.
+ *
+ * While a version is in development the public release is still the previous one,
+ * so those lines are CORRECT as written and must not move. README saying "0.6.5
+ * is the current public release" is true until 0.6.5 is actually published, and
+ * the release process updates those lines at that point. Rewriting them early is
+ * what produced the eleven false statements this guard exists to prevent, so the
+ * bump leaves them alone and reports how many it left.
+ *
+ * An earlier version refused to run at all while any such line existed. That was
+ * wrong for the same reason: the lines do not need to change before publication,
+ * they need to NOT change.
+ */
 let changed = 0;
+let skippedLines = 0;
 for (const row of edits) {
   const path = join(ROOT, row.path);
   const before = readFileSync(path, "utf8");
-  writeFileSync(path, before.replaceAll(FROM, TO));
-  changed += 1;
+  const after = before
+    .split("\n")
+    .map((line) => {
+      if (!line.includes(FROM)) return line;
+      if (PUBLICATION_CLAIM.test(line)) {
+        skippedLines += 1;
+        return line;
+      }
+      return line.replaceAll(FROM, TO);
+    })
+    .join("\n");
+  if (after !== before) {
+    writeFileSync(path, after);
+    changed += 1;
+  }
 }
 
 // UPDATER_SEQUENCE advances by one, and only when it is still at the expected value.

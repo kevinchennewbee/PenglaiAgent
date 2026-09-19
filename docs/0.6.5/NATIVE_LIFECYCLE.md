@@ -11,7 +11,7 @@ workflow builds only the exact asset names declared by `release-contract.json`.
 Apple Silicon and Windows x64 must prove fresh install, first boot, onboarding
 recovery cases, restart, and default uninstall with owner data preserved.
 
-The 0.6.2 to 0.6.5 installed-upgrade journey is `OWNER_EXCLUDED` for this
+The 0.6.3 to 0.6.5 installed-upgrade journey is `OWNER_EXCLUDED` for this
 release. `UPGRADE_SOURCES.json` retains immutable historical pins for updater
 identity and future historical verification, but the 0.6.5 native workflow must
 not download, execute, or report that upgrade journey as PASS.
@@ -34,7 +34,7 @@ The two-hour installed soak is also `OWNER_EXCLUDED`.
 `release-contract.json` 规定的文件名。
 
 Apple 芯片 Mac 和 Windows x64 都必须完成全新安装、首次启动、引导恢复、重启和
-默认卸载，并证明 Owner 数据保留。0.6.2 到 0.6.5 的安装升级在本版明确为
+默认卸载，并证明 Owner 数据保留。0.6.3 到 0.6.5 的安装升级在本版明确为
 `OWNER_EXCLUDED`；`UPGRADE_SOURCES.json` 仅保留不可变历史 pin 与更新序列依据，
 native workflow 不下载、不执行，也不得宣称升级 PASS。
 

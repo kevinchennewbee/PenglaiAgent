@@ -531,9 +531,9 @@ test("a 0.6.x install in the same data generation can discover and prepare an up
   // AVAILABLE. Four releases shipped in that state because every fixture here
   // used a 0.5.x current version.
   const root = mkdtempSync(join(tmpdir(), "penglai-update-generation-"));
-  const fixture = signedFixture("0.6.5", "0.6.3");
+  const fixture = signedFixture("0.6.5", "0.6.5");
   const coordinator = new AssistedUpdateCoordinator(
-    coordinatorConfig(root, fixture, { currentVersion: "0.6.3" }),
+    coordinatorConfig(root, fixture, { currentVersion: "0.6.5" }),
   );
 
   const checked = await coordinator.check();
@@ -548,7 +548,7 @@ test("a 0.6.x install in the same data generation can discover and prepare an up
 test("an update whose manifest declares a different data generation is refused", async () => {
   // The boundary that replaced the version literal must still hold: a manifest
   // from another data generation is rejected even when its version is newer.
-  const fixture = signedFixture("0.6.5", "0.6.3");
+  const fixture = signedFixture("0.6.5", "0.6.5");
   const foreign: SignedFixture = {
     ...fixture,
     manifest: {
@@ -563,7 +563,7 @@ test("an update whose manifest declares a different data generation is refused",
         bytes,
         signature: sign(null, bytes, foreign.privateKey),
         publicKeyHex: foreign.publicKeyHex,
-        currentVersion: "0.6.3",
+        currentVersion: "0.6.5",
         target: TARGET,
         policy: {
           allowedAssetHosts: ["github.com"],
@@ -578,14 +578,14 @@ test("an update whose manifest declares a different data generation is refused",
 test("an update check without a known data generation fails closed", async () => {
   // Removing the version literal must not remove the boundary. When the running
   // generation cannot be established the check refuses rather than proceeding.
-  const fixture = signedFixture("0.6.5", "0.6.3");
+  const fixture = signedFixture("0.6.5", "0.6.5");
   await assert.rejects(
     async () =>
       verifyManifestBytes({
         bytes: fixture.manifestBytes,
         signature: fixture.manifestSignature,
         publicKeyHex: fixture.publicKeyHex,
-        currentVersion: "0.6.3",
+        currentVersion: "0.6.5",
         target: TARGET,
         policy: { allowedAssetHosts: ["github.com"], currentOsVersion: "14.6" },
       }),
@@ -605,11 +605,11 @@ test("a target the manifest does not carry reports CURRENT, not a failed check",
   // their update check had failed when the truth is that the platform has no
   // update channel at all.
   const root = mkdtempSync(join(tmpdir(), "penglai-update-no-channel-"));
-  const fixture = signedFixture("0.6.5", "0.6.3");
+  const fixture = signedFixture("0.6.5", "0.6.5");
   const coordinator = new AssistedUpdateCoordinator(
-    coordinatorConfig(root, fixture, { currentVersion: "0.6.3", target: "linux-loong64" }),
+    coordinatorConfig(root, fixture, { currentVersion: "0.6.5", target: "linux-loong64" }),
   );
   const status = await coordinator.check();
   assert.equal(status.state, "CURRENT");
-  assert.equal(status.version, "0.6.3");
+  assert.equal(status.version, "0.6.5");
 });

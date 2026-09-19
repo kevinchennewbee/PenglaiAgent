@@ -28,7 +28,7 @@
   optional and default off.
 - 0.5.8 is immutable public history built from official DSH
   `dsh-v0.1.2-alpha.1` / `cd5ef8148158c3a752a658978873241fdf8e2bbc`.
-- For 0.6.3, the Owner-fixed upstream baseline is official npm
+- For 0.6.5, the Owner-fixed upstream baseline is official npm
   `0.1.6-alpha.2`, tag `dsh-v0.1.6-alpha.2`, commit
   `ddefc45fbc7f8e46dd73185e68295696d1297887`. Penglai consumes the complete
   pinned DSH/vendor/Landlock cohort with exact registry integrity; package
@@ -40,7 +40,7 @@
   migration, connection lifecycle, and every first-party plugin and Plugin
   Center path require renewed evidence.
 - The complete 307-package registry cohort is an audited upstream input, not
-  the product runtime closure. Penglai 0.6.3 excludes LibreOffice, PDF/Office,
+  the product runtime closure. Penglai 0.6.5 excludes LibreOffice, PDF/Office,
   Budget, and Companion from the workspace, profile, runtime, installer,
   product SBOM, and acceptance. Memory remains bundled and enabled by default,
   but the Owner may disable it without deleting its package or data. IM is
@@ -68,11 +68,11 @@
   commit/version, digest, license, patch, and reproducible fetch/build procedure.
 - Do not claim installed, native, live, Windows, Intel, notarized, Authenticode,
   or public-release evidence from source tests or cross-build output.
-- The Owner authorized the complete 0.6.3 workflow: reviewed source, PR and
+- The Owner authorized the complete 0.6.5 workflow: reviewed source, PR and
   merge to `main`, three-target native build and applicable installed validation,
   immutable publication, public byte readback, then README/site update and
   deployment. Preserve that order: do not change an existing release tag or
-  asset, and do not update the public download claim before immutable 0.6.3
+  asset, and do not update the public download claim before immutable 0.6.5
   bytes have passed readback.
 
 ## Verification and release
@@ -88,12 +88,12 @@
 - The onboarding wizard must never strand a user. Verify fresh install, restart,
   Back/retry, invalid folder rejection, credential failure recovery, first official
   message, and default uninstall on Apple Silicon and Windows x64.
-  The 0.6.2 to 0.6.3 installed upgrade was `OWNER_EXCLUDED` and remains recorded
+  The 0.6.3 to 0.6.5 installed upgrade was `OWNER_EXCLUDED` and remains recorded
   as an exclusion, not a missing result; do not retroactively label it PASS.
   UOS native install/startup/function is `OWNER_POST_RELEASE` and
   must not be labeled PASS; the UOS package/ABI/closure still require
   verification.
-- Native artifacts for all three selected 0.6.3 targets must come from one clean
+- Native artifacts for all three selected 0.6.5 targets must come from one clean
   `main` SHA. Intel Mac is excluded from this version. Follow the current
   version contract and acceptance delta; publish only the exact asset set in
   `release-contract.json`, then verify immutable public bytes. Missing any
@@ -127,14 +127,14 @@
   插件；手机消息、语音识别、语音生成、主动陪伴为内置可选插件，默认关闭。
 - 0.5.8 是基于官方 DSH `dsh-v0.1.2-alpha.1` /
   `cd5ef8148158c3a752a658978873241fdf8e2bbc` 的不可变公开历史。
-- 0.6.3 的 Owner 固定上游基线为官方 npm `0.1.6-alpha.2`，tag
+- 0.6.5 的 Owner 固定上游基线为官方 npm `0.1.6-alpha.2`，tag
   `dsh-v0.1.6-alpha.2`、commit `ddefc45fbc7f8e46dd73185e68295696d1297887`。
   Penglai 必须消费完整固定且带 registry integrity 的 DSH/vendor/Landlock
   cohort，包数以实际图为准；不得混装不同 DSH 代际，也不得用源码路径、Git
   依赖或本地重打包替代。依赖图、lockfile、runtime closure、profile、插件和
   release identity 必须原子迁移；RemoteError、会话投影、DSH Home generation、
   会话 V3 保原文件迁移、连接生命周期、全部第一方插件与插件中心都须重新取证。
-- 完整 307 包清单是上游审计输入，不是产品运行闭包。0.6.3 不使用 LibreOffice，
+- 完整 307 包清单是上游审计输入，不是产品运行闭包。0.6.5 不使用 LibreOffice，
   不做 PDF/办公插件、预算模块或主动陪伴模块；这些包不得进入 workspace、profile、
   运行时、安装包、产品 SBOM 或验收。记忆随包且默认启用，但 Owner 可以停用而不
   删除插件包或数据；消息插件随包且默认启用；ASR、TTS 随包但默认关闭，模型权重
@@ -154,12 +154,12 @@
 - 修能力类别，不写输入特判，不伪造 PASS，不用 mock 冒充生产，不用超时当成功。
 - 禁止提交 API Key、Token、私钥、个人路径、聊天媒体、本地配置或含隐私截图。
 - 源码测试不等于已安装、原生、在线、Windows、Intel、公证或公开发布证据。
-- Owner 已授权 0.6.3 完整流程：源码审查、PR/合并 `main`、三目标原生构建与相应
+- Owner 已授权 0.6.5 完整流程：源码审查、PR/合并 `main`、三目标原生构建与相应
   安装验证、不可变发布、公网字节回读，随后更新 README/官网并部署。必须按此顺序；
-  不得改写既有发布 tag/附件，也不得在不可变 0.6.3 公网字节回读通过前更新公开
+  不得改写既有发布 tag/附件，也不得在不可变 0.6.5 公网字节回读通过前更新公开
   下载声明。
 - Mac/Windows 安装引导必须验证全新安装、重启续跑、返回/重试、非法目录、凭据
-  失败恢复、首条官方消息和默认卸载。0.6.2 到 0.6.3 的真实安装版升级在本版为
+  失败恢复、首条官方消息和默认卸载。0.6.3 到 0.6.5 的真实安装版升级在本版为
   `OWNER_EXCLUDED`，不得执行或标记 PASS。UOS 真机
   安装/启动/功能为 `OWNER_POST_RELEASE`，不得标 PASS；UOS 包/ABI/闭包仍须验证。
   三个所选安装包必须来自同一个干净 main SHA。Intel Mac 不在本版。缺任一所选

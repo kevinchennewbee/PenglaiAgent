@@ -26,7 +26,7 @@ export * from "./usage-projection.js";
 export * from "./update-targets.js";
 
 export const SCHEMA_VERSION = 13;
-export const RELEASE = "0.6.3";
+export const RELEASE = "0.6.5";
 
 export const CONFIG = Object.freeze({
   pairingTtlMs: 5 * 60_000,
@@ -226,7 +226,7 @@ export interface PenglaiImSource {
   voice?: PenglaiVoiceMetadata;
 }
 
-// `office` and `pdf` remain read-compatible values for persisted pre-0.6.3
+// `office` and `pdf` remain read-compatible values for persisted pre-0.6.5
 // receipts. Current admission classifies those attachments as generic `file`.
 export type MediaKind = "image" | "audio" | "office" | "pdf" | "file";
 
@@ -343,7 +343,7 @@ export interface MediaEnvelope {
   durationMs?: number;
   officialImage?: OfficialImageRef;
   officialFile?: OfficialFileRef;
-  /** Legacy pre-0.6.3 receipt field; current admission does not create it. */
+  /** Legacy pre-0.6.5 receipt field; current admission does not create it. */
   officeHandle?: string;
   audioHandle?: string;
 }

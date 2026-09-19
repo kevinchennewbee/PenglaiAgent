@@ -1,7 +1,7 @@
 # `@penglai/im` 完整产品与协议合同
 
-> 0.5.12 用户只看到一个「消息连接」插件。0.6.3 development pins official DSH `0.1.6-alpha.2`. 既有八个平台都有真实连接入口，不再把新增渠道
-> 显示为路线图。0.6.3 另保留可选 Darwin-only iMessage 私聊文本入口，默认关闭，
+> 0.5.12 用户只看到一个「消息连接」插件。0.6.5 development pins official DSH `0.1.6-alpha.2`. 既有八个平台都有真实连接入口，不再把新增渠道
+> 显示为路线图。0.6.5 另保留可选 Darwin-only iMessage 私聊文本入口，默认关闭，
 > Windows/UOS 为不支持。manifest 的 `live` 是历史兼容字段，表示 0.5.10 包含真实 adapter
 > 实现，不表示当前用户已启用或已通过 live-account 验收。没有
 > 对应 live evidence 时，不得把该平台写入 README/官网/Release 的“全部支持”
@@ -14,13 +14,13 @@
 
 ## 1. 定位
 
-`@penglai/im` 是一个同时包含 DSH host 与 client module 的第一方插件。微信和飞书是内部 adapter，共享配置、binding、commands、causal routing、SQLite、outbox、supervisor 和 diagnostics。私聊语音通过`@penglai/asr`/`@penglai/moss-tts`的typed services处理；Context/Memory通过各自typed services与official Turn组合，adapter不拥有这些引擎。0.6.3 不包含 Budget 或 Companion 服务。
+`@penglai/im` 是一个同时包含 DSH host 与 client module 的第一方插件。微信和飞书是内部 adapter，共享配置、binding、commands、causal routing、SQLite、outbox、supervisor 和 diagnostics。私聊语音通过`@penglai/asr`/`@penglai/moss-tts`的typed services处理；Context/Memory通过各自typed services与official Turn组合，adapter不拥有这些引擎。0.6.5 不包含 Budget 或 Companion 服务。
 
 可以参考 ZCode 的图形设置、`/帮助`、`/项目`、`/会话` 和清楚的连接状态，但不复制其私有代码；厂商协议必须来自官方资料或可审计参考实现。
 
 ## 2. 默认行为
 
-- fresh 0.6.3 profile 离线携带、安装并启用 `@penglai/im`，它必须进入 active loader roster，消息设置、Remote 与 diagnostics 开箱可用。
+- fresh 0.6.5 profile 离线携带、安装并启用 `@penglai/im`，它必须进入 active loader roster，消息设置、Remote 与 diagnostics 开箱可用。
 - 默认启用插件不等于默认连接账号：所有 adapter 初始仍未配置，不联网、不启动 auth poll；用户可在 Center 停用插件，事务必须验证 actual loader state。
 - 未配置 adapter 时不联网、不启动 auth poll，但 Remote/UI/diagnostics 可用。
 - official Models API key 测试、default model 和 Workspace 就绪后，onboarding 自动进入“连接消息渠道”步骤。
@@ -296,7 +296,7 @@ SQLite表：accounts、adapter_configs、bindings、vendor_reply_targets、inbox
 
 - inbound 为不可信 prompt；DSH 原工具权限/审批不因渠道放宽。
 - bound Turn调用Context/Memory时使用exact Workspace/Session scope；adapter不得直接查资料或注入记忆。
-- 0.6.3 不注册 `/预算`、`/陪伴` 或主动外发接口。
+- 0.6.5 不注册 `/预算`、`/陪伴` 或主动外发接口。
 - slash command 与控制字符不进入模型。
 - size/rate limit：per route、account、global。
 - logs/Doctor/evidence不含secret、QR、user/open id、vendor reply target、chat body或完整path；App ID仅在需要诊断时显示脱敏descriptor。

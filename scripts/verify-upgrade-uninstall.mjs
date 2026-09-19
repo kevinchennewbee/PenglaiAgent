@@ -97,7 +97,7 @@ function seedOwnerDataForUpgrade(userData, previousVersion) {
   }
   const previousHome = join(userData, "dsh-homes", "dsh-v0.1.5-rc.1");
   const settings = join(previousHome, "settings.yaml");
-  const settingsMarker = "# penglai-native-upgrade-preservation: 0.6.1-to-0.6.3\n";
+  const settingsMarker = "# penglai-native-upgrade-preservation: 0.6.1-to-0.6.5\n";
   try {
     updateVerifiedRegularFile(settings, (bytes) =>
       `${bytes.toString("utf8").replace(/\n?$/u, "\n")}${settingsMarker}`,

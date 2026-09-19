@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.6.3";
+export const PRODUCT_VERSION = "0.6.5";
 export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
@@ -150,13 +150,13 @@ export const GITHUB_ACTIONS_STATUS = "AVAILABLE";
 export const CANDIDATE_SOURCE_SHA_NONE = "NONE";
 export const UPDATER_CHANNEL = "desktop-v0.5";
 /** Monotonic after immutable public v0.6.2, sequence 11. */
-export const UPDATER_SEQUENCE = 12;
+export const UPDATER_SEQUENCE = 13;
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.6.3",
-  release: "v0.6.3",
-  channel: "stable-v0.6.3",
+  tag: "v0.6.5",
+  release: "v0.6.5",
+  channel: "stable-v0.6.5",
 });
 
 /**
@@ -179,19 +179,19 @@ export const RELEASE_TARGETS = [
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.6.3_macos_aarch64.dmg",
+    installer: "Penglai_0.6.5_macos_aarch64.dmg",
   },
   {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
-    installer: "Penglai_0.6.3_windows_x64_setup.exe",
+    installer: "Penglai_0.6.5_windows_x64_setup.exe",
   },
   {
     key: "linux-loong64",
     platform: "linux",
     arch: "loong64",
-    installer: "Penglai_0.6.3_uos_loong64.deb",
+    installer: "Penglai_0.6.5_uos_loong64.deb",
   },
 ] as const;
 
@@ -200,13 +200,13 @@ export type ReleaseTargetKey = (typeof RELEASE_TARGETS)[number]["key"];
 /** Known packaging/host key retained for historical validation. Not a current release target. */
 export const EXCLUDED_CURRENT_RELEASE_TARGET_KEY = "darwin-x86_64" as const;
 
-/** Mac/Windows native install/lifecycle gates. linux-loong64 host evidence remains OWNER_POST_RELEASE, not a 0.6.3 PASS. */
+/** Mac/Windows native install/lifecycle gates. linux-loong64 host evidence remains OWNER_POST_RELEASE, not a 0.6.5 PASS. */
 export const NATIVE_INSTALLED_TARGET_KEYS = [
   "darwin-aarch64",
   "win32-x86_64",
 ] as const satisfies readonly ReleaseTargetKey[];
 
-/** Current 0.6.3 native lifecycle: fresh install, restart, and default uninstall on Mac/Windows. Older installed upgrade is explicitly owner-excluded. */
+/** Current 0.6.5 native lifecycle: fresh install, restart, and default uninstall on Mac/Windows. Older installed upgrade is explicitly owner-excluded. */
 export const CURRENT_NATIVE_LIFECYCLE = Object.freeze({
   requiredGate: "verify:fresh-install-uninstall",
   olderInstalledUpgradeStatus: "OWNER_EXCLUDED",
@@ -351,7 +351,7 @@ export const SUPPLEMENTAL_ACCEPTANCE_SUBGATES = [
  *     shipped 2.4.8 and 2.4.9.
  *   - `dsh-upstream`: DSH publishes to npm without a GitHub release, so a
  *     releases-only watch under-reports upstream movement.
- *   - `published-facts`: eight documents claimed 0.6.3 was unpublished after it
+ *   - `published-facts`: eight documents claimed 0.6.5 was unpublished after it
  *     had been published and read back.
  *
  * `pnpm verify:drift` exits PASS when every probe passes, FAIL when any probe

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "product": "Penglai",
-  "version": "0.6.3",
+  "version": "0.6.5",
   "candidateKind": "public-community-release",
   "trustTier": "community-verified",
   "generationId": "penglai-dsh-v0.5",
@@ -20,36 +20,36 @@
   "updaterChannel": "desktop-v0.5",
   "updaterPublicKeyId": "penglai-updater-d706d4f5cf1da7a57b74c068",
   "updaterPublicKeyHex": "d706d4f5cf1da7a57b74c068dd9eb4b7d7f655609c8ef097fd86fb22376bf9ee",
-  "updaterManifestUrl": "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.3/update-manifest-v1.json",
-  "updaterManifestSignatureUrl": "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.3/update-manifest-v1.json.sig",
+  "updaterManifestUrl": "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.5/update-manifest-v1.json",
+  "updaterManifestSignatureUrl": "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.5/update-manifest-v1.json.sig",
   "updaterAllowedAssetHosts": [
     "github.com"
   ],
   "canonicalMaker": "penglai-controlled-pipeline",
   "publication": {
     "repo": "kevinchennewbee/PenglaiAgent",
-    "tag": "v0.6.3",
-    "release": "v0.6.3",
-    "channel": "stable-v0.6.3"
+    "tag": "v0.6.5",
+    "release": "v0.6.5",
+    "channel": "stable-v0.6.5"
   },
   "targets": [
     {
       "key": "darwin-aarch64",
       "platform": "darwin",
       "arch": "arm64",
-      "installer": "Penglai_0.6.3_macos_aarch64.dmg"
+      "installer": "Penglai_0.6.5_macos_aarch64.dmg"
     },
     {
       "key": "win32-x86_64",
       "platform": "win32",
       "arch": "x64",
-      "installer": "Penglai_0.6.3_windows_x64_setup.exe"
+      "installer": "Penglai_0.6.5_windows_x64_setup.exe"
     },
     {
       "key": "linux-loong64",
       "platform": "linux",
       "arch": "loong64",
-      "installer": "Penglai_0.6.3_uos_loong64.deb"
+      "installer": "Penglai_0.6.5_uos_loong64.deb"
     }
   ],
   "runtimeInputs": [
@@ -103,9 +103,9 @@
     }
   ],
   "exactAssets": [
-    "Penglai_0.6.3_macos_aarch64.dmg",
-    "Penglai_0.6.3_windows_x64_setup.exe",
-    "Penglai_0.6.3_uos_loong64.deb",
+    "Penglai_0.6.5_macos_aarch64.dmg",
+    "Penglai_0.6.5_windows_x64_setup.exe",
+    "Penglai_0.6.5_uos_loong64.deb",
     "update-manifest-v1.json",
     "update-manifest-v1.json.sig",
     "release-manifest.json",

@@ -144,7 +144,7 @@ test("R56-CORE-003 exact required ids can take version from the pinned catalog",
     ],
   });
   assert.equal(proof.ok, true);
-  assert.equal(proof.required.find((row) => row.id === "@penglai/memory")?.version, "0.6.3");
+  assert.equal(proof.required.find((row) => row.id === "@penglai/memory")?.version, "0.6.5");
   assert.equal(
     proof.required.find((row) => row.id === "@deepseek-ai/dsh-credentials-local")?.version,
     "0.1.6-alpha.2",

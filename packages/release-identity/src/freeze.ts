@@ -153,7 +153,7 @@ export function assertNoLatestDownloads(text: string): void {
   }
 }
 
-export const COHORT_FREEZE_KIND = "penglai-0.6.3-development-cohort-freeze" as const;
+export const COHORT_FREEZE_KIND = "penglai-0.6.5-development-cohort-freeze" as const;
 export const PUBLISHED_0512_FREEZE_KIND = "penglai-0.5.12-development-cohort-freeze" as const;
 export const PUBLISHED_0512_REJECTED_DSH_SUCCESSOR_TAG = "dsh-v0.1.3-alpha.1" as const;
 export const NEXT_DSH_REVIEW_BOUNDARY = "later-than-dsh-v0.1.6-alpha.2" as const;
@@ -165,7 +165,7 @@ export interface CohortFreezeRecord {
   publicRelease: { productVersion: string; tag: string; immutable: boolean };
   previousPublicRelease?: { productVersion: string; tag: string; immutable: true };
   development: {
-    versionLabel: "0.6.3";
+    versionLabel: "0.6.5";
     publicationAuthorized: boolean;
     identityRetitled: boolean;
   };
@@ -203,7 +203,7 @@ export function assertCohortFreeze(input: {
   }
   if (freeze.status === "publication-authorized") {
     if (freeze.development.publicationAuthorized !== true || freeze.development.identityRetitled !== true) {
-      throw new PenglaiError("SECURITY_POLICY", "publication-authorized freeze must retitle 0.6.3");
+      throw new PenglaiError("SECURITY_POLICY", "publication-authorized freeze must retitle 0.6.5");
     }
     if (freeze.publicRelease.immutable !== true) {
       throw new PenglaiError("SECURITY_POLICY", "current public identity must stay immutable once tagged");
@@ -217,10 +217,10 @@ export function assertCohortFreeze(input: {
     }
   } else if (freeze.status === "development-frozen") {
     if (freeze.development.publicationAuthorized !== false || freeze.development.identityRetitled !== true) {
-      throw new PenglaiError("SECURITY_POLICY", "0.6.3 identity is retitled and development-frozen until publication");
+      throw new PenglaiError("SECURITY_POLICY", "0.6.5 identity is retitled and development-frozen until publication");
     }
     if (freeze.publicRelease.immutable === true) {
-      throw new PenglaiError("SECURITY_POLICY", "0.6.3 public identity is not immutable until the GitHub Release exists");
+      throw new PenglaiError("SECURITY_POLICY", "0.6.5 public identity is not immutable until the GitHub Release exists");
     }
     if (
       freeze.previousPublicRelease?.productVersion !== "0.6.2" ||

@@ -34,27 +34,27 @@ function readJson(relative) {
 try {
   execFileSync("git", ["merge-base", "--is-ancestor", BASE, "HEAD"], { cwd: ROOT, stdio: "ignore" });
 } catch {
-  fail(`0.6.3 must descend from published 0.5.11 ${BASE}`);
+  fail(`0.6.5 must descend from published 0.5.11 ${BASE}`);
 }
 try {
   execFileSync("git", ["merge-base", "--is-ancestor", PUBLISHED_0512, "HEAD"], { cwd: ROOT, stdio: "ignore" });
 } catch {
-  fail(`0.6.3 must descend from published 0.5.12 ${PUBLISHED_0512}`);
+  fail(`0.6.5 must descend from published 0.5.12 ${PUBLISHED_0512}`);
 }
 try {
   execFileSync("git", ["merge-base", "--is-ancestor", PUBLISHED_060, "HEAD"], { cwd: ROOT, stdio: "ignore" });
 } catch {
-  fail(`0.6.3 must descend from published 0.6.0 ${PUBLISHED_060}`);
+  fail(`0.6.5 must descend from published 0.6.0 ${PUBLISHED_060}`);
 }
 try {
   execFileSync("git", ["merge-base", "--is-ancestor", PUBLISHED_061, "HEAD"], { cwd: ROOT, stdio: "ignore" });
 } catch {
-  fail(`0.6.3 must descend from published 0.6.1 ${PUBLISHED_061}`);
+  fail(`0.6.5 must descend from published 0.6.1 ${PUBLISHED_061}`);
 }
 try {
   execFileSync("git", ["merge-base", "--is-ancestor", PUBLISHED_062, "HEAD"], { cwd: ROOT, stdio: "ignore" });
 } catch {
-  fail(`0.6.3 must descend from published 0.6.2 ${PUBLISHED_062}`);
+  fail(`0.6.5 must descend from published 0.6.2 ${PUBLISHED_062}`);
 }
 
 const protectedPaths = [
@@ -69,7 +69,7 @@ const protectedPaths = [
 ];
 const protectedChanges = git(["diff", "--name-only", BASE, "--", ...protectedPaths]).split("\n").filter(Boolean);
 if (protectedChanges.length > 0) {
-  fail(`0.6.3 rewrote immutable published history: ${protectedChanges.join(", ")}`);
+  fail(`0.6.5 rewrote immutable published history: ${protectedChanges.join(", ")}`);
 }
 const protected060 = git([
   "diff",
@@ -82,7 +82,7 @@ const protected060 = git([
   "docs/PUBLICATION_0.6.0.md",
 ]).split("\n").filter(Boolean);
 if (protected060.length > 0) {
-  fail(`0.6.3 rewrote immutable 0.6.0 publication records: ${protected060.join(", ")}`);
+  fail(`0.6.5 rewrote immutable 0.6.0 publication records: ${protected060.join(", ")}`);
 }
 const protected061 = git([
   "diff",
@@ -94,7 +94,7 @@ const protected061 = git([
   "docs/RELEASE_NOTES_0.6.1.md",
 ]).split("\n").filter(Boolean);
 if (protected061.length > 0) {
-  fail(`0.6.3 rewrote immutable 0.6.1 publication records: ${protected061.join(", ")}`);
+  fail(`0.6.5 rewrote immutable 0.6.1 publication records: ${protected061.join(", ")}`);
 }
 const protected062 = git([
   "diff",
@@ -106,21 +106,21 @@ const protected062 = git([
   "docs/RELEASE_NOTES_0.6.2.md",
 ]);
 if (protected062.split("\n").filter(Boolean).length > 0) {
-  fail(`0.6.3 rewrote immutable 0.6.2 publication records: ${protected062}`);
+  fail(`0.6.5 rewrote immutable 0.6.2 publication records: ${protected062}`);
 }
 
 
-if (pins.productVersion !== "0.6.3" || pins.dsh !== "0.1.6-alpha.2") {
-  fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.6.3/0.1.6-alpha.2`);
+if (pins.productVersion !== "0.6.5" || pins.dsh !== "0.1.6-alpha.2") {
+  fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.6.5/0.1.6-alpha.2`);
 }
 try {
-  assertNextUpdaterSequence(readJson("docs/0.6.3/UPGRADE_SOURCES.json"), pins.updaterSequence);
+  assertNextUpdaterSequence(readJson("docs/0.6.5/UPGRADE_SOURCES.json"), pins.updaterSequence);
 } catch (error) {
   fail(error.message);
 }
-if (existsSync(join(ROOT, ".pnpmfile.mjs"))) fail("0.6.3 must not activate the historical alpha.1 source resolver");
+if (existsSync(join(ROOT, ".pnpmfile.mjs"))) fail("0.6.5 must not activate the historical alpha.1 source resolver");
 
-const snapshotPath = join(ROOT, "docs/0.6.3/DSH_NPM_COHORT.json");
+const snapshotPath = join(ROOT, "docs/0.6.5/DSH_NPM_COHORT.json");
 const snapshotBytes = readFileSync(snapshotPath);
 const snapshot = JSON.parse(snapshotBytes.toString("utf8"));
 try {
@@ -133,7 +133,7 @@ if (snapshotSha256 !== pins.dshSource.closureManifestSha256) {
   fail(`DSH npm cohort digest ${snapshotSha256} != release pin ${pins.dshSource.closureManifestSha256}`);
 }
 
-const packagedBytes = readJson("docs/0.6.3/DSH_PACKAGED_BYTES.json");
+const packagedBytes = readJson("docs/0.6.5/DSH_PACKAGED_BYTES.json");
 if (
   packagedBytes.schema !== 2 ||
   packagedBytes.dsh !== pins.dsh ||
@@ -141,7 +141,7 @@ if (
   packagedBytes.source?.tag !== pins.dshSource.tag ||
   packagedBytes.source?.commit !== pins.dshSource.commit ||
   packagedBytes.source?.tree !== DSH_TREE ||
-  packagedBytes.source?.cohortManifest !== "docs/0.6.3/DSH_NPM_COHORT.json"
+  packagedBytes.source?.cohortManifest !== "docs/0.6.5/DSH_NPM_COHORT.json"
 ) {
   fail("DSH packaged-byte policy identity is not the fixed 0.1.6-alpha.2 source and npm cohort");
 }
@@ -216,7 +216,7 @@ const manifestGate = spawnSync(process.execPath, [join(ROOT, "scripts/migrate-re
   cwd: ROOT,
   encoding: "utf8",
 });
-if (manifestGate.status !== 0) fail(manifestGate.stderr || manifestGate.stdout || "0.6.3 manifest gate failed");
+if (manifestGate.status !== 0) fail(manifestGate.stderr || manifestGate.stdout || "0.6.5 manifest gate failed");
 
 for (const relative of [
   "packages/dsh-bridge/src/index.ts",

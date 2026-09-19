@@ -44,7 +44,7 @@ const PNG_1X1 = Buffer.from(
 
 function writePluginCatalog(pluginsDir, extra = {}) {
   mkdirSync(pluginsDir, { recursive: true });
-  const memory = "penglai-memory-0.6.3.tgz";
+  const memory = "penglai-memory-0.6.5.tgz";
   writeFileSync(join(pluginsDir, memory), "memory-plugin\n");
   writeFileSync(
     join(pluginsDir, "catalog.json"),
@@ -104,10 +104,10 @@ test("packager fails closed unless the Penglai target key is linux-loong64", () 
 });
 
 test("UOS installer name is packager-owned and in RELEASE_TARGETS", () => {
-  assert.equal(uosDebInstallerName(), "Penglai_0.6.3_uos_loong64.deb");
-  assert.equal(UOS_DEB_INSTALLER_NAME, "Penglai_0.6.3_uos_loong64.deb");
+  assert.equal(uosDebInstallerName(), "Penglai_0.6.5_uos_loong64.deb");
+  assert.equal(UOS_DEB_INSTALLER_NAME, "Penglai_0.6.5_uos_loong64.deb");
   assert.equal(RELEASE_TARGETS.includes("linux-loong64"), true);
-  assert.equal(TARGET_INSTALLERS["linux-loong64"], "Penglai_0.6.3_uos_loong64.deb");
+  assert.equal(TARGET_INSTALLERS["linux-loong64"], "Penglai_0.6.5_uos_loong64.deb");
 });
 
 test("control Architecture is loongarch64 while target key stays linux-loong64", () => {
@@ -151,7 +151,7 @@ test("staged .deb keeps /opt/Penglai, desktop file, and required Memory", () => 
     assert.equal(control.Architecture, "loongarch64");
     assert.equal(control["X-Penglai-Target"], "linux-loong64");
     assert.equal(control.Package, "penglai");
-    assert.equal(control.Version, "0.6.3");
+    assert.equal(control.Version, "0.6.5");
     const data = parseDebDataFiles(deb);
     assert.equal(data.has("opt/Penglai/Penglai"), true);
     assert.equal(data.has("opt/Penglai/chrome-sandbox"), true);
@@ -161,10 +161,10 @@ test("staged .deb keeps /opt/Penglai, desktop file, and required Memory", () => 
     assert.match(desktop, /Exec=\/opt\/Penglai\/Penglai %U/);
     assert.match(desktop, /X-Penglai-Target=linux-loong64/);
     for (const excluded of ["office", "budget", "companion"]) {
-      assert.equal(data.has(`opt/Penglai/resources/plugins/penglai-${excluded}-0.6.3.tgz`), false);
+      assert.equal(data.has(`opt/Penglai/resources/plugins/penglai-${excluded}-0.6.5.tgz`), false);
     }
     assert.equal(
-      data.has("opt/Penglai/resources/plugins/penglai-memory-0.6.3.tgz"),
+      data.has("opt/Penglai/resources/plugins/penglai-memory-0.6.5.tgz"),
       true,
     );
     assert.deepEqual([...REQUIRED_BUILTIN_PLUGIN_IDS], ["@penglai/memory"]);
@@ -239,7 +239,7 @@ test("payload contract refuses missing sandbox or disabled Memory", () => {
         entries: [
           {
             id: "@penglai/memory",
-            packageFile: "penglai-memory-0.6.3.tgz",
+            packageFile: "penglai-memory-0.6.5.tgz",
             installClass: "optional-first-party",
             defaultEnabled: false,
           },

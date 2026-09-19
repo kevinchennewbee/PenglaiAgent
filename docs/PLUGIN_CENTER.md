@@ -4,7 +4,7 @@
 
 Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settings.plugins.tab`。它不是 Electron 外壳里的第二商店，也不是一个只写 `desired.json` 的状态页。
 
-## 2. 0.5 数据代际内置 catalog（当前开发候选 v0.6.3）
+## 2. 0.5 数据代际内置 catalog（当前开发候选 v0.6.5）
 
 只允许 app 内签入并离线验证的包：
 
@@ -16,7 +16,7 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 - `@penglai/plugin-reference`（默认 disabled，仅用于 platform proof）
 - `@penglai/plugin-smoke`（测试 profile only，不进入用户 catalog）
 
-`@penglai/credentials-keychain` 不进入默认 profile、打包清单或 catalog。未审核社区插件不显示为可用。面向用户的产品卡固定为四张：消息连接、蓬莱语音识别、蓬莱语音生成和蓬莱记忆。LibreOffice、Office/PDF、Budget 与 Companion 不进入 0.6.3 catalog、profile 或安装包。ASR/MOSS-TTS 只有真实 host/client、model manager、当前发布 target engine 与验收存在时才显示为可启用。UOS 20 `linux-loong64` 没有 MOSS ONNX 本机引擎，卡片仍在目录中，但平台列表不含该 target，Center 显示“本机不提供此功能”并拒绝启用（`docs/0.6.0/MOSS_LOONG64.md`）。ASR 继续使用 WASM sherpa。
+`@penglai/credentials-keychain` 不进入默认 profile、打包清单或 catalog。未审核社区插件不显示为可用。面向用户的产品卡固定为四张：消息连接、蓬莱语音识别、蓬莱语音生成和蓬莱记忆。LibreOffice、Office/PDF、Budget 与 Companion 不进入 0.6.5 catalog、profile 或安装包。ASR/MOSS-TTS 只有真实 host/client、model manager、当前发布 target engine 与验收存在时才显示为可启用。UOS 20 `linux-loong64` 没有 MOSS ONNX 本机引擎，卡片仍在目录中，但平台列表不含该 target，Center 显示“本机不提供此功能”并拒绝启用（`docs/0.6.0/MOSS_LOONG64.md`）。ASR 继续使用 WASM sherpa。
 
 ## 2.1 生态来源与未来扩展
 
@@ -32,8 +32,8 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 0.5.1 起，Center 只从公开仓库 `kevinchennewbee/PenglaiPluginRegistry` 的不可变 GitHub Release 发现远程插件。目录 JSON 与每个 tar 包分别使用内置 Ed25519 信任根验签；sequence 只能前进，断网时只读已验签的 last-good。远程包默认关闭，用户确认权限后才安装；包先写入用户私有的 `Penglai/0.5/plugins/packages`，不得修改应用内置插件目录。
 
 0.5.7 历史版本曾将 `@penglai/office` 与 `@penglai/memory` 设为 required-builtin；
-0.6.3 只保留 Memory。远程目录对旧 `@penglai/office-reader` 的撤销历史保持不可变，
-但这不构成 0.6.3 Office 支持。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端；插件包更新成功后，当前客户端只会在已授权且事务身份完全匹配时重启内置 DSH，以免 Node 模块缓存继续运行旧代码。GitHub REST 的匿名限流只允许回退到版本化 Release Atom 发现；最终信任仍来自精确 tag、目录签名、package 签名、asset id、size 与 SHA-256，绝不信任 mutable `latest`。
+0.6.5 只保留 Memory。远程目录对旧 `@penglai/office-reader` 的撤销历史保持不可变，
+但这不构成 0.6.5 Office 支持。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端；插件包更新成功后，当前客户端只会在已授权且事务身份完全匹配时重启内置 DSH，以免 Node 模块缓存继续运行旧代码。GitHub REST 的匿名限流只允许回退到版本化 Release Atom 发现；最终信任仍来自精确 tag、目录签名、package 签名、asset id、size 与 SHA-256，绝不信任 mutable `latest`。
 
 安装包离线携带这些 tarball 是为了让普通用户无需联网取代码即可选择扩展。fresh profile 安装 Center 与 Memory；其余可选插件仅在用户点击“安装并启用”后才校验、写入、加载。完成 BYOK 后 official DSH 与 Memory 必须独立可用；任一可选插件 absent/disabled/unconfigured 都不得阻断 DSH core、已安装 IM 的 text 链或无关插件。
 
@@ -44,7 +44,7 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 ```json
 {
   "id": "@penglai/im",
-  "version": "0.6.3",
+  "version": "0.6.5",
   "dshRange": "0.1.6-alpha.2",
   "platforms": ["darwin-aarch64", "win32-x86_64", "linux-loong64"],
   "capabilities": ["settings-ui", "im-weixin", "im-feishu"],

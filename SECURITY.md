@@ -6,7 +6,7 @@ Penglai 0.6.3 is the current **community-verified** immutable public desktop dis
 
 | Version | Status |
 | --- | --- |
-| 0.6.3 | Current immutable public release |
+| 0.6.5 | Current immutable public release |
 | 0.6.2 | Historical immutable release |
 | 0.6.1 | Historical immutable release |
 | 0.6.0 | Historical immutable release |
@@ -17,10 +17,10 @@ Penglai 0.6.3 is the current **community-verified** immutable public desktop dis
 | Earlier 0.5.x | Historical releases; use the documented migration path |
 | 0.4.1 and earlier | Unsupported; 0.5 does not silently import or delete old secrets or databases |
 
-The 0.6.3 release contract requires ten files: three
+The 0.6.5 release contract requires ten files: three
 installers (Apple Silicon, Windows x64, UnionTech UOS 20 LoongArch), signed
 update metadata, SHA256SUMS, the release-set SBOM, third-party notices, and
-the public source-export manifest. Intel Mac is excluded from 0.6.3. The
+the public source-export manifest. Intel Mac is excluded from 0.6.5. The
 published 0.6.2 and earlier immutable releases remain historical bytes; the
 0.5.9 release contains only its three installers and its missing metadata is a
 historical publication defect. Do not infer signed updater coverage for that
@@ -59,7 +59,7 @@ Adapters cannot call a parallel Agent. `docs/0.5.7/LIVE_IM_MATRIX.md` preserves
 historical account-test requirements; it does not establish current-version live
 results. Current account journeys are claimed only with current evidence. Slack,
 Telegram, and Discord do not fake QR.
-WhatsApp is not displayed, supported, planned, or bundled in 0.6.3.
+WhatsApp is not displayed, supported, planned, or bundled in 0.6.5.
 
 - Weixin: real QR login. The scanner is the only allowed identity unless the user expands the allowlist.
 - Feishu: the official application-registration QR flow is used where available, with manual App ID/Secret setup as a fallback. Penglai does not host the application or invent a login QR.
@@ -90,14 +90,14 @@ Penglai will not claim notarization, Authenticode, App Store trust, silent auto-
 
 ## 中文
 
-当前公开版本为不可变 Penglai 0.6.3，使用精确固定的官方 DSH `0.1.6-alpha.2`
+当前公开版本为不可变 Penglai 0.6.5，使用精确固定的官方 DSH `0.1.6-alpha.2`
 cohort，安装包源码为 `1c103212ad25b7d2a0061c2c4bfa595cd413c138`。
 Apple Silicon 与 Windows x64 已完成全新安装、重启、完整安装态引导、第一方插件兼容和
-默认卸载验证。`0.6.2 → 0.6.3` 真实安装版升级为 `OWNER_EXCLUDED`，不宣称 PASS。
-Intel Mac 不是 0.6.3 安装目标。UOS 龙芯包身份、ABI、运行时、架构与闭包已验证，
+默认卸载验证。`0.6.2 → 0.6.5` 真实安装版升级为 `OWNER_EXCLUDED`，不宣称 PASS。
+Intel Mac 不是 0.6.5 安装目标。UOS 龙芯包身份、ABI、运行时、架构与闭包已验证，
 真机安装、启动和功能仍为 `OWNER_POST_RELEASE`。
 
-0.6.3 的正式发布包含十项完整附件，包括三个安装包、签名更新清单、校验和、
+0.6.5 的正式发布包含十项完整附件，包括三个安装包、签名更新清单、校验和、
 SBOM、第三方声明与 public export manifest，并已完成不可变公网字节回读。
 0.5.9 历史发布只有三个安装包，缺少元数据属于当时的发布缺陷；不能据此声称该版
 签名更新链路完整。原有不可变附件未被修改。Windows 原生检查使用托管运行器现有

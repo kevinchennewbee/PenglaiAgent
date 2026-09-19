@@ -1,13 +1,13 @@
-# Penglai 0.6.3 验收注册表
+# Penglai 0.6.5 验收注册表
 
-> 本文是 0.6.3 唯一的机器可解析 Hard 注册表。它取代了 0.5.x 时代的 330-ID
+> 本文是 0.6.5 唯一的机器可解析 Hard 注册表。它取代了 0.5.x 时代的 330-ID
 > 基础表；那张表的 241 个 ID 从未出现在任何 `recordAssertion` 调用中，另外
 > 38 个要求本版明令排除的模块存在，因此 `missing != 0` 在任何一次运行中都成立，
 > 计数本身失去意义。本表的每一条都必须能产出证据，否则不允许登记。
 >
 > 精确版本、文件名与公开目标以 `release-contract.json` 为准；排除范围以
 > `PRODUCT_CONSTITUTION.md` 与 `docs/PRODUCT.md` 为准。已发布的 0.5.10、
-> 0.5.11、0.5.12、0.6.0、0.6.1、0.6.2 与 0.6.3 的验收增量保持不可变，本文不
+> 0.5.11、0.5.12、0.6.0、0.6.1、0.6.2 与 0.6.5 的验收增量保持不可变，本文不
 > 改写任何已发布历史，也不再登记它们的历史 ID。
 
 ## 1. 判定对象与结论
@@ -55,14 +55,14 @@ exit/result digest。不能通过文件名、字符串存在或一个 smoke 扇�
 
 | ID | 要求 | Runner |
 | --- | --- | --- |
-| `R50-TRUTH-001` | root/workspace/desktop/profile/plugin/release contract 的版本全部等于 release-contract.json 声明的 0.6.3 | contract/all |
+| `R50-TRUTH-001` | root/workspace/desktop/profile/plugin/release contract 的版本全部等于 release-contract.json 声明的 0.6.5 | contract/all |
 | `R50-TRUTH-002` | candidateKind、trustTier、generation、三个 target 与三个 exact filename 一致，且与 RELEASE_TARGETS 逐字相符 | contract/all |
 | `R50-TRUTH-003` | 旧 alpha artifact/evidence/READY 全部 STALE 并被 verifier 拒绝，legacy 202-ID 汇总不构成完成映射 | failure/all |
 | `R50-TRUTH-004` | UNFROZEN identity 不得携带 artifact/signature/live/READY | unit/all |
 | `R50-TRUTH-005` | 注册表本身是唯一、动态解析、非 stale 的 Hard 集合，且每条 ID 都有可核实的发射点 | unit/all |
 | `R50-TRUTH-006` | runner 的 candidate source SHA 只来自 Git HEAD，环境变量（含 PENGLAI_CANDIDATE_SHA）不得覆盖它 | unit/all |
 | `R50-TRUTH-007` | 任一适用发布硬子门 FAIL/INCOMPLETE/STALE 都使 verify:release 非零 | fault/all |
-| `R50-TRUTH-008` | repo=kevinchennewbee/PenglaiAgent、tag/release=v0.6.3，且发布前 updater Release 不得冒充已公开 | manifest/aggregate |
+| `R50-TRUTH-008` | repo=kevinchennewbee/PenglaiAgent、tag/release=v0.6.5，且发布前 updater Release 不得冒充已公开 | manifest/aggregate |
 
 ### B. DSH 唯一核心与安装态契约（5）
 

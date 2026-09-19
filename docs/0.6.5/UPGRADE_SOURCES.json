@@ -11,43 +11,43 @@
   },
   "sources": [
     {
-      "version": "0.6.2",
-      "tag": "v0.6.2",
-      "releaseId": 387670584,
-      "sourceSha": "83ce4aa3c153b63d9f84c6a5d650a3727e8cfec6",
-      "updateSequence": 11,
+      "version": "0.6.3",
+      "tag": "v0.6.3",
+      "releaseId": 391932791,
+      "sourceSha": "1c103212ad25b7d2a0061c2c4bfa595cd413c138",
+      "updateSequence": 12,
       "immutable": true,
       "digestAuthority": "immutable GitHub asset digest",
       "assets": [
         {
-          "name": "Penglai_0.6.2_macos_aarch64.dmg",
-          "id": 559772975,
-          "size": 284537443,
-          "sha256": "7a9e6d851c954e74d8af8ad8d4054838ad212dd575a82ad783cabd09bfdd9348"
+          "name": "Penglai_0.6.3_macos_aarch64.dmg",
+          "id": 574199621,
+          "size": 271997944,
+          "sha256": "58b6df9704148403b229c06ee0f0a5d7a3ae328b8ac61a56d8d2d13e1c7a0129"
         },
         {
-          "name": "Penglai_0.6.2_windows_x64_setup.exe",
-          "id": 559772976,
-          "size": 371269392,
-          "sha256": "3e97111bfcefa3c1ab72e70aad6b160acb76f6bef70391f8be4818d80edb8cda"
+          "name": "Penglai_0.6.3_windows_x64_setup.exe",
+          "id": 574214873,
+          "size": 358353527,
+          "sha256": "6fe9d3b59c644cfca15a374c03959ae117dce24de2382014f177257bdeaa9edd"
         },
         {
-          "name": "Penglai_0.6.2_uos_loong64.deb",
-          "id": 559772974,
-          "size": 293093278,
-          "sha256": "d16d6b9569095b4d599e9da5afd5c325ebbb661ac7de21ce993fd281bf2998f7"
+          "name": "Penglai_0.6.3_uos_loong64.deb",
+          "id": 574210812,
+          "size": 280873186,
+          "sha256": "2dfc77f88cc436bdcf6abf3ce22c6098c6ee5f9dbbf2b097f7c8ce457faaf4dd"
         },
         {
           "name": "update-manifest-v1.json",
-          "id": 559779444,
+          "id": 574299904,
           "size": 1621,
-          "sha256": "dc7d17006df08432b1ed1be0ebdbbf1785a90de5cdb88a6f8a9bb1bf433f0bd2"
+          "sha256": "cc8e82b4bc5214d902f53440c35dee7e4fcf1c2b81914d33a653596e70af6083"
         },
         {
           "name": "update-manifest-v1.json.sig",
-          "id": 559779443,
+          "id": 574299906,
           "size": 64,
-          "sha256": "0a1bbaf9873903244e94ebb97a21816eb26f0ea7ff1783b20ede06423f7c6cbe"
+          "sha256": "9c37d92e9c0aa38edabd8ada94b602c509a5ad2c3aa2b5e59bd9873c661c139e"
         }
       ]
     }
