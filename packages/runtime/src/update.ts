@@ -644,9 +644,21 @@ export function spawnVerifiedInstaller(path: string, kind: InstallerKind): void 
     return;
   }
   if (kind === "deb") {
-    // UOS / LoongArch: hand the package to the desktop's package installer so a
-    // system window still asks the user to confirm. Never run `dpkg -i` here:
+    // UOS 20 / LoongArch: hand the package to the desktop's package installer so
+    // a system window still asks the user to confirm. Never run `dpkg -i` here:
     // that would install without a system prompt, which this product forbids.
+    //
+    // UNVERIFIED. `xdg-open` is the freedesktop-standard way to reach whatever
+    // handler the desktop registers for a `.deb`, but nobody has run this on UOS:
+    // that platform's native install is `OWNER_POST_RELEASE` and its installer
+    // has never been executed on real hardware. UOS ships
+    // `deepin-deb-installer`, and whether `xdg-open` routes there is exactly the
+    // kind of assumption that broke the WeChat channel for eight releases.
+    //
+    // Unreachable today: `assemble-release.mjs` emits update platforms from
+    // `NATIVE_INSTALLED_TARGETS`, which excludes LoongArch, and the coordinator
+    // reports "no update channel" for a target the manifest does not carry. This
+    // becomes reachable only after that verification is done — which is the point.
     spawn("xdg-open", [path], { detached: true, stdio: "ignore" }).unref();
     return;
   }

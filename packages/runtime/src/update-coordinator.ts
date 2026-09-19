@@ -271,7 +271,29 @@ export class AssistedUpdateCoordinator {
           return this.status();
         }
         const platform = found.manifest.platforms[this.#config.target];
-        if (!platform) throw new PenglaiError("INVALID_INPUT", "platform missing");
+        if (!platform) {
+          // No update channel for this target. That is a fact about the release,
+          // not a fault: the manifest is emitted for `NATIVE_INSTALLED_TARGETS`,
+          // which is deliberately narrower than the published target set.
+          //
+          // The UOS / LoongArch target is published — users install its .deb by
+          // hand — but it is not an update target, because its native
+          // install/startup/function is `OWNER_POST_RELEASE` and has never been
+          // verified on real hardware. Carrying it in the manifest would create
+          // an automatic update path on a platform whose installer has never
+          // been run, so it is excluded until that verification exists.
+          //
+          // Reporting "current" rather than throwing matters: the previous
+          // `platform missing` error told a UOS user their update check had
+          // failed, when the truth is that this platform has no update channel.
+          this.#journal = {
+            ...this.#journal,
+            state: "CURRENT",
+            version: this.#config.currentVersion,
+          };
+          this.#persist();
+          return this.status();
+        }
         version = found.manifest.version;
         const expectedFilename = updateInstallerName(this.#config.target, version);
         if (!expectedFilename) {
@@ -345,6 +367,34 @@ export class AssistedUpdateCoordinator {
           fetchExactBytes(this.#config.canonicalManifestUrl, fetchImpl, 1024 * 1024, controller.signal),
           fetchExactBytes(this.#config.canonicalManifestSignatureUrl, fetchImpl, 1024, controller.signal),
         ]);
+        // Same "no update channel for this target" outcome as the discovery
+        // branch above, and for the same reason. Checked before verification
+        // because the decision is to NOT proceed, so acting on unverified bytes
+        // here can only fail closed; a parse failure falls through and lets
+        // `verifyManifestBytes` report the real problem.
+        const declaredPlatforms = (() => {
+          try {
+            const parsed: unknown = JSON.parse(bytes.toString("utf8"));
+            return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+              ? (parsed as { platforms?: Record<string, unknown> }).platforms
+              : undefined;
+          } catch {
+            return undefined;
+          }
+        })();
+        if (
+          declaredPlatforms &&
+          typeof declaredPlatforms === "object" &&
+          !Object.hasOwn(declaredPlatforms, this.#config.target)
+        ) {
+          this.#journal = {
+            ...this.#journal,
+            state: "CURRENT",
+            version: this.#config.currentVersion,
+          };
+          this.#persist();
+          return this.status();
+        }
         const verified = verifyManifestBytes({
           bytes,
           signature: decodeManifestSignature(signatureBytes),

@@ -592,3 +592,24 @@ test("an update check without a known data generation fails closed", async () =>
     /current data generation is unknown/,
   );
 });
+
+test("a target the manifest does not carry reports CURRENT, not a failed check", async () => {
+  // The manifest is emitted for NATIVE_INSTALLED_TARGETS, which is deliberately
+  // narrower than the published target set: LoongArch is published — users
+  // install its .deb by hand — but it is not an update target, because its
+  // native install is OWNER_POST_RELEASE and has never been run on real
+  // hardware. Carrying it would create an automatic update path on a platform
+  // whose installer nobody has executed.
+  //
+  // This used to throw `INVALID_INPUT / platform missing`, which told a UOS user
+  // their update check had failed when the truth is that the platform has no
+  // update channel at all.
+  const root = mkdtempSync(join(tmpdir(), "penglai-update-no-channel-"));
+  const fixture = signedFixture("0.6.5", "0.6.3");
+  const coordinator = new AssistedUpdateCoordinator(
+    coordinatorConfig(root, fixture, { currentVersion: "0.6.3", target: "linux-loong64" }),
+  );
+  const status = await coordinator.check();
+  assert.equal(status.state, "CURRENT");
+  assert.equal(status.version, "0.6.3");
+});
