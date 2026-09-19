@@ -53,6 +53,7 @@
     "verify:identity": "node --import tsx scripts/verify-identity.mjs",
     "verify:contracts": "node --import tsx scripts/verify-contracts.mjs",
     "verify:dependencies": "node scripts/verify-dependencies.mjs",
+    "verify:drift": "node --import tsx scripts/verify-drift.mjs",
     "verify:058-migration-inventory": "node scripts/verify-058-migration-inventory.mjs",
     "verify:058-overlay-map": "node scripts/verify-058-overlay-map.mjs",
     "migrate:release-manifests": "node scripts/migrate-release-manifests.mjs --write",

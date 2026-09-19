@@ -287,6 +287,46 @@ export const SUPPLEMENTAL_ACCEPTANCE_SUBGATES = [
   { name: "verify:evidence", kind: "evidence", mode: "evidence" },
 ] as const;
 
+/**
+ * Drift probes: does the outside world still match what this repository assumes?
+ *
+ * A third category, deliberately separate from both the hard gates and the
+ * supplemental acceptance set. Its contract is narrower than either:
+ *
+ *   A red drift probe does not block publication. It blocks the release from
+ *   claiming that everything is fine. Record the drift in the release notes, or
+ *   fix it.
+ *
+ * It is not a hard gate because an external service being unreachable must not
+ * be able to stop a release that is otherwise complete, and because the pinned
+ * upstream version is an Owner decision that this project deliberately does not
+ * chase automatically. It is not supplemental acceptance either, because
+ * "supplemental" reads as "nice to have" and these are the checks that would
+ * have caught every serious 0.6.x defect:
+ *
+ *   - `weixin-ilink`: Tencent serves the iLink surface as
+ *     `application/octet-stream`; the channel gated on `application/json` and
+ *     WeChat was broken for eight releases.
+ *   - `dsh-im-channel`: the announced channel build sat at 2.4.6 while Tencent
+ *     shipped 2.4.8 and 2.4.9.
+ *   - `dsh-upstream`: DSH publishes to npm without a GitHub release, so a
+ *     releases-only watch under-reports upstream movement.
+ *   - `published-facts`: eight documents claimed 0.6.3 was unpublished after it
+ *     had been published and read back.
+ *
+ * `pnpm verify:drift` exits PASS when every probe passes, FAIL when any probe
+ * detects drift, and BLOCKED when none could run.
+ */
+export const DRIFT_SUBGATES = [
+  { name: "verify:drift", kind: "drift", mode: "probe" },
+] as const;
+
+/**
+ * The drift subgates that were evaluated, for release records. Their verdict is
+ * published alongside the release rather than gating it.
+ */
+export const DRIFT_SUBGATE_NAMES = DRIFT_SUBGATES.map((gate) => gate.name);
+
 export const REQUIRED_SUBGATE_KINDS = [
   "format",
   "type",
