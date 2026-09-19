@@ -35,6 +35,45 @@ export function createOfficialPluginManager(ctx: Context): PluginManager {
   });
 }
 
+/**
+ * Outcomes the official plugin manager can report for a bundle change.
+ *
+ * Read from the pinned upstream type rather than inferred from the call sites —
+ * `@deepseek-ai/dsh-plugin-manager/lib/types/types.d.ts`:
+ *
+ *     application: 'applied' | 'restart-required' | 'overridden'
+ *                | 'failed' | 'cancelled';
+ *
+ * The list is closed on purpose. The previous check tested for the three failure
+ * values and treated everything else as success, so a value upstream added later
+ * would have been reported to the user as a completed change. "The toggle saved"
+ * is not evidence that the change is live, and this is a security-adjacent claim:
+ * it decides whether the owner approval is completed or failed.
+ *
+ * `applied` is also weaker than it reads. From DSH 0.1.6-alpha.1 the config
+ * hot-reload path no longer rolls back transactionally — a parse failure keeps
+ * the previous config and a plugin activation failure may take effect partially.
+ * So `applied` must never be presented as proof of a live, complete activation,
+ * which is what `OPEN_PLUGIN_MANAGEMENT.md` requires: `restart-required`, failed,
+ * cancelled and applied are four different things to report.
+ */
+export const PLUGIN_APPLICATIONS = [
+  "applied",
+  "restart-required",
+  "overridden",
+  "failed",
+  "cancelled",
+] as const;
+
+export type PluginApplication = (typeof PLUGIN_APPLICATIONS)[number];
+
+/** Outcomes that mean the requested change did not take effect. */
+const PLUGIN_APPLICATION_FAILURES: readonly PluginApplication[] = ["failed", "cancelled", "overridden"];
+
+export function isKnownPluginApplication(value: unknown): value is PluginApplication {
+  return typeof value === "string" && (PLUGIN_APPLICATIONS as readonly string[]).includes(value);
+}
+
 /** Read the same effective patch composition as the official manager.
  * No parallel desired.json state participates in the current product policy.
  */
@@ -104,13 +143,27 @@ export function createOfficialCenterRemote(opts: {
       throw error;
     }
     const resultDigest = createHash("sha256").update(JSON.stringify(result)).digest("hex");
-    if (result.application === "failed" || result.application === "cancelled" || result.application === "overridden") {
+    // Fail closed on an outcome this build does not recognise. Upstream owns this
+    // enum and has already extended it once, with `overridden`. Before this
+    // check existed, an unknown value fell through to the success path below and
+    // the owner approval was completed for a change whose state was unknown.
+    if (!isKnownPluginApplication(result.application)) {
       owner.failApproval({
         actionId: proof.actionId,
         reservationId: reservation.reservationId,
         resultDigest,
       });
-      throw new PenglaiError("DSH_UNAVAILABLE", "official plugin change was not applied");
+      throw new PenglaiError("DSH_UNAVAILABLE", "official plugin manager returned an unrecognised outcome");
+    }
+    if (PLUGIN_APPLICATION_FAILURES.includes(result.application)) {
+      // The specific outcome is carried in the message so diagnostics can tell a
+      // cancellation from a refusal. They were collapsed into one string before.
+      owner.failApproval({
+        actionId: proof.actionId,
+        reservationId: reservation.reservationId,
+        resultDigest,
+      });
+      throw new PenglaiError("DSH_UNAVAILABLE", `official plugin change was not applied: ${result.application}`);
     }
     owner.completeApproval({
       actionId: proof.actionId,
@@ -118,6 +171,11 @@ export function createOfficialCenterRemote(opts: {
       resultDigest,
     });
     await opts.inventory.refresh?.();
+    // `applied` is not proof of a live, complete activation: upstream's config
+    // hot-reload no longer rolls back transactionally, so a parse failure keeps
+    // the previous config and an activation failure may take effect partially.
+    // Only `restart-required` is reported as needing a restart; `applied` is
+    // reported as applied-and-not-verified, never as verified active.
     return { ...result, restartRequired: result.application === "restart-required" };
   };
   const officialPackagesOnly = async (): Promise<never> => {

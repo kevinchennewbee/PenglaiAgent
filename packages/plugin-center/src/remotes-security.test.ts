@@ -10,7 +10,11 @@ import {
   pluginPermissionDigest,
   type PluginCatalogEntry,
 } from "@penglai/runtime";
-import { createOfficialCenterRemote } from "./official-manager.js";
+import {
+  PLUGIN_APPLICATIONS,
+  createOfficialCenterRemote,
+  isKnownPluginApplication,
+} from "./official-manager.js";
 
 const CATALOG: PluginCatalogEntry[] = FIRST_PARTY_PLUGIN_METADATA.map((entry) => ({
   ...entry,
@@ -239,10 +243,87 @@ test("failed official toggle consumes the approved action without claiming succe
         }),
       (error: unknown) =>
         error instanceof PenglaiError &&
-        error.message === "official plugin change was not applied",
+        // The specific outcome is carried through, so diagnostics can tell a
+        // cancellation from a refusal. It used to be collapsed into one string.
+        error.message === "official plugin change was not applied: failed",
     );
     assert.equal(owner.inspect(proposal.actionId).state, "failed");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("R50-PLUGIN an unrecognised plugin manager outcome fails closed instead of reading as success", async () => {
+  // Upstream owns the `application` union in @deepseek-ai/dsh-plugin-manager and
+  // has already extended it once, with `overridden`. The previous check tested
+  // for the three known failure values and treated everything else as success,
+  // so a value upstream added later would have completed the owner approval for
+  // a change whose state was unknown. Verified against the pinned upstream type:
+  //   application: 'applied' | 'restart-required' | 'overridden' | 'failed' | 'cancelled'
+  const root = mkdtempSync(join(tmpdir(), "penglai-official-center-unknown-"));
+  const owner = new OwnerApprovalBroker(root, { dialog: async () => "approved" });
+  const entry = CATALOG.find((row) => row.id === "@penglai/memory")!;
+  const permissionDigest = pluginPermissionDigest({
+    permissions: entry.permissions,
+    ...(entry.networkOrigins ? { networkOrigins: entry.networkOrigins } : {}),
+    ...(entry.dataPaths ? { dataPaths: entry.dataPaths } : {}),
+    nativeCode: entry.nativeCode === true,
+  });
+  const remote = createOfficialCenterRemote({
+    manager: {
+      listPlugins: async () => [
+        {
+          entryId: "include:penglai-memory",
+          patchId: "penglai-memory",
+          moduleName: "@penglai/memory",
+        },
+      ],
+      // A value this build does not know. It must not be read as applied.
+      setPluginEnabled: async () => ({ application: "partially-applied" as never }),
+    } as never,
+    host: host(),
+    inventory: { list: () => [] },
+    catalog: CATALOG,
+    userDataRoot: root,
+    txDir: join(root, "center-tx"),
+    resourceProbe: () => undefined,
+    ownerBroker: owner,
+  });
+  try {
+    const proposal = owner.createProposal({
+      action: "plugin.disable",
+      pluginId: entry.id,
+      objectId: entry.id,
+      sourceDigest: entry.sha256,
+      permissionDigest,
+    });
+    const decision = await owner.requestOwnerApproval(proposal.actionId);
+    if (decision.decision !== "approved") throw new Error("approval fixture failed");
+    await assert.rejects(
+      () =>
+        remote.disable(entry.id, {
+          actionId: proposal.actionId,
+          receipt: decision.receipt,
+        }),
+      (error: unknown) =>
+        error instanceof PenglaiError &&
+        error.message === "official plugin manager returned an unrecognised outcome",
+    );
+    // The approval must be consumed as a failure, not completed as a success.
+    assert.equal(owner.inspect(proposal.actionId).state, "failed");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("PLUGIN_APPLICATIONS matches the pinned upstream union", () => {
+  // Guards the closed enum against silent drift from the upstream contract.
+  assert.deepEqual(
+    [...PLUGIN_APPLICATIONS].sort(),
+    ["applied", "cancelled", "failed", "overridden", "restart-required"].sort(),
+  );
+  assert.equal(isKnownPluginApplication("partially-applied"), false);
+  assert.equal(isKnownPluginApplication(undefined), false);
+  assert.equal(isKnownPluginApplication(3), false);
+  assert.equal(isKnownPluginApplication("applied"), true);
 });
