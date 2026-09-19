@@ -4,8 +4,14 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { PRODUCT_VERSION, windowsSetupName } from "./product.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
+
+/** `.` is a regex metacharacter, so a version string must be escaped first. */
+function literal(value) {
+  return value.replaceAll(".", "\\.");
+}
 
 function pngSize(bytes) {
   assert.equal(bytes.subarray(0, 8).toString("binary"), "\u0089PNG\r\n\u001a\n");
@@ -166,8 +172,14 @@ test("Windows NSIS welcome and header bitmaps are 24-bit branded pages", () => {
   assert.match(packager, /PENGLAI_WELCOME_BMP=/);
   assert.match(packager, /PENGLAI_HEADER_BMP=/);
   assert.match(packager, /`\/DPENGLAI_VERSION=\$\{PRODUCT_VERSION\}`/);
-  assert.match(nsi, /!define PENGLAI_VERSION "0\.6\.2"/);
-  assert.match(nsi, /!define PENGLAI_OUTFILE "Penglai_0\.6\.3_windows_x64_setup\.exe"/);
+  // Both fallback defines must name the release being built: the packager always
+  // passes `/DPENGLAI_VERSION`, so these literals only bind a hand-compiled
+  // `makensis scripts/nsis/Penglai.nsi`. Deriving them from the release pin is
+  // what caught the 0.6.3 bump leaving the version fallback at "0.6.2" while the
+  // output-file fallback moved — the escaped-dot form is invisible to the bump's
+  // plain-string replace, so the two defines drifted apart unnoticed.
+  assert.match(nsi, new RegExp(`!define PENGLAI_VERSION "${literal(PRODUCT_VERSION)}"`));
+  assert.match(nsi, new RegExp(`!define PENGLAI_OUTFILE "${literal(windowsSetupName())}"`));
   assert.match(nsi, /DisplayVersion" "\$\{PENGLAI_VERSION\}"/);
   assert.match(nsi, /BrandingText "Penglai \$\{PENGLAI_VERSION\}"/);
   assert.match(packager, /packaging", "nsis-welcome\.bmp"/);

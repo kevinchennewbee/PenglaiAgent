@@ -22,7 +22,7 @@ import {
   windowsNativeHostSourceFacts,
   windowsNativeHostStatus,
 } from "./windows-host.js";
-import { assertWindowsNsisScript, WINDOWS_NSIS_CONTRACT } from "./packaging.js";
+import { assertWindowsNsisScript, PRODUCT_VERSION, WINDOWS_NSIS_CONTRACT } from "./packaging.js";
 
 test("Windows Job Object contract requires suspended-create, kill-on-close, and no breakaway", () => {
   const plan = windowsJobObjectPlan();
@@ -351,10 +351,17 @@ test("NSIS script always preserves user data after in-app exact deletion", () =>
   assert.match(cleanClone, /fetch:mnemon-assets/);
   const artifact = readFileSync(new URL("../../../scripts/verify-artifact.mjs", import.meta.url), "utf8");
   const bundleDesktop = readFileSync(new URL("../../../scripts/bundle-desktop.mjs", import.meta.url), "utf8");
-  assert.match(artifact, /docs\/0\.6\.3\/DSH_PACKAGED_BYTES\.json/);
+  // Both scripts must pin the packaged-bytes record of the release being built.
+  // The expectation is derived from the release pin because the escaped-dot form
+  // (`docs\/0\.6\.3\/…`) is invisible to the version bump's plain-string replace:
+  // it kept citing 0.6.3 after the scripts had already moved to the new record.
+  const packagedBytesRecord = new RegExp(
+    `docs/${PRODUCT_VERSION.replaceAll(".", "\\.")}/DSH_PACKAGED_BYTES\\.json`,
+  );
+  assert.match(artifact, packagedBytesRecord);
   assert.doesNotMatch(artifact, /docs\/0\.5\.12\/DSH_ALPHA_PACKAGED_BYTES\.json/);
   assert.doesNotMatch(artifact, /docs\/0\.5\.10\/DSH_ALPHA_PACKAGED_BYTES\.json/);
-  assert.match(bundleDesktop, /docs\/0\.6\.3\/DSH_PACKAGED_BYTES\.json/);
+  assert.match(bundleDesktop, packagedBytesRecord);
   assert.doesNotMatch(bundleDesktop, /docs\/0\.5\.12\/DSH_ALPHA_PACKAGED_BYTES\.json/);
   const rebuildFsExt = readFileSync(new URL("../../../scripts/rebuild-fs-ext.mjs", import.meta.url), "utf8");
   assert.match(rebuildFsExt, /npm-cli\.js/);

@@ -24,9 +24,18 @@ import {
   wizardResumeReady,
   wizardStepDeadEnd,
 } from "./installed-walk.js";
-import { PINNED_DSH } from "../../../packages/release-identity/src/pins.js";
+import { PINNED_DSH, PRODUCT_VERSION } from "../../../packages/release-identity/src/pins.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
+
+/**
+ * The installer asset names the native workflow must build are the release's own
+ * names, so they are derived from the release pin. The literal form
+ * (`/Penglai_0\.6\.3_macos_aarch64\.dmg/`) is invisible to a version bump's
+ * plain-string replace — the escape means `0.6.3` never appears as a substring —
+ * so it silently kept asserting the previous version's installers.
+ */
+const releasePattern = PRODUCT_VERSION.replaceAll(".", "\\.");
 
 test("R50-E2E-003 separates fresh settings from explicit full composition", () => {
   assert.deepEqual(
@@ -428,11 +437,11 @@ test("native release workflow proves bundled optional plugins across restart", (
     windowsWorkflow,
     /actualSize -eq \$expectedSize -and \$actual -eq \$expected/,
   );
-  assert.match(macosWorkflow, /Penglai_0\.6\.3_macos_aarch64\.dmg/);
-  assert.doesNotMatch(macosWorkflow, /Penglai_0\.6\.3_macos_x64\.dmg/);
+  assert.match(macosWorkflow, new RegExp(`Penglai_${releasePattern}_macos_aarch64\\.dmg`));
+  assert.doesNotMatch(macosWorkflow, new RegExp(`Penglai_${releasePattern}_macos_x64\\.dmg`));
   assert.doesNotMatch(macosWorkflow, /macos-15-intel/);
   assert.doesNotMatch(macosWorkflow, /darwin-x86_64/);
-  assert.match(windowsWorkflow, /Penglai_0\.6\.3_windows_x64_setup\.exe/);
+  assert.match(windowsWorkflow, new RegExp(`Penglai_${releasePattern}_windows_x64_setup\\.exe`));
   assert.match(
     windowsWorkflow,
     /Verify native closure, artifact, fuses, and signing contract[\s\S]*?shell: bash[\s\S]*?pnpm verify:closure/,
@@ -440,15 +449,18 @@ test("native release workflow proves bundled optional plugins across restart", (
   );
   assert.match(linuxWorkflow, /package:linux-deb/);
   assert.match(linuxWorkflow, /OWNER_POST_RELEASE/);
-  assert.match(linuxWorkflow, /Penglai_0\.6\.3_uos_loong64\.deb/);
+  assert.match(linuxWorkflow, new RegExp(`Penglai_${releasePattern}_uos_loong64\\.deb`));
   assert.doesNotMatch(linuxWorkflow, /test:e2e:installed/);
   assert.doesNotMatch(linuxWorkflow, /verify:upgrade-uninstall/);
   assert.doesNotMatch(linuxWorkflow, /verify:fresh-install-uninstall/);
   assert.match(macosWorkflow, /verify:fresh-install-uninstall/);
   assert.match(windowsWorkflow, /verify:fresh-install-uninstall/);
   assert.doesNotMatch(workflow, /fetch:upgrade-sources/);
-  assert.doesNotMatch(macosWorkflow, /Fetch immutable 0\.6\.2 installer/);
-  assert.doesNotMatch(windowsWorkflow, /Fetch immutable 0\.6\.2 installer/);
+  // The pinned predecessor is the immutable v0.6.3 Release; the current workflow
+  // must not fetch its installers, because the installed upgrade is
+  // OWNER_EXCLUDED for this version.
+  assert.doesNotMatch(macosWorkflow, /Fetch immutable 0\.6\.3 installer/);
+  assert.doesNotMatch(windowsWorkflow, /Fetch immutable 0\.6\.3 installer/);
   assert.doesNotMatch(macosWorkflow, /pnpm verify:upgrade-uninstall/);
   assert.doesNotMatch(windowsWorkflow, /pnpm verify:upgrade-uninstall/);
   assert.match(workflow, /needs: \[macos, windows, linux\]/);
