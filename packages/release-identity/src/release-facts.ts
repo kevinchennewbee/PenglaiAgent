@@ -209,6 +209,25 @@ export function recordedReleaseVersions(): string[] {
   return [...notes].filter((v) => manifests.has(v));
 }
 
+/**
+ * The newest release the repository holds both release notes and a manifest for.
+ *
+ * Before this version's own manifest exists this is the release a visitor can
+ * actually download, so it is what a public download surface must name. Naming
+ * the version under development instead would advertise files that do not
+ * exist, which is what the version move made the website test demand.
+ */
+export function newestRecordedRelease(): string {
+  const versions = recordedReleaseVersions().sort((left, right) =>
+    left.localeCompare(right, undefined, { numeric: true }),
+  );
+  const newest = versions.at(-1);
+  if (!newest) {
+    throw new Error("no recorded release is present, so no public download surface can be published");
+  }
+  return newest;
+}
+
 
 /**
  * The offline half of the `published-facts` drift probe. The probe asks GitHub

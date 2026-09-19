@@ -12,6 +12,7 @@ import {
   assertObservedReleaseFacts,
   assertReleaseIdentity,
 } from "./identity.js";
+import { newestRecordedRelease } from "./release-facts.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -97,10 +98,21 @@ test("website keeps the full bilingual visual site during publication preparatio
   assert.match(en, /<html lang="en">/);
   assert.match(zh, /<html lang="zh-CN">/);
   assert.match(enCompat, /<html lang="en">/);
+  // The site names the release a visitor can actually download: this version
+  // once its own publication manifest exists, the newest recorded release
+  // before that.
+  //
+  // This used to name `PRODUCT_VERSION` unconditionally, which was true only
+  // while the version being built was also the published one. The moment the
+  // version moved ahead of the last publication it became a demand to advertise
+  // installers that do not exist, and the download claim moved with it.
+  const advertisedVersion = existsSync(join(root, `docs/PUBLICATION_MANIFEST_${PRODUCT_VERSION}.md`))
+    ? PRODUCT_VERSION
+    : newestRecordedRelease();
   const currentInstallers = [
-    `Penglai_${PRODUCT_VERSION}_macos_aarch64.dmg`,
-    `Penglai_${PRODUCT_VERSION}_windows_x64_setup.exe`,
-    `Penglai_${PRODUCT_VERSION}_uos_loong64.deb`,
+    `Penglai_${advertisedVersion}_macos_aarch64.dmg`,
+    `Penglai_${advertisedVersion}_windows_x64_setup.exe`,
+    `Penglai_${advertisedVersion}_uos_loong64.deb`,
   ];
   for (const html of [zh, en, enCompat]) {
     assert.match(html, /shots\/0\.5\.5\/welcome\.png/);
@@ -109,7 +121,7 @@ test("website keeps the full bilingual visual site during publication preparatio
     for (const installer of currentInstallers) {
       assert.ok(
         html.includes(
-          `releases/download/v${PRODUCT_VERSION}/${installer}`,
+          `releases/download/v${advertisedVersion}/${installer}`,
         ),
         `${installer} is missing from a current website page`,
       );
