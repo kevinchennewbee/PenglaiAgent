@@ -306,6 +306,7 @@ jobs:
       - name: Verify native closure, artifact, fuses, and signing contract
         env:
           PENGLAI_TARGET: win32-x86_64
+        shell: bash
         run: |
           pnpm verify:closure
           pnpm verify:artifact
