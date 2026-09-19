@@ -149,7 +149,7 @@ export const REQUIRED_HARD_FAMILIES = [
 export const GITHUB_ACTIONS_STATUS = "AVAILABLE";
 export const CANDIDATE_SOURCE_SHA_NONE = "NONE";
 export const UPDATER_CHANNEL = "desktop-v0.5";
-/** Monotonic after immutable public v0.6.2, sequence 11. */
+/** Monotonic after immutable public v0.6.3, sequence 12. */
 export const UPDATER_SEQUENCE = 13;
 
 export const PUBLICATION_TARGET = Object.freeze({

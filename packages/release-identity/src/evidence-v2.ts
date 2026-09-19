@@ -46,7 +46,7 @@ export const UNIT_OR_CONTRACT_CLASSES = new Set(["unit", "contract"]);
 // verifier. The two-hour soak owns only sustained IM/offline/sleep recovery.
 export const SOAK_REQUIRED_SAMPLES = ["im", "offline", "sleep"] as const;
 
-export type CollectionClass = "unit-suite" | "contract-suite" | "installed-runner" | "soak-runner" | "live-runner" | "export-runner" | "artifact-runner";
+export type CollectionClass = "unit-suite" | "contract-suite" | "installed-runner" | "soak-runner" | "live-runner" | "export-runner" | "artifact-runner" | "drift-runner";
 
 export interface EvidenceSlot {
   acceptanceId: string;
@@ -263,12 +263,25 @@ export function assertPassRecordComplete(rec: EvidenceV2Record): string | undefi
 }
 
 export function tagCollection(records: readonly AssertionRecord[], collectionClass: CollectionClass): EvidenceV2Record[] {
-  return records.map((rec) => ({
-    ...rec,
-    runnerClass: normalizeRunnerClass(rec.runnerId, collectionClass),
-    target: rec.target || (collectionClass === "unit-suite" || collectionClass === "contract-suite" ? "source" : rec.target || ""),
-    collectionClass,
-  }));
+  return records.map((rec) => {
+    const runnerClass = normalizeRunnerClass(rec.runnerId, collectionClass);
+    // A record that declares no target is source-scoped unless its runner binds
+    // evidence to a platform.
+    //
+    // This used to enumerate the two suite classes, which left every other
+    // source-scoped runner with an empty target. An empty target matches no
+    // slot, so a collected PASS became a silent NOT_RUN — which is what the
+    // drift probes did once `verify:evidence` became a hard gate. Deriving the
+    // default from the runner class is what keeps the next source-scoped runner
+    // from repeating it.
+    const sourceScoped = !isPlatformScopedRunner(runnerClass);
+    return {
+      ...rec,
+      runnerClass,
+      target: rec.target || (sourceScoped ? "source" : ""),
+      collectionClass,
+    };
+  });
 }
 
 export function legacyEvidenceGeneration(opts: {

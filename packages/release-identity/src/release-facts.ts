@@ -228,6 +228,28 @@ export function newestRecordedRelease(): string {
   return newest;
 }
 
+/**
+ * The release a version supersedes: the newest recorded release that is not
+ * `version` itself.
+ *
+ * A release's predecessor is a fact the repository already holds in its own
+ * publication records, so it is read rather than hand-maintained. It used to be
+ * a literal in the cohort freeze, and the version move cannot advance a literal
+ * like that: the move knows the version it moves to, not which release that
+ * version supersedes. That is why the 0.6.5 freeze still asserted v0.6.2 after
+ * v0.6.3 had been published and read back.
+ */
+export function previousRecordedRelease(version = PRODUCT_VERSION): string {
+  const candidates = recordedReleaseVersions()
+    .filter((recorded) => recorded !== version)
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+  const previous = candidates.at(-1);
+  if (!previous) {
+    throw new Error(`no recorded release precedes ${version}`);
+  }
+  return previous;
+}
+
 
 /**
  * The offline half of the `published-facts` drift probe. The probe asks GitHub

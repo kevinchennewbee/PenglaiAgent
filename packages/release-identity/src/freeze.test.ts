@@ -21,6 +21,7 @@ import {
   PUBLISHED_0512_REJECTED_DSH_SUCCESSOR_TAG,
   type CohortFreezeRecord,
 } from "./freeze.js";
+import { previousRecordedRelease } from "./release-facts.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -75,7 +76,11 @@ test("0.5.12 publication-authorized freeze stays immutable and is not the 0.6 de
   assert.equal(development.dsh.closureManifestSha256, PINNED_DSH_CLOSURE_MANIFEST_SHA256);
   assert.equal(development.publicRelease.tag, "v0.6.5");
   assert.equal(development.publicRelease.immutable, false);
-  assert.equal(development.previousPublicRelease?.tag, "v0.6.2");
+  // The predecessor is the newest release the repository holds a publication
+  // record for. Pinned here as a literal because it is a historical fact: the
+  // immutable v0.6.3 Release, which published updater sequence 12.
+  assert.equal(previousRecordedRelease(PRODUCT_VERSION), "0.6.3");
+  assert.equal(development.previousPublicRelease?.tag, "v0.6.3");
   assert.equal(development.previousPublicRelease?.immutable, true);
   assert.equal(development.dsh.successorReview.boundary, NEXT_DSH_REVIEW_BOUNDARY);
 });
@@ -107,7 +112,7 @@ test("cohort freeze rejects mixed DSH generations and rewriting v0.5.12", () => 
         productVersion,
         releaseContract,
       }),
-    /published 0.6.2 identity must stay immutable/,
+    /published 0\.6\.3 identity must stay immutable/,
   );
   assert.throws(
     () =>
