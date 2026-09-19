@@ -11,10 +11,13 @@
   `release-contract.json`, and current source define the product/release
   contract. Reports are leads; published claims require verified public
   artifact evidence.
-- v0.5.10, v0.5.11, v0.5.12, v0.6.0, v0.6.1 and v0.6.2 are immutable public history.
-  For 0.6.3, `docs/0.6.3/` and the current source govern development work.
-  They are not public-release truth until immutable `v0.6.3` bytes exist, and
-  must not modify or weaken any published release history.
+- v0.5.10, v0.5.11, v0.5.12, v0.6.0, v0.6.1, v0.6.2 and v0.6.3 are immutable
+  public history. v0.6.3 was published; its ten-asset Release is immutable and
+  public byte-for-byte readback passed. `docs/0.6.3/` is the record of that
+  release and its planning state is preserved as written — do not treat its
+  planning status lines as current. The current source and its own acceptance
+  delta govern development work, and must not modify or weaken any published
+  release history.
 
 ## Product boundary
 
@@ -85,8 +88,9 @@
 - The onboarding wizard must never strand a user. Verify fresh install, restart,
   Back/retry, invalid folder rejection, credential failure recovery, first official
   message, and default uninstall on Apple Silicon and Windows x64.
-  The 0.6.2 to 0.6.3 installed upgrade is `OWNER_EXCLUDED` for this release:
-  do not fetch/run it or label it PASS. UOS native install/startup/function is `OWNER_POST_RELEASE` and
+  The 0.6.2 to 0.6.3 installed upgrade was `OWNER_EXCLUDED` and remains recorded
+  as an exclusion, not a missing result; do not retroactively label it PASS.
+  UOS native install/startup/function is `OWNER_POST_RELEASE` and
   must not be labeled PASS; the UOS package/ABI/closure still require
   verification.
 - Native artifacts for all three selected 0.6.3 targets must come from one clean
@@ -110,9 +114,10 @@
   `GenericAgent` 仓库混淆。
 - 产品宪法、产品与架构文档、验收清单、当前版本验收增量、发布契约与源码约束产品；
   公开发布声明还须真实附件取证。其他模型的报告只能作为线索。
-- v0.5.10、v0.5.11、v0.5.12、v0.6.0、v0.6.1、v0.6.2 已不可变。0.6.3 以
-  `docs/0.6.3/` 与当前源码约束开发；在不可变 `v0.6.3` 公网字节存在前它们不是
-  公开发布事实，也不得修改或削弱任何已发布历史。
+- v0.5.10、v0.5.11、v0.5.12、v0.6.0、v0.6.1、v0.6.2 与 v0.6.3 已不可变。
+  v0.6.3 已发布：十项附件不可变，公网逐字节回读已通过。`docs/0.6.3/` 是那次发布的
+  记录，其规划状态按原样保留 —— 不要把它里面的状态行当成现状。以当前源码与其
+  自己的验收增量约束开发；不得修改或削弱任何已发布历史。
 
 ## 产品边界
 

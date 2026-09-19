@@ -1,5 +1,13 @@
 # Penglai 0.6.3 release plan
 
+> **Outcome, recorded 2026-09-19.** Penglai 0.6.3 was published. Its ten-asset
+> GitHub Release is immutable (`publishedAt` 2026-09-19T07:24:59Z), public
+> byte-for-byte readback passed, and the website was deployed. The status lines
+> below describe this document as it was written during the release and are kept
+> as the historical record; they are not the current state. Verified facts live
+> in `docs/PUBLICATION_MANIFEST_0.6.3.md`, `docs/RELEASE_NOTES_0.6.3.md`, and the
+> immutable Release itself.
+
 Status: full release workflow authorized by the Owner on 2026-09-18. Native,
 publication, and deployment results remain `NOT_RUN` until each step executes.
 

@@ -308,6 +308,7 @@ Manifest/Token，不伪造二维码。WhatsApp 不展示、不支持、不列为
 状态机，Read 朗读原文。
 
 0.6.3 三端安装包必须来自同一干净 SHA 和 public-export tree，在对应原生 runner 验收。
-本轮授权在源码合并后停止，三端构建、安装升级验收与公网回读保持 `NOT_RUN`。
+该项已完成：三端来自同一干净 SHA，十项附件不可变发布并完成公网逐字节回读；
+0.6.2 到 0.6.3 的安装版升级由 Owner 明确排除，记为排除而非缺失结果。
 升级 manifest、release manifest、GitHub asset ID、大小、哈希和三端签名相互绑定；
 正式发布后再从公网下载十个资产逐字节回读。
