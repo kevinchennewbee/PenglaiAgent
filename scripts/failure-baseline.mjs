@@ -105,7 +105,13 @@ async function probeFanout() {
         resultDigest: "d",
       },
       {
-        acceptanceId: "R50-TRUTH-001",
+        // The two records must share `runnerId::testId` and differ in
+        // `acceptanceId` — that pair IS the fan-out condition `assertNoFanOut`
+        // keys on. An earlier edit made both ids the same, which turns this into
+        // a duplicate-assertion case instead: `ids.size` stays 1, nothing is
+        // rejected, and the probe reports REPRODUCED for a defect it no longer
+        // exercises.
+        acceptanceId: "R50-TRUTH-002",
         runnerId: "smoke",
         testId: "one",
         assertionId: "same",
