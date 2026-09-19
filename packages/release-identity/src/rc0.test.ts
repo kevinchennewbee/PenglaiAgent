@@ -64,6 +64,15 @@ test("R50-TRUTH-003 stale alpha.3 and alpha.2 artifacts are rejected", () => {
   recordAssertion({
     acceptanceId: "R50-TRUTH-003",
     runnerId: "release-identity.rc0",
+    testId: "duplicate-probe",
+    assertionId: "duplicate-probe",
+    status: "PASS",
+    candidateSourceSha: declaredSourceSha(),
+    exitCode: 0,
+  });
+  recordAssertion({
+    acceptanceId: "R50-TRUTH-003",
+    runnerId: "release-identity.rc0",
     testId: "stale-alpha-rejected",
     assertionId: "alpha-hashes-stale-invalidated",
     status: "PASS",

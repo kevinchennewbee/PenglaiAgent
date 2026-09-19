@@ -27,7 +27,7 @@ LibreOffice、Office/PDF、Budget 与 Companion 不在本版产品运行时内�
 
 ## 2. Evidence 规则
 
-以下每一行都是对应证据类别内的 Hard assertion。基础表预期共 **81** 个唯一 ID。
+以下每一行都是对应证据类别内的 Hard assertion。基础表预期共 **80** 个唯一 ID。
 实现必须动态解析，不能把计数写成散落的完成映射。每个 ID 必须指向真实 runner 的
 具体 assertion，包含 candidate/source/export/target/artifact/runner native/时间/
 exit/result digest。不能通过文件名、字符串存在或一个 smoke 扇出 PASS。
@@ -193,7 +193,6 @@ exit/result digest。不能通过文件名、字符串存在或一个 smoke 扇�
 | `R50-DOC-002` | 每个 release-facing 文档引用的 installer 文件名都是本版 release-contract.json 声明的目标 | docs/all |
 | `R50-DOC-003` | 仓库对当前版本的发布自述内部一致，不存在同时声称已发布与未发布的文档 | docs/all |
 | `R50-DOC-004` | README、PRODUCT.md 与发行说明都如实披露被排除范围（LibreOffice、Office/PDF、Budget、Companion） | docs/all |
-| `R50-DOC-006` | 伪造的新 ID，没有任何发射点 | docs/all |
 | `R50-DOC-005` | 带版本戳的发布记录仍指向已发布字节的版本，且冻结的 installer 列表与契约一致 | docs/all |
 
 ### N. 反向存在性：被排除范围不得随包（1）
