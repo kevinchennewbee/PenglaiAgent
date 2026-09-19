@@ -1,12 +1,13 @@
 # Security Policy
 
-Penglai 0.6.2 is the current **community-verified** immutable public desktop distribution. It uses the complete official DeepSeek Harness (DSH) `0.1.5-rc.2` npm cohort and was built from `83ce4aa3c153b63d9f84c6a5d650a3727e8cfec6`. Exact public bytes and validation boundaries are recorded in [`docs/PUBLICATION_MANIFEST_0.6.2.md`](docs/PUBLICATION_MANIFEST_0.6.2.md). The full product contract lives in [`docs/SECURITY.md`](docs/SECURITY.md).
+Penglai 0.6.3 is the current **community-verified** immutable public desktop distribution. It uses the exact official DeepSeek Harness (DSH) `0.1.6-alpha.2` cohort and was built from `1c103212ad25b7d2a0061c2c4bfa595cd413c138`. Exact public bytes and validation boundaries are recorded in [`docs/PUBLICATION_MANIFEST_0.6.3.md`](docs/PUBLICATION_MANIFEST_0.6.3.md). The full security contract lives in [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Supported versions
 
 | Version | Status |
 | --- | --- |
-| 0.6.2 | Current immutable public release |
+| 0.6.3 | Current immutable public release |
+| 0.6.2 | Historical immutable release |
 | 0.6.1 | Historical immutable release |
 | 0.6.0 | Historical immutable release |
 | 0.5.12 | Historical immutable release; native Mac/Windows upgrades to 0.6.0 verified |
@@ -16,15 +17,14 @@ Penglai 0.6.2 is the current **community-verified** immutable public desktop dis
 | Earlier 0.5.x | Historical releases; use the documented migration path |
 | 0.4.1 and earlier | Unsupported; 0.5 does not silently import or delete old secrets or databases |
 
-The 0.6.2 release contract requires ten files: three
+The 0.6.3 release contract requires ten files: three
 installers (Apple Silicon, Windows x64, UnionTech UOS 20 LoongArch), signed
 update metadata, SHA256SUMS, the release-set SBOM, third-party notices, and
-the public source-export manifest. Intel Mac is excluded from 0.6.2; published
-0.6.0 remains immutable with its four-installer eleven-asset set. The
-immutable 0.5.9 release contains only its three installers; its missing
-metadata is a historical publication defect. Do not infer signed updater
-coverage for that release from its installer availability. The published 0.5.9
-and 0.6.0 assets have not been changed.
+the public source-export manifest. Intel Mac is excluded from 0.6.3. The
+published 0.6.2 and earlier immutable releases remain historical bytes; the
+0.5.9 release contains only its three installers and its missing metadata is a
+historical publication defect. Do not infer signed updater coverage for that
+release from its installer availability.
 
 ## Trust tier
 
@@ -45,7 +45,7 @@ On macOS the credentials directory/file use 0700/0600. On Windows they use a cur
 
 0.4.1 credentials and databases are not read, imported, or deleted.
 
-Official DSH 0.1.5-rc.2 bundles a session-telemetry adapter and a configured DeepSeek
+Official DSH 0.1.6-alpha.2 bundles a session-telemetry adapter and a configured DeepSeek
 OTLP endpoint. Penglai does not operate that backend and does not rely only on
 the adapter's default mode: the owned DSH child receives
 `DSH_TELEMETRY_DISABLED=1` from a closed environment allowlist. DSH applies that
@@ -59,7 +59,7 @@ Adapters cannot call a parallel Agent. `docs/0.5.7/LIVE_IM_MATRIX.md` preserves
 historical account-test requirements; it does not establish current-version live
 results. Current account journeys are claimed only with current evidence. Slack,
 Telegram, and Discord do not fake QR.
-WhatsApp is not displayed, supported, planned, or bundled in 0.6.2.
+WhatsApp is not displayed, supported, planned, or bundled in 0.6.3.
 
 - Weixin: real QR login. The scanner is the only allowed identity unless the user expands the allowlist.
 - Feishu: the official application-registration QR flow is used where available, with manual App ID/Secret setup as a fallback. Penglai does not host the application or invent a login QR.
@@ -90,16 +90,18 @@ Penglai will not claim notarization, Authenticode, App Store trust, silent auto-
 
 ## 中文
 
-当前公开版本为不可变 Penglai 0.6.2，使用完整固定的官方 DSH `0.1.5-rc.2`
-npm 依赖组，安装包源码为 `83ce4aa3c153b63d9f84c6a5d650a3727e8cfec6`。
-Apple Silicon 与 Windows x64 已完成全新安装、0.6.1 到 0.6.2 升级和默认卸载
-验证。Intel Mac 不是 0.6.2 安装目标。UOS 龙芯真机安装、启动和功能仍由 Owner
-在发布后测试。旧版 DSH Home 保留，新代际在独立目录通过健康检查后启用。
+当前公开版本为不可变 Penglai 0.6.3，使用精确固定的官方 DSH `0.1.6-alpha.2`
+cohort，安装包源码为 `1c103212ad25b7d2a0061c2c4bfa595cd413c138`。
+Apple Silicon 与 Windows x64 已完成全新安装、重启、完整安装态引导、第一方插件兼容和
+默认卸载验证。`0.6.2 → 0.6.3` 真实安装版升级为 `OWNER_EXCLUDED`，不宣称 PASS。
+Intel Mac 不是 0.6.3 安装目标。UOS 龙芯包身份、ABI、运行时、架构与闭包已验证，
+真机安装、启动和功能仍为 `OWNER_POST_RELEASE`。
 
-0.6.2 的正式发布包含十项完整附件，包括三个安装包、签名更新清单、校验和、
-SBOM 与第三方声明。0.5.9 历史发布只有三个安装包，缺少元数据属于当时的发布缺陷；
-不能据此声称该版签名更新链路完整。原有不可变附件未被修改。
-Windows 原生检查使用托管运行器现有安全配置，尚未验证默认开启 Defender 的系统。
+0.6.3 的正式发布包含十项完整附件，包括三个安装包、签名更新清单、校验和、
+SBOM、第三方声明与 public export manifest，并已完成不可变公网字节回读。
+0.5.9 历史发布只有三个安装包，缺少元数据属于当时的发布缺陷；不能据此声称该版
+签名更新链路完整。原有不可变附件未被修改。Windows 原生检查使用托管运行器现有
+安全配置，尚未验证默认开启 Defender 的系统。
 
 macOS 为社区 ad-hoc 签名、未公证；Windows 无 Authenticode。蓬莱 Ed25519
 签名保护字节完整性，不等于 Apple 或 Microsoft 发布者认证。更新必须由用户确认。
