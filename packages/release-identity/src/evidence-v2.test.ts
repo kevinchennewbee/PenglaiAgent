@@ -3,6 +3,7 @@ import test from "node:test";
 import { recordAssertion } from "./assertion.js";
 import {
   aggregateSlotEvaluations,
+  assertNoDuplicateAssertions,
   bindArtifactFreshness,
   evaluateEvidenceV2,
   evaluateOneSlotRecord,
