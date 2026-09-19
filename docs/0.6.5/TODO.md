@@ -12,8 +12,8 @@ turn an unrun native or public check into PASS.
 - [x] Disable upstream session logging/upload; integrate one exact official DSH
       alpha.2 plugin manager with official UI/tool, bundled Node/pnpm, retained
       built-ins, Memory disable persistence, and explicit build-script approval.
-- [x] Mark the Apple Silicon and Windows x64 installed upgrade from immutable
-      0.6.2 packages `OWNER_EXCLUDED`; keep immutable source pins without a PASS claim.
+- [x] Mark the Apple Silicon and Windows x64 installed upgrade from the immutable
+      0.6.3 packages `OWNER_EXCLUDED`; keep immutable source pins without a PASS claim.
 - [x] Add a fail-closed UOS `.deb` verifier for package identity, ABI, closure,
       runtime, plugins, licenses, and architecture.
 - [x] Harden evidence output, secret scanning, and owner-path redaction.
@@ -32,5 +32,5 @@ turn an unrun native or public check into PASS.
       sleep/resume, model conversation, and Memory.
 
 Unchecked native/public items are `NOT_RUN` until executed in the authorized
-full-release sequence. The 0.6.2 installed-upgrade journey and the two-hour
+full-release sequence. The 0.6.3 installed-upgrade journey and the two-hour
 installed soak are both `OWNER_EXCLUDED`.

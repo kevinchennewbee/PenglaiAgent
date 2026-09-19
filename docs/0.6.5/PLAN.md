@@ -5,10 +5,11 @@ publication, and deployment results remain `NOT_RUN` until each step executes.
 
 ## Goal
 
-Prepare Penglai 0.6.5 with the complete official DeepSeek Harness
-`0.1.6-alpha.2` npm cohort, finish source and plugin adaptation, pass source
-gates, merge the reviewed change to `main`, build and validate all three exact
-targets, publish and read back immutable bytes, then update and deploy the
+Prepare Penglai 0.6.5 as a repair release on the official DeepSeek Harness
+`0.1.6-alpha.2` cohort that 0.6.3 already ships: the WeChat channel, the assisted
+update check, and the verification layer that should have caught both. Pass
+source gates, merge the reviewed change to `main`, build and validate all three
+exact targets, publish and read back immutable bytes, then update and deploy the
 README and existing websites.
 
 ## Release sequence
@@ -27,7 +28,7 @@ README and existing websites.
    license, privacy, and clean-export gates.
 5. From one clean `main` commit, build Apple Silicon, Windows x64, and UOS 20
    LoongArch. Run installed fresh, restart, and default-uninstall journeys on
-   Mac and Windows. The 0.6.2 installed-upgrade journey is `OWNER_EXCLUDED`.
+   Mac and Windows. The 0.6.3 installed-upgrade journey is `OWNER_EXCLUDED`.
    Verify the UOS package, ABI, runtime, and full closure.
 6. Publish only the exact asset set in `release-contract.json`, verify the
    immutable public bytes, then update README and the existing websites with
@@ -42,6 +43,7 @@ README and existing websites.
   use remain `OWNER_POST_RELEASE`; the Owner tests the published `.deb`.
 - No notarization or Authenticode claim.
 - No public-download claim until the immutable release can be read back.
-- Current public README/site remain on v0.6.2.
+- Current public README/site remain on v0.6.3 until immutable 0.6.5 bytes pass
+  readback; they must never name this version's installers before that.
 - LibreOffice, Office/PDF, Budget, and Companion are not 0.6.5 product
   capabilities and must remain absent from product closure and installers.

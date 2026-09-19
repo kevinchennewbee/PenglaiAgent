@@ -5,9 +5,8 @@ public-byte results yet.
 
 ## English
 
-Penglai 0.6.5 moves the complete pinned DeepSeek Harness npm cohort from
-`0.1.5-rc.2` to official `0.1.6-alpha.2`. The DSH tag is
-`dsh-v0.1.6-alpha.2` at commit
+Penglai 0.6.5 keeps the complete pinned DeepSeek Harness npm cohort that 0.6.3
+shipped: official `0.1.6-alpha.2`, tag `dsh-v0.1.6-alpha.2` at commit
 `ddefc45fbc7f8e46dd73185e68295696d1297887`. The dependency graph contains
 293 DSH packages, nine vendor packages, and five native packages: 307 in all.
 The exact registry identities are recorded in `docs/0.6.5/DSH_NPM_COHORT.json`.
@@ -63,8 +62,8 @@ publication updates. A result remains `NOT_RUN` until that exact step executes.
 
 ## 中文
 
-蓬莱 0.6.5 将完整固定的 DeepSeek Harness npm 依赖组从 `0.1.5-rc.2`
-迁移到官方 `0.1.6-alpha.2`。本版继续只使用官方 DSH 作为 Agent、工作区、会话、
+蓬莱 0.6.5 延续 0.6.3 已发布的完整固定 DeepSeek Harness npm 依赖组：官方
+`0.1.6-alpha.2`（307 包）。本版继续只使用官方 DSH 作为 Agent、工作区、会话、
 消息轮次、工具和 Web UI 核心，不增加第二套 Host、模型网关或对话引擎。
 
 本版必须在 Apple 芯片 Mac 和 Windows x64 上完成全新安装、重启和默认保留数据的
@@ -92,4 +91,5 @@ ONNX 打包工具链间接带入的 `adm-zip` 固定为 `0.6.2`，并以恶意�
 MOSS 语音生成；iMessage 只支持 Mac 且默认关闭；Electron 31 已不再维护；UOS
 原生界面、文件选择器和休眠一致性仍待发布后真机确认。Owner 明确排除旧版安装升级
 与两小时测试，这两项均不得用未运行状态冒充 PASS。
-本轮授权在合并 `main` 后停止，三端、安装升级、发布与公网回读均为 `NOT_RUN`。
+本轮授权覆盖合并 `main` 之后的三目标安装包、不可变发布与公网回读；在每一步实际
+执行前，其结果均为 `NOT_RUN`，不得用未运行状态冒充 PASS。

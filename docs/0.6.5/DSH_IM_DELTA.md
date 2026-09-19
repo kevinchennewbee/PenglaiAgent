@@ -5,8 +5,9 @@ one reviewed `@penglai/im` plugin and does not install the community dsh-im
 runtime.
 
 The plugin itself is bundled and active on a fresh profile. This does not
-configure an account or start a channel. The 0.6.2 channel behavior is retained
-and revalidated against alpha.2:
+configure an account or start a channel. The channel behavior shipped in 0.6.3 is
+retained; the WeChat transport contract verified for this version is recorded in
+`docs/compatibility/WEIXIN_R2.md`. The retained channels are:
 
 - Weixin, Feishu, DingTalk, WeCom, QQ, Slack, Telegram, and Discord channel
   connections remain optional and default off.

@@ -3,11 +3,11 @@
 Status: publication draft only. Penglai 0.6.5 is not released; no native or
 public-byte facts in this draft may be presented as observed.
 
-Penglai 0.6.5 updates the complete official DeepSeek Harness cohort to
-`0.1.6-alpha.2` and restores real installed upgrades from 0.6.2 on Apple Silicon
-and Windows x64. The core stays simple: DSH owns the conversation; Penglai
-makes it installable and brings Memory, messaging, local voice, and
-careful lifecycle controls around it.
+Penglai 0.6.5 keeps the official DeepSeek Harness cohort that 0.6.3 shipped —
+`0.1.6-alpha.2` — and repairs what had frozen around it: the WeChat channel, the
+assisted update check, and the layer that verifies both. The core stays simple:
+DSH owns the conversation; Penglai makes it installable and brings Memory,
+messaging, local voice, and careful lifecycle controls around it.
 
 The planned release has three installers: Apple Silicon, Windows x64, and UnionTech
 UOS 20 LoongArch. The UOS `.deb` is one complete package with its runtime,
