@@ -17,10 +17,13 @@ const PUBLISHED_062 = "83ce4aa3c153b63d9f84c6a5d650a3727e8cfec6";
 const PUBLISHED_062_RECORDS = "a7c76535e3cc81c5467239dc091a4593b3ffbfd1";
 const PUBLISHED_063 = "1c103212ad25b7d2a0061c2c4bfa595cd413c138";
 // The 0.6.3 planning records were the last ones read as present tense, so they
-// carry an outcome banner and their bodies are kept verbatim. This is the commit
-// that added the banner: the guard freezes the reviewed state, so a later release
-// cannot rewrite the record the way this one had to correct it.
-const PUBLISHED_063_RECORDS = "72e8c8e3fda45a326d3c980e9edb0574eab3d85b";
+// carry an outcome banner and their bodies are kept verbatim.
+//
+// The base must be a commit that exists on `main`. It was first written as the
+// branch commit that added the banner, which the squash merge removed from main
+// — the next native run failed with `fatal: bad object` before it built
+// anything. `fc50dc28` is the merge that landed the banner.
+const PUBLISHED_063_RECORDS = "fc50dc284e3ffb10fcf86f9c7fcb04fff35849d8";
 const DSH_TREE = "5aca5ee6f8dfd110dc3ae199fbddf8a0f606625f";
 const pins = readReleaseIdentityPins();
 const failures = [];
@@ -30,7 +33,17 @@ function fail(message) {
 }
 
 function git(args) {
-  return execFileSync("git", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  try {
+    return execFileSync("git", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  } catch (error) {
+    // A base commit that is not an ancestor of HEAD — one a squash merge removed,
+    // or a shallow checkout — used to surface as an unhandled execFileSync stack
+    // that named neither the guard nor the reason. Report what could not be
+    // compared instead; the recorded failure still fails the gate.
+    const detail = String(error.stderr ?? error.message ?? error).trim().split("\n")[0];
+    fail(`git ${args.join(" ")} failed: ${detail}`);
+    return "";
+  }
 }
 
 function readJson(relative) {
