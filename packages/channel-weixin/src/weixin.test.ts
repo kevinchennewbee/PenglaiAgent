@@ -29,6 +29,7 @@ import {
   type WeixinVoiceMediaRef,
 } from "./cdn.js";
 import {
+  ILINK_CHANNEL_VERSION,
   ILINK_LEGACY_VOICE_CHANNEL_VERSION,
   ILINK_LEGACY_VOICE_CLIENT_VERSION,
   buildVoiceSendBody,
@@ -429,12 +430,103 @@ test("ilink client maps endpoints and never logs token", async () => {
   assert.deepEqual(sent, { ok: true });
   assert.ok(seen.some((s) => s.url.includes("/ilink/bot/get_bot_qrcode")));
   assert.ok(seen.some((s) => s.url.includes("/ilink/bot/sendmessage")));
-  assert.ok(seen.every((s) => s.clientVersion === "132102"));
+  assert.ok(seen.every((s) => s.clientVersion === "132105"));
   for (const request of seen.filter((s) => s.body)) {
     const body = JSON.parse(request.body!) as { base_info?: { channel_version?: string; bot_agent?: string } };
-    assert.deepEqual(body.base_info, { channel_version: "2.4.6", bot_agent: "Penglai/0.6.3" });
+    // Asserted against the pinned constant rather than a literal so a channel
+    // build bump cannot silently leave the announced identity untested.
+    assert.deepEqual(body.base_info, { channel_version: ILINK_CHANNEL_VERSION, bot_agent: "Penglai/0.6.3" });
     assert.match(Buffer.from(request.wechatUin!, "base64").toString("utf8"), /^\d+$/);
   }
+});
+
+/**
+ * Regression pin for the shipped defect that broke WeChat for eight releases.
+ *
+ * Tencent serves the entire iLink bot surface as
+ * `Content-Type: application/octet-stream` while the body is the documented JSON
+ * envelope. `request()` passed `mimeAllowed: jsonMimeAllowed` to
+ * `readBoundedResponse`, which rejected that as `SECURITY_POLICY /
+ * BOUNDED_HTTP_MIME`; `boundedFailureKind` mapped the code to `protocol`, and
+ * the user saw only the generic "平台返回了非预期响应" / "The platform returned an
+ * unexpected response" copy — which told them to check their network or the
+ * platform, when the refusal was Penglai's own.
+ *
+ * It survived because every fixture in this file returned an object with no
+ * `headers` property, so `contentType` was always null and
+ * `jsonMimeAllowed(null)` returns true. The guard could not fire in CI.
+ *
+ * Live evidence, captured 2026-09-19:
+ *   POST https://ilinkai.weixin.qq.com/ilink/bot/get_bot_qrcode?bot_type=3
+ *   -> 200, Content-Type: application/octet-stream
+ *   -> {"qrcode":"...","qrcode_img_content":"https://liteapp.weixin.qq.com/q/...","ret":0}
+ */
+const OCTET_STREAM = "application/octet-stream";
+
+function octetStreamResponse(payload: unknown): {
+  ok: boolean;
+  status: number;
+  headers: { get(name: string): string | null };
+  text(): Promise<string>;
+} {
+  return {
+    ok: true,
+    status: 200,
+    headers: { get: (name: string) => (name.toLowerCase() === "content-type" ? OCTET_STREAM : null) },
+    async text() {
+      return JSON.stringify(payload);
+    },
+  };
+}
+
+test("R2I-WX-MIME the channel accepts the octet-stream content type Tencent actually sends", async () => {
+  const client = new ILinkClient(async (url) =>
+    url.includes("get_bot_qrcode")
+      ? octetStreamResponse({
+          qrcode: "3f743810db1b531e5e2d56964b418d0d",
+          qrcode_img_content: "https://liteapp.weixin.qq.com/q/7GiQu1?qrcode=3f743810db1b531e5e2d56964b418d0d&bot_type=3",
+          ret: 0,
+        })
+      : octetStreamResponse({ ret: 0, status: "wait" }),
+  );
+  const started = await client.getQr();
+  assert.equal(started.qrRef, "3f743810db1b531e5e2d56964b418d0d");
+  assert.ok(started.qrImageRef.length > 0);
+  assert.equal((await client.pollQr(started.qrRef)).status, "wait");
+});
+
+test("R2I-WX-MIME a non-JSON body is still refused, so removing the header gate did not remove the guard", async () => {
+  const client = new ILinkClient(async () => ({
+    ok: true,
+    status: 200,
+    headers: { get: () => OCTET_STREAM },
+    async text() {
+      return "<html>gateway error</html>";
+    },
+  }));
+  await assert.rejects(client.getQr(), (error: unknown) => {
+    assert.ok(error instanceof WeixinIlinkResponseError);
+    assert.equal(error.failureKind, "protocol");
+    return true;
+  });
+});
+
+test("R2I-WX-RET a refused QR start reports the vendor code and is not mislabelled as an auth failure", async () => {
+  // Live: GET get_bot_qrcode with no bot_type -> {"err_msg":"missing bot_type","ret":1}
+  //      GET get_bot_qrcode?bot_type=999  -> {"err_msg":"invalid bot_type","ret":2}
+  // This used to surface as AUTH_EXPIRED / "qr missing", telling the user to
+  // reconnect because their credentials had expired when the request itself had
+  // been refused.
+  const client = new ILinkClient(async () =>
+    octetStreamResponse({ err_msg: "invalid bot_type", ret: 2 }),
+  );
+  await assert.rejects(client.getQr("999"), (error: unknown) => {
+    assert.ok(error instanceof Error);
+    assert.equal((error as { errorClass?: string }).errorClass, "DELIVERY_PERMANENT");
+    assert.match((error as Error).message, /ILINK_QR_RET_2/);
+    assert.doesNotMatch((error as Error).message, /invalid bot_type/);
+    return true;
+  });
 });
 
 test("official X-WECHAT-UIN encodes the random uint32 decimal string", () => {
