@@ -196,11 +196,17 @@ export function recordedReleaseVersions(): string[] {
 export function inspectPublishedClaims(contract: ReleaseContractShape): DocFinding {
   const documents = [...RELEASE_FACING_DOCS];
   const problems: string[] = [];
-  const notes = "docs/RELEASE_NOTES_0.6.3.md";
-  const manifest = "docs/PUBLICATION_MANIFEST_0.6.3.md";
-  for (const rel of [notes, manifest]) {
-    if (!readDoc(rel)) problems.push(`${rel} is missing`);
-  }
+  const notes = `docs/RELEASE_NOTES_${contract.version}.md`;
+  // The current version's release notes are required: they are the draft that is
+  // written BEFORE publication, and the release process reads them.
+  //
+  // The publication manifest is NOT required here, because it cannot exist yet.
+  // It is produced by the public byte-for-byte readback, which happens after
+  // publication. Requiring it made a version bump impossible to complete before
+  // the release it describes — and the honest answer to "is it published?" when
+  // there is no manifest is checked by R50-DOC-001, which refuses any document
+  // claiming publication without one.
+  if (!readDoc(notes)) problems.push(`${notes} is missing`);
   for (const rel of documents) {
     const source = readDoc(rel);
     if (!source) continue;
@@ -265,31 +271,48 @@ export function inspectExclusionDisclosure(): DocFinding {
 export function inspectStampedRecords(contract: ReleaseContractShape): DocFinding {
   const documents = ["docs/RELEASE_NOTES_0.6.3.md", "docs/PUBLICATION_MANIFEST_0.6.3.md"];
   const problems: string[] = [];
-  const stamp = PRODUCT_VERSION;
   for (const rel of documents) {
     const source = readDoc(rel);
     if (!source) {
       problems.push(`${rel} is missing`);
       continue;
     }
-    if (!source.includes(stamp)) problems.push(`${rel} does not name version ${stamp}`);
+    // The record must name the version it is stamped FOR — the one in its own
+    // filename — not the current product version.
+    //
+    // Requiring PRODUCT_VERSION here inverted the intent stated above. A
+    // published record is immutable, so when the tree moves to the next version
+    // these files must keep naming the version whose bytes they describe. As
+    // written, the check demanded that the immutable 0.6.3 records rename
+    // themselves to 0.6.5 the moment the version changed, which is the opposite
+    // of "must not silently follow the tree".
+    const stamped = /(\d+\.\d+\.\d+)\.md$/.exec(rel)?.[1];
+    if (stamped && !source.includes(stamped)) {
+      problems.push(`${rel} does not name version ${stamped}`);
+    }
   }
-  const notes = readDoc("docs/RELEASE_NOTES_0.6.3.md");
-  if (notes && !/PUBLIC_READBACK_PASS/.test(notes)) {
-    problems.push("release notes do not record the public readback status of the published bytes");
+  const currentNotes = readDoc(`docs/RELEASE_NOTES_${contract.version}.md`);
+  if (currentNotes && !/PUBLIC_READBACK_PASS/.test(currentNotes)) {
+    problems.push(
+      `docs/RELEASE_NOTES_${contract.version}.md does not record the public readback status of the published bytes`,
+    );
   }
-  // The frozen records must name the same installers the contract selects.
-  const manifest = readDoc("docs/PUBLICATION_MANIFEST_0.6.3.md");
-  for (const target of contract.targets) {
-    if (manifest && target.installer && !manifest.includes(target.installer)) {
-      problems.push(`publication manifest does not record ${target.installer}`);
+  // Only the CURRENT version's manifest must agree with the contract's installer
+  // list. A historical manifest describes the installers of its own release, and
+  // the contract moves on without it.
+  const currentManifest = readDoc(`docs/PUBLICATION_MANIFEST_${contract.version}.md`);
+  if (currentManifest) {
+    for (const target of contract.targets) {
+      if (target.installer && !currentManifest.includes(target.installer)) {
+        problems.push(`publication manifest does not record ${target.installer}`);
+      }
     }
   }
   return {
     id: "R50-DOC-005",
     documents,
     problems,
-    detail: `stamped records agree with ${stamp} across ${contract.targets.length} target(s)`,
+    detail: `stamped records name their own version; current manifest agrees with ${contract.targets.length} target(s)`,
   };
 }
 
