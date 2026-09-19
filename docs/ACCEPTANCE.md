@@ -183,7 +183,7 @@ exit/result digest。不能通过文件名、字符串存在或一个 smoke 扇�
 | `R50-DRIFT-002` | pinned DSH 版本仍发布在 npm，且 GitHub releases 不是唯一上游movement来源 | drift/probe |
 | `R50-DRIFT-003` | 消息通道 pinned build 与 Tencent 当前发布版本一致 | drift/probe |
 | `R50-DRIFT-004` | 仓库对“已发布/未发布”的自述与公网实际发布状态一致 | drift/probe |
-| `R50-DRIFT-005` | provider 实际服务的模型目录与 pinned 客户端目录一致 | drift/probe |
+| `R50-DRIFT-005` | provider 实际服务的模型目录可获取、结构可识别且非空；pinned 客户端目录不在本仓库内，故此处不比对 | drift/probe |
 
 ### M. DOC：文档与发布事实一致（5）
 

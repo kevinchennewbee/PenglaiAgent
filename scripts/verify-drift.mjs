@@ -247,32 +247,65 @@ async function probePublishedFacts() {
   const contract = JSON.parse(readFileSync(join(ROOT, "release-contract.json"), "utf8"));
   const contractVersion = String(contract.version ?? "");
 
-  // While 0.6.5 is in development the contract version is ahead of the newest
-  // published release. That is expected, so it is reported rather than failed.
-  // What must never happen is the release notes claiming a version is not
-  // published when it is, which is what this probe surfaces for a reader.
+  // The repository's own account of which release is current is a machine-checked
+  // claim, so it is compared rather than merely reported.
+  //
+  // This probe used to PASS whenever any public release existed, which made
+  // `R50-DRIFT-004` unfalsifiable: the defect it was written for — eight
+  // documents claiming a published version was unpublished — could not reach a
+  // FAIL. SECURITY.md's release table is the anchor because it states the claim
+  // in one parseable line.
+  const security = readFileSync(join(ROOT, "SECURITY.md"), "utf8");
+  const declaredCurrent = /^\|\s*(\d+\.\d+\.\d+)\s*\|\s*Current immutable public release\s*\|/m.exec(security)?.[1];
+  if (!declaredCurrent) {
+    return record(id, title, FAIL, "SECURITY.md declares no current immutable public release", {
+      newestPublicRelease: newestVersion,
+      contractVersion,
+    });
+  }
   const detail =
     `newest public release v${newestVersion} (${String(newest.published_at ?? "").slice(0, 10)}); ` +
+    `SECURITY.md declares ${declaredCurrent} current; ` +
     `release-contract.json declares ${contractVersion}`;
-  const olderPublished = newestVersion !== contractVersion;
-  return record(id, title, PASS, detail, {
+  const facts = {
     newestPublicRelease: newestVersion,
+    declaredCurrent,
     contractVersion,
-    contractAheadOfPublication: olderPublished,
+    contractAheadOfPublication: newestVersion !== contractVersion,
     // Facts a release note must not contradict.
     newestReleaseImmutable: newest.immutable === true,
     newestReleaseAssets: Array.isArray(newest.assets) ? newest.assets.length : 0,
-  });
+  };
+  if (declaredCurrent !== newestVersion) {
+    // Ahead of publication the contract names a version that is not published
+    // yet; that is expected. A repository that names a *different published*
+    // release as current is contradicting the public record.
+    return record(
+      id,
+      title,
+      FAIL,
+      `${detail} — the repository's account of the current release contradicts the published releases`,
+      facts,
+    );
+  }
+  return record(id, title, PASS, detail, facts);
 }
 
 /**
- * The OpenCode Go provider serves more models than the pinned `pi-ai` catalog
- * knows, and the gap is invisible until a user picks a model and gets a 400.
- * The catalog endpoint needs no credentials.
+ * The OpenCode Go provider serves more models than the client catalog knows, and
+ * the gap is invisible until a user picks a model and gets a 400. The catalog
+ * endpoint needs no credentials.
+ *
+ * The probe asserts what this repository can see: the catalog is reachable, the
+ * list shape is recognised, and it is not empty. The client-side catalog is not
+ * pinned here — the wizard lists models through the pinned DSH client at runtime
+ * — so a count comparison is not something this repository can make. Recording
+ * the served set is what a reader can act on; the previous title claimed a
+ * comparison the probe never performed.
  */
 async function probeOpencodeGo() {
   const id = "opencode-go";
-  const title = "Provider model catalog matches the pinned client catalog";
+  const title = "Provider model catalog is reachable and well-formed";
   if (OFFLINE) return record(id, title, BLOCKED, "offline mode");
   let res;
   try {
@@ -287,6 +320,7 @@ async function probeOpencodeGo() {
       ? res.json.models.map((row) => (typeof row === "string" ? row : row?.id)).filter(Boolean)
       : undefined;
   if (!served) return record(id, title, FAIL, "unrecognised model list shape");
+  if (served.length === 0) return record(id, title, FAIL, "provider served an empty model catalog");
   return record(id, title, PASS, `provider serves ${served.length} models`, {
     servedCount: served.length,
     servedSample: served.slice(0, 5),

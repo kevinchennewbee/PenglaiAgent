@@ -51,7 +51,14 @@ jobs:
       - name: Run drift probes
         id: probes
         continue-on-error: true
-        run: pnpm verify:drift
+        # The script exits 1 for drift and 4 when every probe was blocked. The
+        # exit code is recorded because `continue-on-error` collapses both into
+        # the same step outcome, which is how this workflow would have turned a
+        # fully-blocked run red after documenting that it must not.
+        run: |
+          pnpm verify:drift && code=0 || code=$?
+          echo "exitCode=$code" >> "$GITHUB_OUTPUT"
+          exit $code
       - name: Summarise
         if: always()
         run: |
@@ -74,11 +81,11 @@ jobs:
           path: evidence/generated/verify-drift.json
           if-no-files-found: warn
           retention-days: 30
-      # Deliberately exits non-zero only when a probe found drift (1), not when
-      # every probe was blocked (4). An unreachable vendor is not a reason to
-      # turn the run red, but drift is.
+      # Fails only when a probe found drift (exit 1). A run where every probe was
+      # blocked (exit 4) is not drift: an unreachable vendor must not turn the run
+      # red, and the script already reports that state as BLOCKED.
       - name: Fail on drift
-        if: steps.probes.outcome == 'failure'
+        if: steps.probes.outputs.exitCode == '1'
         run: |
           echo "Drift detected. This does not block a release, but the release notes"
           echo "must state it. See the job summary for the probe results."

@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { lstatSync, mkdirSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
-import { PenglaiError, updateInstallerName, type InstallerKind } from "@penglai/contracts";
+import { PenglaiError, updateInstallerName, updateTargetFor, type InstallerKind } from "@penglai/contracts";
 import {
   VerifiedInstallerHandoff,
   assertCanonicalManifestUrl,
@@ -295,8 +295,13 @@ export class AssistedUpdateCoordinator {
           return this.status();
         }
         version = found.manifest.version;
+        // One table owns the target, and the discovery path reads it like every
+        // other caller. The installer kind used to be re-derived here from the
+        // target string, which is how a `deb` target would have been handed a
+        // `setup` asset and failed the manifest's own kind check.
+        const targetSpec = updateTargetFor(this.#config.target);
         const expectedFilename = updateInstallerName(this.#config.target, version);
-        if (!expectedFilename) {
+        if (!targetSpec || !expectedFilename) {
           throw new PenglaiError("SECURITY_POLICY", `unsupported update target ${this.#config.target}`);
         }
         const githubAsset = found.assets.find((row) => row.name === expectedFilename);
@@ -317,7 +322,7 @@ export class AssistedUpdateCoordinator {
         });
         this.#asset = {
           target: this.#config.target,
-          kind: this.#config.target.startsWith("darwin-") ? "dmg" : "setup",
+          kind: targetSpec.kind,
           version,
           url: platform.url,
           sha256: platform.sha256,

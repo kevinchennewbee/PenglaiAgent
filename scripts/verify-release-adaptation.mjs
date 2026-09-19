@@ -15,6 +15,12 @@ const PUBLISHED_061 = "7ad7c29ecda5d9e867fdde0fe3fefd5c42d3ab1b";
 const PUBLISHED_061_RECORDS = "67d0d52f1610e13e461499a2731debfa83bfead1";
 const PUBLISHED_062 = "83ce4aa3c153b63d9f84c6a5d650a3727e8cfec6";
 const PUBLISHED_062_RECORDS = "a7c76535e3cc81c5467239dc091a4593b3ffbfd1";
+const PUBLISHED_063 = "1c103212ad25b7d2a0061c2c4bfa595cd413c138";
+// The 0.6.3 planning records were the last ones read as present tense, so they
+// carry an outcome banner and their bodies are kept verbatim. This is the commit
+// that added the banner: the guard freezes the reviewed state, so a later release
+// cannot rewrite the record the way this one had to correct it.
+const PUBLISHED_063_RECORDS = "72e8c8e3fda45a326d3c980e9edb0574eab3d85b";
 const DSH_TREE = "5aca5ee6f8dfd110dc3ae199fbddf8a0f606625f";
 const pins = readReleaseIdentityPins();
 const failures = [];
@@ -55,6 +61,11 @@ try {
   execFileSync("git", ["merge-base", "--is-ancestor", PUBLISHED_062, "HEAD"], { cwd: ROOT, stdio: "ignore" });
 } catch {
   fail(`0.6.5 must descend from published 0.6.2 ${PUBLISHED_062}`);
+}
+try {
+  execFileSync("git", ["merge-base", "--is-ancestor", PUBLISHED_063, "HEAD"], { cwd: ROOT, stdio: "ignore" });
+} catch {
+  fail(`0.6.5 must descend from published 0.6.3 ${PUBLISHED_063}`);
 }
 
 const protectedPaths = [
@@ -107,6 +118,18 @@ const protected062 = git([
 ]);
 if (protected062.split("\n").filter(Boolean).length > 0) {
   fail(`0.6.5 rewrote immutable 0.6.2 publication records: ${protected062}`);
+}
+const protected063 = git([
+  "diff",
+  "--name-only",
+  PUBLISHED_063_RECORDS,
+  "--",
+  "docs/0.6.3",
+  "docs/PUBLICATION_MANIFEST_0.6.3.md",
+  "docs/RELEASE_NOTES_0.6.3.md",
+]).split("\n").filter(Boolean);
+if (protected063.length > 0) {
+  fail(`0.6.5 rewrote immutable 0.6.3 publication records: ${protected063.join(", ")}`);
 }
 
 
