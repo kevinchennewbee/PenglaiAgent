@@ -279,6 +279,14 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
   });
   recordAssertion({
     ...common,
+    acceptanceId: "R50-CENTER-001",
+    runnerId: "installed",
+    testId: "installed-e2e-file-R50-CENTER-001-source",
+    assertionId: "center-in-official-plugin-slot",
+    details: { safe: "the plugin surface runs inside the official loader inventory, mounted by Center rather than as a second manager" },
+  });
+  recordAssertion({
+    ...common,
     acceptanceId: "R50-CENTER-005",
     runnerId: "installed",
     testId: "installed-e2e-file-R50-CENTER-005",
