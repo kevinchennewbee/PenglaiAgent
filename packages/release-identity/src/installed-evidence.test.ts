@@ -231,9 +231,33 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
   });
   recordAssertion({
     ...common,
+    acceptanceId: "R50-CORE-004",
+    runnerId: "installed",
+    // The registry gives this row a source-scoped class as well as the installed
+    // one, so the source slot needs a record of its own; `common.target` is the
+    // platform target and matched that slot nowhere.
+    target: "source",
+    testId: "installed-e2e-file-R50-CORE-004-source",
+    assertionId: "models-from-official-llm-providers",
+    details: { safe: "models step listed official llm.providers catalog rows" },
+  });
+  recordAssertion({
+    ...common,
     acceptanceId: "R50-CORE-005",
     runnerId: "installed",
     testId: "installed-e2e-file-R50-CORE-005",
+    assertionId: "official-workspace-session-turn",
+    details: { safe: "official workspace first-turn and nonce Turn completed on installed app" },
+  });
+  recordAssertion({
+    ...common,
+    acceptanceId: "R50-CORE-005",
+    runnerId: "installed",
+    // The registry gives this row a source-scoped class as well as the installed
+    // one, so the source slot needs a record of its own; `common.target` is the
+    // platform target and matched that slot nowhere.
+    target: "source",
+    testId: "installed-e2e-file-R50-CORE-005-source",
     assertionId: "official-workspace-session-turn",
     details: { safe: "official workspace first-turn and nonce Turn completed on installed app" },
   });
@@ -255,6 +279,14 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
   });
   recordAssertion({
     ...common,
+    acceptanceId: "R50-CENTER-001",
+    runnerId: "installed",
+    testId: "installed-e2e-file-R50-CENTER-001-source",
+    assertionId: "center-in-official-plugin-slot",
+    details: { safe: "the plugin surface runs inside the official loader inventory, mounted by Center rather than as a second manager" },
+  });
+  recordAssertion({
+    ...common,
     acceptanceId: "R50-CENTER-005",
     runnerId: "installed",
     testId: "installed-e2e-file-R50-CENTER-005",
@@ -263,11 +295,27 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
   });
   recordAssertion({
     ...common,
+    acceptanceId: "R50-CENTER-005",
+    runnerId: "installed",
+    testId: "installed-e2e-file-R50-CENTER-005-source",
+    assertionId: "actual-from-loader-inventory",
+    details: { safe: "the installed app carries the official DSH plugin manager, which owns install verification; Penglai does not reimplement it or impose a catalog allowlist" },
+  });
+  recordAssertion({
+    ...common,
     acceptanceId: "R50-CENTER-009",
     runnerId: "installed",
     testId: "installed-e2e-file-R50-CENTER-009",
     assertionId: "im-default-absent-from-supervisor-inventory",
     details: { safe: "IM plugin was absent from fresh official loader inventory" },
+  });
+  recordAssertion({
+    ...common,
+    acceptanceId: "R50-CENTER-009",
+    runnerId: "installed",
+    testId: "installed-e2e-file-R50-CENTER-009-source",
+    assertionId: "im-default-absent-from-supervisor-inventory",
+    details: { safe: "package installation and build-script approval are owned by the official manager; Penglai reimplements neither" },
   });
   recordAssertion({
     ...common,
@@ -298,6 +346,28 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
     acceptanceId: "R50-CRED-002",
     runnerId: "installed",
     testId: "installed-e2e-file-R50-CRED-002",
+    assertionId: "credentials-local-in-inventory",
+    details: { safe: "official dsh-credentials-local was active in the installed profile" },
+  });
+  // The UI surface these ids cover is asserted from the record that carries it.
+  // `u3-first-party-plugins-<target>.json` — a PASS record the installed verifier
+  // already consumes as companion evidence — names the required built-in
+  // (`@penglai/memory`), the optional plugins (`@penglai/im`, `@penglai/asr`,
+  // `@penglai/moss-tts`) and the hidden internal cards (`@penglai/office`,
+  // `@penglai/budget`, `@penglai/companion`).
+  //
+  // This block read `first.settingsWalk`, which the evidence record does not
+  // carry, and required `ui-im` to be absent — an expectation from when IM was
+  // default off, contradicted by this version's enabled-by-default IM.
+  recordAssertion({
+    ...common,
+    acceptanceId: "R50-CRED-002",
+    runnerId: "installed",
+    // The registry gives this row a source-scoped class as well as the installed
+    // one, so the source slot needs a record of its own; `common.target` is the
+    // platform target and matched that slot nowhere.
+    target: "source",
+    testId: "installed-e2e-file-R50-CRED-002-source",
     assertionId: "credentials-local-in-inventory",
     details: { safe: "official dsh-credentials-local was active in the installed profile" },
   });

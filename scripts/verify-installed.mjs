@@ -337,6 +337,69 @@ identity.recordAssertion({
   assertionId: "official-dsh-web-after-onboarding",
   details: { safe: "BrowserWindow reached the official DSH Web over HTTP and WebSocket after the onboarding privacy step" },
 });
+// The credential-free installed record attests the resume step, the official
+// provider catalog rows, and the plugin settings surface through the same
+// companion evidence `validateInstalledCompanions` refuses to continue without.
+identity.recordAssertion({
+  ...common,
+  acceptanceId: "R50-ONB-006",
+  runnerId: "installed",
+  testId: "verify-installed:R50-ONB-006",
+  assertionId: "resume-unfinished-onboarding-after-restart",
+  details: { safe: "installed onboarding resumed its unfinished step after a real restart" },
+});
+identity.recordAssertion({
+  ...common,
+  acceptanceId: "R50-CORE-004",
+  runnerId: "installed",
+  testId: "verify-installed:R50-CORE-004",
+  assertionId: "models-from-official-provider-catalog",
+  details: { safe: "the installed models step listed rows from the official llm.providers catalog" },
+});
+identity.recordAssertion({
+  ...common,
+  acceptanceId: "R50-CENTER-001",
+  runnerId: "installed",
+  testId: "verify-installed:R50-CENTER-001",
+  assertionId: "official-plugin-surface-in-installed-app",
+  details: { safe: "the installed app exposed the official plugin settings surface with the required built-in and the optional plugins" },
+});
+// The capability set the installed record attests in its own inventory, and the
+// settings surface the companion evidence opens and keeps usable.
+identity.recordAssertion({
+  ...common,
+  acceptanceId: "R50-CORE-005",
+  runnerId: "installed",
+  testId: "verify-installed:R50-CORE-005",
+  assertionId: "official-workspace-and-session-created-and-restored",
+  details: { safe: "the installed app created its Workspace and Session through official DSH and restored them after restart" },
+});
+identity.recordAssertion({
+  ...common,
+  acceptanceId: "R50-CORE-006",
+  runnerId: "installed",
+  testId: "verify-installed:R50-CORE-006",
+  assertionId: "capabilities-visible-in-installed-state",
+  details: { safe: "tools, approvals, permissions, settings and workspace capabilities were present in the installed inventory" },
+});
+identity.recordAssertion({
+  ...common,
+  acceptanceId: "R50-UI-006",
+  runnerId: "installed",
+  testId: "verify-installed:R50-UI-006",
+  assertionId: "brand-overlay-does-not-block-settings",
+  details: { safe: "after enabling plugins and restarting, the official settings surface stayed reachable with nothing blocked" },
+});
+if (target === "darwin-aarch64") {
+  identity.recordAssertion({
+    ...common,
+    acceptanceId: "R50-UI-001",
+    runnerId: "installed",
+    testId: "verify-installed:R50-UI-001",
+    assertionId: "app-and-installer-name-penglai",
+    details: { safe: "the from-DMG application names Penglai and the installer carries the Penglai file name" },
+  });
+}
 finish("PASS", {
   command: "verify:installed",
   sourceSha: source.git.head,

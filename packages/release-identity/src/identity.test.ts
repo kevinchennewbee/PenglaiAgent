@@ -154,6 +154,10 @@ test("R50-TRUTH-008 publication fields match the owner-authorized public target"
   recordAssertion({
     acceptanceId: "R50-TRUTH-008",
     runnerId: "release-identity.identity",
+    // This row's slot is <family>/aggregate: the registry declares an
+    // evidence-class aggregate, and a record with no target is read as
+    // `source`, which matched nothing.
+    target: "aggregate",
     testId: "publication-authorized-target",
     assertionId: "publication-fields-owner-authorized",
     status: "PASS",
