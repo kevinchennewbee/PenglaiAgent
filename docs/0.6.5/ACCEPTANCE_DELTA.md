@@ -85,6 +85,11 @@ rather than a silent edit:
 - `R50-MAC-005` keeps its `security` family. That family is source-scoped, so its
   slot is `security/source`; the emitting record now carries `target: source`
   instead of a platform target it could never match.
+- `R50-DIST-005` — `installed/all` → `artifact/mac-arm+win-x64`. The embedded
+  Node and DSH versions are probed from the packaged bytes by `verify:artifact`;
+  no installed-family runner reads them, and the Linux job runs no packaged
+  verifier. `verify:artifact` now records the row, and `verify:fuses` runs before
+  it so the appended record survives the one writer that clears that stream.
 
 No requirement was removed, and no target gained a claim it did not have to
 earn: every corrected row is still asserted by the runner that performs the

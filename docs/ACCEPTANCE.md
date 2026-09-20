@@ -117,7 +117,7 @@ exit/result digest。不能通过文件名、字符串存在或一个 smoke 扇�
 | --- | --- | --- |
 | `R50-DIST-001` | release-contract.json 精确声明三目标与对应 installer 文件名 | contract/all |
 | `R50-DIST-003` | exact asset 集合只含 release-contract.json 声明的条目，多一个或少一个都失败 | contract/all |
-| `R50-DIST-005` | 安装包内嵌 runtime 的 Node/DSH 版本等于 pin | installed/all |
+| `R50-DIST-005` | 安装包内嵌 runtime 的 Node/DSH 版本等于 pin | artifact/mac-arm+win-x64 |
 | `R50-DIST-008` | 安装态进程树由绝对路径内嵌 Node/DSH 拥有 | installed/all |
 | `R50-MAC-004` | from-dmg Info.plist 的 name 与 bundle id 为 Penglai/com.penglai.dsh | installed/mac-arm |
 | `R50-MAC-005` | packaged macOS 二进制 hardening 从字节读出而非配置字符串 | security/all |

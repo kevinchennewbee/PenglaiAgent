@@ -140,8 +140,11 @@ jobs:
           PENGLAI_TARGET: ${{ matrix.target }}
         run: |
           pnpm verify:closure
-          pnpm verify:artifact
+          # `verify:fuses` is the writer that clears `artifact-assertions.jsonl`,
+          # so it runs before the gates that append installer and signing records
+          # to it. Reordering these back would drop those records silently.
           pnpm verify:fuses
+          pnpm verify:artifact
           pnpm verify:signing
       - name: Verify full first-party profile matrix
         env:
@@ -321,8 +324,11 @@ jobs:
         shell: bash
         run: |
           pnpm verify:closure
-          pnpm verify:artifact
+          # `verify:fuses` is the writer that clears `artifact-assertions.jsonl`,
+          # so it runs before the gates that append installer and signing records
+          # to it. Reordering these back would drop those records silently.
           pnpm verify:fuses
+          pnpm verify:artifact
           pnpm verify:signing
       - name: Verify full first-party profile matrix
         env:
