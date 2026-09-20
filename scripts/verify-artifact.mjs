@@ -4,10 +4,16 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { delimiter, dirname, join } from "node:path";
 
 import { finish } from "./lib/exit-contract.mjs";
-import { inspectPackagedCandidate, packagedAppForTarget } from "./lib/packaged-candidate.mjs";
+import { inspectPackagedCandidate, packagedAppForTarget, PACKAGED_TARGETS } from "./lib/packaged-candidate.mjs";
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { nativeBlocked, parseTargetArg } from "./lib/release-targets.mjs";
+import { pathToFileURL } from "node:url";
+
+const identity = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/index.ts")).href);
+// The owning job runs `verify:fuses` before this gate, and that is the only
+// writer that clears this stream, so appending here survives to the aggregate.
+process.env.PENGLAI_EVIDENCE_DIR = join(ROOT, "evidence/generated/artifact-assertions.jsonl");
 
 const expectedTarget = parseTargetArg();
 const source = requireCleanCandidateSource();
@@ -133,6 +139,48 @@ if (dshProbe.status !== 0 || !dshVersion.includes(packaged.release.dsh)) {
   });
 }
 
+// The embed versions probed above were read from the packaged bytes and compared
+// against the source-bound release identity, which is what `R50-DIST-005` states.
+const artifactCommon = {
+  runnerId: "artifact",
+  testId: "verify-artifact",
+  status: "PASS",
+  candidateSourceSha: packaged.release.sourceSha,
+  target: expectedTarget,
+  exitCode: 0,
+};
+identity.recordAssertion({
+  ...artifactCommon,
+  acceptanceId: "R50-DIST-005",
+  testId: "verify-artifact:R50-DIST-005",
+  assertionId: "embedded-runtime-versions-match-pin",
+  details: { safe: `packaged runtime carries the pinned Node ${nodeVersion} and DSH ${packaged.release.dsh}` },
+});
+if (expectedTarget === "darwin-aarch64") {
+  const dmg = join(ROOT, PACKAGED_TARGETS[expectedTarget].dmgRelative);
+  const verified = spawnSync("hdiutil", ["verify", dmg], { encoding: "utf8" });
+  if (verified.status !== 0) {
+    finish("FAIL", {
+      command: "verify:artifact",
+      reason: "hdiutil verify rejected the macOS DMG",
+      dmg,
+      output: String(verified.stderr ?? "").slice(0, 400),
+    });
+  }
+  // `imageinfo -plist` reports the container format as a value, not as localised
+  // prose: the human-readable output is translated and cannot be matched.
+  const info = spawnSync("hdiutil", ["imageinfo", "-plist", dmg], { encoding: "utf8" });
+  if (info.status !== 0 || !/<key>Format<\/key>\s*<string>UDZO<\/string>/.test(String(info.stdout ?? ""))) {
+    finish("FAIL", { command: "verify:artifact", reason: "the macOS DMG is not a UDZO image", dmg });
+  }
+  identity.recordAssertion({
+    ...artifactCommon,
+    acceptanceId: "R50-MAC-007",
+    testId: "verify-artifact:R50-MAC-007",
+    assertionId: "arm64-dmg-udzo-and-hdiutil-verify",
+    details: { safe: "the arm64 DMG is a UDZO image and passes hdiutil verify" },
+  });
+}
 finish("PASS", {
   command: "verify:artifact",
   app,

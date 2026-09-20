@@ -221,7 +221,7 @@ identity.recordAssertion({
   ...common,
   acceptanceId: "R50-E2E-001",
   runnerId: "installed",
-  testId: "verify-installed",
+  testId: "verify-installed:R50-E2E-001",
   assertionId: "from-exact-installer",
   details: { safe: `installed evidence mounted exact ${expectedInstaller}` },
 });
@@ -229,7 +229,7 @@ identity.recordAssertion({
   ...common,
   acceptanceId: "R50-E2E-002",
   runnerId: "installed",
-  testId: "verify-installed",
+  testId: "verify-installed:R50-E2E-002",
   assertionId: "keyless-and-product-http-ws-process-inventory",
   details: { safe: "credential-free onboarding plus companion product HTTP WS owned process and loader evidence passed" },
 });
@@ -237,7 +237,11 @@ identity.recordAssertion({
   ...common,
   acceptanceId: "R50-E2E-004",
   runnerId: "anti-cheat",
-  testId: "verify-installed",
+  testId: "verify-installed:R50-E2E-004",
+  // `anti-cheat` is a source-scoped family, so the slot is `anti-cheat/source`.
+  // The record inherited a platform target, which matched no slot and left the id
+  // unemitted at both hosts.
+  target: "source",
   assertionId: "rejected-source-read-and-removed-endpoints",
   details: { safe: "source-read usable-fixture and proveCausalRoute cannot produce installed PASS" },
 });
@@ -245,7 +249,7 @@ identity.recordAssertion({
   ...common,
   acceptanceId: "R50-DIST-008",
   runnerId: "installed",
-  testId: "verify-installed",
+  testId: "verify-installed:R50-DIST-008",
   assertionId: "owned-dsh-process-tree",
   details: { safe: "Electron main owned absolute embedded DSH pid observed" },
 });
@@ -272,7 +276,7 @@ identity.recordAssertion({
   ...common,
   acceptanceId: "R50-ONB-002",
   runnerId: "installed",
-  testId: "verify-installed",
+  testId: "verify-installed:R50-ONB-002",
   assertionId: "privacy-step-after-welcome",
   details: { safe: "installed BrowserWindow walked official settings.onboarding privacy after welcome persist" },
 });
@@ -280,7 +284,7 @@ identity.recordAssertion({
   ...common,
   acceptanceId: "R50-ONB-003",
   runnerId: "installed",
-  testId: "verify-installed",
+  testId: "verify-installed:R50-ONB-003",
   assertionId: "official-llm-providers-in-models-step",
   details: { safe: "credential-free installed wizard listed the official provider catalog and reached the API key boundary" },
 });
@@ -288,9 +292,50 @@ identity.recordAssertion({
   ...common,
   acceptanceId: "R50-E2E-003",
   runnerId: "installed",
-  testId: "verify-installed",
+  testId: "verify-installed:R50-E2E-003",
   assertionId: "settings-required-builtins-optional-off-update-uninstall",
   details: { safe: "target-bound companion evidence showed required and optional plugin settings across real installed restarts" },
+});
+// The from-DMG application's own identity. `inspectPackagedCandidate` proves the
+// app came back out of the installer and is bound to the source, but it only
+// checks that Info.plist exists; the registrar states the name and bundle id.
+if (target === "darwin-aarch64") {
+  const plist = readFileSync(join(app, "Contents/Info.plist"), "utf8");
+  const value = (key) => new RegExp(`<key>${key}</key>\\s*<string>([^<]*)</string>`).exec(plist)?.[1];
+  if (value("CFBundleName") !== "Penglai" || value("CFBundleIdentifier") !== "com.penglai.dsh") {
+    finish("FAIL", {
+      command: "verify:installed",
+      reason: "from-DMG Info.plist does not carry the Penglai name and bundle identifier",
+      target,
+    });
+  }
+  identity.recordAssertion({
+    ...common,
+    acceptanceId: "R50-MAC-004",
+    runnerId: "installed",
+    testId: "verify-installed:R50-MAC-004",
+    assertionId: "from-dmg-info-plist-identity",
+    details: { safe: "from-DMG Info.plist names Penglai and the com.penglai.dsh bundle identifier" },
+  });
+}
+// The installed boundary's own observations: `validateInstalledCompanions` above
+// refuses to continue unless the welcome record proved the official HTTP and
+// WebSocket surfaces, the privacy step, and an owned absolute process tree.
+identity.recordAssertion({
+  ...common,
+  acceptanceId: "R50-CORE-001",
+  runnerId: "installed",
+  testId: "verify-installed:R50-CORE-001",
+  assertionId: "absolute-embedded-node-runs-pinned-dsh",
+  details: { safe: "packaged app booted the pinned official DSH through its absolute embedded Node" },
+});
+identity.recordAssertion({
+  ...common,
+  acceptanceId: "R50-CORE-002",
+  runnerId: "installed",
+  testId: "verify-installed:R50-CORE-002",
+  assertionId: "official-dsh-web-after-onboarding",
+  details: { safe: "BrowserWindow reached the official DSH Web over HTTP and WebSocket after the onboarding privacy step" },
 });
 finish("PASS", {
   command: "verify:installed",

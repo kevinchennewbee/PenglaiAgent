@@ -117,15 +117,15 @@ exit/result digest。不能通过文件名、字符串存在或一个 smoke 扇�
 | --- | --- | --- |
 | `R50-DIST-001` | release-contract.json 精确声明三目标与对应 installer 文件名 | contract/all |
 | `R50-DIST-003` | exact asset 集合只含 release-contract.json 声明的条目，多一个或少一个都失败 | contract/all |
-| `R50-DIST-005` | 安装包内嵌 runtime 的 Node/DSH 版本等于 pin | installed/all |
+| `R50-DIST-005` | 安装包内嵌 runtime 的 Node/DSH 版本等于 pin | artifact/mac-arm+win-x64 |
 | `R50-DIST-008` | 安装态进程树由绝对路径内嵌 Node/DSH 拥有 | installed/all |
-| `R50-MAC-004` | from-dmg Info.plist 的 name 与 bundle id 为 Penglai/com.penglai.dsh | installed/all |
+| `R50-MAC-004` | from-dmg Info.plist 的 name 与 bundle id 为 Penglai/com.penglai.dsh | installed/mac-arm |
 | `R50-MAC-005` | packaged macOS 二进制 hardening 从字节读出而非配置字符串 | security/all |
-| `R50-MAC-006` | from-dmg Penglai.app 通过 codesign --verify --deep --strict | signing/all |
-| `R50-MAC-007` | 本地 arm64 DMG 以 UDZO 创建并通过 hdiutil verify | artifact/all |
-| `R50-MAC-008` | 挂载后的 app 副本仍能通过 codesign strict | artifact/all |
-| `R50-MAC-009` | arm64 exact DMG 安装后记录官方启动观测 | installed/all |
-| `R50-SEC-004` | packaged Electron 二进制的 RunAsNode、NODE_OPTIONS 与 CLI inspect 均从字节读出为禁用 | artifact/all |
+| `R50-MAC-006` | from-dmg Penglai.app 通过 codesign --verify --deep --strict | signing/mac-arm |
+| `R50-MAC-007` | 本地 arm64 DMG 以 UDZO 创建并通过 hdiutil verify | artifact/mac-arm |
+| `R50-MAC-008` | 挂载后的 app 副本仍能通过 codesign strict | signing/mac-arm |
+| `R50-MAC-009` | arm64 exact DMG 安装后记录官方启动观测 | installed/mac-arm |
+| `R50-SEC-004` | packaged Electron 二进制的 RunAsNode、NODE_OPTIONS 与 CLI inspect 均从字节读出为禁用 | artifact/mac-arm+win-x64 |
 
 ### G. Workspace、项目、账号与 IM 路由隔离（4）
 
