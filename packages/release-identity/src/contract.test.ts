@@ -14,7 +14,7 @@ import {
 } from "./contract.js";
 import { RELEASE_TARGETS } from "./pins.js";
 import { assertNoFakeArtifact, evaluateTargetPreflight } from "./preflight.js";
-import { recordAssertion } from "./assertion.js";
+import { recordAssertion, declaredSourceSha } from "./assertion.js";
 import { GENERATION_ID } from "./pins.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -46,7 +46,7 @@ test("R50-DIST-001 committed release-contract pins three targets and hashed down
     testId: "release-contract-pins",
     assertionId: "three-targets-hashed-downloads-exact-set",
     status: "PASS",
-    candidateSourceSha: "a".repeat(40),
+    candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
   });
 });
@@ -117,7 +117,7 @@ test("R50-DIST-003 unsafe archives are refused", () => {
     testId: "safe-archive",
     assertionId: "zip-slip-symlink-case-reserved-refused",
     status: "PASS",
-    candidateSourceSha: "a".repeat(40),
+    candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
   });
 });

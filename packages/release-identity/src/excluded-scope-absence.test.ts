@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { declaredSourceSha, recordAssertion } from "./assertion.js";
 import { PRODUCT_PATH_FILES } from "./product-path.js";
@@ -24,7 +24,9 @@ import { PRODUCT_PATH_FILES } from "./product-path.js";
  *
  * Surfaces that exist only after a native package build (`dist/runtime-staging*`)
  * report INCOMPLETE rather than PASS. Claiming a staged payload is clean when no
- * payload was staged would be the same dishonesty the old ids produced.
+ * payload was staged would be the same dishonesty the old ids produced. The
+ * payload copied back out of a collected installer counts as a staged payload:
+ * it is the shipped bytes, not a rebuilt tree.
  */
 
 const ROOT = join(import.meta.dirname, "..", "..", "..");
@@ -127,21 +129,57 @@ export function inspectShippedPluginMetadata(): SurfaceCheck {
  * `dist/runtime-staging*` is produced by a native package build, so on a
  * source-only machine this surface is unavailable and the assertion records
  * INCOMPLETE. That is the honest verdict: it is not a pass and not a failure.
+ *
+ * The publishing host runs no package build, so it has no staging tree — but it
+ * does hold the payload it copied back out of the collected installer, and the
+ * manifest inside that application describes the same shipped files. Inspecting
+ * it is what keeps this surface available where the release is judged, instead of
+ * recording INCOMPLETE for a payload the host is holding.
+ *
+ * `files` is a list of `{path, sha256, size}` objects, not names. Reading them as
+ * names made the derived set hold objects, so every `includes` test was false and
+ * the surface reported a clean payload no matter what it contained.
  */
+export function installerPayloadNames(manifest: { packages?: unknown; files?: unknown }): Set<string> {
+  const names = new Set<string>();
+  const add = (value: unknown): void => {
+    if (typeof value === "string") names.add(value);
+  };
+  const packages = Array.isArray(manifest.packages) ? manifest.packages : [];
+  for (const entry of packages) add(entry);
+  const files = Array.isArray(manifest.files) ? manifest.files : [];
+  for (const entry of files) {
+    add(entry);
+    if (entry && typeof entry === "object") {
+      const row = entry as { path?: unknown; name?: unknown };
+      add(row.path);
+      add(row.name);
+    }
+  }
+  return names;
+}
+
 export function inspectInstallerPayload(): SurfaceCheck {
-  const candidates = ["dist/runtime-staging", "dist/runtime-staging-darwin-aarch64", "dist/runtime-staging-win32-x86_64"];
-  for (const rel of candidates) {
-    const manifestPath = join(ROOT, rel, "runtime-manifest.json");
-    if (!existsSync(manifestPath)) continue;
-    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { packages?: string[]; files?: string[] };
-    const names = new Set<string>([
-      ...(manifest.packages ?? []),
-      ...(manifest.files ?? []).map((f) => f),
-    ]);
+  const staged = [
+    "dist/runtime-staging",
+    "dist/runtime-staging-darwin-aarch64",
+    "dist/runtime-staging-win32-x86_64",
+  ].map((rel) => `${rel}/runtime-manifest.json`);
+  const distDir = join(ROOT, "dist");
+  const fromInstaller = existsSync(distDir)
+    ? readdirSync(distDir)
+        .filter((entry) => /^Penglai-v.+-from-dmg$/.test(entry))
+        .map((entry) => `dist/${entry}/Penglai.app/Contents/Resources/runtime-manifest.json`)
+    : [];
+  for (const rel of [...staged, ...fromInstaller]) {
+    if (!existsSync(join(ROOT, rel))) continue;
+    const manifest = readJson<{ packages?: unknown; files?: unknown }>(rel);
+    if (!manifest) continue;
+    const names = installerPayloadNames(manifest);
     const leaked = [...EXCLUDED_PENGLAI_MODULES, ...REQUIRED_EXCLUDED_UPSTREAM_PACKAGES].filter(
       (m) => names.has(m) || [...names].some((n) => n.includes(m)),
     );
-    return { surface: "installer-payload", source: `${rel}/runtime-manifest.json`, size: names.size, available: true, leaked };
+    return { surface: "installer-payload", source: rel, size: names.size, available: true, leaked };
   }
   return { surface: "installer-payload", source: "dist/runtime-staging*/runtime-manifest.json", size: 0, available: false, leaked: [] };
 }

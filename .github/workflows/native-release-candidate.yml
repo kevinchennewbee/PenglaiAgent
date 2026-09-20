@@ -537,6 +537,8 @@ jobs:
           pnpm verify:uos-package
           pnpm aggregate:supply-chain
       - name: Verify source export and complete release aggregate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           pnpm fetch:mnemon-assets
           pnpm prepare:public-export -- --clean-room

@@ -82,11 +82,30 @@ const PASS = "PASS";
 const FAIL = "FAIL";
 const BLOCKED = "BLOCKED";
 
+/**
+ * GitHub answers 403 once the unauthenticated per-IP limit is spent, and the
+ * hosted runners share their address pool, so a probe that reaches npm fine can
+ * still be refused by api.github.com. That refusal was recorded as BLOCKED, which
+ * is honest about the probe and useless about upstream: the pinned facts were
+ * never compared. The token is sent to `api.github.com` only, and its absence
+ * changes nothing — the probe still fails closed.
+ */
+const GITHUB_API_TOKEN = (process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN)?.trim();
+
+function githubAuthorization(url) {
+  try {
+    if (new URL(url).hostname !== "api.github.com") return {};
+    return GITHUB_API_TOKEN ? { authorization: `Bearer ${GITHUB_API_TOKEN}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 async function getJson(url, init = {}) {
   const response = await fetch(url, {
     ...init,
     signal: AbortSignal.timeout(TIMEOUT_MS),
-    headers: { accept: "application/json", ...(init.headers ?? {}) },
+    headers: { accept: "application/json", ...githubAuthorization(url), ...(init.headers ?? {}) },
   });
   const text = await response.text();
   let json;
