@@ -89,6 +89,10 @@ test("R50-PREP-001 allowlist is deterministic and denies private trees", () => {
   recordAssertion({
     acceptanceId: "R50-PREP-001",
     runnerId: "export",
+    // This row's slot is <family>/aggregate: the registry declares an
+    // evidence-class aggregate, and a record with no target is read as
+    // `source`, which matched nothing.
+    target: "aggregate",
     testId: "public-export-allowlist",
     assertionId: "allowlist-tree-hash",
     status: "PASS",
@@ -140,6 +144,10 @@ test("R50-PREP-002 export scan rejects secret and owner path", () => {
   recordAssertion({
     acceptanceId: "R50-PREP-002",
     runnerId: "export",
+    // This row's slot is <family>/aggregate: the registry declares an
+    // evidence-class aggregate, and a record with no target is read as
+    // `source`, which matched nothing.
+    target: "aggregate",
     testId: "public-export-scan",
     assertionId: "secret-owner-path-denied",
     status: "PASS",
@@ -165,6 +173,10 @@ test("R50-PREP-003 manifest fields include path mode size hash license", () => {
   recordAssertion({
     acceptanceId: "R50-PREP-003",
     runnerId: "export",
+    // This row's slot is <family>/aggregate: the registry declares an
+    // evidence-class aggregate, and a record with no target is read as
+    // `source`, which matched nothing.
+    target: "aggregate",
     testId: "public-export-manifest-fields",
     assertionId: "path-mode-size-hash-license",
     status: "PASS",
@@ -292,6 +304,9 @@ test("R50-PREP-005 required public docs are enumerated", () => {
   recordAssertion({
     acceptanceId: "R50-PREP-005",
     runnerId: "docs",
+    // Every R50-PREP row declares the export/aggregate slot; a record with
+    // no target is read as `source` and matched nothing.
+    target: "aggregate",
     testId: "required-public-docs",
     assertionId: "license-readme-security-contributing",
     status: "PASS",
@@ -318,6 +333,10 @@ test("R50-PREP-006 export must contain source lock and provenance", () => {
   recordAssertion({
     acceptanceId: "R50-PREP-006",
     runnerId: "export",
+    // This row's slot is <family>/aggregate: the registry declares an
+    // evidence-class aggregate, and a record with no target is read as
+    // `source`, which matched nothing.
+    target: "aggregate",
     testId: "source-not-binary-only",
     assertionId: "source-lock-contract",
     status: "PASS",
@@ -351,6 +370,9 @@ test("R50-PREP-009 future public assets must equal accepted bytes", () => {
   recordAssertion({
     acceptanceId: "R50-PREP-009",
     runnerId: "contract",
+    // Every R50-PREP row declares the export/aggregate slot; a record with
+    // no target is read as `source` and matched nothing.
+    target: "aggregate",
     testId: "future-public-asset-identity",
     assertionId: "accepted-bytes-must-match",
     status: "PASS",
@@ -370,6 +392,9 @@ test("R50-PREP-010 publication fields match the owner-authorized target", () => 
   recordAssertion({
     acceptanceId: "R50-PREP-010",
     runnerId: "audit",
+    // Every R50-PREP row declares the export/aggregate slot; a record with
+    // no target is read as `source` and matched nothing.
+    target: "aggregate",
     testId: "publication-authorized-target",
     assertionId: "repo-tag-release-channel-exact",
     status: "PASS",
