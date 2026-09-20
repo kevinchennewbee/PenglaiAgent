@@ -281,6 +281,10 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
     ...common,
     acceptanceId: "R50-CENTER-001",
     runnerId: "installed",
+    // This row declares the `center` class as well as `installed`; that class is
+    // source-scoped, so the source slot needs a record of its own. Without this
+    // the twin inherited `common.target` and matched the slot nowhere.
+    target: "source",
     testId: "installed-e2e-file-R50-CENTER-001-source",
     assertionId: "center-in-official-plugin-slot",
     details: { safe: "the plugin surface runs inside the official loader inventory, mounted by Center rather than as a second manager" },
@@ -297,6 +301,10 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
     ...common,
     acceptanceId: "R50-CENTER-005",
     runnerId: "installed",
+    // This row declares the `center` class as well as `installed`; that class is
+    // source-scoped, so the source slot needs a record of its own. Without this
+    // the twin inherited `common.target` and matched the slot nowhere.
+    target: "source",
     testId: "installed-e2e-file-R50-CENTER-005-source",
     assertionId: "actual-from-loader-inventory",
     details: { safe: "the installed app carries the official DSH plugin manager, which owns install verification; Penglai does not reimplement it or impose a catalog allowlist" },
@@ -313,6 +321,10 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
     ...common,
     acceptanceId: "R50-CENTER-009",
     runnerId: "installed",
+    // This row declares the `center` class as well as `installed`; that class is
+    // source-scoped, so the source slot needs a record of its own. Without this
+    // the twin inherited `common.target` and matched the slot nowhere.
+    target: "source",
     testId: "installed-e2e-file-R50-CENTER-009-source",
     assertionId: "im-default-absent-from-supervisor-inventory",
     details: { safe: "package installation and build-script approval are owned by the official manager; Penglai reimplements neither" },
