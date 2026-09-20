@@ -238,6 +238,10 @@ identity.recordAssertion({
   acceptanceId: "R50-E2E-004",
   runnerId: "anti-cheat",
   testId: "verify-installed:R50-E2E-004",
+  // `anti-cheat` is a source-scoped family, so the slot is `anti-cheat/source`.
+  // The record inherited a platform target, which matched no slot and left the id
+  // unemitted at both hosts.
+  target: "source",
   assertionId: "rejected-source-read-and-removed-endpoints",
   details: { safe: "source-read usable-fixture and proveCausalRoute cannot produce installed PASS" },
 });
