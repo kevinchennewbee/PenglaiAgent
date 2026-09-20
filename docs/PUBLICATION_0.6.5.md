@@ -1,7 +1,6 @@
 # PUBLICATION 0.6.5
 
-Status: `PUBLIC_READBACK_PASS`. The website deployment record is appended below
-after that step runs.
+Status: `PUBLIC_READBACK_PASS`. The website deployment is recorded below.
 
 ## What was published
 
@@ -39,8 +38,13 @@ after that step runs.
 
 ## Website deployment
 
-Pending. Recorded here and in `PUBLICATION_MANIFEST_0.6.5.md` after
-`deploy-website.yml` runs and both public origins are read back.
+[35496762583](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/35496762583)
+verified the immutable public release, re-ran the publication-window check over
+the tag commit and the commit that recorded this manifest, sealed the `website/`
+tree, deployed those exact bytes to `gh-pages`, and read both public origins
+back. `https://penglai.pages.dev/` and
+`https://kevinchennewbee.github.io/PenglaiAgent/` served the same 0.6.5 page,
+each carrying the build source SHA and the three published installer digests.
 
 ## Not claimed
 
