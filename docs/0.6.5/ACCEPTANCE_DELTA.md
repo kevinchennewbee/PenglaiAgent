@@ -60,6 +60,36 @@ The Owner authorizes the complete 0.6.5 workflow through three-target native
 validation, immutable publication, public readback, and only then README/site
 publication updates. A result remains `NOT_RUN` until that exact step executes.
 
+## Registry corrections in this release
+
+0.6.5 promoted `verify:evidence` to a hard gate. That exposed five rows in
+`docs/ACCEPTANCE.md` whose runner or platform could not be satisfied by any
+runner in this pipeline — a declaration defect, not a missing result. The
+requirements themselves are unchanged; what changed is the declaration of who
+proves them and on which target. Corrections, each recorded as a correction
+rather than a silent edit:
+
+- `R50-MAC-004`, `R50-MAC-009` — `installed/all` → `installed/mac-arm`. Both
+  read a macOS `Info.plist` / record an `arm64` DMG observation, and the Windows
+  host emits `R50-WIN-009` for the same stage, so the `win32-x86_64` slot could
+  never be filled by these ids.
+- `R50-MAC-006`, `R50-MAC-008` — `signing/all` and `artifact/all` →
+  `signing/mac-arm`. Both are `codesign` checks on the from-DMG application.
+  `expandPlatforms` expands a packaged-scoped family with `all` to all three
+  desktop targets, but no Linux job runs a packaged verifier.
+- `R50-MAC-007` — `artifact/all` → `artifact/mac-arm`. A UDZO `hdiutil verify` of
+  the macOS DMG; the Linux job produces a `.deb`.
+- `R50-SEC-004` — `artifact/all` → `artifact/mac-arm+win-x64`. The Electron fuse
+  bytes are inspected by `verify:fuses` on the macOS and Windows hosts; there is
+  no Linux host in this pipeline to inspect.
+- `R50-MAC-005` keeps its `security` family. That family is source-scoped, so its
+  slot is `security/source`; the emitting record now carries `target: source`
+  instead of a platform target it could never match.
+
+No requirement was removed, and no target gained a claim it did not have to
+earn: every corrected row is still asserted by the runner that performs the
+check, bound to the same source SHA, installer digest and native host.
+
 ## 中文
 
 蓬莱 0.6.5 延续 0.6.3 已发布的完整固定 DeepSeek Harness npm 依赖组：官方

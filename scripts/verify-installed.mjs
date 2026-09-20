@@ -292,6 +292,47 @@ identity.recordAssertion({
   assertionId: "settings-required-builtins-optional-off-update-uninstall",
   details: { safe: "target-bound companion evidence showed required and optional plugin settings across real installed restarts" },
 });
+// The from-DMG application's own identity. `inspectPackagedCandidate` proves the
+// app came back out of the installer and is bound to the source, but it only
+// checks that Info.plist exists; the registrar states the name and bundle id.
+if (target === "darwin-aarch64") {
+  const plist = readFileSync(join(app, "Contents/Info.plist"), "utf8");
+  const value = (key) => new RegExp(`<key>${key}</key>\\s*<string>([^<]*)</string>`).exec(plist)?.[1];
+  if (value("CFBundleName") !== "Penglai" || value("CFBundleIdentifier") !== "com.penglai.dsh") {
+    finish("FAIL", {
+      command: "verify:installed",
+      reason: "from-DMG Info.plist does not carry the Penglai name and bundle identifier",
+      target,
+    });
+  }
+  identity.recordAssertion({
+    ...common,
+    acceptanceId: "R50-MAC-004",
+    runnerId: "installed",
+    testId: "verify-installed",
+    assertionId: "from-dmg-info-plist-identity",
+    details: { safe: "from-DMG Info.plist names Penglai and the com.penglai.dsh bundle identifier" },
+  });
+}
+// The installed boundary's own observations: `validateInstalledCompanions` above
+// refuses to continue unless the welcome record proved the official HTTP and
+// WebSocket surfaces, the privacy step, and an owned absolute process tree.
+identity.recordAssertion({
+  ...common,
+  acceptanceId: "R50-CORE-001",
+  runnerId: "installed",
+  testId: "verify-installed",
+  assertionId: "absolute-embedded-node-runs-pinned-dsh",
+  details: { safe: "packaged app booted the pinned official DSH through its absolute embedded Node" },
+});
+identity.recordAssertion({
+  ...common,
+  acceptanceId: "R50-CORE-002",
+  runnerId: "installed",
+  testId: "verify-installed",
+  assertionId: "official-dsh-web-after-onboarding",
+  details: { safe: "BrowserWindow reached the official DSH Web over HTTP and WebSocket after the onboarding privacy step" },
+});
 finish("PASS", {
   command: "verify:installed",
   sourceSha: source.git.head,

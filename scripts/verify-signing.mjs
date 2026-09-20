@@ -14,6 +14,14 @@ import {
   evaluateWindowsAuthenticode,
   WINDOWS_AUTHENTICODE_COMMAND,
 } from "./lib/signing-contract.mjs";
+import { pathToFileURL } from "node:url";
+
+const identity = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/index.ts")).href);
+// The owning job runs this gate after `verify:fuses`, which is the only writer
+// that clears `artifact-assertions.jsonl`, so appending here is what carries the
+// signing records to the aggregate. Reordering that step would drop them
+// silently: nothing else re-runs this gate on the aggregate.
+process.env.PENGLAI_EVIDENCE_DIR = join(ROOT, "evidence/generated/artifact-assertions.jsonl");
 
 function runCodesign(args) {
   const r = spawnSync("codesign", args, { encoding: "utf8" });
@@ -165,6 +173,31 @@ if (!adhoc) {
 const summary = [`Penglai ${PRODUCT_VERSION} community-verified ad-hoc contract`, `app=${app}`, `sourceSha=${packaged.release.sourceSha}`, `target=${expectedTarget}`, "codesign --verify --deep --strict --verbose=2: PASS", "signatureKind=adhoc", "developerIdSigned=false", "notarized=false", "authenticode=false", display.text.trim()].join("\n");
 mkdirSync(join(ROOT, "dist"), { recursive: true });
 writeFileSync(join(ROOT, "dist/codesign-verification.txt"), `${summary}\n`);
+// The `codesign --verify --deep --strict` above ran against the application
+// copied back out of the mounted installer, which is exactly what these two rows
+// state. Neither had an emitter before, so both stayed unemitted however green
+// this gate was.
+const signingCommon = {
+  runnerId: "signing",
+  testId: "verify-signing",
+  status: "PASS",
+  candidateSourceSha: packaged.release.sourceSha,
+  target: expectedTarget,
+  runnerNative: process.platform === "darwin" && process.arch === "arm64",
+  exitCode: 0,
+};
+identity.recordAssertion({
+  ...signingCommon,
+  acceptanceId: "R50-MAC-006",
+  assertionId: "from-dmg-app-codesign-verify-deep-strict",
+  details: { safe: "from-DMG Penglai.app passed codesign --verify --deep --strict with an ad-hoc signature" },
+});
+identity.recordAssertion({
+  ...signingCommon,
+  acceptanceId: "R50-MAC-008",
+  assertionId: "mounted-app-copy-codesign-strict",
+  details: { safe: "the application copied back out of the mounted installer still passes codesign strict" },
+});
 finish("PASS", {
   command: "verify:signing",
   signatureKind: "adhoc",

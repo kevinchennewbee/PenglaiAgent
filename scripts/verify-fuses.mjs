@@ -100,7 +100,10 @@ if (!windows) identity.recordAssertion({
   assertionId: "packaged-framework-hardening-bytes",
   status: "PASS",
   candidateSourceSha: packaged.release.sourceSha,
-  target: expectedTarget,
+  // The registry gives this row the `security` family, which is source-scoped:
+  // its slot is `security/source`, so a platform target here matched nothing and
+  // the id stayed unemitted however green this gate was.
+  target: "source",
   runnerNative: process.platform === "darwin" && ((expectedTarget === "darwin-aarch64" && process.arch === "arm64") || (expectedTarget === "darwin-x86_64" && process.arch === "x64")),
   exitCode: 0,
   details: {
