@@ -257,7 +257,10 @@ identity.recordAssertion({
   ...common,
   acceptanceId: target === "win32-x86_64" ? "R50-WIN-009" : "R50-MAC-009",
   runnerId: "installed",
-  testId: "verify-installed",
+  // The acceptance id depends on the target, so the test id has to as well:
+  // `assertNoFanOut` keys on (runnerId, testId) and refused the pair that claimed
+  // both rows from the two hosts.
+  testId: `verify-installed:exact-installer-installed-suite:${target}`,
   assertionId: "exact-installer-installed-suite",
   details: { safe: `${target} exact installer suite recorded official boot observations` },
 });
