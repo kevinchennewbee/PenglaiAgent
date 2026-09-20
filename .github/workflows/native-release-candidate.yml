@@ -203,6 +203,11 @@ jobs:
             # without them its guards can never pass on the aggregate runner.
             evidence/generated/local-dmg.json
             evidence/generated/installed-e2e.json
+            # The assertion stream this host writes. The aggregate reads it as the
+            # ground truth for "installed evidence was produced for this target",
+            # and without it every installed slot evaluated there is empty.
+            evidence/generated/installed-assertions.jsonl
+            evidence/generated/artifact-assertions.jsonl
 
   windows:
     name: Windows win32-x86_64
@@ -385,6 +390,11 @@ jobs:
             evidence/generated/licenses-win32-x86_64.json
             evidence/generated/sbom-win32-x86_64.json
             evidence/generated/THIRD_PARTY_NOTICES-win32-x86_64.txt
+            # The assertion stream this host writes. The aggregate reads it as the
+            # ground truth for "installed evidence was produced for this target",
+            # and without it every installed slot evaluated there is empty.
+            evidence/generated/installed-assertions.jsonl
+            evidence/generated/artifact-assertions.jsonl
 
   linux:
     name: linux-loong64 UOS .deb packaging
@@ -491,6 +501,21 @@ jobs:
           # see them. The installed-evidence emitter reads both by name.
           cp .native/darwin-aarch64/evidence/generated/local-dmg.json evidence/generated/
           cp .native/darwin-aarch64/evidence/generated/installed-e2e.json evidence/generated/
+          # Each target host writes its own assertion stream under the same name.
+          # Concatenating them is what puts the per-target installed and artifact
+          # records in front of the aggregate's evaluator: nothing else carries
+          # them, and a per-target run is the only place those assertions can be
+          # written, because the aggregate does not hold both hosts' artifacts.
+          : > evidence/generated/installed-assertions.jsonl
+          : > evidence/generated/artifact-assertions.jsonl
+          for dir in .native/*/; do
+            for stream in installed-assertions artifact-assertions; do
+              if [ -f "$dir/evidence/generated/$stream.jsonl" ]; then
+                cat "$dir/evidence/generated/$stream.jsonl" >> "evidence/generated/$stream.jsonl"
+              fi
+            done
+          done
+          wc -l evidence/generated/installed-assertions.jsonl evidence/generated/artifact-assertions.jsonl
           # The emitter inspects the application copied back out of the mounted
           # installer, which the aggregate only receives as an installer.
           node scripts/collect-dmg-payload.mjs --target darwin-arm64
