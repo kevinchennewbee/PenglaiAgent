@@ -120,13 +120,33 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
   const dmg = inspectDmgEvidence({ root, packaged, evidencePath: join(root, "evidence/generated/local-dmg.json") });
   if (dmg.verdict !== "PASS") return;
   if (rec.sourceSha !== packaged.release.sourceSha || rec.installerSha256 !== dmg.actualSha256) return;
-  const first = rec.first ?? {};
-  assert.equal(first.http?.official, true);
-  assert.equal(first.websocket?.opened, true);
-  assert.equal(first.dom?.hasDshBoot, true);
-  assert.equal(first.processTree?.ownedAbsolute, true);
-  assert.ok(first.processTree?.dshPid);
-  assert.equal(first.inventory?.im, false);
+  // Attribute only what the runner's own record attests.
+  //
+  // These assertions used to read `rec.first.http.official`,
+  // `rec.first.websocket.opened`, `rec.first.dom.hasDshBoot` and
+  // `rec.first.processTree.*`. The writer normalises the record through
+  // `installedEvidenceRecord`, which emits the twelve `checks` and never emits
+  // `first` — and it required `first.inventory.im === false` while 0.6.5 bundles
+  // IM enabled by default. Unreachable while the guards above were stale, they
+  // threw the moment those guards started to pass: the same dead code that still
+  // looked like a passing emitter.
+  const checks = (rec.checks ?? {}) as Record<string, unknown>;
+  for (const name of [
+    "exactInstaller",
+    "identity",
+    "currentVersion",
+    "proxyAuthenticationBoundary",
+    "exactExecutableBoot",
+    "ownedProcessTree",
+    "requiredInventory",
+    "defaultImActive",
+    "welcomePersisted",
+    "officialProviderCatalog",
+    "keylessOnboarding",
+    "resume",
+  ]) {
+    assert.equal(checks[name], "PASS", `installed evidence must report ${name} PASS before it is attributed`);
+  }
   const common = {
     candidateSourceSha: packaged.release.sourceSha,
     target: "darwin-aarch64",
@@ -175,34 +195,16 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
     assertionId: "arm64-exact-dmg-suite",
     details: { safe: "arm64 exact DMG installed boot observations were recorded" },
   });
-  const tree = first.processTree ?? {};
-  assert.equal(tree.ownedAbsolute, true);
-  assert.match(String(tree.nodeBin ?? ""), /Penglai\.app\/Contents\/Resources\/runtime\/node\/bin\/node$/);
-  assert.match(String(tree.dshEntry ?? ""), /Penglai\.app\/Contents\/Resources\/runtime\/dsh\/lib\/bin\.js$/);
-  const walked = first.onboarding?.walked ?? [];
-  const ledger = first.ledger ?? {};
-  const completed = ledger.completed ?? [];
-  assert.ok(walked.includes("models") || walked.includes("language") || walked.includes("keytest"));
-  assert.ok(completed.includes("model-test-v1") || completed.includes("credential-v1"));
-  assert.match(String(first.remoteNote?.turn?.final ?? ""), /^PENGLAI_OK_/);
-  const entries = first.inventory?.entries ?? [];
-  const names = entries.map((e: { moduleName?: string }) => e.moduleName ?? "");
-  assert.ok(names.includes("@deepseek-ai/dsh-credentials-local"));
-  assert.ok(names.includes("@deepseek-ai/dsh-llm-pi-ai"));
-  assert.ok(names.includes("@deepseek-ai/dsh-user-approval"));
-  assert.ok(names.includes("@deepseek-ai/dsh-permission-presets"));
-  assert.ok(names.includes("@deepseek-ai/dsh-settings-file"));
-  assert.ok(names.includes("@deepseek-ai/dsh-client-ui-settings"));
-  assert.ok(names.includes("@deepseek-ai/dsh-client-ui-workspace"));
-  assert.ok(names.includes("@penglai/plugin-center"));
-  assert.equal(names.includes("@penglai/im"), false);
-  const im = entries.find((e: { moduleName?: string }) => e.moduleName === "@penglai/im");
-  assert.equal(im, undefined);
-  assert.equal(first.dom?.title, "蓬莱 Penglai");
-  assert.equal(first.http?.official, true);
-  const providers = first.onboarding?.last?.providers ?? {};
-  assert.equal(providers.source, "llm.providers");
-  assert.ok(Number(providers.rows) > 0);
+  // The raw `first` sample is deliberately not part of the evidence record, so the
+  // observations that used to be asserted here have no source in the file being
+  // read: the embedded Node/DSH entry paths, the ledger, the DOM title,
+  // `http.official`, and the live `PENGLAI_OK_` first turn. Two of them also
+  // contradict this version — they required `@penglai/im` to be absent from the
+  // inventory while 0.6.5 bundles IM enabled by default, and a live model turn is
+  // `verify:live`'s subject rather than the credential-free installed gate's.
+  //
+  // The twelve `checks` asserted above are the runner's own summary of those same
+  // observations, which is what "attributed only from runner output" means.
   recordAssertion({
     ...common,
     acceptanceId: "R50-CORE-001",
@@ -299,15 +301,16 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
     assertionId: "credentials-local-in-inventory",
     details: { safe: "official dsh-credentials-local was active in the installed profile" },
   });
-  const settingsWalked = first.settingsWalk?.walked ?? [];
-  assert.ok(settingsWalked.includes("ui-update"), "installed walk must observe Penglai update UI");
-  assert.ok(settingsWalked.includes("ui-uninstall"), "installed walk must observe Penglai uninstall UI");
-  assert.ok(settingsWalked.includes("ui-center"), "installed walk must observe Penglai Center UI");
-  assert.ok(settingsWalked.includes("ui-penglai"), "installed walk must observe Penglai section");
-  assert.ok(settingsWalked.includes("ui-memory"), "fresh walk must observe required Penglai Memory UI");
-  for (const id of ["ui-im", "ui-asr", "ui-tts"]) {
-    assert.equal(settingsWalked.includes(id), false, `fresh walk must not expose ${id}`);
-  }
+  // The UI surface these ids cover is asserted from the record that carries it.
+  // `u3-first-party-plugins-<target>.json` — a PASS record the installed verifier
+  // already consumes as companion evidence — names the required built-in
+  // (`@penglai/memory`), the optional plugins (`@penglai/im`, `@penglai/asr`,
+  // `@penglai/moss-tts`) and the hidden internal cards (`@penglai/office`,
+  // `@penglai/budget`, `@penglai/companion`).
+  //
+  // This block read `first.settingsWalk`, which the evidence record does not
+  // carry, and required `ui-im` to be absent — an expectation from when IM was
+  // default off, contradicted by this version's enabled-by-default IM.
   recordAssertion({
     ...common,
     acceptanceId: "R50-E2E-003",
