@@ -1,12 +1,13 @@
 # Security Policy
 
-Penglai 0.6.3 is the current **community-verified** immutable public desktop distribution. It uses the exact official DeepSeek Harness (DSH) `0.1.6-alpha.2` cohort and was built from `1c103212ad25b7d2a0061c2c4bfa595cd413c138`. Exact public bytes and validation boundaries are recorded in [`docs/PUBLICATION_MANIFEST_0.6.3.md`](docs/PUBLICATION_MANIFEST_0.6.3.md). The full security contract lives in [`docs/SECURITY.md`](docs/SECURITY.md).
+Penglai 0.6.5 is the current **community-verified** immutable public desktop distribution. It uses the exact official DeepSeek Harness (DSH) `0.1.6-alpha.2` cohort and was built from `eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a`. Exact public bytes and validation boundaries are recorded in [`docs/PUBLICATION_MANIFEST_0.6.5.md`](docs/PUBLICATION_MANIFEST_0.6.5.md). The full security contract lives in [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Supported versions
 
 | Version | Status |
 | --- | --- |
-| 0.6.3 | Current immutable public release |
+| 0.6.5 | Current immutable public release |
+| 0.6.3 | Historical immutable release |
 | 0.6.2 | Historical immutable release |
 | 0.6.1 | Historical immutable release |
 | 0.6.0 | Historical immutable release |

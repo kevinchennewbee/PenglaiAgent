@@ -17,17 +17,19 @@ turn an unrun native or public check into PASS.
 - [x] Add a fail-closed UOS `.deb` verifier for package identity, ABI, closure,
       runtime, plugins, licenses, and architecture.
 - [x] Harden evidence output, secret scanning, and owner-path redaction.
-- [ ] Merge the reviewed source into `main` and record the frozen source SHA.
+- [x] Merge the reviewed source into `main` and record the frozen source SHA
+      (`eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a`).
 - [x] Exclude Office/PDF, LibreOffice Kit, Budget, and Companion from the 0.6.5
       workspace, profile, catalog, runtime closure, installer staging, and
       product acceptance. Keep their upstream identities only in the upstream
       audit ledger.
-- [ ] Complete native Mac and Windows fresh-install, restart, and
+- [x] Complete native Mac and Windows fresh-install, restart, and
       default-uninstall evidence on the exact frozen SHA.
-- [ ] Build and verify the exact UOS package on that same SHA.
-- [ ] Publish and read back the exact immutable asset set.
-- [ ] Replace candidate wording with observed public sizes, hashes, and source
-      identity; deploy and read back both public websites.
+- [x] Build and verify the exact UOS package on that same SHA.
+- [x] Publish and read back the exact immutable asset set; the draft seal and
+      the public seal are identical.
+- [ ] Deploy and read back both public websites. The candidate wording has been
+      replaced with the observed public sizes, hashes, and source identity.
 - [ ] Owner post-release UOS native test: install, start, UI, file picker,
       sleep/resume, model conversation, and Memory.
 

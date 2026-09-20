@@ -1,8 +1,10 @@
 # Penglai 0.6.5 release notes
 
-Status: draft for an unpublished version. The public readback record is added by
-the release process after the immutable bytes exist; until then nothing here
-claims a published artifact.
+Status: `PUBLIC_READBACK_PASS`. The immutable `v0.6.5` Release was published from
+`eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a`; all ten public assets passed
+post-publication byte, SHA-256, update-signature, and installer-signature
+readback. Exact public sizes and hashes are recorded in
+[`PUBLICATION_MANIFEST_0.6.5.md`](PUBLICATION_MANIFEST_0.6.5.md).
 
 English first, Chinese second. Known limitations are stated rather than omitted.
 
