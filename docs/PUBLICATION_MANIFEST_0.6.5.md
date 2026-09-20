@@ -24,7 +24,7 @@ for generated release identity.
 | CodeQL run | [35490512032](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/35490512032) on the build SHA; zero open alerts at release |
 | Native targets | [35490538515](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/35490538515): darwin-aarch64, win32-x86_64, linux-loong64; exact aggregate PASS; Intel Mac excluded |
 | Publish and readback | [35495632957](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/35495632957) |
-| Website deploy and readback | see `docs/PUBLICATION_0.6.5.md` |
+| Website deploy and readback | [35496762583](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/35496762583): sealed website deployed to `gh-pages`; Cloudflare Pages and GitHub Pages both matched |
 | Trust | community-verified; macOS ad-hoc, not notarized; Windows no Authenticode; UOS Electron 31.7.7 / Chromium 126 and Node 22.16.0 unmaintained, without Mac/Windows security parity |
 | Native UOS | `OWNER_POST_RELEASE` |
 | Signed updater | Apple Silicon and Windows x64 |

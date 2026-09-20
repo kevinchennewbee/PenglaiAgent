@@ -28,8 +28,10 @@ turn an unrun native or public check into PASS.
 - [x] Build and verify the exact UOS package on that same SHA.
 - [x] Publish and read back the exact immutable asset set; the draft seal and
       the public seal are identical.
-- [ ] Deploy and read back both public websites. The candidate wording has been
-      replaced with the observed public sizes, hashes, and source identity.
+- [x] Deploy and read back both public websites: the sealed `website/` tree was
+      deployed to `gh-pages` and Cloudflare Pages and GitHub Pages both matched.
+      The candidate wording was replaced with the observed public sizes, hashes,
+      and source identity.
 - [ ] Owner post-release UOS native test: install, start, UI, file picker,
       sleep/resume, model conversation, and Memory.
 
