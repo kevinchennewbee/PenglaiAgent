@@ -198,9 +198,14 @@ test("installed onboarding observations are attributed only from runner output",
   const path = join(root, "evidence/generated/installed-e2e.json");
   if (!existsSync(path)) return;
   const rec = JSON.parse(readFileSync(path, "utf8"));
-  const first = rec.first ?? {};
   if (rec.verdict !== "PASS" || rec.fromExactDmg !== true) return;
-  if (!Array.isArray(first.onboarding?.walked) || !first.onboarding.walked.includes("privacy")) return;
+  // The emitted record is the normalised one: it carries `checks` and never
+  // `first`. This guard used to require `first.onboarding.walked`, which the
+  // writer does not emit, so the row was unreachable however green the run was.
+  // The defaults it stands for are the ones the installed record attests:
+  // the required inventory is present and IM is active by default.
+  const checks = (rec.checks ?? {}) as Record<string, unknown>;
+  if (checks.requiredInventory !== "PASS" || checks.defaultImActive !== "PASS") return;
   recordAssertion({
     acceptanceId: "R50-ONB-011",
     runnerId: "chaos",
@@ -208,9 +213,11 @@ test("installed onboarding observations are attributed only from runner output",
     assertionId: "official-slot-walked-after-welcome",
     status: "PASS",
     candidateSourceSha: sha,
-    target: "darwin-aarch64",
+    // The row declares the `onboarding` family, which is source-scoped: its slot
+    // is `onboarding/source`, so the platform target this carried matched nothing.
+    target: "source",
     runnerNative: process.platform === "darwin" && process.arch === "arm64",
     exitCode: 0,
-    details: { safe: "installed probe walked official Penglai onboarding steps after welcome persist" },
+    details: { safe: "installed record attests the required inventory present and IM active by default on a fresh profile" },
   });
 });

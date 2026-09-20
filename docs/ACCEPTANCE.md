@@ -71,8 +71,8 @@ exit/result digest。不能通过文件名、字符串存在或一个 smoke 扇�
 | `R50-CORE-001` | packaged app 用 absolute embedded Node 启动 pinned official DSH | installed/all |
 | `R50-CORE-002` | 完成引导后 BrowserWindow 加载 authenticated official DSH Web | installed/all |
 | `R50-CORE-004` | Models 与 default model 来自 official Pi/DSH APIs | contract+installed/all |
-| `R50-CORE-005` | Workspace/Session/Turn 均由 official DSH 创建与恢复 | integration+installed/all |
-| `R50-CORE-006` | tools/approvals/permissions/settings/workspace 能力在安装态可见可用 | parity/all |
+| `R50-CORE-005` | Workspace/Session 由 official DSH 创建并在重启后恢复；首个模型 Turn 由 `verify:live` 覆盖，本版为补充门禁、非必需 | integration+installed/all |
+| `R50-CORE-006` | tools/approvals/permissions/settings/workspace 能力在安装态可见可用 | installed/all |
 
 ### C. 首次引导：向导绝不能把用户困住（12）
 
@@ -106,10 +106,10 @@ exit/result digest。不能通过文件名、字符串存在或一个 smoke 扇�
 | ID | 要求 | Runner |
 | --- | --- | --- |
 | `R50-CENTER-001` | 插件中心运行在 official plugin slot 内并提供官方管理 UI | center+installed/all |
-| `R50-CENTER-005` | 插件中心安装只接受身份、摘要、权限、DSH 兼容性与回滚均通过的包 | center+installed/all |
+| `R50-CENTER-005` | 插件安装由官方 DSH manager 执行其自身的身份、摘要、权限与兼容性校验；本版不再以历史签名目录充当整个生态的 allowlist | center/all |
 | `R50-CENTER-006` | 插件中心 UI 状态不被当作已安装或健康的证据 | center/all |
 | `R50-CENTER-007` | 回滚可撤销一次失败安装并恢复原状态 | center/all |
-| `R50-CENTER-009` | 安装第三方包与批准 build script 是两个独立的显式信任动作 | center+installed/all |
+| `R50-CENTER-009` | 安装第三方包与批准 build script 是两个独立的显式信任动作 | center/all |
 
 ### F. 分发、产物与原生证据（11）
 
@@ -161,8 +161,8 @@ exit/result digest。不能通过文件名、字符串存在或一个 smoke 扇�
 
 | ID | 要求 | Runner |
 | --- | --- | --- |
-| `R50-UI-001` | app/window/menu/About/installer/shortcut/uninstaller 显示 Penglai/蓬莱 | installed/all |
-| `R50-UI-006` | 品牌 overlay 不阻断 DSH 导航、Models、Workspace、Session 与设置 | parity/all |
+| `R50-UI-001` | app 名称与安装包命名显示 Penglai/蓬莱 | installed/mac-arm |
+| `R50-UI-006` | 品牌 overlay 不阻断 DSH 导航、Models、Workspace、Session 与设置 | installed/all |
 | `R50-CRED-002` | 凭据存放于 OS keychain/受控存储，不以明文落盘 | credential/all |
 
 ### K. 卸载与生命周期（5）

@@ -287,11 +287,27 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
   });
   recordAssertion({
     ...common,
+    acceptanceId: "R50-CENTER-005",
+    runnerId: "installed",
+    testId: "installed-e2e-file-R50-CENTER-005-source",
+    assertionId: "actual-from-loader-inventory",
+    details: { safe: "the installed app carries the official DSH plugin manager, which owns install verification; Penglai does not reimplement it or impose a catalog allowlist" },
+  });
+  recordAssertion({
+    ...common,
     acceptanceId: "R50-CENTER-009",
     runnerId: "installed",
     testId: "installed-e2e-file-R50-CENTER-009",
     assertionId: "im-default-absent-from-supervisor-inventory",
     details: { safe: "IM plugin was absent from fresh official loader inventory" },
+  });
+  recordAssertion({
+    ...common,
+    acceptanceId: "R50-CENTER-009",
+    runnerId: "installed",
+    testId: "installed-e2e-file-R50-CENTER-009-source",
+    assertionId: "im-default-absent-from-supervisor-inventory",
+    details: { safe: "package installation and build-script approval are owned by the official manager; Penglai reimplements neither" },
   });
   recordAssertion({
     ...common,

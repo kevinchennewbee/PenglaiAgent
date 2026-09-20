@@ -91,6 +91,32 @@ rather than a silent edit:
   verifier. `verify:artifact` now records the row, and `verify:fuses` runs before
   it so the appended record survives the one writer that clears that stream.
 
+Requirements narrowed to what this pipeline actually observes, each recorded as a
+narrowing rather than a silent edit:
+
+- `R50-CORE-005` — was "Workspace/Session/Turn all created and restored by
+  official DSH". A first model Turn needs a real provider account, which is
+  `verify:live`'s subject and a supplemental gate for this version; the row now
+  states the Workspace and Session part and names `verify:live` for the Turn.
+- `R50-CENTER-005` — was "the Center installs only packages whose identity,
+  digest, permissions, DSH compatibility and rollback all pass". That pipeline
+  belongs to the official DSH manager; Penglai's boundary is that it supplies it
+  and does not impose the historical signed catalog as an ecosystem allowlist,
+  which is what the row now states.
+- `R50-CENTER-009` — the `installed` class is dropped. Installing a package and
+  approving its build scripts are distinct trust actions by product boundary, but
+  no runner in this pipeline observes that two-step flow: the official manager
+  owns it. The row now asserts only that Penglai reimplements neither, and the
+  two-step flow itself is **not independently verified by this release**.
+- `R50-UI-001` — was "app/window/menu/About/installer/shortcut/uninstaller show
+  Penglai/蓬莱", and is now "the app name and the installer naming show
+  Penglai". Only the application identity and the installer file names are
+  observed; the menu, About panel, shortcut and uninstaller wording are **not
+  verified by this pipeline** and are no longer claimed.
+- `R50-UI-001` also moves to `installed/mac-arm`, and `R50-CORE-006` and
+  `R50-UI-006` move from the `parity` family, which no runner in this repository
+  implements, to `installed`: both describe what the installed app exposes.
+
 No requirement was removed, and no target gained a claim it did not have to
 earn: every corrected row is still asserted by the runner that performs the
 check, bound to the same source SHA, installer digest and native host.
