@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { recordAssertion } from "./assertion.js";
+import { recordAssertion, declaredSourceSha } from "./assertion.js";
 import {
   aggregateSlotEvaluations,
   assertNoDuplicateAssertions,
@@ -71,11 +71,13 @@ test("recordAssertion keeps the caller source SHA when PENGLAI_CANDIDATE_SHA dif
   const prev = process.env.PENGLAI_CANDIDATE_SHA;
   process.env.PENGLAI_CANDIDATE_SHA = OTHER;
   try {
-    // No registry record is written here. A second R50-TRUTH-001 assertion made
-    // `resultsFromAssertions` report a duplicate for that id, which tallies as
-    // FAIL. `identity.test.ts` is the single authoritative emitter for it, and the
-    // property under test — a runner SHA is never taken from the environment — is
-    // asserted on the returned record below.
+    // This record is the collected evidence for R50-TRUTH-006, so it has to name
+    // the source the runner is actually asserting against. It used the fixture
+    // sha above, which no candidate can match: the aggregate bound to its own
+    // HEAD and read the row as NOT_RUN — a PASS record that could never be
+    // current. The fixture is still what the environment is set to, so the
+    // invariant below is asserted on the real value.
+    const declared = declaredSourceSha();
     const got = recordAssertion({
       // R50-TRUTH-006 is the dedicated id for this invariant: a runner SHA is
       // never taken from the environment. Using R50-TRUTH-001 here instead
@@ -85,11 +87,11 @@ test("recordAssertion keeps the caller source SHA when PENGLAI_CANDIDATE_SHA dif
       testId: "env-must-not-overwrite",
       assertionId: "keep-runner-source-sha",
       status: "PASS",
-      candidateSourceSha: HEAD,
+      candidateSourceSha: declared,
       target: "source",
       exitCode: 0,
     });
-    assert.equal(got.candidateSourceSha, HEAD);
+    assert.equal(got.candidateSourceSha, declared);
     assert.notEqual(got.candidateSourceSha, process.env.PENGLAI_CANDIDATE_SHA);
   } finally {
     if (prev === undefined) delete process.env.PENGLAI_CANDIDATE_SHA;

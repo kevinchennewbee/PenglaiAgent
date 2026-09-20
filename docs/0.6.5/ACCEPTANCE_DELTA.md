@@ -121,6 +121,42 @@ No requirement was removed, and no target gained a claim it did not have to
 earn: every corrected row is still asserted by the runner that performs the
 check, bound to the same source SHA, installer digest and native host.
 
+## Evidence binding corrections in this release
+
+The same hard gate exposed records that were collected but could not be bound to
+the candidate being released. Each one is a wiring defect: the checks themselves
+were already running.
+
+- `R50-TRUTH-001`, `R50-TRUTH-002`, `R50-TRUTH-004`, `R50-TRUTH-006`,
+  `R50-TRUTH-008`, `R50-DIST-001` and `R50-DIST-003` recorded a fixture source
+  SHA (`"a".repeat(40)` and neighbours) rather than the source the runner was
+  asserting against. A record bound to a fixture can never be current, so these
+  rows read `NOT_RUN` however the test exited. They now record
+  `declaredSourceSha()`, which is Git HEAD and is deliberately impossible to
+  override from the environment.
+- `R50-E2E-004` is a source-scoped `anti-cheat` observation recorded by
+  `verify-installed`, which runs on both native hosts. The same assertion reached
+  the aggregate twice and `assertNoDuplicateAssertions` refuses a duplicate key,
+  which is what stopped the aggregate run. One host records it now: a source
+  observation is the same on every host.
+- `R50-CORE-002` is asserted from two different observations — the raw
+  `installed-e2e.json` file and the candidate-bound installed runner — and both
+  used one assertion id, which the duplicate rule reads as one assertion recorded
+  twice. The candidate-bound record now names its own observation.
+- `R50-ABSENT-001` reported its `installer-payload` surface unavailable whenever
+  no `dist/runtime-staging*` tree existed, which is always true on the publishing
+  host: it runs no package build and receives installers only. The surface now
+  also reads the runtime manifest inside the payload copied back out of the
+  collected installer, which is the shipped bytes. Its `files` entries are
+  `{path, sha256, size}` objects rather than names, and reading them as names
+  matched nothing, so the surface would have reported a clean payload without
+  inspecting one.
+- `R50-DRIFT-002` and `R50-DRIFT-004` read `api.github.com`, which answers 403
+  once the unauthenticated per-IP quota is spent; hosted runners share an address
+  pool, so both probes recorded `BLOCKED` — honest about the probe, and useless
+  about upstream, because the pinned facts were never compared. They now send the
+  workflow token to `api.github.com` and to no other host.
+
 ## 中文
 
 蓬莱 0.6.5 延续 0.6.3 已发布的完整固定 DeepSeek Harness npm 依赖组：官方

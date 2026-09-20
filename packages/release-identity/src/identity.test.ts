@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PenglaiError } from "@penglai/contracts";
-import { recordAssertion } from "./assertion.js";
+import { recordAssertion, declaredSourceSha } from "./assertion.js";
 import {
   assertCommittedTemplateIdentity,
   assertIdentityMatchesGit,
@@ -32,7 +32,7 @@ test("R50-TRUTH-001 identity pins are 0.6.5", () => {
     testId: "identity-pins-0.6.5",
     assertionId: "productVersion-is-0.6.5",
     status: "PASS",
-    candidateSourceSha: "a".repeat(40),
+    candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
   });
 });
@@ -59,7 +59,7 @@ test("R50-TRUTH-002 candidateKind trustTier generation and three exact release t
     testId: "identity-contract-fields",
     assertionId: "kind-trust-generation-three-targets",
     status: "PASS",
-    candidateSourceSha: "a".repeat(40),
+    candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
   });
 });
@@ -89,7 +89,7 @@ test("R50-TRUTH-004 UNFROZEN identity rejects artifact/signature/live/READY", ()
     testId: "unfrozen-forbids-artifact-ready",
     assertionId: "unfrozen-rejects-artifact-live-ready",
     status: "PASS",
-    candidateSourceSha: "b".repeat(40),
+    candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
   });
 });
@@ -161,7 +161,7 @@ test("R50-TRUTH-008 publication fields match the owner-authorized public target"
     testId: "publication-authorized-target",
     assertionId: "publication-fields-owner-authorized",
     status: "PASS",
-    candidateSourceSha: "e".repeat(40),
+    candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
   });
 });

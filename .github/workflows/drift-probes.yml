@@ -51,6 +51,8 @@ jobs:
       - name: Run drift probes
         id: probes
         continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         # The script exits 1 for drift and 4 when every probe was blocked. The
         # exit code is recorded because `continue-on-error` collapses both into
         # the same step outcome, which is how this workflow would have turned a

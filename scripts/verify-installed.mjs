@@ -233,18 +233,21 @@ identity.recordAssertion({
   assertionId: "keyless-and-product-http-ws-process-inventory",
   details: { safe: "credential-free onboarding plus companion product HTTP WS owned process and loader evidence passed" },
 });
-identity.recordAssertion({
-  ...common,
-  acceptanceId: "R50-E2E-004",
-  runnerId: "anti-cheat",
-  testId: "verify-installed:R50-E2E-004",
-  // `anti-cheat` is a source-scoped family, so the slot is `anti-cheat/source`.
-  // The record inherited a platform target, which matched no slot and left the id
-  // unemitted at both hosts.
-  target: "source",
-  assertionId: "rejected-source-read-and-removed-endpoints",
-  details: { safe: "source-read usable-fixture and proveCausalRoute cannot produce installed PASS" },
-});
+// `anti-cheat` is a source-scoped family, so the slot is `anti-cheat/source`, and
+// a source observation is the same on every host. Recording it once keeps the
+// aggregate stream free of a duplicate key: `assertNoDuplicateAssertions` keys on
+// (acceptanceId, assertionId, target), not on the host that wrote it.
+if (target === "darwin-aarch64") {
+  identity.recordAssertion({
+    ...common,
+    acceptanceId: "R50-E2E-004",
+    runnerId: "anti-cheat",
+    testId: "verify-installed:R50-E2E-004",
+    target: "source",
+    assertionId: "rejected-source-read-and-removed-endpoints",
+    details: { safe: "source-read usable-fixture and proveCausalRoute cannot produce installed PASS" },
+  });
+}
 identity.recordAssertion({
   ...common,
   acceptanceId: "R50-DIST-008",
@@ -332,12 +335,18 @@ identity.recordAssertion({
   assertionId: "absolute-embedded-node-runs-pinned-dsh",
   details: { safe: "packaged app booted the pinned official DSH through its absolute embedded Node" },
 });
+// `installed-evidence.test.ts` already records this row's raw-file observation
+// under `official-dsh-web-after-onboarding`. Naming this one the same made the
+// aggregate stream carry the key twice: `assertNoDuplicateAssertions` keys on
+// (acceptanceId, assertionId, target), and the two records are different
+// observations — the test reads the raw `installed-e2e.json`, while this one is
+// recorded only after the exact installer and its companion evidence were bound.
 identity.recordAssertion({
   ...common,
   acceptanceId: "R50-CORE-002",
   runnerId: "installed",
   testId: "verify-installed:R50-CORE-002",
-  assertionId: "official-dsh-web-after-onboarding",
+  assertionId: "official-dsh-web-after-onboarding-from-exact-installer",
   details: { safe: "BrowserWindow reached the official DSH Web over HTTP and WebSocket after the onboarding privacy step" },
 });
 // The credential-free installed record attests the resume step, the official
