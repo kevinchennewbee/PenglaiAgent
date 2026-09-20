@@ -337,6 +337,33 @@ identity.recordAssertion({
   assertionId: "official-dsh-web-after-onboarding",
   details: { safe: "BrowserWindow reached the official DSH Web over HTTP and WebSocket after the onboarding privacy step" },
 });
+// The credential-free installed record attests the resume step, the official
+// provider catalog rows, and the plugin settings surface through the same
+// companion evidence `validateInstalledCompanions` refuses to continue without.
+identity.recordAssertion({
+  ...common,
+  acceptanceId: "R50-ONB-006",
+  runnerId: "installed",
+  testId: "verify-installed:R50-ONB-006",
+  assertionId: "resume-unfinished-onboarding-after-restart",
+  details: { safe: "installed onboarding resumed its unfinished step after a real restart" },
+});
+identity.recordAssertion({
+  ...common,
+  acceptanceId: "R50-CORE-004",
+  runnerId: "installed",
+  testId: "verify-installed:R50-CORE-004",
+  assertionId: "models-from-official-provider-catalog",
+  details: { safe: "the installed models step listed rows from the official llm.providers catalog" },
+});
+identity.recordAssertion({
+  ...common,
+  acceptanceId: "R50-CENTER-001",
+  runnerId: "installed",
+  testId: "verify-installed:R50-CENTER-001",
+  assertionId: "official-plugin-surface-in-installed-app",
+  details: { safe: "the installed app exposed the official plugin settings surface with the required built-in and the optional plugins" },
+});
 finish("PASS", {
   command: "verify:installed",
   sourceSha: source.git.head,
