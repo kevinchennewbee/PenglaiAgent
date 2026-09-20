@@ -152,6 +152,7 @@ const artifactCommon = {
 identity.recordAssertion({
   ...artifactCommon,
   acceptanceId: "R50-DIST-005",
+  testId: "verify-artifact:R50-DIST-005",
   assertionId: "embedded-runtime-versions-match-pin",
   details: { safe: `packaged runtime carries the pinned Node ${nodeVersion} and DSH ${packaged.release.dsh}` },
 });
@@ -175,6 +176,7 @@ if (expectedTarget === "darwin-aarch64") {
   identity.recordAssertion({
     ...artifactCommon,
     acceptanceId: "R50-MAC-007",
+    testId: "verify-artifact:R50-MAC-007",
     assertionId: "arm64-dmg-udzo-and-hdiutil-verify",
     details: { safe: "the arm64 DMG is a UDZO image and passes hdiutil verify" },
   });

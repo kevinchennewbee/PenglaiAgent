@@ -189,12 +189,14 @@ const signingCommon = {
 identity.recordAssertion({
   ...signingCommon,
   acceptanceId: "R50-MAC-006",
+  testId: "verify-signing:R50-MAC-006",
   assertionId: "from-dmg-app-codesign-verify-deep-strict",
   details: { safe: "from-DMG Penglai.app passed codesign --verify --deep --strict with an ad-hoc signature" },
 });
 identity.recordAssertion({
   ...signingCommon,
   acceptanceId: "R50-MAC-008",
+  testId: "verify-signing:R50-MAC-008",
   assertionId: "mounted-app-copy-codesign-strict",
   details: { safe: "the application copied back out of the mounted installer still passes codesign strict" },
 });
