@@ -21,8 +21,17 @@ const identity = await import(pathToFileURL(join(ROOT, "packages/release-identit
 const evidenceDir = join(ROOT, "evidence/generated");
 const assertionFile = join(evidenceDir, "installed-assertions.jsonl");
 mkdirSync(evidenceDir, { recursive: true });
-writeFileSync(assertionFile, "");
-process.env.PENGLAI_EVIDENCE_DIR = assertionFile;
+// `--aggregate` validates the collected per-target records; it emits nothing of
+// its own. Truncating here therefore destroyed the assertion stream the target
+// hosts produced, and the aggregate only ever receives the records they uploaded
+// — so every `installed` slot evaluated on the aggregate was empty even though
+// the native jobs had recorded them. A run that emits nothing must not clear a
+// file it does not write.
+const aggregateMode = process.argv.includes("--aggregate");
+if (!aggregateMode) {
+  writeFileSync(assertionFile, "");
+  process.env.PENGLAI_EVIDENCE_DIR = assertionFile;
+}
 
 function readTargetEvidence(base, target) {
   const path = join(evidenceDir, evidenceName(base, target));
