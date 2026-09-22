@@ -1,6 +1,7 @@
 # 0.6.5 open plugin management
 
-Status: implementation in progress; no native or publication result is implied.
+Status: shipped in the published 0.6.5 release; the native and publication
+results are recorded in `docs/PUBLICATION_MANIFEST_0.6.5.md`.
 
 ## Owner decision, 2026-09-18
 

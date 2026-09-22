@@ -7,8 +7,8 @@
 >
 > 精确版本、文件名与公开目标以 `release-contract.json` 为准；排除范围以
 > `PRODUCT_CONSTITUTION.md` 与 `docs/PRODUCT.md` 为准。已发布的 0.5.10、
-> 0.5.11、0.5.12、0.6.0、0.6.1、0.6.2 与 0.6.5 的验收增量保持不可变，本文不
-> 改写任何已发布历史，也不再登记它们的历史 ID。
+> 0.5.11、0.5.12、0.6.0、0.6.1、0.6.2、0.6.3 与 0.6.5 的验收增量保持不可变，
+> 本文不改写任何已发布历史，也不再登记它们的历史 ID。
 
 ## 1. 判定对象与结论
 
@@ -163,7 +163,7 @@ exit/result digest。不能通过文件名、字符串存在或一个 smoke 扇�
 | --- | --- | --- |
 | `R50-UI-001` | app 名称与安装包命名显示 Penglai/蓬莱 | installed/mac-arm |
 | `R50-UI-006` | 品牌 overlay 不阻断 DSH 导航、Models、Workspace、Session 与设置 | installed/all |
-| `R50-CRED-002` | 凭据存放于 OS keychain/受控存储，不以明文落盘 | credential/all |
+| `R50-CRED-002` | 凭据只经 official credentials-local 写入 app-private YAML，以目录/文件 mode 或当前用户 ACL 收紧；不是 Keychain/硬件隔离，renderer 不读回明文 | credential/all |
 
 ### K. 卸载与生命周期（5）
 

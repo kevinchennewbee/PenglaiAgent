@@ -1,4 +1,4 @@
-# Penglai 0.6.5 development contract
+# Penglai 0.6.5 product contract
 
 ## English
 
@@ -13,12 +13,13 @@ provider gateway, session store, or chat page.
 
 Version 0.6.5 targets Apple Silicon, Windows x64, and UnionTech
 UOS 20 `linux-loong64`. Intel Mac is excluded from this version. It consumes
-official DSH `0.1.6-alpha.2` (307-package npm cohort). v0.6.3 remains the current
-public download until immutable v0.6.5 GitHub Release bytes are published and
-read back. A fresh
+official DSH `0.1.6-alpha.2` (307-package npm cohort). v0.6.5 is the current
+public download: its immutable GitHub Release bytes were published from
+`eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a` and read back on 2026-09-20. A fresh
 user brings a provider credential, selects an official model and Workspace,
 receives a real first DSH reply, and then uses the official DSH Web
-interface. Published 0.5.10, 0.5.11, 0.5.12, 0.6.0, 0.6.1 and 0.6.2 remain immutable.
+interface. Published 0.5.10, 0.5.11, 0.5.12, 0.6.0, 0.6.1, 0.6.2, 0.6.3 and
+0.6.5 remain immutable.
 
 ### 2. Supported platforms
 
@@ -169,9 +170,11 @@ immutable ten-asset Release passes public byte-for-byte readback. Native UOS use
 remains `OWNER_POST_RELEASE`. Credential-free gates do not establish an external model
 reply or account delivery. Account-based results are recorded only when executed.
 Normal functional tests apply; a two-hour installed soak is not required or pending.
-This development authorization stops before native candidate work, so all three
-installers, installed lifecycle checks, and public readback remain `NOT_RUN`.
-The 0.6.3 to 0.6.5 installed upgrade is excluded by the Owner, so it is not
+Those conditions are met for the published 0.6.5 release: all three installers,
+the Mac and Windows installed lifecycle checks, the UOS package/ABI/runtime
+closure, and the immutable ten-asset public readback passed on source
+`eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a`. The 0.6.3 to 0.6.5 installed
+upgrade is excluded by the Owner, so it is not
 claimed; that is a recorded exclusion, not a missing result. Native UOS use
 remains `OWNER_POST_RELEASE`.
 See [the current acceptance delta](0.6.5/ACCEPTANCE_DELTA.md).
@@ -185,14 +188,15 @@ Agent、模型、工具、审批、Workspace、Session、Turn 和会话 UI。蓬
 首次引导、进程监管、本地数据边界、辅助升级、卸载和经过审核的 DSH 插件，不另造
 Agent、模型网关、Session 存储或聊天页。
 
-当前公开版本为 v0.6.3（十项附件不可变，公网逐字节回读已通过）。开发候选消费官方
+当前公开版本为 v0.6.5（十项附件不可变，公网逐字节回读已通过，构建源码
+`eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a`）。它消费官方
 DSH `0.1.6-alpha.2`（307 包），目标为 Apple 芯片、Windows x64，以及统信 UOS 20
 `linux-loong64`（`Penglai_0.6.5_uos_loong64.deb`）。Intel Mac 不在本版发布。用户自备模型密钥，
 选择 official 模型和 Workspace，收到第一条真实 DSH 回复后进入 official
 DSH Web。原生生命周期要求 Apple 芯片与 Windows 全新安装、重启与默认卸载；
 0.6.3 到 0.6.5 的真实安装版升级由 Owner 标记为 `OWNER_EXCLUDED`，不作为发布 PASS。
-UOS 真机安装/启动/功能为 `OWNER_POST_RELEASE`。已发布的 0.5.10、0.5.11、0.5.12、0.6.0、0.6.1、0.6.2
-保持不可变。
+UOS 真机安装/启动/功能为 `OWNER_POST_RELEASE`。已发布的 0.5.10、0.5.11、0.5.12、0.6.0、0.6.1、0.6.2、0.6.3
+与 0.6.5 保持不可变。
 
 ### 2. 全新安装
 

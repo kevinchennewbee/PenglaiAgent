@@ -35,6 +35,6 @@ turn an unrun native or public check into PASS.
 - [ ] Owner post-release UOS native test: install, start, UI, file picker,
       sleep/resume, model conversation, and Memory.
 
-Unchecked native/public items are `NOT_RUN` until executed in the authorized
-full-release sequence. The 0.6.3 installed-upgrade journey and the two-hour
-installed soak are both `OWNER_EXCLUDED`.
+The remaining open item is the Owner's UOS native test (`OWNER_POST_RELEASE`),
+not a missing publication result. The 0.6.3 installed-upgrade journey and the
+two-hour installed soak are both `OWNER_EXCLUDED`.

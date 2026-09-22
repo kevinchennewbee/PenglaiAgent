@@ -23,8 +23,9 @@ Workspace, Memory, and optional in-scope plugins. LibreOffice, Office/PDF,
 Budget, and Companion are absent. That intended parity is not a
 native result yet. Physical UOS install, startup, UI rendering, file picker,
 sleep/resume, real-model conversation, and Memory remain
-`OWNER_POST_RELEASE`. The Owner will test a future immutable published package.
-The package build and verification are `NOT_RUN` in the current phase.
+`OWNER_POST_RELEASE`. The Owner will test the immutable published package.
+The package build and its package/ABI/runtime/closure verification passed
+before publication; that is package evidence, not a native machine PASS.
 
 MOSS-TTS is unavailable on LoongArch. iMessage is Mac-only. UOS uses Loongson
 Electron `31.7.7` / Chromium 126, which is no longer maintained and does not

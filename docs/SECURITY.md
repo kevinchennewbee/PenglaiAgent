@@ -5,8 +5,9 @@
 0.5 数据代际保护相互关联的边界：只读 target app/runtime、app-private 0.5 DSH
 profile、official DSH Web 本地入口、credentials-local secret、IM 因果隔离、厂商
 网络输入、本地 voice/context/memory 数据、signed
-assisted update、精确卸载和可公开供应链。当前 0.6.5 候选固定 official DSH
-`0.1.6-alpha.2`；公开下载仍为 v0.6.2，直到不可变 v0.6.5 附件发布并回读。任何
+assisted update、精确卸载和可公开供应链。当前 0.6.5 固定 official DSH
+`0.1.6-alpha.2`；公开下载为 v0.6.5，其不可变附件已于 2026-09-20 发布并完成
+公网字节回读。任何
 Penglai 插件都不能放宽 DSH 工具权限、sandbox 或人工审批。
 
 ## 2. 数据分级
@@ -152,8 +153,8 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - updater private key、Apple/Windows credentials不进Git、命令参数、普通env dump、日志、artifact、evidence。
 - final signing只记录public key id、signature/hash/result。
 - exact三安装包绑定source/export；验收后不重建偷换。
-- v0.6.5 tag/Release/channel 在候选阶段保持未执行；发布后必须回读并冻结，
-  后续维护不得覆盖其字节。
+- v0.6.5 tag/Release/channel 已发布并完成公网回读冻结；后续维护不得覆盖其字节。
+  发布顺序仍是先回读再更新公开下载声明。
 
 ## 15. 日志、诊断与evidence
 

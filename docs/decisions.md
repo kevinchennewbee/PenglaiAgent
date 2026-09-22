@@ -660,6 +660,32 @@
   mutable profile package backend；D-077 中“关闭 free-form manager”与“合并 main 后停止”
   的旧执行边界不再适用于当前 0.6.3 发布流程。
 
+### D-081 — 0.6.5 修复发布：微信通道、辅助更新与验证层，并完成全流程公开
+
+- 日期：2026-09-18 授权；2026-09-20 发布收口。
+- 决定：Owner 授权 **Penglai 0.6.5** 在不变的官方 DSH `0.1.6-alpha.2` / tag
+  `dsh-v0.1.6-alpha.2` / commit `ddefc45fbc7f8e46dd73185e68295696d1297887`
+  307 包 cohort 上做修复发布：修好自 0.5.x 起冻结的微信 iLink 连接、0.6.0 起
+  失效的辅助更新检查，以及本应发现这两者的验证层。不新增能力，不召回任何
+  已排除模块。
+- 范围：Source CI 与 CodeQL 通过后合并 `main`；同一干净 source SHA
+  `eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a` 构建 `darwin-aarch64`、
+  `win32-x86_64`、`linux-loong64` 三端；Mac/Windows 完成 fresh install →
+  restart → default uninstall；UOS `.deb` 完成 package/ABI/runtime/closure
+  验证；发布 `release-contract.json` 精确十项附件并完成公网逐字节回读；随后
+  更新 README 与双语官网并部署回读。
+- 保留边界：`0.6.3 → 0.6.5` 真实安装版升级与两小时 installed soak 均为
+  `OWNER_EXCLUDED`，不得标 PASS。UOS 真机安装/启动/UI/文件选择器/休眠恢复/
+  模型会话为 `OWNER_POST_RELEASE`，不得用包/ABI 证据冒充真机 PASS。macOS 未
+  公证，Windows 无 Authenticode。
+- 结果：v0.6.5 于 2026-09-20T07:00:58Z 不可变发布，十项附件公网回读
+  `PUBLIC_READBACK_PASS`，draft seal 与 public seal 一致；Cloudflare Pages 与
+  GitHub Pages 双站部署回读一致。构建源码 SHA、每项资产大小与 SHA-256 见
+  `docs/PUBLICATION_MANIFEST_0.6.5.md`。
+- 后果：v0.6.5 及其 tag、附件与历史证据保持不可变。`docs/PUBLICATION_0.6.5.md`
+  与 `docs/PUBLICATION_MANIFEST_0.6.5.md` 是公开事实入口。D-080 及更早决议中
+  “当前公开版本为 0.6.3”之类的时点表述以本决议为准。
+
 ## Superseded
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。
