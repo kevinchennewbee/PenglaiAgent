@@ -1,7 +1,8 @@
 # Penglai 0.6.5 release plan
 
-Status: full release workflow authorized by the Owner on 2026-09-18. Native,
-publication, and deployment results remain `NOT_RUN` until each step executes.
+Status: completed. The Owner authorized the full release workflow on
+2026-09-18; native builds, immutable publication, public readback, and website
+deployment all executed and passed. This file records the plan that was run.
 
 ## Goal
 
@@ -42,8 +43,8 @@ README and existing websites.
 - UOS native install, startup, UI, file picker, sleep/resume, and functional
   use remain `OWNER_POST_RELEASE`; the Owner tests the published `.deb`.
 - No notarization or Authenticode claim.
-- No public-download claim until the immutable release can be read back.
-- Current public README/site remain on v0.6.3 until immutable 0.6.5 bytes pass
-  readback; they must never name this version's installers before that.
+- The public-download claim may name this version's installers only after the
+  immutable release has been read back. That readback passed on 2026-09-20, and
+  the README/site were then updated with the observed sizes and SHA-256 values.
 - LibreOffice, Office/PDF, Budget, and Companion are not 0.6.5 product
   capabilities and must remain absent from product closure and installers.

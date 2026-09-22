@@ -11,10 +11,11 @@
   `release-contract.json`, and current source define the product/release
   contract. Reports are leads; published claims require verified public
   artifact evidence.
-- v0.5.10, v0.5.11, v0.5.12, v0.6.0, v0.6.1, v0.6.2 and v0.6.3 are immutable
-  public history. v0.6.3 was published; its ten-asset Release is immutable and
-  public byte-for-byte readback passed. `docs/0.6.3/` is the record of that
-  release and its planning state is preserved as written — do not treat its
+- v0.5.10, v0.5.11, v0.5.12, v0.6.0, v0.6.1, v0.6.2, v0.6.3 and v0.6.5 are
+  immutable public history. v0.6.5 is the newest published release: its
+  ten-asset Release is immutable and public byte-for-byte readback passed on
+  2026-09-20. `docs/0.6.5/` is the record of that release and `docs/0.6.3/`
+  preserves the previous one's planning state as written — do not treat those
   planning status lines as current. The current source and its own acceptance
   delta govern development work, and must not modify or weaken any published
   release history.
@@ -23,9 +24,10 @@
 
 - Official DeepSeek Harness is the only agent core. Do not add a parallel host,
   provider gateway, fake plugin runtime, or a second conversation engine.
-- For 0.5.7, the fixed core is DSH `0.1.1-rc.2`. Office and Memory are required,
-  bundled DSH plugins. Mobile Messaging, ASR, TTS, and Companion are bundled but
-  optional and default off.
+- Historical scope note for 0.5.7 only (not the current boundary): the fixed
+  core was DSH `0.1.1-rc.2`, with Office and Memory as required bundled plugins
+  and Mobile Messaging, ASR, TTS, and Companion bundled but optional and default
+  off. From 0.6.3 onward Office and Companion are excluded entirely.
 - 0.5.8 is immutable public history built from official DSH
   `dsh-v0.1.2-alpha.1` / `cd5ef8148158c3a752a658978873241fdf8e2bbc`.
 - For 0.6.5, the Owner-fixed upstream baseline is official npm
@@ -71,9 +73,10 @@
 - The Owner authorized the complete 0.6.5 workflow: reviewed source, PR and
   merge to `main`, three-target native build and applicable installed validation,
   immutable publication, public byte readback, then README/site update and
-  deployment. Preserve that order: do not change an existing release tag or
-  asset, and do not update the public download claim before immutable 0.6.5
-  bytes have passed readback.
+  deployment. That sequence completed on 2026-09-20. Preserve the standing
+  order for any future release: do not change an existing release tag or
+  asset, and do not update the public download claim before the immutable
+  bytes of that release have passed readback.
 
 ## Verification and release
 
@@ -91,8 +94,8 @@
   The 0.6.3 to 0.6.5 installed upgrade was `OWNER_EXCLUDED` and remains recorded
   as an exclusion, not a missing result; do not retroactively label it PASS.
   UOS native install/startup/function is `OWNER_POST_RELEASE` and
-  must not be labeled PASS; the UOS package/ABI/closure still require
-  verification.
+  must not be labeled PASS; the UOS package/ABI/closure verification passed
+  before publication and is package evidence only, not a native machine PASS.
 - Native artifacts for all three selected 0.6.5 targets must come from one clean
   `main` SHA. Intel Mac is excluded from this version. Follow the current
   version contract and acceptance delta; publish only the exact asset set in
@@ -114,17 +117,19 @@
   `GenericAgent` 仓库混淆。
 - 产品宪法、产品与架构文档、验收清单、当前版本验收增量、发布契约与源码约束产品；
   公开发布声明还须真实附件取证。其他模型的报告只能作为线索。
-- v0.5.10、v0.5.11、v0.5.12、v0.6.0、v0.6.1、v0.6.2 与 v0.6.3 已不可变。
-  v0.6.3 已发布：十项附件不可变，公网逐字节回读已通过。`docs/0.6.3/` 是那次发布的
-  记录，其规划状态按原样保留 —— 不要把它里面的状态行当成现状。以当前源码与其
+- v0.5.10、v0.5.11、v0.5.12、v0.6.0、v0.6.1、v0.6.2、v0.6.3 与 v0.6.5 已不可变。
+  v0.6.5 是最新已发布版本：十项附件不可变，公网逐字节回读已于 2026-09-20 通过。
+  `docs/0.6.5/` 是那次发布的记录；`docs/0.6.3/` 的规划状态按原样保留 —— 不要把
+  这些目录里的规划状态行当成现状。以当前源码与其
   自己的验收增量约束开发；不得修改或削弱任何已发布历史。
 
 ## 产品边界
 
 - 官方 DeepSeek Harness 是唯一 Agent 核心，禁止另建 Host、模型网关、假插件
   运行时或第二套会话引擎。
-- 0.5.7 固定 DSH `0.1.1-rc.2`。蓬莱办公与蓬莱记忆为必装、默认启用的 DSH
-  插件；手机消息、语音识别、语音生成、主动陪伴为内置可选插件，默认关闭。
+- 历史范围注记（仅 0.5.7，不是当前边界）：当时固定 DSH `0.1.1-rc.2`，
+  蓬莱办公与蓬莱记忆为必装、默认启用；手机消息、语音识别、语音生成、主动陪伴
+  为内置可选插件，默认关闭。自 0.6.3 起办公与主动陪伴已整体排除。
 - 0.5.8 是基于官方 DSH `dsh-v0.1.2-alpha.1` /
   `cd5ef8148158c3a752a658978873241fdf8e2bbc` 的不可变公开历史。
 - 0.6.5 的 Owner 固定上游基线为官方 npm `0.1.6-alpha.2`，tag
@@ -155,13 +160,14 @@
 - 禁止提交 API Key、Token、私钥、个人路径、聊天媒体、本地配置或含隐私截图。
 - 源码测试不等于已安装、原生、在线、Windows、Intel、公证或公开发布证据。
 - Owner 已授权 0.6.5 完整流程：源码审查、PR/合并 `main`、三目标原生构建与相应
-  安装验证、不可变发布、公网字节回读，随后更新 README/官网并部署。必须按此顺序；
-  不得改写既有发布 tag/附件，也不得在不可变 0.6.5 公网字节回读通过前更新公开
-  下载声明。
+  安装验证、不可变发布、公网字节回读，随后更新 README/官网并部署。该顺序已于
+  2026-09-20 完成。此后任一发布仍必须按此顺序；不得改写既有发布 tag/附件，
+  也不得在该次发布的不可变公网字节回读通过前更新公开下载声明。
 - Mac/Windows 安装引导必须验证全新安装、重启续跑、返回/重试、非法目录、凭据
   失败恢复、首条官方消息和默认卸载。0.6.3 到 0.6.5 的真实安装版升级在本版为
   `OWNER_EXCLUDED`，不得执行或标记 PASS。UOS 真机
-  安装/启动/功能为 `OWNER_POST_RELEASE`，不得标 PASS；UOS 包/ABI/闭包仍须验证。
+  安装/启动/功能为 `OWNER_POST_RELEASE`，不得标 PASS；UOS 包/ABI/闭包验证已在
+  发布前通过，那只是包证据，不是真机 PASS。
   三个所选安装包必须来自同一个干净 main SHA。Intel Mac 不在本版。缺任一所选
   目标仍失败；把 Intel 加入本版精确集合仍失败。
 - 发布严格执行当前版本契约与验收增量，README、官网、发行说明与用户

@@ -4,7 +4,7 @@
 
 Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settings.plugins.tab`。它不是 Electron 外壳里的第二商店，也不是一个只写 `desired.json` 的状态页。
 
-## 2. 0.5 数据代际内置 catalog（当前开发候选 v0.6.5）
+## 2. 0.5 数据代际内置 catalog（当前版本 v0.6.5）
 
 只允许 app 内签入并离线验证的包：
 

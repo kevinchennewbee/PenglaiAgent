@@ -21,7 +21,7 @@ Penglai.app / Penglai.exe
       └─ hidden conformance fixture
 ```
 
-0.6.5 development pins official DSH `0.1.6-alpha.2`. Official DSH is the single runtime authority. Penglai does not own a second
+0.6.5 pins official DSH `0.1.6-alpha.2`. Official DSH is the single runtime authority. Penglai does not own a second
 provider registry, agent loop, Workspace/Session store, tool executor, approval
 system, or conversation renderer. The bootstrap wizard disappears after
 completion; the long-lived main window is official DSH Web with DSH client
@@ -311,4 +311,4 @@ Manifest/Token，不伪造二维码。WhatsApp 不展示、不支持、不列为
 该项已完成：三端来自同一干净 SHA，十项附件不可变发布并完成公网逐字节回读；
 0.6.3 到 0.6.5 的安装版升级由 Owner 明确排除，记为排除而非缺失结果。
 升级 manifest、release manifest、GitHub asset ID、大小、哈希和三端签名相互绑定；
-正式发布后再从公网下载十个资产逐字节回读。
+发布后已从公网下载十个资产逐字节回读。

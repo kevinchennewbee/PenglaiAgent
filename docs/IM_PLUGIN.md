@@ -1,6 +1,6 @@
 # `@penglai/im` 完整产品与协议合同
 
-> 0.5.12 用户只看到一个「消息连接」插件。0.6.5 development pins official DSH `0.1.6-alpha.2`. 既有八个平台都有真实连接入口，不再把新增渠道
+> 0.5.12 用户只看到一个「消息连接」插件。0.6.5 pins official DSH `0.1.6-alpha.2`. 既有八个平台都有真实连接入口，不再把新增渠道
 > 显示为路线图。0.6.5 另保留可选 Darwin-only iMessage 私聊文本入口，默认关闭，
 > Windows/UOS 为不支持。manifest 的 `live` 是历史兼容字段，表示 0.5.10 包含真实 adapter
 > 实现，不表示当前用户已启用或已通过 live-account 验收。没有

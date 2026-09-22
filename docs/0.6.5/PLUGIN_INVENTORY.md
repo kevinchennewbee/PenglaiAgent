@@ -6,8 +6,8 @@ installed package, exact digest, loader state, permissions, restart, and
 disable behavior.
 
 Source-level compatibility is required in this phase. Installed loader,
-restart, rollback, and native platform observations remain `NOT_RUN` until the
-three-target phase.
+restart, rollback, and native platform observations were produced in the
+three-target native phase on the frozen source SHA.
 
 | Surface | Fresh install | 0.6.5 decision |
 | --- | --- | --- |

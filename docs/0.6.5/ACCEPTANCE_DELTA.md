@@ -1,7 +1,9 @@
 # Penglai 0.6.5 acceptance delta
 
-Status: development acceptance delta. There are no 0.6.5 native or immutable
-public-byte results yet.
+Status: published acceptance delta. Native and immutable public-byte results
+exist for the 2026-09-20 release built from
+`eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a`; see
+[`docs/PUBLICATION_MANIFEST_0.6.5.md`](../PUBLICATION_MANIFEST_0.6.5.md).
 
 ## English
 

@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "kind": "penglai-0.6.5-development-cohort-freeze",
-  "status": "development-frozen",
+  "status": "publication-authorized",
   "publicRelease": {
     "productVersion": "0.6.5",
     "tag": "v0.6.5",
-    "immutable": false
+    "immutable": true
   },
   "previousPublicRelease": {
     "productVersion": "0.6.3",
@@ -14,7 +14,7 @@
   },
   "development": {
     "versionLabel": "0.6.5",
-    "publicationAuthorized": false,
+    "publicationAuthorized": true,
     "identityRetitled": true
   },
   "dsh": {

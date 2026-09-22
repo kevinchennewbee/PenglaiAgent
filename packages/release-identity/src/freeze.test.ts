@@ -67,7 +67,9 @@ test("0.5.12 publication-authorized freeze stays immutable and is not the 0.6 de
   assert.equal(releaseContract.dshVersion, PINNED_DSH);
   const development = loadDevelopmentFreeze();
   assert.equal(development.kind, COHORT_FREEZE_KIND);
-  assert.equal(development.status, "development-frozen");
+  // 0.6.5 was publication-authorized and published on 2026-09-20, so the freeze
+  // now sits in the same published shape as the immutable 0.5.12 record above.
+  assert.equal(development.status, "publication-authorized");
   assert.equal(development.dsh.version, PINNED_DSH);
   assert.equal(development.dsh.tag, PINNED_DSH_TAG);
   assert.equal(development.dsh.commit, PINNED_DSH_COMMIT);
@@ -75,7 +77,8 @@ test("0.5.12 publication-authorized freeze stays immutable and is not the 0.6 de
   assert.equal(development.dsh.tarballSha256, PINNED_DSH_TARBALL_SHA256);
   assert.equal(development.dsh.closureManifestSha256, PINNED_DSH_CLOSURE_MANIFEST_SHA256);
   assert.equal(development.publicRelease.tag, "v0.6.5");
-  assert.equal(development.publicRelease.immutable, false);
+  assert.equal(development.publicRelease.immutable, true);
+  assert.equal(development.development.publicationAuthorized, true);
   // The predecessor is the newest release the repository holds a publication
   // record for. Pinned here as a literal because it is a historical fact: the
   // immutable v0.6.3 Release, which published updater sequence 12.

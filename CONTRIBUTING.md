@@ -2,7 +2,7 @@
 
 Penglai is a desktop distribution of official DeepSeek Harness. Follow the
 current `AGENTS.md` and version contract. Commit, push, PR and merge only with
-the user's applicable authorization. Completed releases stay immutable. 0.6.2
+the user's applicable authorization. Completed releases stay immutable. 0.6.5
 follows the current product contract and acceptance delta.
 
 ## Prerequisites
@@ -16,7 +16,7 @@ follows the current product contract and acceptance delta.
 
 ## Required reading before code
 
-Read `PRODUCT_CONSTITUTION.md`, then `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/ACCEPTANCE.md`, and `docs/0.6.2/ACCEPTANCE_DELTA.md`. Do not implement a second Agent runtime, a second chat UI, a provider gateway, or a production secret path other than official credentials-local YAML.
+Read `PRODUCT_CONSTITUTION.md`, then `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/ACCEPTANCE.md`, and `docs/0.6.5/ACCEPTANCE_DELTA.md`. Do not implement a second Agent runtime, a second chat UI, a provider gateway, or a production secret path other than official credentials-local YAML.
 
 ## Develop
 
@@ -48,7 +48,7 @@ pnpm build:local-dmg --reuse-app
 
 Native packaging still refuses a dirty tree for release artifacts. Apple Silicon
 and Intel Mac builds are separate installers; a universal app is not two
-installers. 0.6.2 publication excludes Intel Mac. Follow the current version's
+installers. 0.6.5 publication excludes Intel Mac. Follow the current version's
 acceptance delta, not a historical runbook.
 
 ## Public export
