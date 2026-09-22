@@ -124,7 +124,9 @@ function catalogJson(overrides: Record<string, unknown> = {}) {
     catalogId: "stable",
     sequence: 6,
     issuedAt: "2026-08-21T00:00:00.000Z",
-    expiresAt: "2026-09-21T00:00:00.000Z",
+    // Always in the future relative to the wall clock: a fixed date turns every
+    // negative case into "catalog expired" and hides the rejection under test.
+    expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
     centerProtocol: 1,
     signingKeyId: "abc",
     entries: [

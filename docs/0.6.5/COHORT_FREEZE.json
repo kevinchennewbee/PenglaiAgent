@@ -1,14 +1,11 @@
 {
   "schema": 1,
   "kind": "penglai-0.6.5-development-cohort-freeze",
-  "status": "published",
+  "status": "publication-authorized",
   "publicRelease": {
     "productVersion": "0.6.5",
     "tag": "v0.6.5",
-    "immutable": true,
-    "publishedAt": "2026-09-20T07:00:58Z",
-    "buildSourceSha": "eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a",
-    "publicReadback": "PUBLIC_READBACK_PASS"
+    "immutable": true
   },
   "previousPublicRelease": {
     "productVersion": "0.6.3",
