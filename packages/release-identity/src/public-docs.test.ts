@@ -5,8 +5,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PRODUCT_VERSION, PINNED_DSH } from "./pins.js";
 
-/** The public download remains 0.6.5 until this candidate passes immutable readback. */
-const PUBLISHED_DSH = "0.1.6-alpha.2";
+/** The earlier product/architecture/security contracts are retained as 0.6.5 history. */
+const HISTORICAL_065_DSH = "0.1.6-alpha.2";
 import {
   assertCommittedTemplateIdentity,
   assertObservedReleaseFacts,
@@ -143,7 +143,7 @@ test("candidate delta names the selected release while public product documents 
   assert.ok(candidate.includes(PINNED_DSH));
   for (const text of [product, architecture, security, im]) {
     assert.ok(text.includes("0.6.5"));
-    assert.ok(text.includes(PUBLISHED_DSH));
+    assert.ok(text.includes(HISTORICAL_065_DSH));
     assert.doesNotMatch(text, /disabled WhatsApp compatibility card|说明卡没有连接/);
   }
   assert.match(security, /提供八个平台的真实连接 adapter/);
@@ -191,7 +191,7 @@ test("published README, website and security match the current observed manifest
   const pages = ["website/index.html", "website/zh/index.html", "website/en/index.html"].map((path) => readFileSync(join(root, path), "utf8"));
   const contract = JSON.parse(readFileSync(join(root, "release-contract.json"), "utf8"));
   assert.ok(manifest.includes("PUBLIC_READBACK_PASS"));
-  assert.ok(notes.includes(PUBLISHED_DSH));
+  assert.ok(notes.includes(PINNED_DSH));
   assert.ok(notes.includes("not notarized"));
   for (const target of contract.targets) {
     const row = manifest.split(/\r?\n/).find((line) => line.startsWith("|") && line.includes(target.installer));
@@ -201,7 +201,7 @@ test("published README, website and security match the current observed manifest
     const bytes = cells.find((cell) => /^[1-9][0-9,]*$/.test(cell));
     assert.ok(sha && bytes, `current manifest lacks exact bytes for ${target.installer}`);
     for (const content of [readme, ...pages]) {
-      assert.ok(content.includes(PRODUCT_VERSION) && content.includes(PUBLISHED_DSH));
+      assert.ok(content.includes(PRODUCT_VERSION) && content.includes(PINNED_DSH));
       assert.ok(content.includes(`https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${PRODUCT_VERSION}/${target.installer}`));
       assert.ok(content.includes(sha));
     }
@@ -210,7 +210,7 @@ test("published README, website and security match the current observed manifest
   }
   const security = readFileSync(join(root, "SECURITY.md"), "utf8");
   assert.ok(security.includes(`${PRODUCT_VERSION} | Current immutable public release`));
-  assert.ok(security.includes(PUBLISHED_DSH));
+  assert.ok(security.includes(PINNED_DSH));
   assert.match(security, /Eight platforms have connection entries/);
   assert.match(security, /security\/advisories\/new/);
   assert.doesNotMatch([readme, ...pages, security].join("\n"), /two-hour installed soak remain|两小时安装版稳定运行仍/);

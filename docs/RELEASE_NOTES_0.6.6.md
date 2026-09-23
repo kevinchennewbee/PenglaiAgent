@@ -1,6 +1,6 @@
 # Penglai 0.6.6 release notes
 
-Status: published as the immutable [v0.6.6 GitHub Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.6). All ten public assets passed byte readback.
+Status: `PUBLIC_READBACK_PASS`. Published as the immutable [v0.6.6 GitHub Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.6). All ten public assets passed byte readback.
 
 ## English
 
@@ -10,7 +10,7 @@ The first-party IM, Memory, Context, ASR, MOSS-TTS, Plugin Center, Plugin Refere
 
 Session V3-to-V4 migration preserves the original user data. Mac and Windows installed tests covered onboarding, first official message, first-party plugin profiles, fresh install/restart/default uninstall, and upgrades from immutable 0.6.3 and 0.6.5. The three native packages and complete release evidence set passed at source `519a24be3702257bc7b0e0230d19fe3affd0a31b`. The exact ten-asset public Release, update signature, installer signatures and public bytes passed readback. [Publication evidence](PUBLICATION_MANIFEST_0.6.6.md) records the boundaries and digests.
 
-Limitations: UOS 20 LoongArch package, ABI and runtime closure passed, while native UOS machine acceptance remains `OWNER_POST_RELEASE`. Intel Mac, Linux amd64 and Windows ARM are outside the exact target set. macOS is ad-hoc signed without notarization; Windows has no Authenticode. Optional live delivery on private IM accounts, including iMessage, was not part of publication acceptance. The two-hour installed soak remains `OWNER_EXCLUDED`.
+Limitations: UOS 20 LoongArch package, ABI and runtime closure passed, while native UOS machine acceptance remains `OWNER_POST_RELEASE`. Intel Mac, Linux amd64 and Windows ARM are outside the exact target set. macOS is ad-hoc signed and not notarized; Windows has no Authenticode. Optional live delivery on private IM accounts, including iMessage, was not part of publication acceptance. The two-hour installed soak remains `OWNER_EXCLUDED`.
 
 ## 中文
 
