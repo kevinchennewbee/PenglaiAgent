@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Penglai 0.6.5 | Make room for the work that matters</title>
-  <meta name="description" content="Penglai 0.6.5 packages official DeepSeek Harness 0.1.6-alpha.2 with Memory, messaging, official plugin management, and optional local voice for Apple Silicon, Windows x64, and UOS 20 LoongArch.">
-  <meta property="og:title" content="Penglai 0.6.5">
-  <meta property="og:description" content="Official DeepSeek Harness 0.1.6-alpha.2 on your computer. Memory and messaging are installed; channels stay inert until you connect them.">
+  <title>Penglai 0.6.6 | Make room for the work that matters</title>
+  <meta name="description" content="Penglai 0.6.6 packages official DeepSeek Harness 0.1.7-alpha.2 with Memory, messaging, official plugin management, and optional local voice for Apple Silicon, Windows x64, and UOS 20 LoongArch.">
+  <meta property="og:title" content="Penglai 0.6.6">
+  <meta property="og:description" content="Official DeepSeek Harness 0.1.7-alpha.2 on your computer. Memory and messaging are installed; channels stay inert until you connect them.">
   <meta name="theme-color" content="#F3EEE4">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://penglai.pages.dev/">
@@ -42,7 +42,7 @@
     <section class="hero" id="top">
       <div class="hero-inner">
         <div class="hero-copy">
-          <p class="eyebrow">Penglai 0.6.5</p>
+          <p class="eyebrow">Penglai 0.6.6</p>
           <h1>A real assistant, without turning your computer into a project.</h1>
           <p class="lead">Install Penglai, bring the model key you already use, and begin in a Workspace you choose. Memory and messaging integration are installed; channels stay inert until connected, while local voice remains opt-in.</p>
           <div class="actions">
@@ -61,7 +61,7 @@
             <div class="app-chrome" aria-hidden="true"><i></i><i></i><i></i><span>Penglai</span></div>
             <img src="./shots/0.5.5/welcome.png" alt="Penglai first-run welcome: language, appearance, and a seven-step guide">
           </div>
-          <figcaption>Installed 0.5.5 first-run welcome, kept as a UI reference. This is not a 0.6.5 screenshot.</figcaption>
+          <figcaption>Installed 0.5.5 first-run welcome, kept as a UI reference. This is not a 0.6.6 screenshot.</figcaption>
         </figure>
       </div>
     </section>
@@ -95,13 +95,13 @@
       </div>
       <div>
         <p>Official DeepSeek Harness is the only agent core. It owns models, tools, approvals, Workspace, Session, Turn, and the conversation interface. Penglai owns the installer, first-run, process supervision, updates, uninstall, local paths, and a reviewed plugin set. There is no second Penglai agent and no replacement chat page. Fresh setup lists official <code>deepseek-flash</code> (DeepSeek-V41-Flash) with text and image input. A model you already chose stays in official settings.</p>
-        <p class="identity">Penglai 0.6.5 · DSH <code>0.1.6-alpha.2</code> · tag <code>dsh-v0.1.6-alpha.2</code> · commit <code>ddefc45fbc7f8e46dd73185e68295696d1297887</code> · 307 packages</p>
+        <p class="identity">Penglai 0.6.6 · DSH <code>0.1.7-alpha.2</code> · tag <code>dsh-v0.1.7-alpha.2</code> · commit <code>00102833dfaee1da9f48a3a8eae9d34005a75218</code> · 323 packages</p>
       </div>
     </section>
 
     <figure class="wide-shot" data-reveal>
       <img src="./shots/0.5.5/plugin-center.png" alt="Penglai Plugin Center inside official DSH settings, showing historical Memory, messaging, and voice surfaces">
-      <figcaption>Installed 0.5.5 Plugin Center, running in official DSH settings. UI state is never proof that a plugin is installed or healthy. Not a 0.6.5 screenshot.</figcaption>
+      <figcaption>Installed 0.5.5 Plugin Center, running in official DSH settings. UI state is never proof that a plugin is installed or healthy. Not a 0.6.6 screenshot.</figcaption>
     </figure>
 
     <section class="section split" data-reveal>
@@ -112,7 +112,7 @@
         <ul class="workflow-list">
           <li>Official DSH inventory remains the live activation authority.</li>
           <li>Memory, IM, ASR and TTS remain app-owned first-party integrations.</li>
-          <li>Office/PDF, LibreOffice, Budget and Companion are outside the 0.6.5 product closure.</li>
+          <li>Office/PDF and LibreOffice are excluded. Budget and Companion are bundled but off by default.</li>
         </ul>
       </div>
       <img src="./shots/0.5.5/plugin-center.png" alt="Historical Penglai Plugin Center UI inside official DSH settings">
@@ -152,6 +152,13 @@
         </article>
         <article>
           <div>
+            <span class="state">Opt in</span>
+            <h3>Budget and Companion</h3>
+          </div>
+          <p>Both integrations ship disabled. Budget views and proactive actions remain bounded by Workspace, permissions, and the official Session; review their scope before enabling them.</p>
+        </article>
+        <article>
+          <div>
             <span class="state">Official manager</span>
             <h3>Plugin Center</h3>
           </div>
@@ -167,7 +174,7 @@
         <p>Choose language and appearance, read the local-data boundary, pick a provider and model from the official catalog, test your own API key, choose a real Workspace, then send the first message. Fresh setup includes official <code>deepseek-flash</code>. Folder browse stays in the Penglai window; you can cancel or retry. You can go back and resume after restart. A failed API key is never recorded as success. The app data directory and the install directory cannot be Workspaces.</p>
         <ul class="workflow-list">
           <li>Use the matching installer. Do not mix Apple Silicon, Windows, or UOS packages.</li>
-          <li>Fresh install, restart, and default uninstall were validated. The 0.6.3 → 0.6.5 installed-upgrade journey is OWNER_EXCLUDED.</li>
+          <li>Fresh install, restart, and default uninstall passed. Installed upgrades from 0.6.3 and 0.6.5 to 0.6.6 preserved owner data.</li>
           <li>Default uninstall keeps user data. External Workspaces and the <code>Penglai/0.5</code> generation remain.</li>
         </ul>
       </div>
@@ -178,10 +185,10 @@
       <p class="eyebrow">Nothing hidden in the small print</p>
       <h2>Clear about what stays here, and what leaves.</h2>
       <div class="limit-grid">
-        <p><strong>Your work stays yours</strong> Files, memories, settings, and feedback stay on this computer. There is no Penglai account, cloud memory sync, or Penglai telemetry service. A model call still sends the context it needs to the provider you chose.</p>
-        <p><strong>Nothing leaves by surprise</strong> Before Penglai saves or sends something, installs a plugin, or turns a memory personal, it stops and asks about that exact action.</p>
+        <p><strong>Your work stays yours</strong> App data is stored locally by default. There is no Penglai account, cloud memory sync, or Penglai telemetry service. Model calls send task context to the provider you choose; connected messaging channels exchange content through their platforms.</p>
+        <p><strong>Nothing leaves by surprise</strong> Plugin installation and build-script approval are separate trust actions. Once you connect a model or messaging channel, it processes tasks and messages under your settings; review permissions and recipients before enabling them.</p>
         <p><strong>A community release</strong> The code and release bytes are open to inspection. macOS and Windows may still show a security warning because this community build does not carry Apple notarization or Microsoft Authenticode.</p>
-        <p><strong>One complete UOS installer</strong> The LoongArch <code>.deb</code> carries the app, Node, official DSH, the official package manager, Memory, IM, ASR, TTS, and Mnemon. It is designed for the same seven-step start; the Owner will verify that experience on a real UOS machine after publication.</p>
+        <p><strong>One complete UOS installer</strong> The LoongArch <code>.deb</code> carries the app, Node, official DSH, the official package manager, Memory, IM, ASR, TTS, Budget, Companion, and Mnemon. It is designed for the same seven-step start; the Owner will verify that experience on a real UOS machine after publication.</p>
       </div>
       <details class="technical-details">
         <summary>Technical release boundaries</summary>
@@ -190,32 +197,32 @@
     </section>
 
     <section class="section download" id="download" data-reveal>
-      <p class="eyebrow">Penglai 0.6.5</p>
+      <p class="eyebrow">Penglai 0.6.6</p>
       <h2>Pick your machine. Start there.</h2>
-      <p class="download-hint" id="downloadHint" hidden data-mac="This browser looks like a Mac. Apple Silicon is the 0.6.5 Mac installer. Intel Mac is not a 0.6.5 target." data-windows="This browser looks like Windows. Use the 64-bit installer." data-linux="This browser looks like Linux. The public Linux package is UnionTech UOS 20 LoongArch only."></p>
+      <p class="download-hint" id="downloadHint" hidden data-mac="This browser looks like a Mac. Apple Silicon is the 0.6.6 Mac installer. Intel Mac is not a 0.6.6 target." data-windows="This browser looks like Windows. Use the 64-bit installer." data-linux="This browser looks like Linux. The public Linux package is UnionTech UOS 20 LoongArch only."></p>
       <div class="download-grid">
-        <a data-family="mac" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.5/Penglai_0.6.5_macos_aarch64.dmg">
+        <a data-family="mac" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.6/Penglai_0.6.6_macos_aarch64.dmg">
           <strong>macOS · Apple Silicon</strong>
-          <span>GitHub · 259.5 MiB · macOS 13+ · M1 and later</span>
-          <em>Penglai_0.6.5_macos_aarch64.dmg</em>
-          <code>3364bb22a2c23e38f67b42f383c79371621446b090fbd32409c65cd615d99ff6</code>
+          <span>GitHub · 270.3 MiB · macOS 13+ · M1 and later</span>
+          <em>Penglai_0.6.6_macos_aarch64.dmg</em>
+          <code>67bc660b3d5befd5bee202a7c4025bbac2e6340761b666737e5be43e696da12c</code>
         </a>
-        <a data-family="windows" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.5/Penglai_0.6.5_windows_x64_setup.exe">
+        <a data-family="windows" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.6/Penglai_0.6.6_windows_x64_setup.exe">
           <strong>Windows · x64</strong>
-          <span>GitHub · 341.7 MiB · 64-bit installer</span>
-          <em>Penglai_0.6.5_windows_x64_setup.exe</em>
-          <code>cfc3abbd88ee71e45b07d0214c8d3e93664fab79f5399eff81b25a09a7a44cce</code>
+          <span>GitHub · 348.2 MiB · 64-bit installer</span>
+          <em>Penglai_0.6.6_windows_x64_setup.exe</em>
+          <code>8a2a801e1b1bb11a0ab4681a6165908dbef37d47f321ee443a7ffebc922042f8</code>
         </a>
-        <a data-family="linux" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.5/Penglai_0.6.5_uos_loong64.deb">
+        <a data-family="linux" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.6/Penglai_0.6.6_uos_loong64.deb">
           <strong>UOS 20 · LoongArch</strong>
-          <span>GitHub · 267.9 MiB · UOS 20 Professional 1070, old-world. Native function is Owner post-publication.</span>
-          <em>Penglai_0.6.5_uos_loong64.deb</em>
-          <code>a619e6361ba511c625aa125738727ab010f53ecba8af311dab94daecddcbfbe3</code>
+          <span>GitHub · 269.1 MiB · UOS 20 Professional 1070, old-world. Native function is Owner post-publication.</span>
+          <em>Penglai_0.6.6_uos_loong64.deb</em>
+          <code>0c83c89a579112bb644b8ae472fda0ab5ce3eb05829cb158f09c526c70c9c406</code>
         </a>
       </div>
-      <p class="note-panel">The immutable GitHub Release is the authoritative public download source: <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.5">v0.6.5</a>. All three installers come from source <code>eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a</code>. Check the file against <code>SHA256SUMS</code> on that page. The release is three installers and ten assets. The signed updater covers Apple Silicon and Windows x64. Intel Mac is not a 0.6.5 installer. Linux amd64 and Windows ARM are not targets. Updates are never silent. Published 0.5.10, 0.5.11, 0.5.12, 0.6.0, 0.6.1, 0.6.2 and 0.6.3 remain immutable. The 0.6.3 → 0.6.5 installed-upgrade journey is OWNER_EXCLUDED.</p>
+      <p class="note-panel">The immutable GitHub Release is the authoritative public download source: <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.6">v0.6.6</a>. All three installers come from source <code>519a24be3702257bc7b0e0230d19fe3affd0a31b</code>. Check the file against <code>SHA256SUMS</code> on that page. The release is three installers and ten assets. The signed updater covers Apple Silicon and Windows x64. Intel Mac is not a 0.6.6 installer. Linux amd64 and Windows ARM are not targets. Updates are never silent. Published 0.5.10, 0.5.11, 0.5.12, 0.6.0, 0.6.1, 0.6.2, 0.6.3, and 0.6.5 remain immutable. Installed upgrades from 0.6.3 and 0.6.5 to 0.6.6 preserved owner data.</p>
       <div class="actions">
-        <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/RELEASE_NOTES_0.6.5.md">Release notes</a>
+        <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/RELEASE_NOTES_0.6.6.md">Release notes</a>
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">Security notes</a>
       </div>
     </section>
@@ -224,7 +231,7 @@
       <p class="eyebrow">Why Penglai</p>
       <blockquote>I spent more than ten years around networking, security, and operations, but I was not a software developer. Penglai began with one stubborn idea: ordinary people should be able to reach a real assistant from the computer they already have.</blockquote>
       <p>Computers travelled from command lines to windows and then into everyone's pocket. Agents should make the same trip. If I can send a message, I should be able to reach my own assistant. If it acts for me, I should be able to see what it was allowed to do, what actually happened, and what it cost.</p>
-      <p>Penglai has been rebuilt more than once. The important decision in 0.5 was to stop building another agent and stand on DeepSeek Harness instead. 0.6.5 keeps that decision, repairs what had frozen around it, and puts the same product on three computers, including UnionTech UOS 20 LoongArch. Older generations remain in Git history; their runtimes are not mixed into this core.</p>
+      <p>Penglai has been rebuilt more than once. The important decision in 0.5 was to stop building another agent and stand on DeepSeek Harness instead. 0.6.6 keeps that decision, updates the exact official DSH cohort, and adapts the non-Office first-party plugins across three release targets, including UnionTech UOS 20 LoongArch. Older generations remain in Git history; their runtimes are not mixed into this core.</p>
       <p class="signature">Kevin Chen / 陈克文</p>
     </section>
 
@@ -238,7 +245,7 @@
         </article>
         <article>
           <h3>Which version should I download?</h3>
-          <p>This page describes Penglai 0.6.5. Download the matching installer from the immutable <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.5">v0.6.5</a> GitHub Release. Intel Mac is not a 0.6.5 installer. Published 0.5.10, 0.5.11, 0.5.12, 0.6.0, 0.6.1, 0.6.2 and 0.6.3 remain historical and immutable.</p>
+          <p>This page describes Penglai 0.6.6. Download the matching installer from the immutable <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.6">v0.6.6</a> GitHub Release. Intel Mac is not a 0.6.6 installer. Published 0.5.10, 0.5.11, 0.5.12, 0.6.0, 0.6.1, 0.6.2, 0.6.3, and 0.6.5 remain historical and immutable.</p>
         </article>
         <article>
           <h3>Why does Gatekeeper warn?</h3>
@@ -246,7 +253,7 @@
         </article>
         <article>
           <h3>What starts on a fresh profile?</h3>
-          <p>Memory and Mobile Messaging are installed and active, while messaging channels and accounts remain unconfigured. ASR and MOSS-TTS stay off. Office/PDF and Companion are not part of the 0.6.5 product runtime.</p>
+          <p>Memory and Mobile Messaging are installed and active, while messaging channels and accounts remain unconfigured. ASR and MOSS-TTS stay off. ASR, MOSS-TTS, Budget, and Companion are bundled but off by default. Office/PDF and LibreOffice are excluded.</p>
         </article>
         <article>
           <h3>Does Penglai support iMessage?</h3>
@@ -265,7 +272,7 @@
         <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/PRODUCT.md">Product contract</a>
         <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/ARCHITECTURE.md">Architecture</a>
         <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/PLUGIN_CENTER.md">Plugin Center</a>
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/0.6.5/ACCEPTANCE_DELTA.md">0.6.5 acceptance delta</a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/0.6.6/ACCEPTANCE_DELTA.md">0.6.6 acceptance delta</a>
       </p>
     </section>
   </main>
