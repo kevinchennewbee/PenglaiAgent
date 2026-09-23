@@ -152,14 +152,17 @@ async function probeStaleAlpha() {
 function probeVersions() {
   const root = readJson("package.json");
   const info = readJson("release-info.json");
-  const ok = root.version === "0.6.5" && info.productVersion === "0.6.5";
+  const contract = readJson("release-contract.json");
+  const ok = /^\d+\.\d+\.\d+$/.test(contract.version) &&
+    root.version === contract.version && info.productVersion === contract.version;
   if (!ok) {
-    return result("FB-VERSIONS", "REPRODUCED", "workspace/release-info not 0.6.5", {
+    return result("FB-VERSIONS", "REPRODUCED", "workspace/release-info differ from release contract", {
       packageVersion: root.version,
       productVersion: info.productVersion,
+      contractVersion: contract.version,
     });
   }
-  return result("FB-VERSIONS", "CLOSED", "root and release-info are 0.6.5", { version: root.version });
+  return result("FB-VERSIONS", "CLOSED", "root and release-info match the release contract", { version: contract.version });
 }
 
 async function probeAggregator() {
@@ -188,12 +191,15 @@ async function probeAggregator() {
 
 function probePublication() {
   const info = readJson("release-info.json");
+  const contract = readJson("release-contract.json");
   const pub = info.publication ?? {};
+  const expectedTag = `v${contract.version}`;
   const ok =
     pub.repo === "kevinchennewbee/PenglaiAgent" &&
-    pub.tag === "v0.6.5" &&
-    pub.release === "v0.6.5" &&
-    pub.channel === "stable-v0.6.5";
+    pub.tag === expectedTag &&
+    pub.release === expectedTag &&
+    pub.channel === `stable-${expectedTag}` &&
+    JSON.stringify(pub) === JSON.stringify(contract.publication);
   if (!ok) {
     return result("FB-PUBLICATION", "REPRODUCED", "publication fields do not match the owner-authorized destination", { pub });
   }
@@ -352,7 +358,7 @@ const dir = join(ROOT, "evidence", "generated");
 mkdirSync(dir, { recursive: true });
 writeFileSync(
   join(dir, "failure-baseline.json"),
-  JSON.stringify({ schema: 3, version: "0.6.5", probes: out, mustClose: MUST_CLOSE }, null, 2),
+  JSON.stringify({ schema: 3, version: readJson("release-contract.json").version, probes: out, mustClose: MUST_CLOSE }, null, 2),
 );
 console.log(
   "failure-baseline",

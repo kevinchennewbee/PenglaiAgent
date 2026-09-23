@@ -365,7 +365,23 @@ export function linkOfficialDeepseek(layout: RuntimeLayout, profileDir: string):
   // junctions. Materialize and verify the app-owned cohort on every platform.
   {
     if (linked) unlinkSync(dest);
-    const expected = officialDeepseekManifest(layout);
+    // app-boot owns a process-local WeakMap of the root Include entry. The
+    // profile's independent copy would give ConfigEditor a second WeakMap,
+    // making every official settings write fail during profile reconciliation.
+    // Keep the complete verified registry package in the immutable runtime;
+    // let DSH's installation-scope resolver supply that single instance.
+    const bootPackage = join(layout.officialDeepseek, "dsh-app-boot", "package.json");
+    const hasBootPackage = existsSync(bootPackage);
+    if (!hasBootPackage && existsSync(layout.manifestPath)) {
+      throw new PenglaiError("STORE_CORRUPT", "official app-boot package missing from runtime");
+    }
+    const bootVersion = hasBootPackage
+      ? JSON.parse(readFileSync(bootPackage, "utf8")) as { version?: string }
+      : undefined;
+    if (bootVersion && bootVersion.version !== PINNED_DSH) {
+      throw new PenglaiError("STORE_CORRUPT", "official app-boot version differs from pinned DSH");
+    }
+    const expected = officialDeepseekManifest(layout).filter((row) => !hasBootPackage || !row.path.startsWith("dsh-app-boot/"));
     if (existsSync(dest) && officialDeepseekCopyMatches(dest, expected)) return;
     const operation = randomUUID();
     const staging = join(destParent, `.penglai-deepseek-${operation}.staging`);
@@ -375,6 +391,7 @@ export function linkOfficialDeepseek(layout: RuntimeLayout, profileDir: string):
     let movedCurrent = false;
     try {
       copyDir(layout.officialDeepseek, staging);
+      if (hasBootPackage) removeTreeNoFollow(join(staging, "dsh-app-boot"));
       if (!officialDeepseekCopyMatches(staging, expected)) {
         throw new PenglaiError("STORE_CORRUPT", "materialized official @deepseek-ai failed integrity verification");
       }
