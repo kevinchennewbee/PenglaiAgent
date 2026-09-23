@@ -1,19 +1,23 @@
-# Penglai 0.6.6 release notes — draft
+# Penglai 0.6.6 release notes
 
-Status: development candidate. The 0.6.6 installers and public readback have not been produced. The current public download remains v0.6.5.
+Status: published as the immutable [v0.6.6 GitHub Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.6). All ten public assets passed byte readback.
 
 ## English
 
-Penglai 0.6.6 is being built against the exact official DeepSeek Harness `0.1.7-alpha.2` npm cohort. The official Harness remains the only agent, session, Workspace, Web UI and plugin-management core. The first-party IM, Memory, Context, ASR, MOSS-TTS, Plugin Center, Plugin Reference, Plugin Pilot, Budget and Companion packages are included in the development scope. IM and Memory are enabled on a fresh profile; ASR, TTS, Budget and Companion are bundled but disabled until the user enables them. Office, LibreOffice and Office/PDF processing are excluded.
+Penglai 0.6.6 uses the exact official DeepSeek Harness `0.1.7-alpha.2` npm cohort (tag `dsh-v0.1.7-alpha.2`, commit `00102833dfaee1da9f48a3a8eae9d34005a75218`). The official Harness remains the only agent, Session, Workspace, Web UI and plugin-management core.
 
-The current candidate has passed source build, contract tests and a real embedded startup matrix for the bundled plugins. Session V3-to-V4 preservation, installed upgrade, native target tests and immutable public-byte readback still require evidence. Channel-specific IM fixes from `@xmanrui/dsh-im` v4.25.0 are under review; the community package itself is not installed because its declared Harness range does not cover 0.1.7.
+The first-party IM, Memory, Context, ASR, MOSS-TTS, Plugin Center, Plugin Reference, Plugin Pilot, Budget and Companion packages were adapted to this cohort. IM and Memory are enabled on a fresh profile; channels stay unconfigured until connected. ASR, TTS, Budget and Companion ship disabled by default. Office, LibreOffice and Office/PDF processing are excluded. The community `@xmanrui/dsh-im` v4.25.0 changes were reviewed; its package was not installed because its declared Harness range does not cover 0.1.7.
 
-The planned distribution targets remain Apple Silicon macOS 13+, Windows 10+ x64 and UOS 20 loong64. Intel Mac is outside this exact set. macOS notarization and Windows Authenticode are not claimed. Native UOS installation remains a separate observation from package verification.
+Session V3-to-V4 migration preserves the original user data. Mac and Windows installed tests covered onboarding, first official message, first-party plugin profiles, fresh install/restart/default uninstall, and upgrades from immutable 0.6.3 and 0.6.5. The three native packages and complete release evidence set passed at source `519a24be3702257bc7b0e0230d19fe3affd0a31b`. The exact ten-asset public Release, update signature, installer signatures and public bytes passed readback. [Publication evidence](PUBLICATION_MANIFEST_0.6.6.md) records the boundaries and digests.
+
+Limitations: UOS 20 LoongArch package, ABI and runtime closure passed, while native UOS machine acceptance remains `OWNER_POST_RELEASE`. Intel Mac, Linux amd64 and Windows ARM are outside the exact target set. macOS is ad-hoc signed without notarization; Windows has no Authenticode. Optional live delivery on private IM accounts, including iMessage, was not part of publication acceptance. The two-hour installed soak remains `OWNER_EXCLUDED`.
 
 ## 中文
 
-蓬莱 0.6.6 候选版使用精确固定的官方 DeepSeek Harness `0.1.7-alpha.2` npm 包组。官方 Harness 仍是唯一的 Agent、会话、Workspace、Web 界面和插件管理核心。开发范围包括消息、记忆、上下文、语音识别、MOSS 语音生成、插件中心、插件参考、插件试验、预算与主动陪伴。新用户默认启用消息与记忆；语音、预算和主动陪伴随包提供但默认关闭。办公、LibreOffice 和 Office/PDF 处理不在本版范围内。
+蓬莱 0.6.6 使用精确固定的官方 DeepSeek Harness `0.1.7-alpha.2` npm 包组（tag `dsh-v0.1.7-alpha.2`，commit `00102833dfaee1da9f48a3a8eae9d34005a75218`）。官方 Harness 仍是唯一的 Agent、Session、Workspace、Web 界面和插件管理核心。
 
-当前候选版已通过源码构建、契约测试和真实嵌入式插件组合启动。用户会话 V3→V4 保原文件迁移、安装版升级、原生目标测试和公开附件逐字节回读仍须取证。正在审查社区 `@xmanrui/dsh-im` v4.25.0 中适用的渠道修复；其声明的 Harness 兼容范围尚未覆盖 0.1.7，因此不直接安装社区包。
+消息、记忆、上下文、语音识别、MOSS 语音生成、插件中心、插件参考、插件试验、预算和主动陪伴已适配该包组。新 profile 默认启用消息和记忆；消息通道在连接前保持未配置。语音、预算和主动陪伴随包提供但默认关闭。办公、LibreOffice 和 Office/PDF 处理被排除。已审查社区 `@xmanrui/dsh-im` v4.25.0 的变化；其声明的 Harness 兼容范围尚未覆盖 0.1.7，因此未直接安装该包。
 
-计划发布目标仍为 Apple Silicon macOS 13+、Windows 10+ x64 与统信 UOS 20 loong64；Intel Mac 不在精确目标集合。当前不声称 Apple 公证或 Windows Authenticode 签名通过。UOS 包验证不能代替 UOS 真机安装验证。
+Session V3→V4 迁移保留用户原始数据。Mac 与 Windows 安装态测试覆盖引导、首条官方消息、第一方插件组合、全新安装/重启/默认卸载，以及从不可变 0.6.3、0.6.5 的安装升级。三个原生安装包和完整发布证据集均在源码 `519a24be3702257bc7b0e0230d19fe3affd0a31b` 通过。精确十项公开附件、更新签名、安装器签名和公网字节回读均通过。[发布证据](PUBLICATION_MANIFEST_0.6.6.md)记录了边界和摘要。
+
+限制：统信 UOS 20 龙芯包、ABI 与运行闭包已通过，UOS 真机验收仍为 `OWNER_POST_RELEASE`。Intel Mac、Linux amd64、Windows ARM 不在精确目标集合。macOS 使用临时签名且未公证；Windows 没有 Authenticode。私人 IM 账号（包括 iMessage）的可选在线收发不属于发布验收。两小时安装态等待仍为 `OWNER_EXCLUDED`。

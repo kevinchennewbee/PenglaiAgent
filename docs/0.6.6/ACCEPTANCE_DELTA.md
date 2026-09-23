@@ -1,6 +1,6 @@
-# Penglai 0.6.6 acceptance delta — candidate
+# Penglai 0.6.6 acceptance delta
 
-Status: development contract. No 0.6.6 source, native, installed, public release, or website result is claimed by this document.
+Status: release contract. Source, native, installed, and immutable public-byte results are recorded in [the publication manifest](../PUBLICATION_MANIFEST_0.6.6.md). Website deployment has its own readback gate. The requirements below remain the acceptance criteria, not a substitute for evidence.
 
 ## Scope
 
@@ -10,7 +10,7 @@ Status: development contract. No 0.6.6 source, native, installed, public release
 - Keep IM inbound text as untrusted data, validate binding and session membership at every operation, and recover outbound delivery without duplicate sends. Compare applicable `@xmanrui/dsh-im` 4.18.1→4.25.0 fixes for Weixin file upload/diagnostics, Feishu correlation and reconnect, Telegram retry/Unicode, DingTalk quoted attachments, QQ corrupt state, and source-guidance injection. New channels and reasoning-stream exposure require separate product decisions and are not implied here.
 - Verify DSH plugin installation, build-script consent, profile configuration migration, official UI mounting, Remote behavior, and all bundled plugins with the candidate DSH. Verify that optional ASR/TTS/Budget/Companion can be disabled without stopping IM or Memory.
 - Preserve the existing exact three-target release model unless the release contract is explicitly changed. Source and cross-build checks cannot stand in for Apple Silicon or Windows installed tests; UOS package verification cannot stand in for UOS native tests. Two-hour soak remains excluded.
-- Publish only after a clean single source SHA, release-contract asset set, native and applicable installed evidence, immutable public assets, byte readback, then public README/site updates. Until then v0.6.5 remains the latest public download.
+- Publish only after a clean single source SHA, release-contract asset set, native and applicable installed evidence, immutable public assets, byte readback, then public README/site updates. The immutable v0.6.6 Release passed public byte readback on 2026-09-23; the public site requires separate deployment proof.
 
 ## Required proof before release
 

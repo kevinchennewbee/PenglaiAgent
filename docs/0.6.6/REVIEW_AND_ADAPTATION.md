@@ -2,6 +2,8 @@
 
 Status: candidate review, observed in an isolated worktree on 2026-09-22/23. This record does not claim installed, native, live-account or public-release acceptance.
 
+Post-review outcome: the subsequent clean `main` source `519a24be3702257bc7b0e0230d19fe3affd0a31b` passed Mac/Windows installed acceptance, the three-target native aggregate, and ten-asset immutable public readback. See [the publication manifest](../PUBLICATION_MANIFEST_0.6.6.md). The candidate-stage “still required” lines below describe the earlier review boundary, not the published result. Private-account IM live delivery and UOS native-machine function remain outside the published PASS set.
+
 ## Exact inputs
 
 - Product source base: `ce8eb049523e786e65f5bfdb20f64d9e6ab4c7e8` from public `kevinchennewbee/PenglaiAgent`. The owner checkout was not edited.

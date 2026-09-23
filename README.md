@@ -8,23 +8,23 @@ Your own AI workspace, ready to install.
 
 [English](#english) · [中文](#中文) · [Website](https://penglai.pages.dev) · [中文网站](https://penglai.pages.dev/zh/) · [Security](SECURITY.md)
 
-**Penglai 0.6.5 is the current public release.** It packages the exact official
+**Penglai 0.6.6 is the current public release.** It packages the exact official
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
-`0.1.6-alpha.2` cohort for Apple Silicon, Windows x64, and UnionTech UOS 20
-LoongArch, and repairs what had frozen around it: the WeChat channel, the
-assisted update check, and the verification layer that should have caught both.
+`0.1.7-alpha.2` cohort for Apple Silicon, Windows x64, and UnionTech UOS 20
+LoongArch. The non-Office first-party plugins, including IM, Budget, and
+Companion, were adapted to this official core.
 Memory and Mobile Messaging are installed on a fresh profile; messaging channels
 remain inert until you connect them. ASR and MOSS-TTS are bundled but default
-off. Office/PDF, LibreOffice, Budget, and Companion are not part of the 0.6.5
-product runtime.
+off. Budget and Companion are bundled but default off. Office/PDF and
+LibreOffice are excluded from the 0.6.6 product runtime.
 
-[Download 0.6.5](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.5)
-· [Release notes](docs/RELEASE_NOTES_0.6.5.md)
-· [Publication manifest](docs/PUBLICATION_MANIFEST_0.6.5.md)
+[Download 0.6.6](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.6)
+· [Release notes](docs/RELEASE_NOTES_0.6.6.md)
+· [Publication manifest](docs/PUBLICATION_MANIFEST_0.6.6.md)
 · [Security](SECURITY.md)
 
 The immutable release was built from
-`eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a`. The complete ten-asset Release,
+`519a24be3702257bc7b0e0230d19fe3affd0a31b`. The complete ten-asset Release,
 SHA-256 digests, updater signature, installer signatures, and public-byte
 readback all passed before this README was updated.
 
@@ -45,8 +45,8 @@ the conversation. Penglai supplies native installers, guided first launch,
 local paths, lifecycle supervision, an updater you approve, and a bounded set
 of first-party integrations.
 
-0.6.5 uses official DSH `0.1.6-alpha.2`, tag `dsh-v0.1.6-alpha.2`, commit
-`ddefc45fbc7f8e46dd73185e68295696d1297887`, and the fixed 307-package source
+0.6.6 uses official DSH `0.1.7-alpha.2`, tag `dsh-v0.1.7-alpha.2`, commit
+`00102833dfaee1da9f48a3a8eae9d34005a75218`, and the fixed 323-package source
 cohort. There is no parallel Penglai agent runtime.
 
 ### What is included
@@ -58,9 +58,11 @@ cohort. There is no parallel Penglai agent runtime.
 | Mobile Messaging | On, unconfigured | Weixin, Feishu, DingTalk, WeCom, QQ, Slack, Telegram, Discord; adapters/accounts remain inert until connected |
 | Speech Recognition | Off | Local SenseVoice transcription; model assets are pinned downloads |
 | Voice Generation | Off | Local MOSS-TTS on supported Mac/Windows systems; unavailable on UOS LoongArch |
+| Budget | Off | Workspace-bounded views and actions; explicit enablement |
+| Companion | Off | Proactive actions remain bounded by the official Session and user permissions |
 
-Office/PDF, LibreOffice, Budget, and Companion are intentionally excluded from
-0.6.5. Attachments and other tool surfaces remain those provided by the exact
+Office/PDF and LibreOffice are intentionally excluded from 0.6.6. Attachments
+and other tool surfaces remain those provided by the exact
 DSH runtime; Penglai does not claim a separate Office plugin in this release.
 
 Memory follows the Workspace you chose. One project cannot quietly search
@@ -70,36 +72,36 @@ another. Personal memory is a separate explicit choice.
   <img src="website/shots/0.5.5/plugin-center.png" width="48%" alt="Historical Penglai Plugin Center UI">
   <img src="website/shots/0.5.5/memory.png" width="48%" alt="Historical Penglai Memory UI">
 </p>
-<p align="center"><sub>Installed 0.5.5 screens kept as UI references; they are not 0.6.5 screenshots.</sub></p>
+<p align="center"><sub>Installed 0.5.5 screens kept as UI references; they are not 0.6.6 screenshots.</sub></p>
 
-### Download 0.6.5
+### Download 0.6.6
 
 GitHub Releases is the authoritative source. Verify downloads against
 `SHA256SUMS` on the immutable
-[`v0.6.5` release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.5).
+[`v0.6.6` release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.6).
 All three installers were built from source
-`eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a`.
+`519a24be3702257bc7b0e0230d19fe3affd0a31b`.
 
 #### Apple Silicon, macOS 13+
 
-[`Penglai_0.6.5_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.5/Penglai_0.6.5_macos_aarch64.dmg)
+[`Penglai_0.6.6_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.6/Penglai_0.6.6_macos_aarch64.dmg)
 
-272,131,815 bytes · SHA-256
-`3364bb22a2c23e38f67b42f383c79371621446b090fbd32409c65cd615d99ff6`
+283,439,892 bytes · SHA-256
+`67bc660b3d5befd5bee202a7c4025bbac2e6340761b666737e5be43e696da12c`
 
 #### Windows 10+ x64
 
-[`Penglai_0.6.5_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.5/Penglai_0.6.5_windows_x64_setup.exe)
+[`Penglai_0.6.6_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.6/Penglai_0.6.6_windows_x64_setup.exe)
 
-358,252,414 bytes · SHA-256
-`cfc3abbd88ee71e45b07d0214c8d3e93664fab79f5399eff81b25a09a7a44cce`
+365,164,936 bytes · SHA-256
+`8a2a801e1b1bb11a0ab4681a6165908dbef37d47f321ee443a7ffebc922042f8`
 
 #### UnionTech UOS 20 LoongArch
 
-[`Penglai_0.6.5_uos_loong64.deb`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.5/Penglai_0.6.5_uos_loong64.deb)
+[`Penglai_0.6.6_uos_loong64.deb`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.6/Penglai_0.6.6_uos_loong64.deb)
 
-280,871,496 bytes · SHA-256
-`a619e6361ba511c625aa125738727ab010f53ecba8af311dab94daecddcbfbe3`
+282,171,212 bytes · SHA-256
+`0c83c89a579112bb644b8ae472fda0ab5ce3eb05829cb158f09c526c70c9c406`
 
 ### What was actually validated
 
@@ -114,13 +116,14 @@ aggregate.
   first-party plugin compatibility, fresh install → restart → default uninstall.
 - UOS LoongArch: exact `.deb`, package identity, ABI, runtime, architecture and
   full closure verification.
+- Mac and Windows: installed upgrades from immutable 0.6.3 and 0.6.5 to 0.6.6,
+  with original user data preserved.
 - Production dependency advisory audit, secret scan, supply-chain checks, DSH
   cohort verification, draft ten-asset readback, updater signature, installer
   signatures, and immutable public-byte readback all passed.
 
 Explicitly **not** claimed as PASS:
 
-- `0.6.3 → 0.6.5` installed-upgrade journey: `OWNER_EXCLUDED`.
 - Two-hour installed soak: `OWNER_EXCLUDED`.
 - Native UOS machine acceptance (install/start/UI/file picker/sleep-resume/model
   conversation): `OWNER_POST_RELEASE`.
@@ -181,36 +184,36 @@ many contributors. Every dependency keeps its own license.
 审批、Workspace、Session、Turn 和会话；蓬莱负责原生安装包、首次引导、本地目录、
 进程生命周期、需要你确认的更新，以及一组边界明确的第一方集成。
 
-0.6.5 固定官方 DSH `0.1.6-alpha.2`，tag `dsh-v0.1.6-alpha.2`，commit
-`ddefc45fbc7f8e46dd73185e68295696d1297887`，并锁定 307 个源码 cohort 包。
+0.6.6 固定官方 DSH `0.1.7-alpha.2`，tag `dsh-v0.1.7-alpha.2`，commit
+`00102833dfaee1da9f48a3a8eae9d34005a75218`，并锁定 323 个源码 cohort 包。
 
 全新 profile 中，记忆和消息插件已经安装并 active；消息通道与账号仍保持未配置，
 只有你连接后才真正工作。ASR 与 MOSS-TTS 默认关闭，模型权重另行按固定版本下载。
-记忆可以由 Owner 关闭而不删除插件包或数据。Office/PDF、LibreOffice、预算和主动陪伴
-不属于 0.6.5 产品运行闭包。
+记忆可以由 Owner 关闭而不删除插件包或数据。预算和主动陪伴随包提供、默认关闭；
+Office/PDF 与 LibreOffice 不属于 0.6.6 产品运行闭包。
 
-### 下载 0.6.5
+### 下载 0.6.6
 
 权威公开版是不可变
-[`v0.6.5`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.5)。
+[`v0.6.6`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.6.6)。
 三个安装包都来自同一源码
-`eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a`，请使用 Release 页的
+`519a24be3702257bc7b0e0230d19fe3affd0a31b`，请使用 Release 页的
 `SHA256SUMS` 核对下载文件。
 
-- [Apple 芯片安装包](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.5/Penglai_0.6.5_macos_aarch64.dmg) — 272,131,815 bytes — `3364bb22a2c23e38f67b42f383c79371621446b090fbd32409c65cd615d99ff6`
-- [Windows x64 安装包](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.5/Penglai_0.6.5_windows_x64_setup.exe) — 358,252,414 bytes — `cfc3abbd88ee71e45b07d0214c8d3e93664fab79f5399eff81b25a09a7a44cce`
-- [统信 UOS 20 龙芯安装包](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.5/Penglai_0.6.5_uos_loong64.deb) — 280,871,496 bytes — `a619e6361ba511c625aa125738727ab010f53ecba8af311dab94daecddcbfbe3`
+- [Apple 芯片安装包](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.6/Penglai_0.6.6_macos_aarch64.dmg) — 283,439,892 bytes — `67bc660b3d5befd5bee202a7c4025bbac2e6340761b666737e5be43e696da12c`
+- [Windows x64 安装包](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.6/Penglai_0.6.6_windows_x64_setup.exe) — 365,164,936 bytes — `8a2a801e1b1bb11a0ab4681a6165908dbef37d47f321ee443a7ffebc922042f8`
+- [统信 UOS 20 龙芯安装包](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.6.6/Penglai_0.6.6_uos_loong64.deb) — 282,171,212 bytes — `0c83c89a579112bb644b8ae472fda0ab5ce3eb05829cb158f09c526c70c9c406`
 
 ### 本版真实验收边界
 
 - Apple 芯片：DMG、closure/artifact/profile、完整安装态引导、welcome/process、第一方插件兼容，以及全新安装 → 重启 → 默认卸载全部通过。
 - Windows x64：NSIS、closure/artifact/fuses/signing、完整 profile matrix、简体中文安装器 UI、完整安装态引导、第一方插件兼容，以及全新安装 → 重启 → 默认卸载全部通过。
 - UOS 龙芯：`.deb` 身份、ABI、运行时、架构与完整闭包验证通过。
+- Mac 与 Windows：从不可变 0.6.3、0.6.5 安装版升级到 0.6.6，原有用户数据保留通过。
 - secret/advisory/supply-chain、DSH cohort、十附件 draft 回读、更新签名、安装器签名与正式发布后的不可变公网字节回读全部通过。
 
 明确**不宣称 PASS**：
 
-- `0.6.3 → 0.6.5` 真实安装版升级：`OWNER_EXCLUDED`。
 - 两小时安装版 soak：`OWNER_EXCLUDED`。
 - UOS 真机安装/启动/UI/文件选择器/休眠恢复/模型会话：`OWNER_POST_RELEASE`。
 - 可选私人账号 IM/iMessage live：不属于本次发布验收。
@@ -225,8 +228,8 @@ many contributors. Every dependency keeps its own license.
 - 默认卸载移除应用和缓存，保留用户数据与外部 Workspace。
 
 更多资料：
-[0.6.5 发布说明](docs/RELEASE_NOTES_0.6.5.md) ·
-[0.6.5 发布清单](docs/PUBLICATION_MANIFEST_0.6.5.md) ·
+[0.6.6 发布说明](docs/RELEASE_NOTES_0.6.6.md) ·
+[0.6.6 发布清单](docs/PUBLICATION_MANIFEST_0.6.6.md) ·
 [产品](docs/PRODUCT.md) · [架构](docs/ARCHITECTURE.md) ·
 [插件中心](docs/PLUGIN_CENTER.md) · [安全说明](SECURITY.md) ·
-[0.6.5 验收增量](docs/0.6.5/ACCEPTANCE_DELTA.md)
+[0.6.6 验收增量](docs/0.6.6/ACCEPTANCE_DELTA.md)
