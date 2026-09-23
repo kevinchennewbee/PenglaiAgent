@@ -168,13 +168,21 @@ function seedOwnerDataForUpgrade(userData, previousVersion, previousDsh) {
 }
 
 function assertOwnerDataAfterUpgrade(fixture, label) {
-  const migratedSettings = join(fixture.currentHome, "settings.yaml");
+  const migratedSettings = join(fixture.currentHome, "settings.yaml.imported");
+  const legacySettings = join(fixture.currentHome, "settings.yaml");
+  const profilePatch = join(fixture.currentHome, "profiles", "web", "cordis.patch.yml");
   const migratedSession = join(fixture.currentHome, fixture.sessionRelative);
   const checks = {
     originalSettingsUnchanged:
       existsSync(fixture.settings) && sha256File(fixture.settings) === fixture.hashes.settings,
     migratedSettingsExact:
       existsSync(migratedSettings) && sha256File(migratedSettings) === fixture.hashes.settings,
+    legacySettingsImported: !existsSync(legacySettings),
+    migratedLocaleApplied:
+      existsSync(profilePatch) &&
+      readFileSync(profilePatch, "utf8").replaceAll("\r\n", "\n").includes(
+        '- id: locale\n  name: "@deepseek-ai/dsh-client-locale"\n  config:\n    preference: zh\n',
+      ),
     originalSessionUnchanged:
       existsSync(fixture.sourceSession) && sha256File(fixture.sourceSession) === fixture.hashes.session,
     migratedSessionExact:

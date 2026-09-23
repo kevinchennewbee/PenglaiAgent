@@ -21,6 +21,8 @@ function passingPath(version, sourceSha, installerSha256) {
   const preservation = {
     originalSettingsUnchanged: true,
     migratedSettingsExact: true,
+    legacySettingsImported: true,
+    migratedLocaleApplied: true,
     originalSessionUnchanged: true,
     migratedSessionExact: true,
     pluginDesiredExact: true,
@@ -138,10 +140,13 @@ test("native upgrade set follows every pinned previous version, not a hardcoded 
   );
 });
 
-test("installed upgrade checks both published DSH home generations against the 0.1.7 target", () => {
+test("installed upgrade reads each published DSH generation from its verified installer", () => {
   const runner = readFileSync(join(ROOT, "scripts", "verify-upgrade-uninstall.mjs"), "utf8");
-  assert.match(runner, /"0\.6\.3": "0\.1\.5-rc\.2"/);
-  assert.match(runner, /"0\.6\.5": "0\.1\.6-alpha\.2"/);
+  assert.match(runner, /function installedDshVersion\(app, userData, previousVersion\)/);
+  assert.match(runner, /info\.dshSource\?\.tag !== `dsh-v\$\{previousDsh\}`/);
+  assert.match(runner, /active\.activeVersion !== previousDsh/);
   assert.match(runner, /currentHome: join\(userData, "dsh-homes", "dsh-v0\.1\.7-alpha\.2"\)/);
+  assert.match(runner, /settings\.yaml\.imported/);
+  assert.match(runner, /legacySettingsImported/);
   assert.doesNotMatch(runner, /previousVersion !== "0\.6\.1"/);
 });
