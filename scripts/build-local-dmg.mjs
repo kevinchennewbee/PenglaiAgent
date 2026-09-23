@@ -54,6 +54,7 @@ function createDmg(args, dmgPath, { onRetry } = {}) {
 function layoutDmgWindow(mountPoint) {
   const script = `
 tell application "Finder"
+  open (POSIX file "${mountPoint}" as alias)
   tell disk "Penglai"
     open
     set current view of container window to icon view
