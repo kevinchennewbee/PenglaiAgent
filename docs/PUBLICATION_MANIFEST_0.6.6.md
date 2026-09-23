@@ -19,6 +19,7 @@ The public readback downloaded all ten immutable assets after publication and ve
 | Source CI | [35817658763](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/35817658763) on the build SHA |
 | Native targets | [35817677240](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/35817677240): darwin-aarch64, win32-x86_64, linux-loong64; exact aggregate PASS; Intel Mac excluded |
 | Publish and public readback | [35821611965](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/35821611965) |
+| Website deploy and readback | [35823305676](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/35823305676): 34 sealed files matched on Cloudflare Pages and GitHub Pages |
 | Trust | community-verified; macOS ad-hoc, not notarized; Windows no Authenticode; UOS Electron 31.7.7 / Chromium 126 and Node 22.16.0 without Mac/Windows security parity |
 | Native UOS | `OWNER_POST_RELEASE` |
 | Signed updater | Apple Silicon and Windows x64 |
