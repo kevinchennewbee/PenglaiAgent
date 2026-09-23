@@ -91,14 +91,23 @@ function assertVersion(app, expected, label) {
   return identity;
 }
 
-function seedOwnerDataForUpgrade(userData, previousVersion) {
-  const previousDsh = {
-    "0.6.3": "0.1.5-rc.2",
-    "0.6.5": "0.1.6-alpha.2",
-  }[previousVersion];
-  if (!previousDsh) {
-    fail(`native owner-data fixture is undefined for ${previousVersion}`);
+function installedDshVersion(app, userData, previousVersion) {
+  const info = JSON.parse(readFileSync(join(resourcesInside(app, target), "release-info.json"), "utf8"));
+  const previousDsh = String(info.dsh ?? "");
+  if (info.productVersion !== previousVersion ||
+      !/^\d+\.\d+\.\d+(?:-[a-z0-9.]+)?$/.test(previousDsh) ||
+      info.dshSource?.tag !== `dsh-v${previousDsh}`) {
+    fail("verified previous installer has inconsistent DSH identity");
   }
+  const active = JSON.parse(readFileSync(join(userData, "dsh-home-active.json"), "utf8"));
+  if (active.activeVersion !== previousDsh ||
+      active.homeRelative !== `dsh-homes/dsh-v${previousDsh}`) {
+    fail("previous installed boot selected a different DSH Home");
+  }
+  return previousDsh;
+}
+
+function seedOwnerDataForUpgrade(userData, previousVersion, previousDsh) {
   const previousHome = join(userData, "dsh-homes", `dsh-v${previousDsh}`);
   const settings = join(previousHome, "settings.yaml");
   const settingsMarker = `# penglai-native-upgrade-preservation: ${previousVersion}-to-${PRODUCT_VERSION}\n`;
@@ -455,7 +464,11 @@ let uninstallRemovedApp = false;
 let uninstallMethod = "";
 const previousIdentity = assertVersion(app, previousVersion, "previous install");
 const previousBoot = await boot(app, userData, "previous install");
-const ownerDataFixture = seedOwnerDataForUpgrade(userData, previousVersion);
+const ownerDataFixture = seedOwnerDataForUpgrade(
+  userData,
+  previousVersion,
+  installedDshVersion(app, userData, previousVersion),
+);
 if (target === "win32-x86_64") observeWindowsDefender();
 
 if (target === "win32-x86_64") {
