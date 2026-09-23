@@ -1,5 +1,7 @@
 # Penglai Plugin Center 合同
 
+**当前 0.6.6：**[当前合同](0.6.6/CURRENT_CONTRACT.md)与[0.6.6 适配审查](0.6.6/REVIEW_AND_ADAPTATION.md)优先。精确固定的官方 DSH 0.1.7-alpha.2 plugin manager 是唯一可变包管理后端；蓬莱不再以历史签名远程目录作为整个生态的 allowlist。Memory 与 IM 在 fresh profile 中启用；ASR、TTS、Budget 与 Companion 随包但默认关闭。下文保留的是旧目录和 0.6.5 设计记录，不能作为当前安装策略或插件闭包声明。
+
 ## 1. 产品位置
 
 Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settings.plugins.tab`。它不是 Electron 外壳里的第二商店，也不是一个只写 `desired.json` 的状态页。
