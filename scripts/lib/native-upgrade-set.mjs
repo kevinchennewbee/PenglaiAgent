@@ -125,6 +125,8 @@ export function upgradeUninstallEvidenceMatches(record, { sourceSha, installerSh
       row.upgradePreservedOwnerData === true &&
       row.upgradePreservation?.originalSettingsUnchanged === true &&
       row.upgradePreservation?.migratedSettingsExact === true &&
+      row.upgradePreservation?.legacySettingsImported === true &&
+      row.upgradePreservation?.migratedLocaleApplied === true &&
       row.upgradePreservation?.originalSessionUnchanged === true &&
       row.upgradePreservation?.migratedSessionExact === true &&
       row.upgradePreservation?.pluginDesiredExact === true &&
@@ -132,6 +134,8 @@ export function upgradeUninstallEvidenceMatches(record, { sourceSha, installerSh
       row.uninstallPreservedOwnerData === true &&
       row.uninstallPreservation?.originalSettingsUnchanged === true &&
       row.uninstallPreservation?.migratedSettingsExact === true &&
+      row.uninstallPreservation?.legacySettingsImported === true &&
+      row.uninstallPreservation?.migratedLocaleApplied === true &&
       row.uninstallPreservation?.originalSessionUnchanged === true &&
       row.uninstallPreservation?.migratedSessionExact === true &&
       row.uninstallPreservation?.pluginDesiredExact === true &&
