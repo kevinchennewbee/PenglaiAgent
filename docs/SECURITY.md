@@ -1,11 +1,15 @@
-# Penglai 0.6.5 开发安全与隐私合同
+# Penglai 安全与隐私合同
+
+**当前公开版本：**请以 [0.6.6 产品、架构与隐私补充合同](0.6.6/CURRENT_CONTRACT.md)、[0.6.6 验收增量](0.6.6/ACCEPTANCE_DELTA.md)及[已回读的发布清单](PUBLICATION_MANIFEST_0.6.6.md)为准。下文详细条目是 0.6.5 的历史快照；其中 DSH 0.1.6 固定版本、预算/主动陪伴缺席和旧版升级排除不适用于 0.6.6。其他未冲突的安全边界继续适用。
+
+## 历史 0.6.5 安全快照
 
 ## 1. 信任目标
 
 0.5 数据代际保护相互关联的边界：只读 target app/runtime、app-private 0.5 DSH
 profile、official DSH Web 本地入口、credentials-local secret、IM 因果隔离、厂商
 网络输入、本地 voice/context/memory 数据、signed
-assisted update、精确卸载和可公开供应链。当前 0.6.5 固定 official DSH
+assisted update、精确卸载和可公开供应链。当时 0.6.5 固定 official DSH
 `0.1.6-alpha.2`；公开下载为 v0.6.5，其不可变附件已于 2026-09-20 发布并完成
 公网字节回读。任何
 Penglai 插件都不能放宽 DSH 工具权限、sandbox 或人工审批。

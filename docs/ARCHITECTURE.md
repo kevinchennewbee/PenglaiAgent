@@ -1,4 +1,8 @@
-# Penglai 0.6.5 development architecture
+# Penglai architecture
+
+**Current release:** The [0.6.6 product, architecture, and privacy overlay](0.6.6/CURRENT_CONTRACT.md), [source adaptation review](0.6.6/REVIEW_AND_ADAPTATION.md), and [publication manifest](PUBLICATION_MANIFEST_0.6.6.md) describe the official DSH 0.1.7 architecture that shipped. The detailed 0.6.5 design below is a historical snapshot; its DSH 0.1.6 pin, Session V3 migration endpoint, and absence of Budget and Companion do not describe 0.6.6.
+
+## Historical 0.6.5 architecture snapshot
 
 ## English
 

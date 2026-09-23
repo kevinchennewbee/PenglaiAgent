@@ -1,4 +1,8 @@
-# Penglai 0.6.5 product contract
+# Penglai product contract
+
+**Current release:** The [0.6.6 product, architecture, and privacy overlay](0.6.6/CURRENT_CONTRACT.md), [acceptance delta](0.6.6/ACCEPTANCE_DELTA.md), and [verified publication manifest](PUBLICATION_MANIFEST_0.6.6.md) govern the published v0.6.6 product. The detailed 0.6.5 text below is retained as a historical snapshot. Its 0.6.5 plugin exclusions, upstream pin, installer names, and upgrade exclusion do not describe 0.6.6.
+
+## Historical 0.6.5 snapshot
 
 ## English
 
@@ -13,8 +17,8 @@ provider gateway, session store, or chat page.
 
 Version 0.6.5 targets Apple Silicon, Windows x64, and UnionTech
 UOS 20 `linux-loong64`. Intel Mac is excluded from this version. It consumes
-official DSH `0.1.6-alpha.2` (307-package npm cohort). v0.6.5 is the current
-public download: its immutable GitHub Release bytes were published from
+official DSH `0.1.6-alpha.2` (307-package npm cohort). v0.6.5 was the current
+public download on 2026-09-20: its immutable GitHub Release bytes were published from
 `eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a` and read back on 2026-09-20. A fresh
 user brings a provider credential, selects an official model and Workspace,
 receives a real first DSH reply, and then uses the official DSH Web
@@ -188,7 +192,7 @@ Agent、模型、工具、审批、Workspace、Session、Turn 和会话 UI。蓬
 首次引导、进程监管、本地数据边界、辅助升级、卸载和经过审核的 DSH 插件，不另造
 Agent、模型网关、Session 存储或聊天页。
 
-当前公开版本为 v0.6.5（十项附件不可变，公网逐字节回读已通过，构建源码
+截至 2026-09-20 的公开版本为 v0.6.5（十项附件不可变，公网逐字节回读已通过，构建源码
 `eb90f494d6ccd8f3fe7f29ffc5007b8ada94be4a`）。它消费官方
 DSH `0.1.6-alpha.2`（307 包），目标为 Apple 芯片、Windows x64，以及统信 UOS 20
 `linux-loong64`（`Penglai_0.6.5_uos_loong64.deb`）。Intel Mac 不在本版发布。用户自备模型密钥，
