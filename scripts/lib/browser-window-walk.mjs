@@ -51,6 +51,8 @@ export const SNAPSHOT_JS = `(() => {
     penglaiSettings: Boolean(document.querySelector("[data-penglai-settings]")),
     asr: Boolean(document.querySelector("[data-penglai-asr]")),
       tts: Boolean(document.querySelector("[data-penglai-tts]")),
+      budget: Boolean(document.querySelector('[data-penglai-settings="budget"]')),
+      companion: Boolean(document.querySelector('[data-penglai-settings="companion"]')),
       memorySources: Boolean(document.querySelector("[data-penglai-memory-sources-panel]")),
       memory: Boolean(document.querySelector("[data-penglai-memory]")),
       memoryStatus: document.querySelector("[data-penglai-memory]")?.getAttribute("data-penglai-memory-status") || "",
@@ -199,6 +201,8 @@ const OPTIONAL_PLUGIN_IDS = [
   "@penglai/im",
   "@penglai/asr",
   "@penglai/moss-tts",
+  "@penglai/budget",
+  "@penglai/companion",
 ];
 
 export function bundledDefaultOnPluginSample(input) {
@@ -648,6 +652,10 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     { id: "ui-im", patterns: ["^消息连接$", "^Messages$", "^Penglai IM$"], flag: "im" },
     { id: "ui-asr", patterns: ["^蓬莱语音识别$", "^Speech recognition$"], flag: "asr" },
     { id: "ui-tts", patterns: ["^蓬莱语音合成$", "^Speech synthesis$"], flag: "tts" },
+    ...(opts.requireOptionalPlugins ? [
+      { id: "ui-budget", patterns: ["^Token 预算$", "^Token Budget$"], flag: "budget" },
+      { id: "ui-companion", patterns: ["^主动陪伴$", "^Proactive Companion$"], flag: "companion" },
+    ] : []),
     {
       id: "ui-memory",
       patterns: ["^蓬莱记忆$", "^Penglai Memory$"],
@@ -701,7 +709,7 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     blocked.push("upstream-window-title");
   }
   const requiredSettings = opts.requireOptionalPlugins
-    ? ["ui-penglai", "ui-center", "ui-im", "ui-asr", "ui-tts", "ui-memory", "ui-update", "ui-uninstall"]
+    ? ["ui-penglai", "ui-center", "ui-im", "ui-asr", "ui-tts", "ui-budget", "ui-companion", "ui-memory", "ui-update", "ui-uninstall"]
     : ["ui-penglai", "ui-center", "ui-memory", "ui-update", "ui-uninstall"];
   for (const id of requiredSettings) {
     if (!settingsWalked.includes(id)) blocked.push(id);

@@ -324,25 +324,25 @@ test("fresh lifecycle set requires every Mac/Windows target and rejects a UOS na
   assert.ok(withUos.failReasons.includes("fabricated/deferred native PASS"));
 });
 
-test("current 0.6.5 native workflow owner-excludes the pinned 0.6.3 upgrade path", () => {
+test("current 0.6.6 native workflow requires pinned 0.6.3 and 0.6.5 upgrade paths", () => {
   const workflow = readFileSync(join(ROOT, ".github/workflows/native-release-candidate.yml"), "utf8");
   assert.match(workflow, /verify:fresh-install-uninstall/);
-  assert.doesNotMatch(workflow, /fetch:upgrade-sources/);
-  assert.doesNotMatch(workflow, /Fetch immutable 0\.6\.3 installer/);
-  assert.doesNotMatch(workflow, /pnpm verify:upgrade-uninstall/);
+  assert.match(workflow, /fetch:upgrade-sources/);
+  assert.match(workflow, /Fetch immutable 0\.6\.3 and 0\.6\.5 upgrade installers/);
+  assert.match(workflow, /pnpm verify:upgrade-uninstall/);
   assert.doesNotMatch(workflow, /Penglai_0\.5\.12_macos/);
   const sources = JSON.parse(
     readFileSync(join(ROOT, "docs", PRODUCT_VERSION, "UPGRADE_SOURCES.json"), "utf8"),
   );
-  assert.equal(sources.currentWorkflow.fetchPreviousInstallers, false);
-  assert.equal(sources.currentWorkflow.olderInstalledUpgradeStatus, "OWNER_EXCLUDED");
-  assert.equal(sources.currentWorkflow.requiredLifecycleGate, "verify:fresh-install-uninstall");
-  assert.deepEqual(sources.currentWorkflow.requiredNativeUpgradePaths, []);
+  assert.equal(sources.currentWorkflow.fetchPreviousInstallers, true);
+  assert.equal(sources.currentWorkflow.olderInstalledUpgradeStatus, "REQUIRED");
+  assert.equal(sources.currentWorkflow.requiredLifecycleGate, "verify:upgrade-uninstall");
+  assert.deepEqual(sources.currentWorkflow.requiredNativeUpgradePaths, ["0.6.3", "0.6.5"]);
   // The published predecessor is 0.6.3, whose ten-asset Release is immutable and
   // read back byte-for-byte. This is deliberately a literal: a patch-arithmetic
   // successor would be wrong here (0.6.3 -> 0.6.5 skips 0.6.4), and deriving it
   // from the same file under test would only assert the file equals itself.
-  assert.deepEqual(sources.sources.map((row) => row.version), ["0.6.3"]);
+  assert.deepEqual(sources.sources.map((row) => row.version), ["0.6.3", "0.6.5"]);
 });
 
 function normalizeNewlines(text) {

@@ -133,10 +133,10 @@ Penglai Memory is retained in the installation and enabled by default in
 ${rootPackage.version}; the Owner may disable it without deleting its data.
 The exact official DSH manager owns open plugin installation and management.
 The historical signed catalog is not the current ecosystem install authority.
-Penglai Office, Budget, Companion, the former remote @penglai/office-reader,
-and the upstream Office/PDF/LibreOffice runtime family are not part of this
-desktop release. Historical immutable catalog releases remain available for
-audit only.
+Penglai Budget and Companion are bundled as optional first-party plugins and
+disabled by default. Penglai Office, the former remote @penglai/office-reader,
+and the upstream Office/PDF/LibreOffice runtime family are excluded from this
+desktop release. Historical immutable catalog releases remain available for audit only.
 
 Complete production dependency inventory
 ----------------------------------------

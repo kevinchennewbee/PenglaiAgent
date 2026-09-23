@@ -3,15 +3,15 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 
 export const DSH_UPSTREAM = Object.freeze({
-  version: "0.1.6-alpha.2",
-  tag: "dsh-v0.1.6-alpha.2",
-  commit: "ddefc45fbc7f8e46dd73185e68295696d1297887",
-  packageCount: 293,
-  rootIntegrity: "sha512-PHR/3ZHpJNWXlDQ3U9weFb7calWbSMJd2GD3z2iPJ8zAKL7ipuzyPy5xGbaXf2OA8hc0SAGJeoUW7nfatCNOYw==",
-  rootShasum: "37d635377c9807c47d49d662ca00d6d5ea5792de",
-  rootTarballSha256: "a3c14d175c051023dcde078fb273b287b13b4b77654ea90b52d956cbf409178d",
+  version: "0.1.7-alpha.2",
+  tag: "dsh-v0.1.7-alpha.2",
+  commit: "00102833dfaee1da9f48a3a8eae9d34005a75218",
+  packageCount: 309,
+  rootIntegrity: "sha512-uXuWobwmpNzqFOTFP61kgf0aH8IzU9LWPF9QWCUfv5DOtgtlm+6+zHvQMboEe0bCaitul61ySvUqd4mMNRedzw==",
+  rootShasum: "5e9769230688ec6fee1e4c04709cd5aff0c9c810",
+  rootTarballSha256: "e19ae853b95f092448bac2ac3d0c077e59b7db209266dbc266b1c610ca2b6afb",
   welcomeNotice: Object.freeze({
-    settingsNamespace: "ui-onboarding",
+    settingsNamespace: "ui-settings-general",
     ackField: "welcomeNoticeVersion",
     version: "2026-08-13.1",
     sourcePath: "packages/client/ui-settings-models/src/onboarding-copy.ts",
@@ -31,15 +31,15 @@ export const DSH_REQUIRED_PACKAGES = Object.freeze([
 ]);
 
 export const DSH_VENDOR_VERSIONS = Object.freeze({
-  "@deepseek-ai/cordis": "4.0.2",
-  "@deepseek-ai/cordis-plugin-group": "1.0.2",
-  "@deepseek-ai/cordis-plugin-hmr": "1.0.17",
-  "@deepseek-ai/cordis-plugin-include": "1.0.7",
-  "@deepseek-ai/cordis-plugin-loader": "1.0.3",
-  "@deepseek-ai/cordis-plugin-logger-console": "1.0.2",
-  "@deepseek-ai/cordis-plugin-timer": "1.1.4",
-  "@deepseek-ai/cosmokit": "1.8.3",
-  "@deepseek-ai/schemastery": "3.18.2",
+  "@deepseek-ai/cordis": "4.0.4",
+  "@deepseek-ai/cordis-plugin-group": "1.0.4",
+  "@deepseek-ai/cordis-plugin-hmr": "1.0.19",
+  "@deepseek-ai/cordis-plugin-include": "1.0.9",
+  "@deepseek-ai/cordis-plugin-loader": "1.0.5",
+  "@deepseek-ai/cordis-plugin-logger-console": "1.0.4",
+  "@deepseek-ai/cordis-plugin-timer": "1.1.6",
+  "@deepseek-ai/cosmokit": "1.8.5",
+  "@deepseek-ai/schemastery": "3.18.4",
 });
 
 export const DSH_NATIVE_SYSTEM_VERSIONS = Object.freeze({
@@ -279,7 +279,7 @@ export function validateCohortSnapshot(snapshot) {
   invariant(snapshot.rootTarballSha256 === DSH_UPSTREAM.rootTarballSha256, "@deepseek-ai/dsh tarball SHA-256 mismatch");
   invariant(JSON.stringify(snapshot.upstreamFacts?.welcomeNotice) === JSON.stringify(DSH_UPSTREAM.welcomeNotice), "DSH welcome notice identity mismatch");
   invariant(snapshot.distTags?.alpha === DSH_UPSTREAM.version, `snapshot npm alpha tag must select the fixed ${DSH_UPSTREAM.version} cohort`);
-  invariant(snapshot.distTags?.next === "0.1.5-rc.2", "npm next remains 0.1.5-rc.2; Penglai does not silently follow next");
+  invariant(snapshot.distTags?.next === "0.1.5-rc.3", "npm next was 0.1.5-rc.3 when this cohort was frozen; Penglai does not silently follow next");
   invariant(snapshot.distTags?.latest === "0.1.5-rc.2", "npm latest remains 0.1.5-rc.2; Penglai does not silently follow latest");
   const entries = Array.isArray(snapshot.packages) ? snapshot.packages : [];
   invariant(new Set(entries.map((entry) => entry.name)).size === entries.length, "duplicate package in DSH npm cohort");
@@ -343,6 +343,7 @@ export function verifyCohortLock(snapshot, lockText) {
   invariant(!lockText.includes("0.1.3-alpha.2"), "pnpm lock still contains 0.1.3-alpha.2");
   invariant(!lockText.includes("0.1.5-alpha.1"), "pnpm lock still contains leftover 0.1.5-alpha.1");
   invariant(!lockText.includes("0.1.5-alpha.2"), "pnpm lock still contains leftover 0.1.5-alpha.2");
+  invariant(!lockText.includes("0.1.6-alpha.2"), "pnpm lock still contains leftover 0.1.6-alpha.2");
   invariant(!lockText.includes("node-addon-landlock-run"), "pnpm lock still contains Landlock packages from a previous DSH generation");
   invariant(!lockText.includes("@deepseek-ai/dsh-client-runtime"), "pnpm lock contains removed dsh-client-runtime");
   return { packages: installed.size };

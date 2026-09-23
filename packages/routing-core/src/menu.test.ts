@@ -129,8 +129,8 @@ test("/version is a local control command and does not mention a second host", (
   // with the version. Anchoring the line also makes it exact rather than a
   // substring that any embedded version string could satisfy.
   assert.match(text, new RegExp(`^Penglai ${literal(PRODUCT_VERSION)}$`, "m"));
-  assert.match(text, /DSH 0\.1\.6-alpha\.2/);
-  assert.match(text, /ddefc45fbc7f8e46dd73185e68295696d1297887/);
+  assert.match(text, /DSH 0\.1\.7-alpha\.2/);
+  assert.match(text, /00102833dfaee1da9f48a3a8eae9d34005a75218/);
   assert.match(text, /DSH-IM adopted rewrite-source v4\.17\.1/);
   assert.match(text, /464c0a91762ebd0befc2d179f036eaae4864fb0e/);
   assert.match(text, /DSH-IM published v4\.18\.1/);

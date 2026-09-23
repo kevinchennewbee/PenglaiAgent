@@ -1196,7 +1196,7 @@ export class RoutingControlPlane {
         if (!this.directory.createSession) return this.reject("DSH_UNAVAILABLE", "create session unsupported");
         try {
           const created = await this.directory.createSession(binding.workspaceIdentity, command.title);
-          this.rebind(routeId, binding.workspaceIdentity, created.id);
+          await this.rebindVerified(routeId, binding.workspaceIdentity, created.id);
           return { kind: "control", text: `created ${created.id}` };
         } catch (error) {
           return this.reject(
@@ -1300,7 +1300,12 @@ export class RoutingControlPlane {
     routeId: string,
   ): Promise<{ binding: Binding; created: boolean } | undefined> {
     const existing = this.store.activeBinding(routeId);
-    if (existing) return { binding: existing, created: false };
+    if (existing) {
+      if (!(await this.officialSessionMember(existing.workspaceIdentity, existing.sessionId))) {
+        return undefined;
+      }
+      return { binding: existing, created: false };
+    }
     const dest = await this.resolveOfficialDefault();
     if (!dest) return undefined;
     return {
@@ -1369,7 +1374,7 @@ export class RoutingControlPlane {
     return this.store.activeBinding(routeId)!;
   }
 
-  consumeToken(routeId: string, adapter: AdapterName, token: string): ControlReply {
+  async consumeToken(routeId: string, adapter: AdapterName, token: string): Promise<ControlReply> {
     const guard = this.store.getGuard(routeId);
     if (guard.pairingLockedUntil > this.clock.now()) {
       return this.reject("SECURITY_POLICY", "pairing locked");
@@ -1391,6 +1396,9 @@ export class RoutingControlPlane {
     if (rec.consumed) return this.reject("UNAUTHORIZED", "token reused");
     if (rec.expiresAt < this.clock.now()) return this.reject("UNAUTHORIZED", "token expired");
     if (rec.adapter !== adapter) return this.reject("UNAUTHORIZED", "token adapter mismatch");
+    if (!(await this.officialSessionMember(rec.workspaceIdentity, rec.sessionId))) {
+      return this.reject("SECURITY_POLICY", "pairing session is no longer in its Workspace");
+    }
     const owner = this.store.ownerOfSession(rec.sessionId);
     if (owner && owner.routeId !== routeId) {
       return this.reject("SECURITY_POLICY", "session already has an IM owner");
@@ -1501,9 +1509,28 @@ export class RoutingControlPlane {
     if (!sessionId) {
       return this.reject("DSH_UNAVAILABLE", "official session missing for selected project");
     }
+    if (!(await this.officialSessionMember(choice.workspaceId, sessionId))) {
+      return this.reject("SECURITY_POLICY", "selected session is no longer in its Workspace");
+    }
+    if (this.store.activeBinding(routeId)?.revision !== binding.revision) {
+      return this.reject("SECURITY_POLICY", "binding changed while selecting a session");
+    }
     this.clearMenu(routeId);
     this.rebind(routeId, choice.workspaceId, sessionId);
     return { kind: "control", text: menuSwitched(choice.label, locale) };
+  }
+
+  private async officialSessionMember(workspaceIdentity: string, sessionId: string): Promise<boolean> {
+    if (!workspaceIdentity || !sessionId) return false;
+    const sessions = await this.directory.listSessions(workspaceIdentity);
+    return sessions.some((session) => session.id === sessionId);
+  }
+
+  async rebindVerified(routeId: string, workspaceIdentity: string, sessionId: string): Promise<ControlReply> {
+    if (!(await this.officialSessionMember(workspaceIdentity, sessionId))) {
+      return this.reject("SECURITY_POLICY", "session is not in the selected Workspace");
+    }
+    return this.rebind(routeId, workspaceIdentity, sessionId);
   }
 
   rebind(routeId: string, workspaceIdentity: string, sessionId: string): ControlReply {

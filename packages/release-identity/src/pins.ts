@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.6.5";
+export const PRODUCT_VERSION = "0.6.6";
 export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
@@ -36,18 +36,18 @@ export const PINNED_NODE_DARWIN_X64_SHA256 =
 export const PINNED_NODE_WIN32_X64_SHA256 =
   "1177b4137ba5adaa56354ae40f1080c7450e8ae09cecb47da459d1c52ac99f97";
 /** Exact official npm pre-release cohort reconciled to the fixed upstream tag. */
-export const PINNED_DSH = "0.1.6-alpha.2";
-export const PINNED_DSH_COMMIT = "ddefc45fbc7f8e46dd73185e68295696d1297887";
-export const PINNED_DSH_TAG = "dsh-v0.1.6-alpha.2";
+export const PINNED_DSH = "0.1.7-alpha.2";
+export const PINNED_DSH_COMMIT = "00102833dfaee1da9f48a3a8eae9d34005a75218";
+export const PINNED_DSH_TAG = "dsh-v0.1.7-alpha.2";
 export const PINNED_DSH_REPOSITORY = "https://github.com/deepseek-ai/DeepSeek-Harness.git";
 export const PINNED_DSH_NPM_INTEGRITY =
-  "sha512-PHR/3ZHpJNWXlDQ3U9weFb7calWbSMJd2GD3z2iPJ8zAKL7ipuzyPy5xGbaXf2OA8hc0SAGJeoUW7nfatCNOYw==";
-export const PINNED_DSH_NPM_SHASUM = "37d635377c9807c47d49d662ca00d6d5ea5792de";
+  "sha512-uXuWobwmpNzqFOTFP61kgf0aH8IzU9LWPF9QWCUfv5DOtgtlm+6+zHvQMboEe0bCaitul61ySvUqd4mMNRedzw==";
+export const PINNED_DSH_NPM_SHASUM = "5e9769230688ec6fee1e4c04709cd5aff0c9c810";
 export const PINNED_DSH_TARBALL_SHA256 =
-  "a3c14d175c051023dcde078fb273b287b13b4b77654ea90b52d956cbf409178d";
+  "e19ae853b95f092448bac2ac3d0c077e59b7db209266dbc266b1c610ca2b6afb";
 export const PINNED_DSH_CLOSURE_MANIFEST_SHA256 =
-  "eee9d9b1d350d337eb74489efd2ecbfd069054e0ef8751d45a94b857e691fd7f";
-export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 307;
+  "c16a660c28042bd508bf152fd4ed8605c4ea57573dbef9324f56a7111e21f762";
+export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 323;
 export const PINNED_LARK_SDK = "1.73.3";
 export const PINNED_LARK_COMMIT = "af41737d1e9d0fdb08bdbbbe3019a7c64b3d9513";
 export const PINNED_DINGTALK_STREAM = "2.1.5";
@@ -150,13 +150,13 @@ export const GITHUB_ACTIONS_STATUS = "AVAILABLE";
 export const CANDIDATE_SOURCE_SHA_NONE = "NONE";
 export const UPDATER_CHANNEL = "desktop-v0.5";
 /** Monotonic after immutable public v0.6.3, sequence 12. */
-export const UPDATER_SEQUENCE = 13;
+export const UPDATER_SEQUENCE = 14;
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.6.5",
-  release: "v0.6.5",
-  channel: "stable-v0.6.5",
+  tag: "v0.6.6",
+  release: "v0.6.6",
+  channel: "stable-v0.6.6",
 });
 
 /**
@@ -179,19 +179,19 @@ export const RELEASE_TARGETS = [
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.6.5_macos_aarch64.dmg",
+    installer: "Penglai_0.6.6_macos_aarch64.dmg",
   },
   {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
-    installer: "Penglai_0.6.5_windows_x64_setup.exe",
+    installer: "Penglai_0.6.6_windows_x64_setup.exe",
   },
   {
     key: "linux-loong64",
     platform: "linux",
     arch: "loong64",
-    installer: "Penglai_0.6.5_uos_loong64.deb",
+    installer: "Penglai_0.6.6_uos_loong64.deb",
   },
 ] as const;
 
@@ -206,22 +206,20 @@ export const NATIVE_INSTALLED_TARGET_KEYS = [
   "win32-x86_64",
 ] as const satisfies readonly ReleaseTargetKey[];
 
-/** Current 0.6.5 native lifecycle: fresh install, restart, and default uninstall on Mac/Windows. Older installed upgrade is explicitly owner-excluded. */
+/** Current 0.6.6 native lifecycle includes installed upgrade from both pinned public predecessors. */
 export const CURRENT_NATIVE_LIFECYCLE = Object.freeze({
-  requiredGate: "verify:fresh-install-uninstall",
-  olderInstalledUpgradeStatus: "OWNER_EXCLUDED",
+  requiredGate: "verify:upgrade-uninstall",
+  olderInstalledUpgradeStatus: "REQUIRED",
   nativeUosStatus: "OWNER_POST_RELEASE",
   twoHourSoak: "OWNER_EXCLUDED",
-  fetchPreviousInstallers: false,
+  fetchPreviousInstallers: true,
   requiredTargets: NATIVE_INSTALLED_TARGET_KEYS,
 });
 
 export const OWNER_EXCLUDED_SUBGATES: readonly Readonly<{
   name: string;
   status: "OWNER_EXCLUDED";
-}>[] = Object.freeze([
-  { name: "verify:upgrade-uninstall", status: "OWNER_EXCLUDED" },
-]);
+}>[] = Object.freeze([]);
 
 /** Vendor archive names stay as published (darwin-x64, win-x64). Selection uses RELEASE_TARGETS.key only. */
 export const RUNTIME_INPUTS = [
@@ -303,6 +301,7 @@ export const HARD_SUBGATES = [
   { name: "verify:signing", kind: "signing", mode: "evidence" },
   { name: "verify:installed", kind: "installed", mode: "evidence" },
   { name: "verify:fresh-install-uninstall", kind: "installed-lifecycle", mode: "evidence" },
+  { name: "verify:upgrade-uninstall", kind: "installed-upgrade", mode: "evidence" },
   { name: "verify:public-export", kind: "public-export", mode: "evidence" },
   { name: "verify:evidence", kind: "evidence", mode: "evidence" },
   { name: "audit:secrets", kind: "secret", mode: "run" },

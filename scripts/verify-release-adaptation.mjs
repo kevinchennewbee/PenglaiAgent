@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { DSH_EXTERNAL_PACKAGES, validateCohortSnapshot, verifyCohortLock } from "./lib/dsh-npm-cohort.mjs";
+import { DSH_EXTERNAL_PACKAGES, DSH_REQUIRED_PACKAGES, validateCohortSnapshot, verifyCohortLock } from "./lib/dsh-npm-cohort.mjs";
 import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
 import { assertNextUpdaterSequence } from "./lib/native-upgrade-set.mjs";
 import { ROOT } from "./lib/repo.mjs";
@@ -24,7 +24,8 @@ const PUBLISHED_063 = "1c103212ad25b7d2a0061c2c4bfa595cd413c138";
 // — the next native run failed with `fatal: bad object` before it built
 // anything. `fc50dc28` is the merge that landed the banner.
 const PUBLISHED_063_RECORDS = "fc50dc284e3ffb10fcf86f9c7fcb04fff35849d8";
-const DSH_TREE = "5aca5ee6f8dfd110dc3ae199fbddf8a0f606625f";
+const PUBLISHED_065 = "ce8eb049523e786e65f5bfdb20f64d9e6ab4c7e8";
+const DSH_TREE = "2144281b72e5cfa3c4ad060d77622133d7f4e7c0";
 const pins = readReleaseIdentityPins();
 const failures = [];
 
@@ -144,19 +145,25 @@ const protected063 = git([
 if (protected063.length > 0) {
   fail(`0.6.5 rewrote immutable 0.6.3 publication records: ${protected063.join(", ")}`);
 }
+const protected065 = git([
+  "diff", "--name-only", PUBLISHED_065, "--",
+  "docs/0.6.5", "docs/PUBLICATION_MANIFEST_0.6.5.md",
+  "docs/RELEASE_NOTES_0.6.5.md", "docs/PUBLICATION_0.6.5.md",
+]).split("\n").filter(Boolean);
+if (protected065.length > 0) fail(`0.6.6 rewrote immutable 0.6.5 publication records: ${protected065.join(", ")}`);
 
 
-if (pins.productVersion !== "0.6.5" || pins.dsh !== "0.1.6-alpha.2") {
-  fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.6.5/0.1.6-alpha.2`);
+if (pins.productVersion !== "0.6.6" || pins.dsh !== "0.1.7-alpha.2") {
+  fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.6.6/0.1.7-alpha.2`);
 }
 try {
-  assertNextUpdaterSequence(readJson("docs/0.6.5/UPGRADE_SOURCES.json"), pins.updaterSequence);
+  assertNextUpdaterSequence(readJson("docs/0.6.6/UPGRADE_SOURCES.json"), pins.updaterSequence);
 } catch (error) {
   fail(error.message);
 }
 if (existsSync(join(ROOT, ".pnpmfile.mjs"))) fail("0.6.5 must not activate the historical alpha.1 source resolver");
 
-const snapshotPath = join(ROOT, "docs/0.6.5/DSH_NPM_COHORT.json");
+const snapshotPath = join(ROOT, "docs/0.6.6/DSH_NPM_COHORT.json");
 const snapshotBytes = readFileSync(snapshotPath);
 const snapshot = JSON.parse(snapshotBytes.toString("utf8"));
 try {
@@ -169,7 +176,7 @@ if (snapshotSha256 !== pins.dshSource.closureManifestSha256) {
   fail(`DSH npm cohort digest ${snapshotSha256} != release pin ${pins.dshSource.closureManifestSha256}`);
 }
 
-const packagedBytes = readJson("docs/0.6.5/DSH_PACKAGED_BYTES.json");
+const packagedBytes = readJson("docs/0.6.6/DSH_PACKAGED_BYTES.json");
 if (
   packagedBytes.schema !== 2 ||
   packagedBytes.dsh !== pins.dsh ||
@@ -177,9 +184,9 @@ if (
   packagedBytes.source?.tag !== pins.dshSource.tag ||
   packagedBytes.source?.commit !== pins.dshSource.commit ||
   packagedBytes.source?.tree !== DSH_TREE ||
-  packagedBytes.source?.cohortManifest !== "docs/0.6.5/DSH_NPM_COHORT.json"
+  packagedBytes.source?.cohortManifest !== "docs/0.6.6/DSH_NPM_COHORT.json"
 ) {
-  fail("DSH packaged-byte policy identity is not the fixed 0.1.6-alpha.2 source and npm cohort");
+  fail("DSH packaged-byte policy identity is not the fixed 0.1.7-alpha.2 source and npm cohort");
 }
 const cohortByName = new Map(snapshot.packages.map((entry) => [entry.name, entry]));
 for (const row of packagedBytes.officialBytes ?? []) {
@@ -197,7 +204,7 @@ for (const row of packagedBytes.officialBytes ?? []) {
   }
   const target = join(ROOT, row.relative);
   if (!existsSync(target)) {
-    fail(`packaged byte ${row.id} is missing from the installed 0.1.6-alpha.2 graph`);
+    fail(`packaged byte ${row.id} is missing from the installed 0.1.7-alpha.2 graph`);
     continue;
   }
   const actual = createHash("sha256").update(readFileSync(target)).digest("hex");
@@ -218,24 +225,13 @@ try { verifyCohortLock(snapshot, lock); } catch (error) { fail(error.message); }
 for (const forbidden of ["0.1.2-alpha.1", "penglai-dsh-source", "@deepseek-ai/dsh-client-runtime", "@deepseek-ai/cordis@4.0.1"]) {
   if (lock.includes(forbidden)) fail(`active lock contains forbidden ${forbidden}`);
 }
-for (const required of [
-  "@deepseek-ai/dsh@0.1.6-alpha.2",
-  "@deepseek-ai/dsh-http-proxy@0.1.6-alpha.2",
-  "@deepseek-ai/dsh-client-ui-schedule@0.1.6-alpha.2",
-  "@deepseek-ai/dsh-deque@0.1.6-alpha.2",
-  "@deepseek-ai/dsh-util-time@0.1.6-alpha.2",
-  "@deepseek-ai/dsh-util-values@0.1.6-alpha.2",
-  "@deepseek-ai/dsh-llm-deepseek@0.1.6-alpha.2",
-  "@deepseek-ai/dsh-chunked-list@0.1.6-alpha.2",
-  "@deepseek-ai/dsh-client-ui-sidebar-documentpreview@0.1.6-alpha.2",
-  "@deepseek-ai/dsh-tool-present@0.1.6-alpha.2",
-]) {
+for (const required of ["@deepseek-ai/dsh", ...DSH_REQUIRED_PACKAGES].map((name) => `${name}@${pins.dsh}`)) {
   if (!lock.includes(required)) fail(`active lock is missing ${required}`);
 }
 if (lock.includes("@deepseek-ai/dsh@0.1.2-rc.1")) fail("active lock still contains 0.1.2-rc.1 DSH");
-if (lock.includes("0.1.5-alpha.1")) fail("active lock still contains leftover 0.1.5-alpha.1");
+if (lock.includes("0.1.6-alpha.2")) fail("active lock still contains leftover 0.1.6-alpha.2");
 const cordisVersions = new Set([...lock.matchAll(/@deepseek-ai\/cordis@(\d+\.\d+\.\d+)/g)].map((match) => match[1]));
-if (cordisVersions.size !== 1 || !cordisVersions.has("4.0.2")) {
+if (cordisVersions.size !== 1 || !cordisVersions.has("4.0.4")) {
   fail(`active lock has unexpected Cordis versions: ${[...cordisVersions].join(", ") || "none"}`);
 }
 
@@ -261,7 +257,7 @@ for (const relative of [
   "packages/plugin-registry/src/catalog-schema.ts",
 ]) {
   const source = readFileSync(join(ROOT, relative), "utf8");
-  if (!source.includes("0.1.6-alpha.2")) fail(`${relative} is not on 0.1.6-alpha.2`);
+  if (!source.includes("0.1.7-alpha.2")) fail(`${relative} is not on 0.1.7-alpha.2`);
 }
 
 if (failures.length > 0) {

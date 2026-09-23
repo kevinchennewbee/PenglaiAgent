@@ -13,6 +13,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { PenglaiError } from "./errors.js";
+export { snapshotOfficialSession } from "./session-snapshot.js";
 export * from "./i18n.js";
 export * from "./typert.js";
 export * from "./errors.js";
@@ -26,7 +27,7 @@ export * from "./usage-projection.js";
 export * from "./update-targets.js";
 
 export const SCHEMA_VERSION = 13;
-export const RELEASE = "0.6.5";
+export const RELEASE = "0.6.6";
 
 export const CONFIG = Object.freeze({
   pairingTtlMs: 5 * 60_000,

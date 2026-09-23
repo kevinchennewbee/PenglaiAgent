@@ -344,5 +344,5 @@ test("installFirstPartyPlugins isolates a newer overlay whose embedded DSH pin d
   const restored = JSON.parse(readFileSync(join(dest, "package.json"), "utf8")) as {
     penglaiPlugin: { dshExact: string };
   };
-  assert.equal(restored.penglaiPlugin.dshExact, "0.1.6-alpha.2");
+  assert.equal(restored.penglaiPlugin.dshExact, "0.1.7-alpha.2");
 });

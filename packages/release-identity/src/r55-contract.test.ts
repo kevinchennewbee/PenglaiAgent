@@ -18,15 +18,15 @@ import { FIRST_PARTY_PLUGIN_METADATA } from "../../runtime/src/plugin-catalog.js
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 
-test("release truth pins Penglai 0.6.5", () => {
-  assert.equal(PRODUCT_VERSION, "0.6.5");
+test("release truth pins Penglai 0.6.6", () => {
+  assert.equal(PRODUCT_VERSION, "0.6.6");
 });
 
 test("DSH alpha.2 source commit and closure digests are exact", () => {
-  assert.equal(PINNED_DSH, "0.1.6-alpha.2");
-  assert.equal(PINNED_DSH_COMMIT, "ddefc45fbc7f8e46dd73185e68295696d1297887");
-  assert.equal(PINNED_DSH_TARBALL_SHA256, "a3c14d175c051023dcde078fb273b287b13b4b77654ea90b52d956cbf409178d");
-  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "eee9d9b1d350d337eb74489efd2ecbfd069054e0ef8751d45a94b857e691fd7f");
+  assert.equal(PINNED_DSH, "0.1.7-alpha.2");
+  assert.equal(PINNED_DSH_COMMIT, "00102833dfaee1da9f48a3a8eae9d34005a75218");
+  assert.equal(PINNED_DSH_TARBALL_SHA256, "e19ae853b95f092448bac2ac3d0c077e59b7db209266dbc266b1c610ca2b6afb");
+  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "c16a660c28042bd508bf152fd4ed8605c4ea57573dbef9324f56a7111e21f762");
 });
 
 test("R55-TRUTH-003 three exact target installers including linux-loong64", () => {
@@ -37,7 +37,7 @@ test("R55-TRUTH-003 three exact target installers including linux-loong64", () =
 });
 
 test("release version has no older tag drift", () => {
-  assert.equal(PRODUCT_VERSION, "0.6.5");
+  assert.equal(PRODUCT_VERSION, "0.6.6");
   assert.equal(PRODUCT_VERSION.includes("0.5.6") || PRODUCT_VERSION.includes("0.5.7"), false);
 });
 
@@ -52,8 +52,8 @@ test("bundled Mnemon uses its actual Apache-2.0 license", () => {
   assert.equal(sbomSource.includes("Mnemon"), true);
   assert.equal(sbomSource.includes("Poppler pdftoppm"), false);
   assert.equal(noticesSource.includes("Poppler pdftoppm"), false);
-  assert.equal(noticesSource.includes("Penglai Office, Budget, Companion"), true);
-  assert.equal(noticesSource.includes("are not part of this"), true);
+  assert.equal(noticesSource.includes("Penglai Budget and Companion are bundled"), true);
+  assert.equal(noticesSource.includes("Office/PDF/LibreOffice runtime family are excluded"), true);
   assert.equal(noticesSource.includes("Penglai Memory"), true);
 });
 
@@ -69,7 +69,7 @@ test("0.5.12 does not ship bundled Poppler pdftoppm", () => {
 });
 
 test("official Web/Agent/Session/Workspace stay on the one fixed DSH core", () => {
-  assert.equal(PINNED_DSH, "0.1.6-alpha.2");
+  assert.equal(PINNED_DSH, "0.1.7-alpha.2");
 });
 
 test("R55-DSH-002 official attachment/settings/slot seams used", () => {
@@ -159,7 +159,7 @@ test("R55-BUILTIN-011 no orphan resource after lifecycle operations", () => {
 });
 
 test("R55-BUILTIN-012 DSH core remains usable in every state", () => {
-  assert.equal(PINNED_DSH, "0.1.6-alpha.2");
+  assert.equal(PINNED_DSH, "0.1.7-alpha.2");
 });
 
 test("R55-COMM-001 exact provenance lock", () => {

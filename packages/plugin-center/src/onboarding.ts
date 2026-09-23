@@ -75,7 +75,7 @@ export interface OfficialUsableCtx {
 export const OFFICIAL_LOCALE_SETTINGS_NS = "locale" as const;
 export const OFFICIAL_THEME_SETTINGS_NS = "ui-theme" as const;
 export const OFFICIAL_SETTINGS_PREFERENCE_FIELD = "preference" as const;
-export const OFFICIAL_WELCOME_SETTINGS_NS = "ui-onboarding" as const;
+export const OFFICIAL_WELCOME_SETTINGS_NS = "ui-settings-general" as const;
 export const OFFICIAL_WELCOME_ACK_FIELD = "welcomeNoticeVersion" as const;
 export const AGENT_DEFAULT_MODEL_SETTINGS_NS = "agent-default-model" as const;
 /** Exact acknowledgement version exported by the fixed DSH 0.1.6-alpha.2 source. */
@@ -388,6 +388,15 @@ export async function persistWelcomeAckToOfficialSettings(ctx: OfficialUsableCtx
     { op: "set", path: [OFFICIAL_WELCOME_ACK_FIELD], value: DSH_WELCOME_NOTICE_VERSION },
   ]);
   return true;
+}
+
+/** Read the current official notice acknowledgement from the profile-backed settings service. */
+export function readWelcomeAckFromOfficialSettings(
+  described: ReadonlyArray<{ ns?: string; value?: unknown }> | undefined,
+): boolean {
+  if (!Array.isArray(described)) return false;
+  const value = asRecord(described.find((item) => item?.ns === OFFICIAL_WELCOME_SETTINGS_NS)?.value);
+  return value?.[OFFICIAL_WELCOME_ACK_FIELD] === DSH_WELCOME_NOTICE_VERSION;
 }
 
 export function readOfficialDefaultModel(

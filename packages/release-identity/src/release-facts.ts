@@ -47,7 +47,7 @@ export const EXCLUSION_FACING_DOCS = [
 ] as const;
 
 /** Modules and targets this version excludes from the product runtime. */
-export const EXCLUDED_SCOPE = ["LibreOffice", "Office/PDF", "Budget", "Companion"] as const;
+export const EXCLUDED_SCOPE = ["LibreOffice", "Office/PDF"] as const;
 
 export function readDoc(rel: string): string {
   const path = join(ROOT, rel);

@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 import { PenglaiError, RELEASE } from "@penglai/contracts";
 
 export const PLUGIN_CATALOG_SCHEMA = 3 as const;
-export const PINNED_PLUGIN_DSH = "0.1.6-alpha.2" as const;
+export const PINNED_PLUGIN_DSH = "0.1.7-alpha.2" as const;
 export const PRODUCT_PLUGIN_TARGETS = [
   "darwin-arm64",
   "darwin-x64",
@@ -191,6 +191,32 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       builtIn: true,
       provenanceClass: "penglai-builtin",
       installClass: "required-builtin",
+      userVisible: true,
+      resourcePolicy: "none",
+    },
+    {
+      ...common,
+      id: "@penglai/budget",
+      packageFile: `penglai-budget-${RELEASE}.tgz`,
+      capabilities: ["token-budget", "workspace-budget"],
+      permissions: ["local-database", "official-token-meter"],
+      defaultEnabled: false,
+      builtIn: true,
+      provenanceClass: "penglai-first-party",
+      installClass: "optional-first-party",
+      userVisible: true,
+      resourcePolicy: "none",
+    },
+    {
+      ...common,
+      id: "@penglai/companion",
+      packageFile: `penglai-companion-${RELEASE}.tgz`,
+      capabilities: ["scheduled-reminder", "approved-im-delivery"],
+      permissions: ["local-database", "official-schedule", "owner-approved-outbound"],
+      defaultEnabled: false,
+      builtIn: true,
+      provenanceClass: "penglai-first-party",
+      installClass: "optional-first-party",
       userVisible: true,
       resourcePolicy: "none",
     },

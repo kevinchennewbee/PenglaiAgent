@@ -100,7 +100,7 @@ export async function startControlServer(
       if (req.method === "POST" && req.url === "/v1/rebind") {
         const body = await readBody(req);
         if (!isRecord(body)) throw new PenglaiError("INVALID_INPUT", "body");
-        const out = plane.rebind(String(body.routeId), String(body.workspaceIdentity), String(body.sessionId));
+        const out = await plane.rebindVerified(String(body.routeId), String(body.workspaceIdentity), String(body.sessionId));
         res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(out));
         return;
       }

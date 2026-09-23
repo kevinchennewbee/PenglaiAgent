@@ -51,7 +51,7 @@ test("embedded supervisor privately exchanges alpha browser auth and keeps stead
     'mkdirSync(plugins, { recursive: true });',
     `const inventory = ${JSON.stringify({
       entries: [
-        { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.6-alpha.2" },
+        { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.7-alpha.2" },
         { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active", version: "0.5.12" },
         { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active", version: "0.5.12" },
       ],
@@ -66,7 +66,7 @@ test("embedded supervisor privately exchanges alpha browser auth and keeps stead
     'const server = createServer((req, res) => {',
     '  const url = new URL(req.url || "/", "http://dsh.invalid");',
     '  if (url.pathname === "/" && url.searchParams.get("token") === token) {',
-    '    res.writeHead(303, { location: "/", "set-cookie": `${cookie}; Path=/; HttpOnly; SameSite=Strict` }).end();',
+    '    res.writeHead(303, { location: "./", "set-cookie": `${cookie}; Path=/; HttpOnly; SameSite=Strict` }).end();',
     '    return;',
     '  }',
     '  if (url.pathname === "/" && req.headers.cookie === cookie) {',

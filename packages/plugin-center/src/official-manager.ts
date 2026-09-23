@@ -32,6 +32,9 @@ export function createOfficialPluginManager(ctx: Context): PluginManager {
     outputBytes: 16_384,
     lockWaitMs: 120_000,
     inspectTimeoutMs: 20_000,
+    // Direct construction bypasses Cordis' Config default resolver. 0.1.7
+    // reads this list during construction, before any Remote is mounted.
+    fallbackRegistries: [],
   });
 }
 

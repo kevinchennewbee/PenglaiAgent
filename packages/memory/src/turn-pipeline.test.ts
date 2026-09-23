@@ -153,7 +153,7 @@ test("memory curator uses one official LLM request without Session or tools", as
   assert.deepEqual(calls[0]?.tools, []);
   assert.deepEqual(usage, [15]);
   const message = (calls[0]?.messages as Array<{ source?: unknown }>)[0];
-  assert.deepEqual(message?.source, { kind: "plugin", plugin: "@penglai/memory" });
+  assert.deepEqual(message?.source, { kind: "penglai-memory", plugin: "@penglai/memory" });
 });
 
 test("memory curator rejects late tool blocks and an already-aborted request", async () => {

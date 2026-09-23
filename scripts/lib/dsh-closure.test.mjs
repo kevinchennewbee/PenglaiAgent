@@ -218,7 +218,7 @@ test("official loader declares require-builtin as an optional peer", () => {
   const loader = JSON.parse(
     readFileSync(resolve("node_modules/@deepseek-ai/cordis-plugin-loader/package.json"), "utf8"),
   );
-  assert.equal(loader.peerDependencies["node-addon-require-builtin"], "^0.1.4");
+  assert.equal(loader.peerDependencies["node-addon-require-builtin"], "^0.1.6");
   assert.equal(loader.peerDependenciesMeta["node-addon-require-builtin"].optional, true);
   const builtin = JSON.parse(
     readFileSync(resolve("node_modules/node-addon-require-builtin/package.json"), "utf8"),

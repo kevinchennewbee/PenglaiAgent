@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
 import { createUserMessage, type LlmRuntime, type TokenUsage } from "@deepseek-ai/dsh-llm";
+
+declare module "@deepseek-ai/dsh-llm" {
+  interface MessageSourceMap {
+    "penglai-memory": { kind: "penglai-memory"; plugin: "@penglai/memory" };
+  }
+}
 import { ingestCuratorOutput } from "./v2/curator.js";
 import type { MemoryCandidateV1, MemoryV2Store } from "./v2/candidates.js";
 
@@ -109,7 +115,7 @@ export async function runOfficialLlmCurator(input: {
         messages: [
           createUserMessage({
             content: [{ type: "text", text: prompt }],
-            source: { kind: "plugin", plugin: "@penglai/memory" },
+            source: { kind: "penglai-memory", plugin: "@penglai/memory" },
           }),
         ],
         tools: [],
