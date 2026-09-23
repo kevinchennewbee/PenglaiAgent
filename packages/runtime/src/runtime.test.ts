@@ -37,6 +37,7 @@ import {
   pnpmLocalFileSpecifier,
   PRODUCT_WEB_PATCH_RELOAD,
   PRODUCT_VERSION,
+  PINNED_DSH,
   probeOfficialDsh,
   recoverProfile,
   resetManagedDshModuleFallback,
@@ -421,6 +422,10 @@ test("official DSH profile dependency is repairable without exposing immutable i
   mkdirSync(second, { recursive: true });
   writeFileSync(join(first, "identity.txt"), "first\n");
   writeFileSync(join(second, "identity.txt"), "second\n");
+  for (const source of [first, second]) {
+    mkdirSync(join(source, "dsh-app-boot"), { recursive: true });
+    writeFileSync(join(source, "dsh-app-boot", "package.json"), JSON.stringify({ version: PINNED_DSH }));
+  }
   const layout = (officialDeepseek: string) => ({
     appRoot: root,
     nodeBin: process.execPath,
@@ -435,12 +440,15 @@ test("official DSH profile dependency is repairable without exposing immutable i
   const dest = join(profile, "node_modules", "@deepseek-ai");
   assert.equal(lstatSync(dest).isSymbolicLink(), false);
   assert.equal(readFileSync(join(dest, "identity.txt"), "utf8"), "first\n");
+  assert.equal(existsSync(join(dest, "dsh-app-boot")), false);
+  assert.equal(existsSync(join(first, "dsh-app-boot", "package.json")), true);
   rmSync(join(dest, "identity.txt"), { force: true });
   linkOfficialDeepseek(layout(first), profile);
   assert.equal(readFileSync(join(dest, "identity.txt"), "utf8"), "first\n");
   assert.equal(readFileSync(join(first, "identity.txt"), "utf8"), "first\n");
   linkOfficialDeepseek(layout(second), profile);
   assert.equal(readFileSync(join(dest, "identity.txt"), "utf8"), "second\n");
+  assert.equal(existsSync(join(dest, "dsh-app-boot")), false);
 });
 
 test("plugin tarball root without package/ prefix is accepted", () => {
