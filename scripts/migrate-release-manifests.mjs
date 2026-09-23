@@ -2,21 +2,21 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 
-const PRODUCT_VERSION = "0.6.5";
-const DSH_VERSION = "0.1.6-alpha.2";
+const PRODUCT_VERSION = "0.6.6";
+const DSH_VERSION = "0.1.7-alpha.2";
 const VENDOR_VERSIONS = Object.freeze({
-  "@deepseek-ai/cordis": "4.0.2",
-  "@deepseek-ai/cordis-plugin-group": "1.0.2",
-  "@deepseek-ai/cordis-plugin-hmr": "1.0.17",
-  "@deepseek-ai/cordis-plugin-include": "1.0.7",
-  "@deepseek-ai/cordis-plugin-loader": "1.0.3",
-  "@deepseek-ai/cordis-plugin-logger-console": "1.0.2",
-  "@deepseek-ai/cordis-plugin-timer": "1.1.4",
-  "@deepseek-ai/cosmokit": "1.8.3",
-  "@deepseek-ai/schemastery": "3.18.2",
+  "@deepseek-ai/cordis": "4.0.4",
+  "@deepseek-ai/cordis-plugin-group": "1.0.4",
+  "@deepseek-ai/cordis-plugin-hmr": "1.0.19",
+  "@deepseek-ai/cordis-plugin-include": "1.0.9",
+  "@deepseek-ai/cordis-plugin-loader": "1.0.5",
+  "@deepseek-ai/cordis-plugin-logger-console": "1.0.4",
+  "@deepseek-ai/cordis-plugin-timer": "1.1.6",
+  "@deepseek-ai/cosmokit": "1.8.5",
+  "@deepseek-ai/schemastery": "3.18.4",
 });
 const DEPENDENCY_FIELDS = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"];
-const RETIRED_WORKSPACE_PACKAGES = new Set(["budget", "companion", "image-size-disabled", "office"]);
+const RETIRED_WORKSPACE_PACKAGES = new Set(["image-size-disabled", "office"]);
 const WRITE = process.argv.includes("--write");
 
 const manifestPaths = [join(ROOT, "package.json"), join(ROOT, "apps", "desktop", "package.json")];
@@ -68,7 +68,7 @@ for (const path of manifestPaths) {
 }
 
 if (failures.length > 0) {
-  throw new Error(`0.6.5 manifest migration required:\n${failures.join("\n")}`);
+  throw new Error(`0.6.6 manifest migration required:\n${failures.join("\n")}`);
 }
 console.log(JSON.stringify({
   verdict: "PASS",

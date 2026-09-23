@@ -25,6 +25,7 @@ import {
   DSH_HOME_PREVIOUS_VERSION,
   DSH_HOME_ALPHA13_VERSION,
   DSH_HOME_RC1_VERSION,
+  DSH_HOME_ALPHA16_VERSION,
   DSH_HOME_JSONL_COMPRESSION,
   DSH_HOME_TARGET_VERSION,
   isHistoricalSessionLogName,
@@ -42,6 +43,72 @@ import {
 
 const FIXTURE_CREDENTIAL =
   "DEEPSEEK_API_KEY: penglai-test-fixture-key-not-real\n";
+
+test("0.6.5 V3 home prepares a separate 0.1.7 generation, publishes V4 there, and rolls back to exact source bytes", async () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-065-to-066-home-"));
+  const source = join(root, "dsh-homes", `dsh-v${DSH_HOME_ALPHA16_VERSION}`);
+  const sessionDirectory = join(source, "storages", "sessions", "_no-cwd", "owner-session");
+  mkdirSync(sessionDirectory, { recursive: true, mode: 0o700 });
+  const original = new Map([
+    ["settings.yaml", Buffer.from("locale:\n  preference: zh\n")],
+    [".credentials.yaml", Buffer.from(FIXTURE_CREDENTIAL)],
+    ["storages/sessions/_no-cwd/owner-session/session.v3.jsonl", Buffer.from(
+      JSON.stringify({ type: "session", version: 3, id: "owner-session", createdAt: 1, isSeeded: false, delegationDepth: 0 }) + "\n" +
+      JSON.stringify({ type: "turn/start", seq: 0, time: 2, data: { turn: 1 } }) + "\n" +
+      JSON.stringify({ type: "user/message", seq: 1, time: 3, data: { id: "owner-message", role: "user", source: { kind: "user" }, content: [{ type: "text", text: "preserve me" }] }, surfaceOp: "append" }) + "\n" +
+      JSON.stringify({ type: "turn/end", seq: 2, time: 4, data: { turn: 1, reason: { kind: "completed" } } }) + "\n",
+    )],
+  ]);
+  for (const [name, bytes] of original) {
+    writeFileSync(join(source, name), bytes, { mode: 0o600 });
+  }
+  const activatedAt = "2026-09-20T00:00:00.000Z";
+  writeFileSync(join(source, ".penglai-dsh-home.json"), JSON.stringify({
+    schema: 1, kind: "fresh", dshVersion: DSH_HOME_ALPHA16_VERSION,
+    state: "active", preparedAt: activatedAt, activatedAt, targetDigest: "a".repeat(64),
+  }));
+  const pointer = join(root, "dsh-home-active.json");
+  const previous = {
+    schema: 1, activeVersion: DSH_HOME_ALPHA16_VERSION,
+    homeRelative: `dsh-homes/dsh-v${DSH_HOME_ALPHA16_VERSION}`,
+    activationKind: "fresh", activatedAt, targetDigest: "a".repeat(64),
+  };
+  writeFileSync(pointer, JSON.stringify(previous));
+
+  const plan = prepareDshHomeForBoot({ userRoot: root, reserveBytes: 0 });
+  assert.equal(plan.kind, "migration-prepared");
+  assert.notEqual(plan.dshHome, source);
+  assert.deepEqual(JSON.parse(readFileSync(pointer, "utf8")), previous);
+  for (const [name, bytes] of original) {
+    assert.deepEqual(readFileSync(join(source, name)), bytes);
+    assert.deepEqual(readFileSync(join(plan.dshHome, name)), bytes);
+  }
+  activateDshHomeBootPlan({ userRoot: root, plan, validation: validProof() });
+  assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_TARGET_VERSION);
+  const ctx = new Context();
+  const sessionFiber = await ctx.plugin(SessionStore);
+  const persistenceFiber = await ctx.plugin(JsonlSessionPersistence, {
+    root: join(plan.dshHome, "storages", "sessions"), compression: "none", writeBatchMaxDelayMs: 1,
+  });
+  try {
+    const handle = await ctx.sessionPersistence.open(SessionId("owner-session"), "write");
+    try {
+      const snapshot = await handle.read();
+      assert.equal(handle.header.version, 4);
+      assert.ok(snapshot.events.some((event) => event.type === "user/message"));
+    } finally {
+      await handle.close();
+    }
+  } finally {
+    await persistenceFiber.dispose();
+    await sessionFiber.dispose();
+  }
+  assert.equal(existsSync(join(plan.dshHome, "storages", "sessions", "_no-cwd", "owner-session", "session.v4.jsonl")), true);
+  rollbackDshHomeUpgrade({ userRoot: root, operationId: plan.operationId!, reason: "0.1.7 validation failed" });
+  assert.deepEqual(JSON.parse(readFileSync(pointer, "utf8")), { ...previous, rollbackReason: "0.1.7 validation failed" });
+  for (const [name, bytes] of original) assert.deepEqual(readFileSync(join(source, name)), bytes);
+  assert.equal(existsSync(join(source, "storages", "sessions", "_no-cwd", "owner-session", "session.v4.jsonl")), false);
+});
 
 test("0.5.11 rc.1 active generation upgrades to 0.1.6-alpha.2 and restores its exact pointer on rollback", () => {
   const root = fixtureRoot();
@@ -394,7 +461,7 @@ test("P059-DATA-005 source mutation during validation blocks activation", () => 
         operationId: "upgrade06",
         validation: validProof(),
       }),
-    /previous DSH home changed during 0.1.6-alpha.2 validation/,
+    /previous DSH home changed during 0.1.7-alpha.2 validation/,
   );
   assert.equal(readActiveDshHome(root), undefined);
 });

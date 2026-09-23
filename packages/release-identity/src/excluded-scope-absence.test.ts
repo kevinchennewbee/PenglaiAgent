@@ -8,10 +8,9 @@ import { PRODUCT_PATH_FILES } from "./product-path.js";
 /**
  * Reverse existence: the excluded scope must be absent from the product.
  *
- * The previous registry spent 38 Hard ids asserting that Office/PDF, Budget and
- * Companion *work* — modules the product constitution excludes from workspace,
- * profile, runtime, installer, and SBOM. Those 38 ids guaranteed `missing != 0`
- * under every possible run, which is what made the whole count meaningless.
+ * The 0.6.6 contract restores Budget and Companion but still excludes Office.
+ * This reverse-existence check therefore applies only to the remaining
+ * excluded product module and upstream Office/PDF runtime packages.
  *
  * One id now asserts the opposite. The important design decision is that it
  * checks the *derived shipped sets* on each surface, never a raw text search for
@@ -34,8 +33,6 @@ const ROOT = join(import.meta.dirname, "..", "..", "..");
 /** Penglai-scoped modules this version excludes from workspace, profile and runtime. */
 export const EXCLUDED_PENGLAI_MODULES = [
   "@penglai/office",
-  "@penglai/budget",
-  "@penglai/companion",
 ] as const;
 
 /**

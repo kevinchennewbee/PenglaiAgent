@@ -106,7 +106,7 @@ export * from "./dsh-web-auth.js";
 export const PENGLAI_VERSION = RELEASE;
 /** Official DSH `startup` freeze: no live HMR. Internals probing is optional. */
 export const PRODUCT_WEB_PATCH_RELOAD = "startup";
-export const PINNED_DSH = "0.1.6-alpha.2";
+export const PINNED_DSH = "0.1.7-alpha.2";
 export const PINNED_NODE = "22.23.2";
 export const PINNED_ELECTRON = "43.6.0";
 export const NODE_TARBALL_SHA256 = "61130f394c1630d211dd50aecc4353d379480f36d3ac913cd85dbba1aed585c6";
@@ -864,7 +864,7 @@ export function prepareOpenPluginProfile(layout: RuntimeLayout, user: UserLayout
   for (const entry of loadPluginCatalog(layout.pluginsDir, runtimePluginTarget(), true).entries) {
     dependencies[entry.id] = pnpmLocalFileSpecifier(resolve(layout.pluginsDir, entry.packageFile));
   }
-  for (const id of ["@penglai/office", "@penglai/budget", "@penglai/companion", "@penglai/image-size-disabled"]) delete dependencies[id];
+  for (const id of ["@penglai/office", "@penglai/image-size-disabled"]) delete dependencies[id];
   const next = { ...manifest, dependencies, packageManager: "pnpm@11.11.0" };
   const encoded = `${JSON.stringify(next, null, 2)}\n`;
   if (encoded !== text) writeFileAtomic(manifestPath, encoded, 0o600);
@@ -877,12 +877,12 @@ export function prepareOpenPluginProfile(layout: RuntimeLayout, user: UserLayout
   const patchPath = join(user.profileWeb, "cordis.patch.yml");
   let patch = readRegularFileNoFollow(patchPath, "utf8");
   if (patch === undefined) throw new PenglaiError("STORE_CORRUPT", "profile patch missing");
-  for (const id of ["@penglai/office", "@penglai/budget", "@penglai/companion"]) {
+  for (const id of ["@penglai/office"]) {
     patch = removeCordisPluginBlock(patch, id).text;
   }
   patch = `${patch.trimEnd()}\n# Open manager migration: preserve subsequent Owner choices.\n- id: tool-plugin-manager\n  disabled: false\n- id: ui-plugin-manager\n  disabled: false\n`;
   writeFileAtomic(patchPath, patch, 0o600);
-  writeFileAtomic(marker, `${JSON.stringify({ schema: 1, manager: "official-dsh", version: "0.6.5" })}\n`, 0o600);
+  writeFileAtomic(marker, `${JSON.stringify({ schema: 1, manager: "official-dsh", version: RELEASE })}\n`, 0o600);
 }
 
 export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout): void {

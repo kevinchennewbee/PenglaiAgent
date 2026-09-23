@@ -132,7 +132,7 @@ test("Windows signing inspection stays in the PowerShell 7 host module graph", (
 test("profile verifier proves fresh optional-off and explicit composition modes", () => {
   const src = readFileSync(new URL("../../../scripts/verify-profile.mjs", import.meta.url), "utf8");
   assert.match(src, /PENGLAI_PLUGINS_DIR:\s*layout\.pluginsDir/);
-  assert.match(src, /\["fresh", "im-only", "im-asr", "im-tts", "full"\]/);
+  assert.match(src, /\["fresh", "im-only", "im-asr", "im-tts", "budget", "companion", "full"\]/);
   assert.match(src, /installFirstPartyPlugins/);
 });
 

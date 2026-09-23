@@ -30,11 +30,11 @@ jobs:
           # Pull-request jobs otherwise test GitHub's synthetic merge commit,
           # which cannot serve as the immutable release candidate identity.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Check out immutable official DSH 0.1.6-alpha.2 source
+      - name: Check out immutable official DSH 0.1.7-alpha.2 source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: deepseek-ai/DeepSeek-Harness
-          ref: ddefc45fbc7f8e46dd73185e68295696d1297887
+          ref: 00102833dfaee1da9f48a3a8eae9d34005a75218
           path: upstream-dsh
           fetch-depth: 1
       - name: Prepare authoritative main identity

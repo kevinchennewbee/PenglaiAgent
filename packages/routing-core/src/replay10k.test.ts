@@ -11,7 +11,7 @@ test("R2I-ROUTE-010 10k deterministic replay has no duplicate claim or wrong rou
     store,
     clock,
     new SeqIds(),
-    { async listWorkspaces() { return [{ id: "w", title: "w" }]; }, async listSessions() { return [{ id: "s" }]; } },
+    { async listWorkspaces() { return [{ id: "w", title: "w" }]; }, async listSessions() { return Array.from({ length: 400 }, (_, n) => ({ id: `s${n}` })); } },
     {
       async followup(i) { return { dshMessageId: `dsh_${i.inboundId}` }; },
       async steer(i) { return { dshMessageId: `dsh_${i.inboundId}` }; },

@@ -296,6 +296,9 @@ test("R50-PREP-005 required public docs are enumerated", () => {
       "docs/0.6.5/ACCEPTANCE_DELTA.md",
       "docs/0.6.5/UPGRADE_SOURCES.json",
       "docs/0.6.5/NATIVE_LIFECYCLE.md",
+      "docs/0.6.6/ACCEPTANCE_DELTA.md",
+      "docs/0.6.6/UPGRADE_SOURCES.json",
+      "docs/0.6.6/NATIVE_LIFECYCLE.md",
     ]),
   );
   assert.equal(REQUIRED_PUBLIC_DOCS.includes(`docs/${PRODUCT_VERSION}/UPGRADE_SOURCES.json`), true);

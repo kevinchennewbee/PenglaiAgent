@@ -1,6 +1,6 @@
 {
   "name": "@penglai/companion",
-  "version": "0.6.2",
+  "version": "0.6.6",
   "private": true,
   "type": "module",
   "exports": {
@@ -25,9 +25,9 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/cordis": "4.0.2",
-    "@deepseek-ai/dsh-client-connection": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-typert-protocol": "0.1.5-rc.2",
+    "@deepseek-ai/cordis": "4.0.4",
+    "@deepseek-ai/dsh-client-connection": "0.1.7-alpha.2",
+    "@deepseek-ai/dsh-typert-protocol": "0.1.7-alpha.2",
     "@penglai/contracts": "workspace:*",
     "@penglai/runtime": "workspace:*"
   }

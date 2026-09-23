@@ -148,6 +148,38 @@ const packs = [
       platform: "web",
     },
   },
+  {
+    id: "@penglai/budget",
+    dir: "packages/budget",
+    file: `penglai-budget-${PRODUCT_VERSION}.tgz`,
+    host: "src/index.ts",
+    client: "src/dsh-client.js",
+    dshClient: {
+      inject: [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-settings",
+      ],
+      platform: "web",
+    },
+  },
+  {
+    id: "@penglai/companion",
+    dir: "packages/companion",
+    file: `penglai-companion-${PRODUCT_VERSION}.tgz`,
+    host: "src/index.ts",
+    client: "src/dsh-client.js",
+    dshClient: {
+      inject: [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-settings",
+      ],
+      platform: "web",
+    },
+  },
 ];
 
 for (const p of packs) {

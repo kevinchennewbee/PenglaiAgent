@@ -12,6 +12,12 @@
       disabled: false
     - id: penglai-memory
       name: "@penglai/memory"
+    - id: penglai-budget
+      name: "@penglai/budget"
+      disabled: true
+    - id: penglai-companion
+      name: "@penglai/companion"
+      disabled: true
     - id: penglai-official-schedule
       name: "@deepseek-ai/dsh-schedule"
     - id: penglai-plugin-reference

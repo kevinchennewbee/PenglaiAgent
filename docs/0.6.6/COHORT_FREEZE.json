@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "kind": "penglai-0.6.6-development-cohort-freeze",
+  "status": "development-frozen",
+  "publicRelease": {
+    "productVersion": "0.6.6",
+    "tag": "v0.6.6",
+    "immutable": false
+  },
+  "previousPublicRelease": {
+    "productVersion": "0.6.5",
+    "tag": "v0.6.5",
+    "immutable": true
+  },
+  "development": {
+    "versionLabel": "0.6.6",
+    "publicationAuthorized": false,
+    "identityRetitled": true
+  },
+  "dsh": {
+    "version": "0.1.7-alpha.2",
+    "tag": "dsh-v0.1.7-alpha.2",
+    "commit": "00102833dfaee1da9f48a3a8eae9d34005a75218",
+    "packageCount": 323,
+    "tarballSha256": "e19ae853b95f092448bac2ac3d0c077e59b7db209266dbc266b1c610ca2b6afb",
+    "closureManifestSha256": "c16a660c28042bd508bf152fd4ed8605c4ea57573dbef9324f56a7111e21f762",
+    "successorReview": {
+      "boundary": "later-than-dsh-v0.1.7-alpha.2",
+      "reason": "Any later DSH generation requires a new atomic cohort and release review."
+    }
+  },
+  "runtime": {
+    "node": "22.23.2",
+    "electron": "43.6.0",
+    "pnpm": "11.11.0"
+  },
+  "migration": {
+    "homeGeneration": "copy the verified 0.1.6-alpha.2 home into an isolated 0.1.7-alpha.2 generation; preserve V3 logs and activate after health checks",
+    "center": "rebuild every non-Office first-party plugin for exact DSH 0.1.7-alpha.2 and use the official DSH manager",
+    "windowsUpgrade": "0.6.5 to 0.6.6 installed upgrade requires native validation before publication",
+    "mixedDshGenerations": "forbidden"
+  }
+}

@@ -31,7 +31,7 @@ export function redactDshLaunchTokens(value: string): string {
 }
 
 /**
- * Accept only the exact loopback launch URL shape emitted by DSH 0.1.6-alpha.2.
+ * Accept only the exact loopback launch URL shape emitted by DSH 0.1.7-alpha.2.
  * The optional LAN URL on the same line is deliberately ignored.
  */
 export function parseDshWebLaunchUrl(line: string, expectedPort: number): string | undefined {
@@ -154,7 +154,9 @@ async function exchangeLaunchToken(launchUrl: string, timeoutMs: number): Promis
   timer.unref?.();
   try {
     const response = await fetch(launchUrl, { redirect: "manual", signal: controller.signal });
-    if (response.status !== 303 || response.headers.get("location") !== "/") return undefined;
+    // DSH 0.1.7 redirects to the directory-relative clean root. Requiring
+    // its exact value keeps an unexpected redirect from authorizing Web.
+    if (response.status !== 303 || response.headers.get("location") !== "./") return undefined;
     return browserSessionCookie(response.headers);
   } finally {
     clearTimeout(timer);

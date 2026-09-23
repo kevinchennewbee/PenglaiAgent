@@ -50,7 +50,7 @@ async function main() {
   const launch = validateLaunchArguments(process.argv.slice(2));
   const dshRoot = dirname(dirname(fileURLToPath(import.meta.url)));
   const manifest = JSON.parse(readFileSync(join(dshRoot, "package.json"), "utf8"));
-  if (manifest.name !== "@deepseek-ai/dsh" || manifest.version !== "0.1.6-alpha.2") {
+  if (manifest.name !== "@deepseek-ai/dsh" || manifest.version !== "0.1.7-alpha.2") {
     throw new Error("Penglai DSH launch identity mismatch");
   }
   if (launch.versionOnly) {

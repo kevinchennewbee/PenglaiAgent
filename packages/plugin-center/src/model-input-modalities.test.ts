@@ -1,11 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { Context } from "@deepseek-ai/cordis";
-import { Config } from "@deepseek-ai/dsh-llm-deepseek";
-import FileSettingsProvider from "@deepseek-ai/dsh-settings-file";
+import { readFileSync } from "node:fs";
 import { PenglaiError } from "@penglai/contracts";
 import {
   applyImageInputToCatalog,
@@ -110,11 +105,19 @@ test("image toggle keeps unknown official fields including nested metadata and i
   assert.equal(enabledRow?.imagePixelBudget, 640_000);
 });
 
-test("resolveModelInfo fallback catalog draft round-trips official settings.mutate", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "penglai-llm-deepseek-settings-"));
-  const app = new Context();
-  await app.plugin(FileSettingsProvider, { path: join(dir, "settings.json"), watch: false });
-  app.settings.register("llm-deepseek", Config);
+test("resolveModelInfo fallback catalog draft preserves fields through the 0.1.7 settings boundary", async () => {
+  let models: unknown[] = [];
+  const settings = {
+    describe: () => [{ ns: "llm-deepseek", value: { models } }],
+    mutate: async (ns: string, ops: ReadonlyArray<{ op: string; path: string[]; value?: unknown }>) => {
+      assert.equal(ns, "llm-deepseek");
+      for (const op of ops) {
+        assert.deepEqual({ op: op.op, path: op.path }, { op: "set", path: ["models"] });
+        assert.ok(Array.isArray(op.value));
+        models = op.value;
+      }
+    },
+  };
   const resolvedInfo = {
     provider: "deepseek-official",
     id: "deepseek-flash",
@@ -126,7 +129,7 @@ test("resolveModelInfo fallback catalog draft round-trips official settings.muta
     reasoning: { efforts: [{ id: "high", name: "High" }] },
   };
   const official = {
-    settings: app.settings,
+    settings,
     llm: {
       async listModels() {
         return [{ id: "deepseek-flash", name: "DeepSeek-V41-Flash" }];
@@ -139,7 +142,7 @@ test("resolveModelInfo fallback catalog draft round-trips official settings.muta
   const fallbackOfficial = {
     settings: {
       describe: () => [{ ns: "llm-deepseek", value: { models: [] } }],
-      mutate: app.settings.mutate.bind(app.settings),
+      mutate: settings.mutate,
     },
     llm: official.llm,
   };
@@ -151,10 +154,10 @@ test("resolveModelInfo fallback catalog draft round-trips official settings.muta
   assert.equal(listed[0]?.defaultMaxTokens, undefined);
   assert.equal(listed[0]?.provider, undefined);
   const spreadDraft = catalogModelFromUnknown({ ...resolvedInfo, id: "deepseek-flash" });
-  await app.settings.mutate("llm-deepseek", [{ op: "set", path: ["models"], value: [spreadDraft] }]);
-  await app.settings.mutate("llm-deepseek", [{ op: "set", path: ["models"], value: listed }]);
+  await settings.mutate("llm-deepseek", [{ op: "set", path: ["models"], value: [spreadDraft] }]);
+  await settings.mutate("llm-deepseek", [{ op: "set", path: ["models"], value: listed }]);
   const enabled = await setOfficialDeepSeekImageInput(
-    { settings: app.settings, llm: official.llm },
+    { settings, llm: official.llm },
     { modelId: "deepseek-flash", enabled: true },
   );
   assert.equal(enabled[0]?.systemPromptUpdate, "in-history");

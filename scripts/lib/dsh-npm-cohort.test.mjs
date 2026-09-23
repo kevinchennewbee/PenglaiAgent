@@ -17,7 +17,7 @@ test("discovers public fixed DSH, vendor, and native-system source packages", ()
   const fixtures = [
     ["apps/cli", { name: "@deepseek-ai/dsh", version: DSH_UPSTREAM.version, license: "MIT" }],
     ["packages/util/deque", { name: "@deepseek-ai/dsh-deque", version: DSH_UPSTREAM.version, license: "MIT" }],
-    ["vendor/cordis", { name: "@deepseek-ai/cordis", version: "4.0.2", license: "MIT" }],
+    ["vendor/cordis", { name: "@deepseek-ai/cordis", version: "4.0.4", license: "MIT" }],
     ["native/system/packages/entry", { name: "@deepseek-ai/node-addon-system", version: "0.1.2", license: "BSD-3-Clause" }],
     ["packages/private/fixture", { name: "@deepseek-ai/dsh-private", version: DSH_UPSTREAM.version, private: true }],
   ];

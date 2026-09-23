@@ -2,12 +2,14 @@
   "name": "dsh-profile-web",
   "private": true,
   "dependencies": {
-    "@penglai/plugin-center": "0.6.5",
-    "@penglai/im": "0.6.5",
-    "@penglai/asr": "0.6.5",
-    "@penglai/moss-tts": "0.6.5",
-    "@penglai/memory": "0.6.5",
-    "@penglai/plugin-reference": "0.6.5"
+    "@penglai/plugin-center": "0.6.6",
+    "@penglai/im": "0.6.6",
+    "@penglai/asr": "0.6.6",
+    "@penglai/moss-tts": "0.6.6",
+    "@penglai/memory": "0.6.6",
+    "@penglai/plugin-reference": "0.6.6",
+    "@penglai/budget": "0.6.6",
+    "@penglai/companion": "0.6.6"
   },
   "dsh": {
     "profile": {

@@ -740,7 +740,7 @@ test("R1-AUTH-008/009 explicit rebind then unbind", async () => {
   const { token } = h.plane.createPairing({ workspaceIdentity: "ws1", sessionId: "sess1", adapter: "mock" });
   await h.plane.submitInbound(env({ text: `/绑定 ${token}`, adapterMessageKey: "b1" }));
   const routeId = h.store.findRoute("mock", "acct", "peer")!.routeId;
-  const rebound = h.plane.rebind(routeId, "ws1", "sess2");
+  const rebound = await h.plane.rebindVerified(routeId, "ws1", "sess1");
   assert.match(rebound.text, /rev=2/);
   const u = await h.plane.submitInbound(env({ text: "/解绑", adapterMessageKey: "u1" }));
   assert.equal(u.kind, "control");

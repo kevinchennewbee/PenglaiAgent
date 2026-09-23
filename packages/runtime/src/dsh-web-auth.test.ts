@@ -74,7 +74,7 @@ test("alpha browser token is exchanged privately and the returned cookie proves 
     const url = new URL(req.url ?? "/", "http://dsh.invalid");
     if (url.pathname === "/" && url.searchParams.get("token") === token) {
       tokenRequests += 1;
-      res.writeHead(303, { location: "/", "set-cookie": `${cookie}; Path=/; HttpOnly; SameSite=Strict` }).end();
+      res.writeHead(303, { location: "./", "set-cookie": `${cookie}; Path=/; HttpOnly; SameSite=Strict` }).end();
       return;
     }
     if (url.pathname === "/" && req.headers.cookie === cookie) {
@@ -107,7 +107,7 @@ test("alpha readiness fails closed when token exchange does not mint an accepted
   const fixture = await listeningServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://dsh.invalid");
     if (url.searchParams.get("token") === token) {
-      res.writeHead(303, { location: "/" }).end();
+      res.writeHead(303, { location: "./" }).end();
       return;
     }
     res.writeHead(401).end("authentication required");

@@ -686,7 +686,16 @@
   与 `docs/PUBLICATION_MANIFEST_0.6.5.md` 是公开事实入口。D-080 及更早决议中
   “当前公开版本为 0.6.3”之类的时点表述以本决议为准。
 
+### D-082 — Penglai 0.6.6 DSH 0.1.7 and first-party plugin scope
+
+- Date: 2026-09-22. Owner direction in the current task; implementation and release evidence are pending.
+- Move the **whole** official DSH npm cohort to `0.1.7-alpha.2` (`dsh-v0.1.7-alpha.2`, `00102833dfaee1da9f48a3a8eae9d34005a75218`) in one dependency graph. The source and official npm registry currently contain 309 DSH, nine vendor and five native-system packages, 323 audited packages total. The audit ledger is not the installer runtime closure.
+- Adapt and verify every Penglai first-party plugin except Office, including IM, Memory, Context, ASR, MOSS-TTS, Plugin Center, reference/pilot, Budget and Companion. This supersedes D-078's 0.6.3 through 0.6.5 Budget/Companion exclusion **for 0.6.6 only**. Office, LibreOffice and PDF/OOXML processing remain excluded. Budget and Companion are default off until their privacy, workspace and unattended-action gates pass. One official DSH agent/session core and one Penglai IM runtime remain mandatory.
+- Treat `@xmanrui/dsh-im` `v4.25.0` as a source reference, not a runtime dependency. Audit its channel, delivery, prompt-injection and workspace fixes against Penglai's own routing, authorization and idempotency semantics. Do not inherit its new Email/Matrix channels or default-on reasoning traces merely by version matching.
+- Preserve 0.6.5 tag, release assets, docs and public download claims. 0.6.6 publication, native target acceptance, installed behavior and public readback remain `NOT_RUN` until their own evidence exists. Use the current three targets unless an explicit later release decision changes them; do not infer UOS native PASS from package checks.
+
 ## Superseded
+
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。
 

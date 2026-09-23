@@ -8,6 +8,7 @@ import { LlmRuntime } from "@deepseek-ai/dsh-llm";
 import { PenglaiError } from "@penglai/contracts";
 import {
   DSH_WELCOME_NOTICE_VERSION,
+  readWelcomeAckFromOfficialSettings,
   deriveOfficialCredentialRef,
   resolveOfficialCredentialRef,
   namedApiKeyEnvFromOfficialSettings,
@@ -128,8 +129,8 @@ test("official DSH ships Pi adapter and DeepSeek adapter at the pinned version",
   const deepseekManifest = JSON.parse(readFileSync(deepseekPkg, "utf8")) as { name: string; version: string };
   assert.equal(piManifest.name, "@deepseek-ai/dsh-llm-pi-ai");
   assert.equal(deepseekManifest.name, "@deepseek-ai/dsh-llm-deepseek");
-  assert.equal(piManifest.version, "0.1.6-alpha.2");
-  assert.equal(deepseekManifest.version, "0.1.6-alpha.2");
+  assert.equal(piManifest.version, "0.1.7-alpha.2");
+  assert.equal(deepseekManifest.version, "0.1.7-alpha.2");
   const piMod = await import(pathToFileURL(resolveFrom(piPkg, "@deepseek-ai/dsh-llm-pi-ai")!).href);
   assert.equal(piMod.name, "llm-pi-ai");
   assert.equal(typeof piMod.apply, "function");
@@ -306,13 +307,15 @@ test("completeWelcome writes the fixed DSH welcomeNoticeVersion then advances we
   const state = await impl.completeWelcome();
   assert.equal(state.current, "appearance-locale-v1");
   assert.deepEqual(ops, [
-    { ns: "ui-onboarding", path: ["welcomeNoticeVersion"], value: DSH_WELCOME_NOTICE_VERSION },
+    { ns: "ui-settings-general", path: ["welcomeNoticeVersion"], value: DSH_WELCOME_NOTICE_VERSION },
   ]);
   assert.equal(DSH_WELCOME_NOTICE_VERSION, "2026-08-13.1");
   const npmCohort = JSON.parse(
-    readFileSync(new URL("../../../docs/0.6.5/DSH_NPM_COHORT.json", import.meta.url), "utf8"),
+    readFileSync(new URL("../../../docs/0.6.6/DSH_NPM_COHORT.json", import.meta.url), "utf8"),
   );
   assert.equal(DSH_WELCOME_NOTICE_VERSION, npmCohort.upstreamFacts.welcomeNotice.version);
+  assert.equal(readWelcomeAckFromOfficialSettings([{ ns: "ui-settings-general", value: { welcomeNoticeVersion: DSH_WELCOME_NOTICE_VERSION } }]), true);
+  assert.equal(readWelcomeAckFromOfficialSettings([{ ns: "ui-onboarding", value: { welcomeNoticeVersion: DSH_WELCOME_NOTICE_VERSION } }]), false);
   const again = await impl.completeWelcome();
   assert.equal(again.current, "appearance-locale-v1");
   assert.equal(ops.length, 2);

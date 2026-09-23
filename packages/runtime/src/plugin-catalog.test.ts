@@ -25,7 +25,7 @@ test("runtimePluginTarget maps loongarch64 to linux-loong64", () => {
   assert.equal(runtimePluginTarget("linux", "loongarch64"), "linux-loong64");
 });
 
-test("catalog v3 marks four user-visible products, Memory as required, and IM default-on optional", () => {
+test("catalog v3 includes Budget and Companion default off, Memory required, and IM default on", () => {
   const visible = FIRST_PARTY_PLUGIN_METADATA.filter((entry) => entry.userVisible).map(
     (entry) => entry.id,
   );
@@ -33,6 +33,8 @@ test("catalog v3 marks four user-visible products, Memory as required, and IM de
     [...visible].sort(),
     [
       "@penglai/asr",
+      "@penglai/budget",
+      "@penglai/companion",
       "@penglai/im",
       "@penglai/memory",
       "@penglai/moss-tts",
@@ -49,8 +51,11 @@ test("catalog v3 marks four user-visible products, Memory as required, and IM de
     FIRST_PARTY_PLUGIN_METADATA.some((entry) => entry.id === "@penglai/context"),
     false,
   );
-  for (const excluded of ["@penglai/office", "@penglai/budget", "@penglai/companion"]) {
+  for (const excluded of ["@penglai/office"]) {
     assert.equal(FIRST_PARTY_PLUGIN_METADATA.some((entry) => entry.id === excluded), false);
+  }
+  for (const id of ["@penglai/budget", "@penglai/companion"]) {
+    assert.equal(FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === id)?.defaultEnabled, false);
   }
   assert.ok(memory?.capabilities.includes("authorized-sources"));
   assert.ok(memory?.permissions.includes("authorized-files-read"));
@@ -102,7 +107,7 @@ test("linux-loong64 catalog keeps moss in the set without advertising the host",
 
 test("trusted plugin catalog binds exact metadata, checksum, and target", () => {
   const valid = fixture();
-  assert.equal(validatePluginCatalog(valid, "darwin-arm64").entries.length, 6);
+  assert.equal(validatePluginCatalog(valid, "darwin-arm64").entries.length, 8);
   assert.throws(
     () => validatePluginCatalog(valid, "darwin-x64"),
     /target mismatch/,

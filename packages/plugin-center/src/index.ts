@@ -32,6 +32,7 @@ import {
 import { recoverInterruptedTransaction, type ResourceCounts } from "./profile-tx.js";
 import {
   releaseOnboardingTestWorkspaces,
+  readWelcomeAckFromOfficialSettings,
   wizardProviderCatalog,
   type OfficialUsableCtx,
 } from "./onboarding.js";
@@ -589,7 +590,9 @@ export async function apply(ctx: {
       });
     await refreshInFlight;
   };
-  await refreshInventory();
+  // DSH 0.1.7 inventory can await preset composition. During Loader activation
+  // that would wait on this plugin's own apply() and prevent Web from announcing
+  // its authenticated launch URL. Read only after the Loader has settled.
   const inventory = { list: () => cachedInventory, refresh: () => refreshInventory(true) };
   const dshHome = process.env.DSH_HOME;
   const relativeHome = dshHome
@@ -668,12 +671,21 @@ export async function apply(ctx: {
         };
     atomicJson(join(dir, "workspace-protection.json"), protection);
   };
-  await writeSnap();
-  const timer = setInterval(() => {
-    void writeSnap().catch(() => undefined);
-  }, 1_000);
-  timer.unref?.();
-  ctx.effect?.(() => () => clearInterval(timer));
+  let disposed = false;
+  let timer: ReturnType<typeof setInterval> | undefined;
+  ctx.effect?.(() => () => {
+    disposed = true;
+    if (timer) clearInterval(timer);
+  });
+  void ctx.loader.await().then(async () => {
+    if (disposed) return;
+    await writeSnap();
+    if (disposed) return;
+    timer = setInterval(() => {
+      void writeSnap().catch(() => undefined);
+    }, 1_000);
+    timer.unref?.();
+  }).catch(() => undefined);
   const txDir = join(userData, "profiles", "center-tx");
   const remote = createOfficialCenterRemote({
     manager,
@@ -691,11 +703,10 @@ export async function apply(ctx: {
   });
   const welcomeAck = (): boolean => {
     try {
-      const settings = join(dshHome, "settings.yaml");
-      return (
-        existsSync(settings) &&
-        readFileSync(settings, "utf8").includes("welcomeNoticeVersion")
-      );
+      const settings = (ctx as typeof ctx & {
+        settings?: { describe?: () => Array<{ ns: string; value?: unknown }> };
+      }).settings;
+      return readWelcomeAckFromOfficialSettings(settings?.describe?.());
     } catch {
       return false;
     }

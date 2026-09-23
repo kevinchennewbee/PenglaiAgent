@@ -97,10 +97,10 @@ function packageJsonFor(packageName, resolver = mossReq, fromDir) {
 
 const licenses = [
   { name: "penglaiagent", license: "MIT" },
-  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.6-alpha.2" },
-  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.6-alpha.2" },
-  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.6-alpha.2" },
-  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.6-alpha.2" },
+  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.7-alpha.2" },
+  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.7-alpha.2" },
+  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.7-alpha.2" },
+  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.7-alpha.2" },
   {
     name: "Tencent openclaw-weixin protocol reference",
     license: "MIT",
@@ -443,7 +443,7 @@ function installedLicenseInventory({ production }) {
     ]),
   );
   const queue = [];
-  const retiredWorkspaces = new Set(["office", "budget", "companion"]);
+  const retiredWorkspaces = new Set(["office"]);
   for (const parent of ["apps", "packages"]) {
     for (const name of readdirSync(parent)) {
       if (parent === "packages" && retiredWorkspaces.has(name)) continue;

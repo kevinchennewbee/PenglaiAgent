@@ -92,12 +92,16 @@ function assertVersion(app, expected, label) {
 }
 
 function seedOwnerDataForUpgrade(userData, previousVersion) {
-  if (previousVersion !== "0.6.1") {
+  const previousDsh = {
+    "0.6.3": "0.1.5-rc.2",
+    "0.6.5": "0.1.6-alpha.2",
+  }[previousVersion];
+  if (!previousDsh) {
     fail(`native owner-data fixture is undefined for ${previousVersion}`);
   }
-  const previousHome = join(userData, "dsh-homes", "dsh-v0.1.5-rc.1");
+  const previousHome = join(userData, "dsh-homes", `dsh-v${previousDsh}`);
   const settings = join(previousHome, "settings.yaml");
-  const settingsMarker = "# penglai-native-upgrade-preservation: 0.6.1-to-0.6.5\n";
+  const settingsMarker = `# penglai-native-upgrade-preservation: ${previousVersion}-to-${PRODUCT_VERSION}\n`;
   try {
     updateVerifiedRegularFile(settings, (bytes) =>
       `${bytes.toString("utf8").replace(/\n?$/u, "\n")}${settingsMarker}`,
@@ -137,8 +141,9 @@ function seedOwnerDataForUpgrade(userData, previousVersion) {
   );
 
   return {
+    previousDsh,
     previousHome,
-    currentHome: join(userData, "dsh-homes", "dsh-v0.1.6-alpha.2"),
+    currentHome: join(userData, "dsh-homes", "dsh-v0.1.7-alpha.2"),
     settings,
     sessionRelative,
     sourceSession,
@@ -175,8 +180,8 @@ function assertOwnerDataAfterUpgrade(fixture, label) {
   }
   return {
     ...checks,
-    sourceGeneration: "dsh-v0.1.5-rc.1",
-    targetGeneration: "dsh-v0.1.6-alpha.2",
+    sourceGeneration: `dsh-v${fixture.previousDsh}`,
+    targetGeneration: "dsh-v0.1.7-alpha.2",
     fixtureDigests: fixture.hashes,
   };
 }

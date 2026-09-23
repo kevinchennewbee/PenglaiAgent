@@ -737,8 +737,11 @@ test("fresh profile installs Center, Memory, and default-on IM while exposing of
     existsSync(join(user.profileWeb, "node_modules", "@penglai", "plugin-center", "dist", "index.js")),
     true,
   );
-  for (const excluded of ["office", "budget", "companion"]) {
+  for (const excluded of ["office"]) {
     assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", excluded)), false);
+  }
+  for (const optional of ["budget", "companion"]) {
+    assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", optional, "dist", "index.js")), true);
   }
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "memory", "dist", "index.js")), true);
   const memoryBinary = join(

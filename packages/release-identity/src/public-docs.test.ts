@@ -5,8 +5,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PRODUCT_VERSION, PINNED_DSH } from "./pins.js";
 
-/** Immutable current-release notes/README/website freeze the selected DSH pin. */
-const PUBLISHED_DSH = PINNED_DSH;
+/** The public download remains 0.6.5 until this candidate passes immutable readback. */
+const PUBLISHED_DSH = "0.1.6-alpha.2";
 import {
   assertCommittedTemplateIdentity,
   assertObservedReleaseFacts,
@@ -133,14 +133,17 @@ test("website keeps the full bilingual visual site during publication preparatio
   assert.ok(css.length > 5000, "website stylesheet is unexpectedly reduced");
 });
 
-test("current product, architecture and security contracts use the selected release", () => {
+test("candidate delta names the selected release while public product documents retain published facts", () => {
   const product = readFileSync(join(root, "docs/PRODUCT.md"), "utf8");
   const architecture = readFileSync(join(root, "docs/ARCHITECTURE.md"), "utf8");
   const security = readFileSync(join(root, "docs/SECURITY.md"), "utf8");
   const im = readFileSync(join(root, "docs/IM_PLUGIN.md"), "utf8");
+  const candidate = readFileSync(join(root, `docs/${PRODUCT_VERSION}/ACCEPTANCE_DELTA.md`), "utf8");
+  assert.ok(candidate.includes(PRODUCT_VERSION));
+  assert.ok(candidate.includes(PINNED_DSH));
   for (const text of [product, architecture, security, im]) {
-    assert.ok(text.includes(PRODUCT_VERSION));
-    assert.ok(text.includes(PINNED_DSH));
+    assert.ok(text.includes("0.6.5"));
+    assert.ok(text.includes(PUBLISHED_DSH));
     assert.doesNotMatch(text, /disabled WhatsApp compatibility card|说明卡没有连接/);
   }
   assert.match(security, /提供八个平台的真实连接 adapter/);

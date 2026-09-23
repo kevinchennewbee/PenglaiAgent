@@ -70,6 +70,7 @@ export const ARM64_DEFERRED_GATES = [
   "verify:artifact",
   "verify:installed",
   "verify:fresh-install-uninstall",
+  "verify:upgrade-uninstall",
   "verify:public-export",
 ] as const;
 

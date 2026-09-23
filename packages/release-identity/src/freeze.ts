@@ -154,10 +154,10 @@ export function assertNoLatestDownloads(text: string): void {
   }
 }
 
-export const COHORT_FREEZE_KIND = "penglai-0.6.5-development-cohort-freeze" as const;
+export const COHORT_FREEZE_KIND = "penglai-0.6.6-development-cohort-freeze" as const;
 export const PUBLISHED_0512_FREEZE_KIND = "penglai-0.5.12-development-cohort-freeze" as const;
 export const PUBLISHED_0512_REJECTED_DSH_SUCCESSOR_TAG = "dsh-v0.1.3-alpha.1" as const;
-export const NEXT_DSH_REVIEW_BOUNDARY = "later-than-dsh-v0.1.6-alpha.2" as const;
+export const NEXT_DSH_REVIEW_BOUNDARY = "later-than-dsh-v0.1.7-alpha.2" as const;
 
 export interface CohortFreezeRecord {
   schema: 1;
@@ -166,7 +166,7 @@ export interface CohortFreezeRecord {
   publicRelease: { productVersion: string; tag: string; immutable: boolean };
   previousPublicRelease?: { productVersion: string; tag: string; immutable: true };
   development: {
-    versionLabel: "0.6.5";
+    versionLabel: "0.6.6";
     publicationAuthorized: boolean;
     identityRetitled: boolean;
   };

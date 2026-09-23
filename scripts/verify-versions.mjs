@@ -11,7 +11,7 @@ import {
 
 const pins = readReleaseIdentityPins();
 const EXPECT = pins.productVersion;
-const RETIRED_WORKSPACE_PACKAGES = new Set(["budget", "companion", "image-size-disabled", "office"]);
+const RETIRED_WORKSPACE_PACKAGES = new Set(["image-size-disabled", "office"]);
 const pkgs = [join(ROOT, "package.json"), join(ROOT, "apps/desktop/package.json")];
 for (const name of readdirSync(join(ROOT, "packages"))) {
   // These directories preserve immutable release history but are not part of

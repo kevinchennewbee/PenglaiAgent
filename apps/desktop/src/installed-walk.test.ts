@@ -455,14 +455,11 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.doesNotMatch(linuxWorkflow, /verify:fresh-install-uninstall/);
   assert.match(macosWorkflow, /verify:fresh-install-uninstall/);
   assert.match(windowsWorkflow, /verify:fresh-install-uninstall/);
-  assert.doesNotMatch(workflow, /fetch:upgrade-sources/);
-  // The pinned predecessor is the immutable v0.6.3 Release; the current workflow
-  // must not fetch its installers, because the installed upgrade is
-  // OWNER_EXCLUDED for this version.
-  assert.doesNotMatch(macosWorkflow, /Fetch immutable 0\.6\.3 installer/);
-  assert.doesNotMatch(windowsWorkflow, /Fetch immutable 0\.6\.3 installer/);
-  assert.doesNotMatch(macosWorkflow, /pnpm verify:upgrade-uninstall/);
-  assert.doesNotMatch(windowsWorkflow, /pnpm verify:upgrade-uninstall/);
+  assert.match(workflow, /fetch:upgrade-sources/);
+  for (const nativeWorkflow of [macosWorkflow, windowsWorkflow]) {
+    assert.match(nativeWorkflow, /Fetch immutable 0\.6\.3 and 0\.6\.5 upgrade installers/);
+    assert.match(nativeWorkflow, /pnpm verify:upgrade-uninstall/);
+  }
   assert.match(workflow, /needs: \[macos, windows, linux\]/);
   assert.match(workflow, /pnpm test:u3:plugins/g);
   assert.match(workflow, /u3-first-party-plugins\.json/g);

@@ -25,12 +25,12 @@ test("R1-UP-001 rejects other versions", () => {
   assert.throws(() => assertDshVersion("9.9.9"), PenglaiError);
 });
 
-test("R1-UP-001 pinned official packages are 0.1.6-alpha.2", () => {
+test("R1-UP-001 pinned official packages are 0.1.7-alpha.2", () => {
   const pinned = probePinnedPackages();
-  assert.equal(pinned.dsh, "0.1.6-alpha.2");
-  assert.equal(pinned.agent, "0.1.6-alpha.2");
-  assert.equal(pinned.llm, "0.1.6-alpha.2");
-  assert.equal(pinned.workspace, "0.1.6-alpha.2");
+  assert.equal(pinned.dsh, "0.1.7-alpha.2");
+  assert.equal(pinned.agent, "0.1.7-alpha.2");
+  assert.equal(pinned.llm, "0.1.7-alpha.2");
+  assert.equal(pinned.workspace, "0.1.7-alpha.2");
 });
 
 test("R1-UP-002/003 legacy IM source is normalized to an official visible user source", () => {
@@ -151,7 +151,7 @@ test("voice source metadata is strict and enters only the model pre-step view", 
 test("bridge followup uses host agent only", async () => {
   const calls: string[] = [];
   const bridge = new DshBridge({
-    version: "0.1.6-alpha.2",
+    version: "0.1.7-alpha.2",
     getAgent: (id) => ({
       id,
       followup(m) {
@@ -199,7 +199,7 @@ test("bridge followup submits official DSH image blocks instead of media caption
     attachment?: { attachmentId: string };
   }> = [];
   const bridge = new DshBridge({
-    version: "0.1.6-alpha.2",
+    version: "0.1.7-alpha.2",
     getAgent: (id) => ({
       id,
       followup(m) {
@@ -262,7 +262,7 @@ test("bridge followup submits official DSH image blocks instead of media caption
 test("bridge supplies the session-bound opaque office handle to the official DSH turn", async () => {
   const sent: Array<{ type: string; text?: string }> = [];
   const bridge = new DshBridge({
-    version: "0.1.6-alpha.2",
+    version: "0.1.7-alpha.2",
     getAgent: (id) => ({
       id,
       followup(message) {
@@ -320,7 +320,7 @@ test("bridge submits official FileBlock plus office handle text and never a host
     attachment?: { attachmentId?: string; name?: string };
   }> = [];
   const bridge = new DshBridge({
-    version: "0.1.6-alpha.2",
+    version: "0.1.7-alpha.2",
     getAgent: (id) => ({
       id,
       followup(message) {
@@ -393,7 +393,7 @@ test("bridge submits official FileBlock plus office handle text and never a host
 test("bridge fails closed before waking an IM turn when the official model route is unavailable", async () => {
   const calls: string[] = [];
   const bridge = new DshBridge({
-    version: "0.1.6-alpha.2",
+    version: "0.1.7-alpha.2",
     getAgent: (id) => ({
       id,
       followup() {
@@ -448,7 +448,7 @@ test("bridge treats a durable DSH inbox message id as an idempotent replay", asy
     },
   ];
   const bridge = new DshBridge({
-    version: "0.1.6-alpha.2",
+    version: "0.1.7-alpha.2",
     getAgent: (id) => ({
       id,
       followup(m) {
@@ -493,7 +493,7 @@ test("bridge treats a durable DSH inbox message id as an idempotent replay", asy
 
 test("bridge joins official Workspace membership to Session-owner titles", async () => {
   const bridge = new DshBridge({
-    version: "0.1.6-alpha.2",
+    version: "0.1.7-alpha.2",
     getAgent() {
       return undefined;
     },
@@ -527,7 +527,7 @@ test("session projection refreshes rename, deletion, Unicode, duplicates, and la
     { id: "session-c", title: "研究 🩷 漢字" },
   ];
   const owner = {
-    version: "0.1.6-alpha.2",
+    version: "0.1.7-alpha.2",
     getAgent() {
       return undefined;
     },
@@ -566,7 +566,7 @@ test("session projection refreshes rename, deletion, Unicode, duplicates, and la
 test("bridge forwards a new-session title only to the Session owner", async () => {
   const calls: Array<{ workspaceIdentity: string; title?: string }> = [];
   const bridge = new DshBridge({
-    version: "0.1.6-alpha.2",
+    version: "0.1.7-alpha.2",
     getAgent() {
       return undefined;
     },
@@ -1094,7 +1094,7 @@ test("host recovery reads official inspect events and does not duplicate outbox"
     { type: "turn/end", data: { turn: 5 } },
   ];
   const host = {
-    version: "0.1.6-alpha.2",
+    version: "0.1.7-alpha.2",
     getAgent: (id: string) =>
       id === "s"
         ? {
@@ -1148,7 +1148,7 @@ test("host recovery reads official inspect events for cold sessions without a li
     { type: "turn/end", data: { turn: 7, reason: { kind: "completed" } } },
   ];
   const host = {
-    version: "0.1.6-alpha.2",
+    version: "0.1.7-alpha.2",
     getAgent: () => undefined,
     inspectSession: async (id: string) =>
       id === "cold" ? { events } : undefined,
@@ -1166,7 +1166,7 @@ test("host recovery reads official inspect events for cold sessions without a li
 
 test("followup classifies a proven missing official session as INVALID_INPUT", async () => {
   const bridge = new DshBridge({
-    version: "0.1.6-alpha.2",
+    version: "0.1.7-alpha.2",
     getAgent: () => undefined,
     async describeSessionModels() {
       return {
